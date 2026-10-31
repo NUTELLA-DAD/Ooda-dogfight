@@ -118,6 +118,40 @@ namespace Ooda.EditorTools
             Debug.Log($"OODA squadron: shots saved to {dir}");
         }
 
+        /// <summary>
+        /// OODA > Marks Shot: the planning screen with two timed marks (level for 1 s, then roll 60 right and pull 4 G), set
+        /// straight on the plan since batch mode has no keyboard, with the slider at 1.5 s; logs whether the arrow tip hides.
+        /// </summary>
+        [MenuItem("OODA/Marks Shot")]
+        public static void MarksShot()
+        {
+            EditorSceneManager.OpenScene("Assets/OODA/Scenes/TurnBattle.unity");
+            var all = Object.FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None);
+            foreach (var name in new[] { "Awake", "OnEnable", "Start" }) foreach (var b in all) Call(b, name);
+            all = Object.FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None);
+            Frames(all, 5);
+            var tb = Object.FindFirstObjectByType<TurnBattle>();
+            string dir = Path.GetFullPath("Shots~");
+            var cam = Camera.main;
+            var rt = new RenderTexture(1600, 1000, 24) { antiAliasing = 4 };
+            cam.targetTexture = rt;
+            var tip = (Transform)typeof(TurnBattle).GetField("tip", Any).GetValue(tb);
+            Debug.Log($"OODA marks: before, the arrow tip is {(tip.gameObject.activeSelf ? "shown" : "hidden")}.");
+            Save(cam, rt, dir, "marks_none");
+
+            var planField = typeof(TurnBattle).GetField("plan", Any);
+            var plan = (TurnPlan)planField.GetValue(tb);
+            plan.marks = new[] { new Mark(0, 0, 1), new Mark(1, 60, 4) };
+            planField.SetValue(tb, plan);
+            typeof(TurnBattle).GetField("markT", Any).SetValue(tb, 1.5f);
+            typeof(TurnBattle).GetField("dirty", Any).SetValue(tb, true);
+            Frames(all, 5);
+            var after = (TurnPlan)planField.GetValue(tb);
+            Debug.Log($"OODA marks: plan has {after.marks?.Length ?? 0} marks ({string.Join("; ", (after.marks ?? new Mark[0]).Select(k => $"{k.time:F1} s bank {k.bankDeg:F0} {k.g:F1} G"))}); the arrow tip is {(tip.gameObject.activeSelf ? "SHOWN" : "hidden")}; markT {typeof(TurnBattle).GetField("markT", Any).GetValue(tb)}.");
+            Save(cam, rt, dir, "marks_two");
+            cam.targetTexture = null;
+        }
+
         static float Closest(TurnBattle tb)
         {
             var battle = (Battle)typeof(TurnBattle).GetField("battle", Any).GetValue(tb);
