@@ -6504,6 +6504,85 @@ Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: a42c9c59db228974c91c50e4cdf1fdc1, type: 3}
   m_PrefabInstance: {fileID: 925652885}
   m_PrefabAsset: {fileID: 0}
+--- !u!1001 &929055291
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 700308972035641241, guid: 093c49c7cbef0554eaa8f5ce38d19369, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 700308972035641241, guid: 093c49c7cbef0554eaa8f5ce38d19369, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 1100
+      objectReference: {fileID: 0}
+    - target: {fileID: 700308972035641241, guid: 093c49c7cbef0554eaa8f5ce38d19369, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -6000
+      objectReference: {fileID: 0}
+    - target: {fileID: 700308972035641241, guid: 093c49c7cbef0554eaa8f5ce38d19369, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 700308972035641241, guid: 093c49c7cbef0554eaa8f5ce38d19369, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 700308972035641241, guid: 093c49c7cbef0554eaa8f5ce38d19369, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 700308972035641241, guid: 093c49c7cbef0554eaa8f5ce38d19369, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 700308972035641241, guid: 093c49c7cbef0554eaa8f5ce38d19369, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 700308972035641241, guid: 093c49c7cbef0554eaa8f5ce38d19369, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 700308972035641241, guid: 093c49c7cbef0554eaa8f5ce38d19369, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2741360652903813743, guid: 093c49c7cbef0554eaa8f5ce38d19369, type: 3}
+      propertyPath: m_Name
+      value: Spitfire
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 093c49c7cbef0554eaa8f5ce38d19369, type: 3}
+--- !u!114 &929055292 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 5728350610262580015, guid: 093c49c7cbef0554eaa8f5ce38d19369, type: 3}
+  m_PrefabInstance: {fileID: 929055291}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6e1702bbb223d9844903ffec097272ba, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Ooda.Pilot.PilotHeadLook
+--- !u!114 &929055293 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 5432635473408190919, guid: 093c49c7cbef0554eaa8f5ce38d19369, type: 3}
+  m_PrefabInstance: {fileID: 929055291}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 747fa5c63d19ab24299fa1405b356fcc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Ooda.Turn.TurnAircraftView
 --- !u!1 &934695105
 GameObject:
   m_ObjectHideFlags: 0
@@ -7787,85 +7866,6 @@ Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: a42c9c59db228974c91c50e4cdf1fdc1, type: 3}
   m_PrefabInstance: {fileID: 1089788958}
   m_PrefabAsset: {fileID: 0}
---- !u!1001 &1113231337
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 0}
-    m_Modifications:
-    - target: {fileID: 700308972035641241, guid: 093c49c7cbef0554eaa8f5ce38d19369, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 700308972035641241, guid: 093c49c7cbef0554eaa8f5ce38d19369, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 1100
-      objectReference: {fileID: 0}
-    - target: {fileID: 700308972035641241, guid: 093c49c7cbef0554eaa8f5ce38d19369, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: -6000
-      objectReference: {fileID: 0}
-    - target: {fileID: 700308972035641241, guid: 093c49c7cbef0554eaa8f5ce38d19369, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 700308972035641241, guid: 093c49c7cbef0554eaa8f5ce38d19369, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 700308972035641241, guid: 093c49c7cbef0554eaa8f5ce38d19369, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 700308972035641241, guid: 093c49c7cbef0554eaa8f5ce38d19369, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 700308972035641241, guid: 093c49c7cbef0554eaa8f5ce38d19369, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 700308972035641241, guid: 093c49c7cbef0554eaa8f5ce38d19369, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 700308972035641241, guid: 093c49c7cbef0554eaa8f5ce38d19369, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 2741360652903813743, guid: 093c49c7cbef0554eaa8f5ce38d19369, type: 3}
-      propertyPath: m_Name
-      value: Spitfire
-      objectReference: {fileID: 0}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: 093c49c7cbef0554eaa8f5ce38d19369, type: 3}
---- !u!114 &1113231338 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 5728350610262580015, guid: 093c49c7cbef0554eaa8f5ce38d19369, type: 3}
-  m_PrefabInstance: {fileID: 1113231337}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6e1702bbb223d9844903ffec097272ba, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Ooda.Pilot.PilotHeadLook
---- !u!114 &1113231339 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 5432635473408190919, guid: 093c49c7cbef0554eaa8f5ce38d19369, type: 3}
-  m_PrefabInstance: {fileID: 1113231337}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 747fa5c63d19ab24299fa1405b356fcc, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Ooda.Turn.TurnAircraftView
 --- !u!1 &1158159928
 GameObject:
   m_ObjectHideFlags: 0
@@ -8062,6 +8062,74 @@ Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: a42c9c59db228974c91c50e4cdf1fdc1, type: 3}
   m_PrefabInstance: {fileID: 1162278270}
   m_PrefabAsset: {fileID: 0}
+--- !u!1001 &1165159740
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 4194764147311536442, guid: 2bc54c77c752c3344a79aea3d4272549, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4194764147311536442, guid: 2bc54c77c752c3344a79aea3d4272549, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 1250
+      objectReference: {fileID: 0}
+    - target: {fileID: 4194764147311536442, guid: 2bc54c77c752c3344a79aea3d4272549, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -6500
+      objectReference: {fileID: 0}
+    - target: {fileID: 4194764147311536442, guid: 2bc54c77c752c3344a79aea3d4272549, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4194764147311536442, guid: 2bc54c77c752c3344a79aea3d4272549, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4194764147311536442, guid: 2bc54c77c752c3344a79aea3d4272549, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4194764147311536442, guid: 2bc54c77c752c3344a79aea3d4272549, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4194764147311536442, guid: 2bc54c77c752c3344a79aea3d4272549, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4194764147311536442, guid: 2bc54c77c752c3344a79aea3d4272549, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4194764147311536442, guid: 2bc54c77c752c3344a79aea3d4272549, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8493976788984994622, guid: 2bc54c77c752c3344a79aea3d4272549, type: 3}
+      propertyPath: m_Name
+      value: B17
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 2bc54c77c752c3344a79aea3d4272549, type: 3}
+--- !u!114 &1165159741 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 1570464081944675759, guid: 2bc54c77c752c3344a79aea3d4272549, type: 3}
+  m_PrefabInstance: {fileID: 1165159740}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 747fa5c63d19ab24299fa1405b356fcc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Ooda.Turn.TurnAircraftView
 --- !u!1001 &1172076164
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -10808,75 +10876,6 @@ Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: a42c9c59db228974c91c50e4cdf1fdc1, type: 3}
   m_PrefabInstance: {fileID: 1582777916}
   m_PrefabAsset: {fileID: 0}
---- !u!1 &1584672461
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1584672463}
-  - component: {fileID: 1584672462}
-  m_Layer: 0
-  m_Name: TurnBattle
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &1584672462
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1584672461}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 724718dd61d58124cbaaff5220572df1, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Ooda.Turn.TurnBattle
-  player: {fileID: 5297863368988379598}
-  enemy: {fileID: 1113231339}
-  view: {fileID: 2116555987}
-  terrain: {fileID: 1405261167}
-  playerPilot: {fileID: 6762009013332057276}
-  enemyPilot: {fileID: 1113231338}
-  startCentre: {x: 0, y: 0, z: -4500}
-  startAltFt: 3600
-  startKias: 300
-  startGapM: 3000
-  turnSec: 3
-  playbackSpeed: 1
-  showProjection: 1
-  showHelp: 1
-  stickPitch: 1
-  arrowLength: 150
-  shellColor: {r: 1, g: 1, b: 1, a: 0.45}
-  arrowColor: {r: 1, g: 0.85, b: 0.1, a: 1}
-  ghostColor: {r: 0.2, g: 0.9, b: 1, a: 0.9}
-  projectionColor: {r: 1, g: 0.3, b: 0.25, a: 0.8}
-  myTracer: {r: 1, g: 0.75, b: 0.2, a: 0.9}
-  theirTracer: {r: 1, g: 0.35, b: 0.5, a: 0.9}
-  overpullColor: {r: 1, g: 0.15, b: 0.1, a: 1}
-  holoColor: {r: 0.25, g: 0.85, b: 1, a: 0.35}
-  holoEnemyColor: {r: 1, g: 0.3, b: 0.25, a: 0.3}
---- !u!4 &1584672463
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1584672461}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &1594093790
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -12746,6 +12745,85 @@ Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: a42c9c59db228974c91c50e4cdf1fdc1, type: 3}
   m_PrefabInstance: {fileID: 1847775259}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1882812634
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1882812636}
+  - component: {fileID: 1882812635}
+  m_Layer: 0
+  m_Name: TurnBattle
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1882812635
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1882812634}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 724718dd61d58124cbaaff5220572df1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Ooda.Turn.TurnBattle
+  player: {fileID: 5297863368988379598}
+  enemy: {fileID: 929055293}
+  view: {fileID: 2116555987}
+  terrain: {fileID: 1405261167}
+  playerPilot: {fileID: 6762009013332057276}
+  enemyPilot: {fileID: 929055292}
+  bomber: {fileID: 1165159741}
+  mission: 1
+  escortRoute:
+  - {x: 0, y: 1250, z: -6500}
+  - {x: 0, y: 1300, z: 0}
+  - {x: 0, y: 1350, z: 5000}
+  - {x: 2500, y: 1450, z: 8000}
+  bomberKias: 160
+  escortGapM: 5000
+  bomberColor: {r: 0.4, g: 1, b: 0.45, a: 0.7}
+  startCentre: {x: 0, y: 0, z: -4500}
+  startAltFt: 3600
+  startKias: 300
+  startGapM: 3000
+  turnSec: 3
+  playbackSpeed: 1
+  showProjection: 1
+  showHelp: 1
+  stickPitch: 1
+  arrowLength: 150
+  shellColor: {r: 1, g: 1, b: 1, a: 0.45}
+  arrowColor: {r: 1, g: 0.85, b: 0.1, a: 1}
+  ghostColor: {r: 0.2, g: 0.9, b: 1, a: 0.9}
+  projectionColor: {r: 1, g: 0.3, b: 0.25, a: 0.8}
+  myTracer: {r: 1, g: 0.75, b: 0.2, a: 0.9}
+  theirTracer: {r: 1, g: 0.35, b: 0.5, a: 0.9}
+  overpullColor: {r: 1, g: 0.15, b: 0.1, a: 1}
+  holoColor: {r: 0.25, g: 0.85, b: 1, a: 0.35}
+  holoEnemyColor: {r: 1, g: 0.3, b: 0.25, a: 0.3}
+--- !u!4 &1882812636
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1882812634}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &1891250737
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -15476,5 +15554,6 @@ SceneRoots:
   - {fileID: 1264839068}
   - {fileID: 195238871}
   - {fileID: 4947672915689221115}
-  - {fileID: 1113231337}
-  - {fileID: 1584672463}
+  - {fileID: 929055291}
+  - {fileID: 1882812636}
+  - {fileID: 1165159740}

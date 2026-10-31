@@ -225,6 +225,14 @@ namespace Ooda.EditorTools
             tb.startAltFt = AlpineWorld.FightAltFt;
             tb.startKias = 300;
             tb.startGapM = 3000;
+            // the escort: the B-17 up the main valley
+            var b17 = (GameObject)PrefabUtility.InstantiatePrefab(AssetDatabase.LoadAssetAtPath<GameObject>(B17PrefabPath));
+            b17.transform.position = AlpineWorld.EscortRoute[0];
+            tb.bomber = b17.GetComponent<TurnAircraftView>();
+            tb.escortRoute = (Vector3[])AlpineWorld.EscortRoute.Clone();
+            Physics.SyncTransforms();
+            float clear = AlpineWorld.CheckEscortRoute(tb.terrain);
+            if (clear < 350f) Debug.LogWarning($"OODA: the escort route comes within {clear:F0} m of the ground.");
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             // The turn battle is the game; the free-flight world stays in the build as the sandbox

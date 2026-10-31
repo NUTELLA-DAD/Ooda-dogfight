@@ -27,6 +27,42 @@ namespace Ooda.EditorTools
         public const float FightAltFt = 3600f;     // about 1100 m: 650 m over the valley floor, well under the peaks
         public static readonly Vector3 FreeFlightSpawn = new Vector3(0, 1100f, -9000f);
 
+        // The B-17's way up the main valley (x east, height, z north; the first point is the start): over the long
+        // viaduct at z -1300 and round the bend to the north-east, at least 350 m over the ground everywhere.
+        public static readonly Vector3[] EscortRoute =
+        {
+            new Vector3(0, 1250, -6500), new Vector3(0, 1300, 0), new Vector3(0, 1350, 5000), new Vector3(2500, 1450, 8000),
+        };
+
+        /// <summary>The least height over the ground (and over anything on the Obstacles layer) along the route, every 25 m, logged leg by leg.</summary>
+        public static float CheckEscortRoute(Terrain terrain)
+        {
+            float worst = float.MaxValue;
+            int mask = LayerMask.GetMask(ObstacleLayer);
+            for (int i = 0; i + 1 < EscortRoute.Length; i++)
+            {
+                Vector3 a = EscortRoute[i], b = EscortRoute[i + 1];
+                float leg = float.MaxValue, over = 0;
+                Vector3 at = a;
+                int n = Mathf.CeilToInt(Vector3.Distance(a, b) / 25f);
+                for (int k = 0; k <= n; k++)
+                {
+                    Vector3 p = Vector3.Lerp(a, b, k / (float)n);
+                    // the bomber is 32 m across: look 30 m either side too
+                    foreach (float side in new[] { -30f, 0f, 30f })
+                    {
+                        Vector3 q = p + Vector3.Cross(Vector3.up, (b - a).normalized) * side;
+                        float g = terrain.SampleHeight(q) + terrain.transform.position.y;
+                        if (Physics.Raycast(q, Vector3.down, out var hit, 5000f, mask)) g = Mathf.Max(g, hit.point.y);
+                        if (p.y - g < leg) { leg = p.y - g; at = q; over = g; }
+                    }
+                }
+                Debug.Log($"OODA: escort leg {i} ({a.x:F0}, {a.y:F0}, {a.z:F0}) to ({b.x:F0}, {b.y:F0}, {b.z:F0}): least clearance {leg:F0} m, over {over:F0} m at ({at.x:F0}, {at.z:F0}).");
+                worst = Mathf.Min(worst, leg);
+            }
+            return worst;
+        }
+
         // ---------- the land's shape ----------
 
         class Valley
