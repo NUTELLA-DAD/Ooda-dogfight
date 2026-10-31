@@ -29,7 +29,6 @@ namespace Ooda.EditorTools
         internal const string ScenePath = Root + "/Scenes/TestWorld.unity";
         const string PrefabPath = Root + "/Prefabs/P51.prefab";
 
-        const float PilotScale = 1.2f;
         const float PlaneSmoothingAngle = 80f;
         const float PropellerForward = 0.3f; // metres: the blades sit inside the cowl lip as modelled
         const float WorldSize = 20000f, WorldHeight = 1400f, SeaFloor = -80f;
@@ -211,6 +210,43 @@ namespace Ooda.EditorTools
 
         // ---------- plane prefab ----------
 
+        /// <summary>
+        /// Where a cartoon pilot sits: scaled up so he nearly overfills the cockpit with his head well out, raised by
+        /// <c>lift</c>, and his forearms on the rails, which are <c>railHalfWidth</c> either side of the centre line,
+        /// <c>railHeight</c> above PilotMount and <c>railForward</c> ahead of it (all in metres of the plane).
+        /// </summary>
+        internal struct Seat { public float scale, lift, back, railHalfWidth, railHeight, railForward; }
+
+        // Cartoon size, no glass: the tiger nearly overfills the cockpit with his forearms on the rails (1.2 fitted under the canopy).
+        static readonly Seat TigerSeat = new Seat { scale = 1.55f, lift = 0.05f, back = 0f, railHalfWidth = 0.45f, railHeight = 0.72f, railForward = 0.28f };
+
+        /// <summary>No glass: the canopy is hidden, so the pilot sits in the open.</summary>
+        internal static void HideCanopy(GameObject model)
+        {
+            foreach (var r in model.GetComponentsInChildren<Renderer>(true))
+                if (r.name.Contains("Canopy")) r.enabled = false;
+        }
+
+        internal static void SeatPilot(GameObject pilot, Transform mount, Seat seat)
+        {
+            pilot.transform.SetParent(mount, false);
+            pilot.transform.localPosition = new Vector3(0, seat.lift, -seat.back);
+            pilot.transform.localRotation = Quaternion.identity;
+            pilot.transform.localScale = Vector3.one * seat.scale;
+            Transform Rail(string name, float side)
+            {
+                var old = mount.Find(name);
+                if (old != null) Object.DestroyImmediate(old.gameObject);
+                var t = new GameObject(name).transform;
+                t.SetParent(mount, false);
+                t.localPosition = new Vector3(side * seat.railHalfWidth, seat.railHeight, seat.railForward);
+                return t;
+            }
+            var rails = pilot.GetComponent<PilotRails>() ?? pilot.AddComponent<PilotRails>();
+            rails.railL = Rail("RailL", -1);
+            rails.railR = Rail("RailR", 1);
+        }
+
         internal static Transform FindDeep(Transform t, string name)
         {
             if (t.name == name) return t;
@@ -247,13 +283,11 @@ namespace Ooda.EditorTools
             spin.propeller = FindDeep(model.transform, "P51_Propeller");
             if (spin.propeller != null) spin.propeller.position += root.transform.forward * PropellerForward;
 
+            HideCanopy(model);
             var mount = FindDeep(model.transform, "PilotMount");
             if (mount == null) { Debug.LogWarning("OODA: no PilotMount in P51.fbx."); mount = root.transform; }
             var pilot = (GameObject)PrefabUtility.InstantiatePrefab(AssetDatabase.LoadAssetAtPath<GameObject>(PilotFbx));
-            pilot.transform.SetParent(mount, false);
-            pilot.transform.localPosition = Vector3.zero;
-            pilot.transform.localRotation = Quaternion.identity;
-            pilot.transform.localScale = Vector3.one * PilotScale;
+            SeatPilot(pilot, mount, TigerSeat);
             foreach (var r in pilot.GetComponentsInChildren<Renderer>())
                 r.sharedMaterials = Enumerable.Repeat(mats.pilot, r.sharedMaterials.Length).ToArray();
             var anim = pilot.GetComponent<Animator>();
