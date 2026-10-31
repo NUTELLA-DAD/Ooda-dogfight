@@ -9,7 +9,7 @@ namespace Ooda.Turn.Core
         public const double TurnSec = 3;
 
         /// <summary>
-        /// Head-on: Mustang (player) heading north, Spitfire heading south, 3 km apart at the same height and
+        /// Head-on: Mustang (player) heading north, Bf 109 heading south, 3 km apart at the same height and
         /// 300 KIAS, offset 300 ft sideways so flying straight is a pass, not a collision. centre is in feet.
         /// </summary>
         public static Battle HeadOn(Vec3d centre, double altFt = 5000, double kias = 300, double gapM = 3000)
@@ -18,19 +18,19 @@ namespace Ooda.Turn.Core
             double ktas = Atmosphere.IasToTasKt(kias, altFt);
             var mustang = new FlightModel(AircraftNumbers.P51D(),
                 PointMass.Make(new Vec3d(centre.x - 150, centre.y - half, altFt), ktas, Math.PI / 2));
-            var spit = new FlightModel(AircraftNumbers.SpitfireIX(),
+            var foe = new FlightModel(AircraftNumbers.Bf109G(),
                 PointMass.Make(new Vec3d(centre.x + 150, centre.y + half, altFt), ktas, -Math.PI / 2));
-            mustang.throttle = spit.throttle = 1;
-            return new Battle(mustang, CombatNumbers.P51D(), spit, CombatNumbers.SpitfireIX());
+            mustang.throttle = foe.throttle = 1;
+            return new Battle(mustang, CombatNumbers.P51D(), foe, CombatNumbers.Bf109G());
         }
     
         /// <summary>
-        /// Escort: a B-17 flying its route (waypoints in feet; the first is where it starts) at about 160 KIAS,
+        /// Escort: a B-17 flying its route (waypoints in feet; the first is where it starts) at about 135 KIAS,
         /// the player's Mustang tucked in 600 ft above, 300 ft out to the right and 800 ft behind, and the
-        /// Spitfire coming at them from aheadGapM along the route, 2,000 ft higher, at 300 KIAS.
+        /// Bf 109 coming at them from aheadGapM along the route, 2,000 ft higher, at 300 KIAS.
         /// The bomber is aircraft 2; it is on the player's side.
         /// </summary>
-        public static Battle Escort(Vec3d[] route, double bomberKias = 160, double aheadGapM = 5000)
+        public static Battle Escort(Vec3d[] route, double bomberKias = 135, double aheadGapM = 5000)
         {
             Vec3d start = route[0];
             Vec3d dir = new Vec3d(route[1].x - start.x, route[1].y - start.y, 0).Normalized;
@@ -44,13 +44,106 @@ namespace Ooda.Turn.Core
             var mustang = new FlightModel(AircraftNumbers.P51D(), PointMass.Make(pPos, Atmosphere.IasToTasKt(bomberKias + 10, pPos.z), heading));
             mustang.throttle = 0.6;
             Vec3d sPos = start + dir * (aheadGapM / 0.3048) + right * -400 + new Vec3d(0, 0, 2000);
-            var spit = new FlightModel(AircraftNumbers.SpitfireIX(), PointMass.Make(sPos, Atmosphere.IasToTasKt(300, sPos.z), heading + Math.PI));
-            spit.throttle = 1;
+            var foe = new FlightModel(AircraftNumbers.Bf109G(), PointMass.Make(sPos, Atmosphere.IasToTasKt(300, sPos.z), heading + Math.PI));
+            foe.throttle = 1;
 
-            var battle = new Battle(mustang, CombatNumbers.P51D(), spit, CombatNumbers.SpitfireIX());
+            var battle = new Battle(mustang, CombatNumbers.P51D(), foe, CombatNumbers.Bf109G());
             var r = new Route { kias = bomberKias, points = route, next = 1 };
             battle.Add(bomber, CombatNumbers.B17G(), 0, r);
             return battle;
+        }
+    
+        /// <summary>
+        /// The escort battle: a vic of bombers (B-17s, the lead on the route, the others 350 ft out to each side
+        /// and 300 ft back) flying the route at bomberKias; the player and wingmen (P-51s) around and above them,
+        /// a little faster; and a squadron of Bf 109s coming down the route from aheadM metres away, the first four
+        /// 1,500 ft above the route and the second four 1,000 ft higher still. Flak guns sit at flakSites.
+        /// Order: 0 the player, 1 the enemy leader, then the bombers, then the wingmen, then the other enemies.
+        /// </summary>
+        public static Battle Squadron(Vec3d[] route, Vec3d[] flakSites = null, int fighters = 8, int bombers = 3,
+                                      double bomberKias = 135, double aheadM = 5000)
+        {
+            Vec3d start = route[0];
+            Vec3d dir = Flat(route[1] - start);
+            Vec3d right = new Vec3d(dir.y, -dir.x, 0);
+            double heading = Math.Atan2(dir.y, dir.x);
+            FlightModel Make(AircraftNumbers n, Vec3d pos, double kias, double hdg, double thr)
+            {
+                var m = new FlightModel(n, PointMass.Make(pos, Atmosphere.IasToTasKt(kias, pos.z), hdg)) { throttle = thr };
+                return m;
+            }
+            Vec3d Around(Vec3d c, Vec3d d, Vec3d r, double lateral, double back, double up) => c + r * lateral - d * back + new Vec3d(0, 0, up);
+
+            // the escorts (P-51s): lateral, back, up from the lead bomber; the first is the player
+            var escort = new[] { (250.0, 900.0, 450.0), (-250, 900, 450), (300, 1700, 900), (-300, 1700, 900), (150, -1500, 600), (-150, -1500, 600), (350, 2500, 300), (-350, 2500, 300) };
+            // the enemy: along the route ahead, coming the other way
+            Vec3d at = PointAlong(route, aheadM / 0.3048, out Vec3d edir);
+            Vec3d eright = new Vec3d(-edir.y, edir.x, 0);   // their right, flying back down the route
+            double ehead = Math.Atan2(-edir.y, -edir.x);
+            var foe = new[] { (150.0, 0.0, 1500.0), (-150, 0, 1500), (450, 600, 1500), (-450, 600, 1500), (150, 1500, 2500), (-150, 1500, 2500), (450, 2100, 2500), (-450, 2100, 2500) };
+
+            var battle = new Battle(
+                Make(AircraftNumbers.P51D(), Around(start, dir, right, escort[0].Item1, escort[0].Item2, escort[0].Item3), bomberKias + 10, heading, 0.6), CombatNumbers.P51D(),
+                Make(AircraftNumbers.Bf109G(), Around(at, -edir, eright, foe[0].Item1, foe[0].Item2, foe[0].Item3), 300, ehead, 1), CombatNumbers.Bf109G());
+            var vic = new[] { (0.0, 0.0), (-350, 300), (350, 300) };
+            for (int b = 0; b < bombers; b++)
+            {
+                var (lat, back) = vic[b % vic.Length];
+                if (b >= vic.Length) back += 600 * (b / vic.Length);
+                var r = new Route { kias = bomberKias, points = Offset(route, lat), next = 1 };
+                battle.Add(Make(AircraftNumbers.B17G(), Around(start, dir, right, lat, back, 0), bomberKias, heading, 0.8), CombatNumbers.B17G(), 0, r);
+            }
+            for (int w = 1; w < fighters; w++)
+            {
+                var e = escort[w % escort.Length];
+                battle.Add(Make(AircraftNumbers.P51D(), Around(start, dir, right, e.Item1, e.Item2 + 900 * (w / escort.Length), e.Item3), bomberKias + 10, heading, 0.6), CombatNumbers.P51D(), 0);
+            }
+            for (int w = 1; w < fighters; w++)
+            {
+                var e = foe[w % foe.Length];
+                battle.Add(Make(AircraftNumbers.Bf109G(), Around(at, -edir, eright, e.Item1, e.Item2 + 900 * (w / foe.Length), e.Item3), 300, ehead, 1), CombatNumbers.Bf109G(), 1);
+            }
+            if (flakSites != null)
+            {
+                battle.flak = new FlakSite[flakSites.Length];
+                for (int k = 0; k < flakSites.Length; k++)
+                {
+                    var g = new FlakSite { pos = flakSites[k] };
+                    g.phase = g.burstSec + g.pauseSec - 0.05 - 0.37 * k % (g.burstSec + g.pauseSec - 0.1);   // staggered, all ready early in the first turn
+                    battle.flak[k] = g;
+                }
+            }
+            return battle;
+        }
+
+        static Vec3d Flat(Vec3d d) => new Vec3d(d.x, d.y, 0).Normalized;
+
+        /// <summary>The point distFt along a route from its start (height included), and the route's direction there.</summary>
+        public static Vec3d PointAlong(Vec3d[] route, double distFt, out Vec3d dir)
+        {
+            for (int i = 0; i + 1 < route.Length; i++)
+            {
+                Vec3d leg = route[i + 1] - route[i];
+                double len = Math.Sqrt(leg.x * leg.x + leg.y * leg.y);
+                dir = Flat(leg);
+                if (distFt <= len || i + 2 == route.Length) return route[i] + leg * Math.Min(1, distFt / Math.Max(1, len));
+                distFt -= len;
+            }
+            dir = new Vec3d(0, 1, 0);
+            return route[0];
+        }
+
+        /// <summary>The route moved sideways by lateralFt (right positive), each point along the average of its legs' normals.</summary>
+        public static Vec3d[] Offset(Vec3d[] route, double lateralFt)
+        {
+            if (lateralFt == 0) return route;
+            var o = new Vec3d[route.Length];
+            for (int i = 0; i < route.Length; i++)
+            {
+                Vec3d a = Flat(route[Math.Min(i + 1, route.Length - 1)] - route[Math.Max(i - 1, 0)]);
+                o[i] = route[i] + new Vec3d(a.y, -a.x, 0) * lateralFt;
+            }
+            return o;
         }
     }
 }

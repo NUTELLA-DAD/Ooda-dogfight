@@ -3,12 +3,21 @@
 // and two AI pilots fight to a finish without the engine breaking.
 using System;
 using System.Diagnostics;
+using System.Linq;
 using Ooda.Flight.Core;
 using Ooda.Turn.Core;
 
 static class TurnChecks
 {
     const double D = 180 / Math.PI;
+
+    static double Nearest(Battle b)
+    {
+        double best = double.PositiveInfinity;
+        for (int i = 0; i < b.Count; i++) for (int j = 0; j < b.Count; j++)
+            if (b.side[i] != b.side[j] && !b.Out(i) && !b.Out(j)) best = Math.Min(best, (b.planes[i].state.pos - b.planes[j].state.pos).Length);
+        return best;
+    }
 
     public static int Run()
     {
@@ -145,7 +154,94 @@ static class TurnChecks
                 if (t2 > 3) { minK = Math.Min(minK, solo.planes[2].Kias); maxK = Math.Max(maxK, solo.planes[2].Kias); }
             }
             Console.WriteLine($"  B-17 alone: route done {solo.routes[2].Done} after {t2} turns, {minK:F0} to {maxK:F0} KIAS");
-            Check(solo.routes[2].Done && minK > 140 && maxK < 180, "the bomber flies its whole route near its cruise speed");
+            Check(solo.routes[2].Done && minK > 120 && maxK < 160, "the bomber flies its whole route near its cruise speed");
+        }
+        // Flak: a gun fires at a bomber flying straight past 2,500 ft away; some rounds should hit
+        {
+            var bm = new FlightModel(AircraftNumbers.B17G(), PointMass.Make(new Vec3d(-3000, 2500, 1500), Atmosphere.IasToTasKt(135, 1500), 0)) { throttle = 0.8 };
+            var far = new FlightModel(AircraftNumbers.Bf109G(), PointMass.Make(new Vec3d(0, -90000, 20000), 300, 0));
+            var fb = new Battle(far, CombatNumbers.Bf109G(), bm, CombatNumbers.B17G());
+            fb.side[0] = 1; fb.side[1] = 0;   // the bomber is the flak's enemy
+            fb.flak = new[] { new FlakSite { pos = new Vec3d(0, 0, 0), side = 1, phase = 2.9 } };
+            int hits = 0, shots = 0; double missSum = 0; int missN = 0;
+            for (int t = 0; t < 4; t++)
+            {
+                var r = fb.Resolve(TurnPlan.Holding(), TurnPlan.Holding(), 3);
+                hits += r.hits.Count(h => h.shooter < 0); shots += r.traces.Count(tr => tr.owner < 0 && tr.startFrame > 0);
+                foreach (var tr in r.traces) if (tr.owner < 0)
+                    {
+                        double best = double.PositiveInfinity;
+                        for (int k = 0; k < tr.points.Count && tr.startFrame + k < r.frames[1].Length; k++) best = Math.Min(best, (tr.points[k] - r.frames[1][tr.startFrame + k].pos).Length);
+                        if (best < 1e8) { missSum += best; missN++; }
+                    }
+            }
+            Console.WriteLine($"  flak at a bomber passing 2,500 ft off: {hits} hits from {shots} packets; mean closest pass {missSum / Math.Max(1, missN):F0} ft; bomber hp {fb.health[1]:F1}");
+            Check(hits > 0 && hits < shots / 2, "flak hits a steady bomber sometimes, not every round");
+        }
+
+        // The squadron battle in a twisting valley like the alpine map's: 8 v 8, 3 bombers, flak
+        {
+            const double F = 3.28084;
+            var routeM = new[] { (0, 664, -9600), (0, 672, -7800), (0, 680, -6000), (634, 728, -4641), (634, 781, -3141), (0, 829, -1781), (0, 881, -281), (-634, 929, 1078), (-634, 982, 2578), (0, 1030, 3938), (0, 1083, 5438), (634, 1131, 6797), (634, 1180, 8297) };
+            var route = routeM.Select(p => new Vec3d(p.Item1 * F, p.Item3 * F, p.Item2 * F)).ToArray();
+            var flakM = new[] { (412, 383, -5282), (564, 455, -3816), (70, 557, -956), (-412, 608, 437), (-564, 659, 1903), (-349, 707, 3356), (70, 760, 4763), (564, 856, 7622) };
+            var flak = flakM.Select(p => new Vec3d(p.Item1 * F, p.Item3 * F, p.Item2 * F)).ToArray();
+            // the valley: a 200 m floor 300 m under the route, walls rising 1.5 in 1 to 1,000 m over the floor
+            double Ground(double x, double y)
+            {
+                double best = double.PositiveInfinity, floor = 0;
+                for (int i = 0; i + 1 < route.Length; i++)
+                {
+                    Vec3d a = route[i], b = route[i + 1];
+                    double dx = b.x - a.x, dy = b.y - a.y, u = Math.Max(i == 0 ? -1 : 0, Math.Min(1, ((x - a.x) * dx + (y - a.y) * dy) / (dx * dx + dy * dy)));   // the valley runs on back past the start
+                    double d = Math.Sqrt(Math.Pow(x - a.x - u * dx, 2) + Math.Pow(y - a.y - u * dy, 2));
+                    if (d < best) { best = d; floor = a.z + (b.z - a.z) * u - 300 * F; }
+                }
+                return floor + Math.Min(1000 * F, Math.Max(0, best - 330) * 1.5);
+            }
+            var fight = Scenarios.Squadron(route, flak);
+            fight.groundFt = Ground;
+            int n = fight.Count;
+            Console.WriteLine($"  squadron battle: {n} aircraft, {fight.flak.Length} flak guns; bombers at {fight.planes[2].Kias:F0} KIAS");
+            double minClearStart = double.PositiveInfinity;
+            for (int i = 0; i < n; i++) minClearStart = Math.Min(minClearStart, fight.planes[i].AltFt - Ground(fight.planes[i].state.pos.x, fight.planes[i].state.pos.y));
+            Console.WriteLine($"  everyone starts at least {minClearStart:F0} ft over the valley floor or walls");
+            for (int i = 0; i < n; i++) { var q = fight.planes[i].state.pos; double c = q.z - Ground(q.x, q.y); if (c < 300) Console.WriteLine($"    aircraft {i} ({fight.planes[i].numbers.name}) at ({q.x:F0}, {q.y:F0}, {q.z:F0}) ft is {c:F0} ft over the ground"); }
+            Check(minClearStart > 300, "the squadron battle starts with everyone clear of the ground");
+            var ais = new EnemyAi[n];
+            for (int i = 0; i < n; i++)
+            {
+                if (fight.routes[i] != null) continue;
+                bool ours = fight.side[i] == 0;
+                ais[i] = new EnemyAi { me = i, rng = new Lcg((uint)(11 + i * 7)), role = ours ? (i % 2 == 0 ? EnemyAi.Role.Escort : EnemyAi.Role.Fighter) : (i % 2 == 0 ? EnemyAi.Role.Hunter : EnemyAi.Role.Fighter) };
+            }
+            var sw = Stopwatch.StartNew(); double worstTurn = 0; int turn = 0, flakHits = 0, flakOnBombers = 0, ground = 0;
+            for (; turn < 40 && !fight.Over; turn++)
+            {
+                var t0 = sw.Elapsed.TotalMilliseconds;
+                var plans = new TurnPlan?[n];
+                System.Threading.Tasks.Parallel.For(0, n, i => { if (ais[i] != null && !fight.Out(i)) plans[i] = ais[i].Plan(fight, Scenarios.TurnSec); });
+                worstTurn = Math.Max(worstTurn, sw.Elapsed.TotalMilliseconds - t0);
+                var wasDown = (bool[])fight.down.Clone(); var hpBefore = (double[])fight.health.Clone();
+                var r = fight.Resolve(plans, Scenarios.TurnSec);
+                flakHits += r.hits.Count(h => h.shooter < 0); flakOnBombers += r.hits.Count(h => h.shooter < 0 && fight.routes[h.target] != null);
+                for (int i = 0; i < n; i++)
+                    if (!wasDown[i] && fight.down[i])
+                    {
+                        var q = fight.planes[i].state.pos;
+                        string why = fight.crashed[i] ? (fight.health[i] < hpBefore[i] ? "shot, then hit the ground" : "flew into the ground") : fight.health[i] <= 0 ? "shot down" : "collided";
+                        Console.WriteLine($"      turn {turn + 1}: {i} {fight.planes[i].numbers.name} {why} at {q.z - Ground(q.x, q.y):F0} ft clear, {fight.planes[i].Kias:F0} KIAS, heading {Math.Atan2(fight.planes[i].state.vel.x, fight.planes[i].state.vel.y) * D:F0}");
+                    }
+                if (true)
+                {
+                    int ours = 0, theirs = 0, bombers = 0;
+                    for (int i = 0; i < n; i++) { if (fight.Out(i)) continue; if (fight.routes[i] != null) bombers++; else if (fight.side[i] == 0) ours++; else theirs++; }
+                    Console.WriteLine($"    turn {turn + 1,2}: P-51s {ours} Bf 109s {theirs} B-17s {bombers} (lead at waypoint {fight.routes[2].next}, {fight.planes[2].Kias:F0} KIAS)  hits {r.hits.Count} ({r.hits.Count(h => h.shooter < 0)} flak), packets {r.traces.Count(t => t.owner >= 0 && t.startFrame > 0)} guns {r.traces.Count(t => t.owner < 0 && t.startFrame > 0)} flak, nearest foe {Nearest(fight):F0} ft  AI planning {sw.Elapsed.TotalMilliseconds - t0:F0} ms");
+                }
+            }
+            for (int i = 0; i < n; i++) if (fight.crashed[i]) ground++;
+            Console.WriteLine($"  squadron AI vs AI: over {fight.Over} after {turn} turns; {ground} flew into the ground; flak hit {flakHits} times ({flakOnBombers} on bombers); slowest turn's planning {worstTurn:F0} ms for {ais.Count(a => a != null)} AI pilots on {Environment.ProcessorCount} cores");
+            Check(worstTurn < 3000, "all the AI pilots plan a turn in under 3 s together");
         }
         return fails;
     }

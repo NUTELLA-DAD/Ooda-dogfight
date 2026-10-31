@@ -1,31 +1,59 @@
 using System;
+using System.Collections.Generic;
 using Ooda.Flight.Core;
 
 namespace Ooda.Turn.Core
 {
     /// <summary>
-    /// The enemy pilot. It does not see the player's plan: it assumes the player keeps doing what they are
-    /// doing (the same projection the player can see), tries a spread of arrows across its own reach shell,
-    /// flies each one against that projection, and keeps the one that leaves it best placed: nose on the
-    /// player, behind them, at gun range, with speed and height in hand, out of the player's guns and off
-    /// the ground. Then it plans a burst where its rounds would hit.
+    /// An AI pilot (the enemy, or one of the player's wingmen). It does not see anyone's plan: it assumes the
+    /// others keep doing what they are doing (the same projection the player can see), tries a spread of arrows
+    /// across its own reach shell, flies each one against that projection, and keeps the one that leaves it best
+    /// placed: nose on its target, behind it, at gun range, with speed and height in hand, out of everyone's guns
+    /// and off the ground. Then it plans a burst where its rounds would hit. To stay quick with many aircraft it
+    /// tries its plans in a small battle of itself, its target and the few aircraft nearest it.
     /// </summary>
     public class EnemyAi
     {
+        public enum Role
+        {
+            /// <summary>Goes for the bombers first (aircraft flying routes), then anyone.</summary>
+            Hunter,
+            /// <summary>Goes for the nearest enemy fighter.</summary>
+            Fighter,
+            /// <summary>Goes for the enemy fighter nearest its own side's bombers.</summary>
+            Escort,
+        }
+
         public int me = 1;
-        /// <summary>Who to go for: an aircraft index, or -1 to choose (one flying a route, such as the bomber, first).</summary>
+        public Role role = Role.Hunter;
+        /// <summary>Who to go for: an aircraft index, or -1 to choose by role.</summary>
         public int target = -1;
         /// <summary>0 plays the best it finds; more adds noise to its choice (a less sharp pilot).</summary>
         public double sloppiness = 0.15;
         public double idealRangeFt = 900;
+        /// <summary>Below this over the ground (ft) it starts to worry; deep valleys need it low.</summary>
+        public double safeClearFt = 600;
+        /// <summary>How far ahead (s) past the end of the turn it checks its path is clear of the ground: room to turn away next turn.</summary>
+        public double lookSec = 4;
+        /// <summary>How many aircraft besides itself and its target it keeps in mind (the nearest).</summary>
+        public int awareOf = 4;
         /// <summary>How near a projected pass counts as a firing chance, as a multiple of the real hit radius.</summary>
         public double burstSlack = 2.5;
         public Lcg rng = new Lcg(77);
+        /// <summary>Leave bridges and buildings out of its tries (set when planning off the main thread, where they can't be asked about).</summary>
+        public bool ignoreObstacles;
 
         public TurnPlan Plan(Battle battle, double turnSec)
         {
-            int them = Target(battle);
             var m = battle.planes[me];
+            int them = Target(battle);
+            if (them < 0) return TurnPlan.Straight(m);
+            var sub = battle.Subset(Nearby(battle, them));   // me is 0 in it, the target 1
+            if (ignoreObstacles) sub.obstacleHit = null;
+            // only the flak that could reach it this turn
+            var near = new List<FlakSite>();
+            foreach (var g in sub.flak) if ((g.pos - m.state.pos).Length < g.rangeFt + 3000) near.Add(g);
+            sub.flak = near.ToArray();
             var env = Envelope.Compute(m, turnSec);
             bool slow = m.Kias < 220;
 
@@ -42,51 +70,76 @@ namespace Ooda.Turn.Core
                         aim = fraction == 0 ? m.Forward : env.Direction(phi, env.MaxAngle(phi) * fraction),
                         throttle = 1, wep = slow,
                     };
-                    double score = Score(battle, plan, them, turnSec) + sloppiness * rng.Gauss();
+                    double score = Score(sub, plan, turnSec) + sloppiness * rng.Gauss();
                     if (score > bestScore) { bestScore = score; best = plan; }
                 }
             }
-            PlanBurst(battle, ref best, turnSec);
+            PlanBurst(sub, ref best, turnSec);
             return best;
         }
 
-        TurnPlan TheirProjection() => TurnPlan.Holding();
+        /// <summary>Me, my target, then the nearest others that are still flying.</summary>
+        int[] Nearby(Battle battle, int them)
+        {
+            var keep = new List<int> { me, them };
+            var others = new List<(double r, int i)>();
+            Vec3d at = battle.planes[me].state.pos;
+            for (int j = 0; j < battle.Count; j++)
+                if (j != me && j != them && !battle.Out(j)) others.Add(((battle.planes[j].state.pos - at).Length, j));
+            others.Sort((a, b) => a.r.CompareTo(b.r));
+            for (int k = 0; k < others.Count && k < awareOf; k++) if (others[k].r < 9000) keep.Add(others[k].i);
+            return keep.ToArray();
+        }
 
         public int Target(Battle battle)
         {
             if (target >= 0 && !battle.Out(target)) return target;
-            int best = -1; double bestRange = double.PositiveInfinity;
+            int mySide = battle.side[me];
+            Vec3d at = battle.planes[me].state.pos;
+            // where my own side's bombers are, for an escort
+            Vec3d guard = at; int nb = 0; Vec3d sum = Vec3d.Zero;
+            for (int j = 0; j < battle.Count; j++)
+                if (battle.side[j] == mySide && battle.routes[j] != null && !battle.Out(j)) { sum = sum + battle.planes[j].state.pos; nb++; }
+            if (nb > 0) guard = sum * (1.0 / nb);
+
+            int best = -1; double bestCost = double.PositiveInfinity;
             for (int j = 0; j < battle.Count; j++)
             {
-                if (battle.side[j] == battle.side[me] || battle.Out(j)) continue;
-                double r = (battle.planes[j].state.pos - battle.planes[me].state.pos).Length - (battle.routes[j] != null ? 1e9 : 0);
-                if (r < bestRange) { bestRange = r; best = j; }
+                if (battle.side[j] == mySide || battle.Out(j)) continue;
+                bool bomber = battle.routes[j] != null;
+                double cost = (battle.planes[j].state.pos - at).Length;
+                switch (role)
+                {
+                    case Role.Hunter: if (bomber) cost -= 1e6; break;
+                    case Role.Fighter: if (bomber) cost += 1e6; break;
+                    case Role.Escort: cost = (battle.planes[j].state.pos - guard).Length + 0.3 * cost + (bomber ? 1e6 : 0); break;
+                }
+                if (cost < bestCost) { bestCost = cost; best = j; }
             }
-            return best >= 0 ? best : 1 - me;
+            return best;
         }
 
-        double Score(Battle battle, TurnPlan plan, int them, double turnSec)
+        /// <summary>How good a plan is, flown in the small battle (me 0, target 1).</summary>
+        double Score(Battle sub, TurnPlan plan, double turnSec)
         {
-            var sim = battle.Clone();
+            var sim = sub.Clone();
             sim.dispersion = false;
             double minClear = double.PositiveInfinity, shotBonus = 0;
-            var p0 = me == 0 ? plan : TheirProjection();
-            var p1 = me == 0 ? TheirProjection() : plan;
-            sim.Resolve(p0, p1, turnSec, false, (b, k) =>
+            sim.Resolve(new TurnPlan?[] { plan }, turnSec, false, (b, k) =>
             {
-                var a = b.planes[me];
+                var a = b.planes[0];
                 minClear = Math.Min(minClear, a.AltFt - b.groundFt(a.state.pos.x, a.state.pos.y));
                 if (k % 5 == 0)
                 {
-                    Vec3d los = b.planes[them].state.pos - a.state.pos;
+                    Vec3d los = b.planes[1].state.pos - a.state.pos;
                     double r = los.Length;
                     if (r < 2500 && Envelope.Angle(Battle.GunLine(a), los) < 4 * Math.PI / 180) shotBonus = 1;
                 }
             });
-            if (sim.crashed[me] || sim.down[me]) return -100;
+            if (sim.crashed[0] || sim.down[0]) return -100;
 
-            var mine = sim.planes[me];
-            var theirs = sim.planes[them];
+            var mine = sim.planes[0];
+            var theirs = sim.planes[1];
             Vec3d l = theirs.state.pos - mine.state.pos;
             double range = l.Length;
             double ata = Envelope.Angle(mine.Forward, l);          // my nose off the line to them
@@ -97,38 +150,52 @@ namespace Ooda.Turn.Core
             // anyone on the other side with guns pointing at me
             for (int j = 0; j < sim.Count; j++)
             {
-                if (sim.side[j] == sim.side[me] || sim.Out(j) || sim.combat[j].ammoSec <= 0) continue;
+                if (sim.side[j] == sim.side[0] || sim.Out(j) || sim.combat[j].ammoSec <= 0) continue;
                 Vec3d lj = sim.planes[j].state.pos - mine.state.pos;
                 double rj = lj.Length, theirAta = Envelope.Angle(sim.planes[j].Forward, -lj);   // their nose off the line to me
                 if (theirAta < 20 * Math.PI / 180 && rj < 4000) score -= 1.5 * (1 - theirAta / (20 * Math.PI / 180));
             }
-            score += 0.5 * (mine.Kias - 250) / 200 + 0.2 * (mine.AltFt - battle.planes[me].AltFt) / 1000;
-            if (minClear < 1500) score -= (1500 - minClear) / 300;
+            // damage taken flying it (flak, rounds already in the air)
+            score -= 2 * (sub.health[0] - sim.health[0]) / Math.Max(1, sub.combat[0].health) * 10;
+            score += 0.5 * (mine.Kias - 250) / 200 + 0.2 * (mine.AltFt - sub.planes[0].AltFt) / 1000;
+            if (minClear < safeClearFt) score -= (safeClearFt - minClear) / 200;
+            // where it is heading after the turn: straight on for lookSec, is the ground (a valley wall) in the way?
+            double ahead = double.PositiveInfinity;
+            Vec3d p0 = mine.state.pos, v0 = mine.state.vel;
+            for (int s = 1; s <= 8; s++)
+            {
+                double t = lookSec * s / 8;
+                Vec3d q = p0 + v0 * t;
+                double c = q.z - sim.groundFt(q.x, q.y);
+                if (c < 0) { score -= 40 * (1 - (double)(s - 1) / 8); ahead = 0; break; }
+                ahead = Math.Min(ahead, c);
+            }
+            if (ahead < safeClearFt) score -= (safeClearFt - ahead) / 150;
             if (mine.Departed) score -= 3;
             return score + shotBonus;
         }
 
         /// <summary>Fire across the part of the turn whose rounds would hit the projected target, if any.</summary>
-        void PlanBurst(Battle battle, ref TurnPlan plan, double turnSec)
+        void PlanBurst(Battle sub, ref TurnPlan plan, double turnSec)
         {
-            if (battle.ammo[me] <= 0) return;
+            if (sub.ammo[0] <= 0) return;
             var test = plan;
             test.burstStart = 0; test.burstEnd = turnSec;
-            var sim = battle.Clone();
+            var sim = sub.Clone();
             sim.dispersion = false;
-            for (int j = 0; j < sim.Count; j++) if (sim.side[j] != sim.side[me]) sim.health[j] = double.PositiveInfinity;   // keep targets flying to see the whole burst
+            for (int j = 0; j < sim.Count; j++) if (sim.side[j] != sim.side[0]) sim.health[j] = double.PositiveInfinity;   // keep targets flying to see the whole burst
             // The target will not fly exactly as projected: fire at anything that comes near (a wider "hit" here)
             sim.combat = (CombatNumbers[])sim.combat.Clone();
             for (int j = 0; j < sim.Count; j++) sim.combat[j] = sim.combat[j].Copy();
-            sim.combat[me].hitRadiusFt *= burstSlack;
+            sim.combat[0].hitRadiusFt *= burstSlack;
             // rounds already in the air are not this burst's
             sim.bullets.Clear();
-            var r = me == 0 ? sim.Resolve(test, TheirProjection(), turnSec, false) : sim.Resolve(TheirProjection(), test, turnSec, false);
+            var r = sim.Resolve(new TurnPlan?[] { test }, turnSec, false);
             double first = double.PositiveInfinity, last = double.NegativeInfinity;
             foreach (var h in r.hits)
             {
-                if (h.shooter != me) continue;
-                double t = h.fireTime - battle.time;
+                if (h.shooter != 0) continue;
+                double t = h.fireTime - sub.time;
                 first = Math.Min(first, t); last = Math.Max(last, t);
             }
             if (last < first) return;
