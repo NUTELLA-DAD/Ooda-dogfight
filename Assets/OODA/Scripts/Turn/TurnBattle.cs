@@ -403,7 +403,7 @@ namespace Ooda.Turn
             else if (phase == Phase.Planning || phase == Phase.Thinking) DrawPlanning();
             else DrawLastPaths(last != null ? last.FrameCount - 1 : 0);
             lines.End();
-            tip.gameObject.SetActive(phase == Phase.Planning || phase == Phase.Thinking);
+            tip.gameObject.SetActive(phase == Phase.Planning || phase == Phase.Thinking) && !plan.HasMarks;
             if (phase != Phase.Planning && phase != Phase.Thinking)
             {
                 if (holoMine != null) holoMine.SetActive(false);
