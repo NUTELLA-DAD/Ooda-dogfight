@@ -37,7 +37,7 @@ namespace Ooda.Turn
         public float startAltFt = 5000, startKias = 300, startGapM = 3000;
 
         [Header("Turns")]
-        public float turnSec = Scenarios.TurnSec;
+        public float turnSec = (float)Scenarios.TurnSec;
         public float playbackSpeed = 1f;
         public bool showProjection = true;
         public bool showHelp = true;
