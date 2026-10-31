@@ -177,6 +177,11 @@ namespace Ooda.EditorTools
             tb.terrain = Object.FindFirstObjectByType<Terrain>();
             tb.playerPilot = pLook;
             tb.enemyPilot = spit.GetComponentInChildren<PilotHeadLook>();
+            // head-on up the main valley: under the peaks, 3 km apart with the valley open between them
+            tb.startCentre = AlpineWorld.FightCentre;
+            tb.startAltFt = AlpineWorld.FightAltFt;
+            tb.startKias = 300;
+            tb.startGapM = 3000;
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             // The turn battle is the game; the free-flight world stays in the build as the sandbox

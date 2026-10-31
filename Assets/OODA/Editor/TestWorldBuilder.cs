@@ -31,7 +31,6 @@ namespace Ooda.EditorTools
 
         const float PlaneSmoothingAngle = 80f;
         const float PropellerForward = 0.3f; // metres: the blades sit inside the cowl lip as modelled
-        const float WorldSize = 20000f, WorldHeight = 1400f, SeaFloor = -80f;
 
         [MenuItem("OODA/Build Test World")]
         public static void Build()
@@ -368,17 +367,17 @@ namespace Ooda.EditorTools
             sun.shadows = LightShadows.Soft;
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.Linear;
-            RenderSettings.fogStartDistance = 2500f;
-            RenderSettings.fogEndDistance = 22000f;
-            RenderSettings.fogColor = new Color(0.66f, 0.76f, 0.86f);
+            RenderSettings.fogStartDistance = 2000f;
+            RenderSettings.fogEndDistance = 24000f;
+            RenderSettings.fogColor = new Color(0.68f, 0.78f, 0.90f);
 
-            var terrain = MakeTerrain(mats);
+            var terrain = AlpineWorld.Build(mats);
             MakeSea(mats);
-            MakeClouds(mats);
-            MakeTowers(mats, terrain);
+            MakeClouds(mats, terrain);
 
+            // free flight starts low over the lake at the foot of the main valley, heading up it
             var plane = (GameObject)PrefabUtility.InstantiatePrefab(planePrefab);
-            plane.transform.SetPositionAndRotation(new Vector3(0, 1500f, -6000f), Quaternion.identity);
+            plane.transform.SetPositionAndRotation(AlpineWorld.FreeFlightSpawn, Quaternion.identity);
 
             var cam = Camera.main;
             cam.transform.position = plane.transform.position - Vector3.forward * 16f + Vector3.up * 4f;
@@ -393,44 +392,7 @@ namespace Ooda.EditorTools
             EditorBuildSettings.scenes = list.ToArray();
         }
 
-        static Terrain MakeTerrain(Mats mats)
-        {
-            const int res = 513;
-            var data = new TerrainData { heightmapResolution = res };
-            data.size = new Vector3(WorldSize, WorldHeight, WorldSize);
-            var h = new float[res, res];
-            float sea = -SeaFloor / WorldHeight;
-            for (int y = 0; y < res; y++)
-                for (int x = 0; x < res; x++)
-                {
-                    float u = x / (res - 1f), v = y / (res - 1f);
-                    float n = 0, amp = 1, freq = 3, norm = 0;
-                    for (int o = 0; o < 5; o++) { n += amp * Mathf.PerlinNoise(u * freq + 13.1f, v * freq + 7.7f); norm += amp; amp *= 0.5f; freq *= 2.1f; }
-                    n /= norm;
-                    float dist = Vector2.Distance(new Vector2(u, v), new Vector2(0.5f, 0.5f)) * 2f; // 0 centre, 1 edge
-                    float island = Mathf.Clamp01(1.25f - dist * 1.4f);
-                    float ridges = Mathf.Pow(Mathf.Clamp01((n - 0.35f) * 1.8f), 1.6f);
-                    h[y, x] = Mathf.Clamp01(sea * 0.6f + island * (0.06f + 0.75f * ridges));
-                }
-            data.SetHeights(0, 0, h);
-
-            var grass = MakeNoiseTexture("Grass", new Color(0.30f, 0.42f, 0.20f), new Color(0.42f, 0.48f, 0.25f));
-            var layer = new TerrainLayer { diffuseTexture = grass, tileSize = new Vector2(60, 60) };
-            AssetDatabase.CreateAsset(layer, $"{Gen}/Grass.terrainlayer");
-            data.terrainLayers = new[] { layer };
-            AssetDatabase.CreateAsset(data, $"{Gen}/TestWorld_Terrain.asset");
-
-            var go = Terrain.CreateTerrainGameObject(data);
-            go.name = "Island";
-            go.transform.position = new Vector3(-WorldSize / 2, SeaFloor, -WorldSize / 2);
-            var t = go.GetComponent<Terrain>();
-            t.materialTemplate = mats.terrain;
-            t.heightmapPixelError = 4;
-            t.basemapDistance = 4000;
-            return t;
-        }
-
-        static Texture2D MakeNoiseTexture(string name, Color a, Color b)
+        internal static Texture2D MakeNoiseTexture(string name, Color a, Color b)
         {
             string path = $"{Gen}/{name}.png";
             var tex = new Texture2D(256, 256, TextureFormat.RGB24, true);
@@ -456,16 +418,19 @@ namespace Ooda.EditorTools
             sea.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
         }
 
-        static void MakeClouds(Mats mats)
+        static void MakeClouds(Mats mats, Terrain terrain)
         {
             var parent = new GameObject("Clouds").transform;
             var rnd = new System.Random(7);
             float R(float a, float b) => a + (float)rnd.NextDouble() * (b - a);
-            for (int i = 0; i < 160; i++)
+            for (int i = 0, tries = 0; i < 160 && tries < 2000; tries++)
             {
-                var cloud = new GameObject($"Cloud {i}").transform;
+                // among the peaks, but clear of the rock
+                var at = new Vector3(R(-15000, 15000), R(2400, 4600), R(-15000, 15000));
+                if (terrain.SampleHeight(at) + terrain.transform.position.y > at.y - 350f) continue;
+                var cloud = new GameObject($"Cloud {i++}").transform;
                 cloud.SetParent(parent);
-                cloud.position = new Vector3(R(-15000, 15000), R(1500, 3200), R(-15000, 15000));
+                cloud.position = at;
                 int puffs = rnd.Next(4, 8);
                 for (int p = 0; p < puffs; p++)
                 {
@@ -479,33 +444,6 @@ namespace Ooda.EditorTools
                     rend.sharedMaterial = mats.cloud;
                     rend.shadowCastingMode = ShadowCastingMode.Off;
                 }
-            }
-        }
-
-        static void MakeTowers(Mats mats, Terrain terrain)
-        {
-            var parent = new GameObject("Towers").transform;
-            var rnd = new System.Random(11);
-            int made = 0;
-            for (int tries = 0; tries < 400 && made < 30; tries++)
-            {
-                float x = (float)(rnd.NextDouble() - 0.5) * WorldSize * 0.6f, z = (float)(rnd.NextDouble() - 0.5) * WorldSize * 0.6f;
-                float ground = terrain.SampleHeight(new Vector3(x, 0, z)) + terrain.transform.position.y;
-                if (ground < 5f) continue; // on land only
-                var tower = new GameObject($"Tower {made}").transform;
-                tower.SetParent(parent);
-                tower.position = new Vector3(x, ground, z);
-                float height = 60f + (float)rnd.NextDouble() * 140f;
-                int bands = 6;
-                for (int b = 0; b < bands; b++)
-                {
-                    var c = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                    c.transform.SetParent(tower, false);
-                    c.transform.localScale = new Vector3(14f, height / bands, 14f);
-                    c.transform.localPosition = new Vector3(0, height / bands * (b + 0.5f), 0);
-                    c.GetComponent<Renderer>().sharedMaterial = b % 2 == 0 ? mats.towerRed : mats.towerWhite;
-                }
-                made++;
             }
         }
     }
