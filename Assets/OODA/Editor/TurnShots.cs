@@ -30,7 +30,36 @@ namespace Ooda.EditorTools
             var cam = Camera.main;
             var rt = new RenderTexture(1600, 1000, 24);
             cam.targetTexture = rt;
+            foreach (var a in Object.FindObjectsByType<Animator>(FindObjectsSortMode.None)) { a.Rebind(); for (int i = 0; i < 4; i++) a.Update(0.1f); }
             Save(cam, rt, dir, "turn_planning");
+            LogWarning();
+
+            // The holographic ghosts up close, where the plan ends.
+            foreach (var (ghostName, shot) in new[] { ("GhostP51", "turn_holo"), ("GhostSpitfire", "turn_holo_enemy") })
+            {
+                var ghost = GameObject.Find(ghostName);
+                if (ghost == null || !ghost.activeInHierarchy) { Debug.LogWarning($"OODA shots: no active {ghostName}."); continue; }
+                foreach (var tc in cam.GetComponents<MonoBehaviour>()) tc.enabled = false;
+                var g = ghost.transform;
+                cam.transform.position = g.position - g.forward * 14f + g.up * 4f + g.right * 6f;
+                cam.transform.LookAt(g.position);
+                Redraw(behaviours, cam);
+                Save(cam, rt, dir, shot);
+                foreach (var tc in cam.GetComponents<MonoBehaviour>()) tc.enabled = true;
+            }
+
+            // The arrow dragged well past the ring: the overpull band, the red arrow and the warning.
+            var tb = Object.FindFirstObjectByType<Ooda.Turn.TurnBattle>();
+            if (tb != null)
+            {
+                const BindingFlags f = BindingFlags.Instance | BindingFlags.NonPublic;
+                var env = (Ooda.Turn.Core.Envelope)typeof(Ooda.Turn.TurnBattle).GetField("env", f).GetValue(tb);
+                var plan = (Ooda.Turn.Core.TurnPlan)typeof(Ooda.Turn.TurnBattle).GetField("plan", f).GetValue(tb);
+                typeof(Ooda.Turn.TurnBattle).GetMethod("SetAim", f).Invoke(tb, new object[] { plan.aim + env.up * 3.0 });
+                Redraw(behaviours, cam, true);
+                Save(cam, rt, dir, "turn_overpull");
+                LogWarning();
+            }
 
             // Close-up of the Spitfire and its pilot, from its right and a little ahead.
             Transform spit = null;
@@ -59,10 +88,21 @@ namespace Ooda.EditorTools
         }
 
         // Lines are sized from the camera's position, so lay them out again once the camera has moved (but don't let its own scripts move it back).
-        static void Redraw(MonoBehaviour[] behaviours, Camera cam)
+        static void Redraw(MonoBehaviour[] behaviours, Camera cam, bool withCamera = false)
         {
-            foreach (var b in behaviours) if (b != null && b.gameObject != cam.gameObject) Call(b, "Update");
-            foreach (var b in behaviours) if (b != null && b.gameObject != cam.gameObject) Call(b, "LateUpdate");
+            foreach (var b in behaviours) if (b != null && (withCamera || b.gameObject != cam.gameObject)) Call(b, "Update");
+            foreach (var b in behaviours) if (b != null && (withCamera || b.gameObject != cam.gameObject)) Call(b, "LateUpdate");
+        }
+
+        // The planning warning is drawn with OnGUI, which a camera render doesn't include: log it instead.
+        static void LogWarning()
+        {
+            var tb = Object.FindFirstObjectByType<Ooda.Turn.TurnBattle>();
+            if (tb == null) return;
+            var f = BindingFlags.Instance | BindingFlags.NonPublic;
+            var w = typeof(Ooda.Turn.TurnBattle).GetField("warning", f)?.GetValue(tb);
+            var o = typeof(Ooda.Turn.TurnBattle).GetField("plan", f)?.GetValue(tb) is Ooda.Turn.Core.TurnPlan p ? p.overpull : 0;
+            Debug.Log($"OODA shots: planning warning \"{w ?? "(none)"}\", overpull {o:F2}");
         }
 
         static void Call(MonoBehaviour b, string method)

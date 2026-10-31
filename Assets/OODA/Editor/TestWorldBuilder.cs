@@ -52,7 +52,7 @@ namespace Ooda.EditorTools
 
         static void EnsureUrp()
         {
-            if (GraphicsSettings.defaultRenderPipeline != null) return;
+            if (GraphicsSettings.defaultRenderPipeline is UniversalRenderPipelineAsset existing) { TuneQuality(existing); return; }
             var data = ScriptableObject.CreateInstance<UniversalRendererData>();
             AssetDatabase.CreateAsset(data, Root + "/Settings/OODA_Renderer.asset");
             var urp = UniversalRenderPipelineAsset.Create(data);
@@ -64,6 +64,55 @@ namespace Ooda.EditorTools
                 QualitySettings.renderPipeline = urp;
             }
             Debug.Log("OODA: created a URP asset and set it as the render pipeline.");
+            TuneQuality(urp);
+        }
+
+        /// <summary>
+        /// Sharp by default, on every run so existing projects get it too: full render scale, 4x MSAA, HDR, big soft shadows
+        /// out to 3 km in 4 cascades, and in every quality level the pipeline, forced anisotropic filtering and full-res textures.
+        /// </summary>
+        static void TuneQuality(UniversalRenderPipelineAsset urp)
+        {
+            var so = new SerializedObject(urp);
+            void Set(string prop, System.Action<SerializedProperty> set)
+            {
+                var p = so.FindProperty(prop);
+                if (p != null) set(p); else Debug.LogWarning($"OODA: URP asset has no {prop}.");
+            }
+            Set("m_RenderScale", p => p.floatValue = 1f);
+            Set("m_MSAA", p => p.intValue = 4);
+            Set("m_SupportsHDR", p => p.boolValue = true);
+            Set("m_UpscalingFilter", p => p.intValue = 0); // automatic
+            Set("m_MainLightShadowsSupported", p => p.boolValue = true);
+            Set("m_MainLightShadowmapResolution", p => p.intValue = 4096);
+            Set("m_AdditionalLightsShadowmapResolution", p => p.intValue = 2048);
+            Set("m_ShadowDistance", p => p.floatValue = 3000f);
+            Set("m_ShadowCascadeCount", p => p.intValue = 4);
+            Set("m_Cascade4Split", p => p.vector3Value = new Vector3(0.02f, 0.08f, 0.3f)); // 60 m, 240 m, 900 m, 3 km
+            Set("m_SoftShadowsSupported", p => p.boolValue = true);
+            so.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(urp);
+
+            int current = QualitySettings.GetQualityLevel();
+            for (int i = 0; i < QualitySettings.names.Length; i++)
+            {
+                QualitySettings.SetQualityLevel(i, false);
+                QualitySettings.renderPipeline = urp;
+                QualitySettings.anisotropicFiltering = AnisotropicFiltering.ForceEnable;
+                QualitySettings.globalTextureMipmapLimit = 0;
+            }
+            QualitySettings.SetQualityLevel(current, false);
+
+            // The planes' and pilots' textures: mipmapped, and filtered well at the grazing angles a wing is seen at.
+            foreach (var guid in AssetDatabase.FindAssets("t:Texture2D", new[] { Art }))
+            {
+                var ti = AssetImporter.GetAtPath(AssetDatabase.GUIDToAssetPath(guid)) as TextureImporter;
+                if (ti == null || (ti.mipmapEnabled && ti.anisoLevel == 8)) continue;
+                ti.mipmapEnabled = true;
+                ti.anisoLevel = 8;
+                ti.SaveAndReimport();
+            }
+            Debug.Log($"OODA: quality tuned (URP {urp.name}: MSAA 4x, shadows 4096 to 3 km in 4 cascades; {QualitySettings.names.Length} quality levels, current {QualitySettings.names[current]}).");
         }
 
         // ---------- imports ----------

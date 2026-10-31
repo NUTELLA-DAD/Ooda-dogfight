@@ -30,7 +30,7 @@ namespace Ooda.EditorTools
         const string ScenePath = Root + "/Scenes/TurnBattle.unity";
 
         // Cartoon size, no glass: the wolf nearly overfills the cockpit with his forearms on the rails (0.82 fitted under the canopy).
-        static readonly TestWorldBuilder.Seat WolfSeat = new TestWorldBuilder.Seat { scale = 1.1f, lift = -0.15f, back = 0f, railHalfWidth = 0.36f, railHeight = 0.38f, railForward = 0.15f };
+        static readonly TestWorldBuilder.Seat WolfSeat = new TestWorldBuilder.Seat { scale = 1.35f, lift = -0.34f, back = 0f, railHalfWidth = 0.37f, railHeight = 0.42f, railForward = 0.22f };
         const float PlaneSmoothingAngle = 80f;
 
         [MenuItem("OODA/Build Turn Battle")]
