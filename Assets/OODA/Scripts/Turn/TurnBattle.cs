@@ -83,7 +83,7 @@ namespace Ooda.Turn
 
         void Start()
         {
-            lines = new LinePool(transform, "Lines");
+            lines = new LinePool(transform, "Lines") { sizeAt = W };
             tipMat = new Material(Shader.Find("Sprites/Default")) { color = arrowColor };
             flashMat = new Material(Shader.Find("Sprites/Default")) { color = new Color(1f, 0.9f, 0.4f, 1f) };
             var t = GameObject.CreatePrimitive(PrimitiveType.Sphere);
@@ -377,7 +377,6 @@ namespace Ooda.Turn
             player.ShowLive(me);
             enemy.ShowLive(battle.planes[1]);
             Vector3 c = PlayerPos;
-            float w = W(c);
 
             // The reach shell: its rim and four spokes, and where the nose is now
             var rim = new List<Vector3>();
@@ -386,13 +385,13 @@ namespace Ooda.Turn
                 double phi = 2 * Math.PI * k / 48;
                 rim.Add(c + UnityFrame.Dir(env.Direction(phi, env.MaxAngle(phi))) * arrowLength);
             }
-            lines.Strip(rim, w * 0.6f, shellColor, true);
-            for (int k = 0; k < 4; k++) lines.Line(c, rim[k * 12], w * 0.3f, shellColor * new Color(1, 1, 1, 0.5f));
-            lines.Line(c, c + UnityFrame.Dir(env.fwd) * arrowLength, w * 0.3f, new Color(1, 1, 1, 0.3f));
+            lines.Strip(rim, 0.6f, shellColor, true);
+            for (int k = 0; k < 4; k++) lines.Line(c, rim[k * 12], 0.3f, shellColor * new Color(1, 1, 1, 0.5f));
+            lines.Line(c, c + UnityFrame.Dir(env.fwd) * arrowLength, 0.3f, new Color(1, 1, 1, 0.3f));
 
             // The arrow
             Vector3 t = TipPos;
-            lines.Line(c, t, w * 1.2f, arrowColor);
+            lines.Line(c, t, 1.2f, arrowColor);
             tip.position = t;
             tip.localScale = Vector3.one * W(t) * 8f;
 
@@ -406,7 +405,7 @@ namespace Ooda.Turn
                 for (int i = 0; i < tr.points.Count; i += 2) pts.Add(UnityFrame.Pos(tr.points[i]));
                 pts.Add(UnityFrame.Pos(tr.points[tr.points.Count - 1]));
                 var col = tr.owner == 0 ? myTracer : theirTracer;
-                lines.Strip(pts, W(pts[0]) * 0.35f, col, false, new Color(col.r, col.g, col.b, 0.1f));
+                lines.Strip(pts, 0.35f, col, false, new Color(col.r, col.g, col.b, 0.1f));
             }
         }
 
@@ -416,13 +415,13 @@ namespace Ooda.Turn
             var pts = new List<Vector3>();
             for (int i = 0; i <= upTo; i += 3) pts.Add(UnityFrame.Pos(frames[i].pos));
             pts.Add(UnityFrame.Pos(frames[upTo].pos));
-            lines.Strip(pts, W(pts[pts.Count - 1]) * 0.8f, new Color(color.r, color.g, color.b, color.a * 0.35f), false, color);
+            lines.Strip(pts, 0.8f, new Color(color.r, color.g, color.b, color.a * 0.35f), false, color);
             if (!endMark) return;
             var f = frames[upTo];
             Vector3 p = UnityFrame.Pos(f.pos), fwd = UnityFrame.Dir(f.vel.Normalized), up = UnityFrame.Dir(f.up);
             Vector3 right = Vector3.Cross(up, fwd);
             float s = Mathf.Max(6f, W(p) * 25f);
-            float lw = W(p) * 1.2f;
+            float lw = 1.2f;
             lines.Line(p - right * s, p + right * s, lw, color);
             lines.Line(p - fwd * s * 0.8f, p + fwd * s * 0.5f, lw, color);
             lines.Line(p - fwd * s * 0.8f, p - fwd * s * 0.8f + up * s * 0.45f, lw, color);
@@ -451,7 +450,7 @@ namespace Ooda.Turn
                 if (p1 == null) continue;
                 var p0 = tr.At(now - 3) ?? tr.points[0];
                 Vector3 a = UnityFrame.Pos(p0), b = UnityFrame.Pos(p1.Value);
-                lines.Line(a, b, W(b) * 0.6f, tr.owner == 0 ? myTracer : theirTracer);
+                lines.Line(a, b, 0.6f, tr.owner == 0 ? myTracer : theirTracer);
             }
 
             // Hits: a flash where they land, and the damage so far shown as smoke
