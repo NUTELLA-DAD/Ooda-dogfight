@@ -41,8 +41,8 @@ namespace Ooda.Turn.Core
             var bomber = new FlightModel(AircraftNumbers.B17G(), PointMass.Make(start, Atmosphere.IasToTasKt(bomberKias, alt), heading));
             bomber.throttle = 0.8;
             Vec3d pPos = start + dir * -800 + right * 300 + new Vec3d(0, 0, 600);
-            var mustang = new FlightModel(AircraftNumbers.P51D(), PointMass.Make(pPos, Atmosphere.IasToTasKt(bomberKias + 30, pPos.z), heading));
-            mustang.throttle = 0.8;
+            var mustang = new FlightModel(AircraftNumbers.P51D(), PointMass.Make(pPos, Atmosphere.IasToTasKt(bomberKias + 10, pPos.z), heading));
+            mustang.throttle = 0.6;
             Vec3d sPos = start + dir * (aheadGapM / 0.3048) + right * -400 + new Vec3d(0, 0, 2000);
             var spit = new FlightModel(AircraftNumbers.SpitfireIX(), PointMass.Make(sPos, Atmosphere.IasToTasKt(300, sPos.z), heading + Math.PI));
             spit.throttle = 1;
