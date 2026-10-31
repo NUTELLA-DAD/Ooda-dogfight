@@ -333,6 +333,7 @@ namespace Ooda.EditorTools
             tb.bomber = b17.GetComponent<TurnAircraftView>();
             tb.escortRoute = (Vector3[])AlpineWorld.EscortRoute.Clone();
             tb.bomberKias = 135;
+            tb.squadronGapM = 8000;   // the 109s start 8 km up the valley: a few turns in formation before they arrive
             // the squadron battle: the rest of each side is made from these at the start
             tb.wingmanPrefab = wingmanPrefab;
             tb.enemyPrefab = enemyPrefab;
