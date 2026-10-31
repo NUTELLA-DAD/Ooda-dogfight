@@ -316,6 +316,14 @@ PrefabInstance:
       propertyPath: m_Name
       value: P51
       objectReference: {fileID: 0}
+    - target: {fileID: 2285500499473957907, guid: b0c85af7bcaa5c647ab8e497f0584373, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2285500499473957907, guid: b0c85af7bcaa5c647ab8e497f0584373, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 4.4274783
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects:

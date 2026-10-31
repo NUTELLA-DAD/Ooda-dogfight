@@ -30,6 +30,8 @@ namespace Ooda.EditorTools
         const string PrefabPath = Root + "/Prefabs/P51.prefab";
 
         const float PilotScale = 1.2f;
+        const float PlaneSmoothingAngle = 80f;
+        const float PropellerForward = 0.3f; // metres: the blades sit inside the cowl lip as modelled
         const float WorldSize = 20000f, WorldHeight = 1400f, SeaFloor = -80f;
 
         [MenuItem("OODA/Build Test World")]
@@ -73,6 +75,11 @@ namespace Ooda.EditorTools
             plane.materialImportMode = ModelImporterMaterialImportMode.None;
             plane.animationType = ModelImporterAnimationType.None;
             plane.importAnimation = false;
+            // The file's own normals are noisy, which shows as jagged glints on the polished metal: let Unity smooth them.
+            plane.importNormals = ModelImporterNormals.Calculate;
+            plane.normalSmoothingSource = ModelImporterNormalSmoothingSource.FromAngle;
+            plane.normalSmoothingAngle = PlaneSmoothingAngle;
+            plane.importTangents = ModelImporterTangents.CalculateMikk;
             plane.SaveAndReimport();
 
             var pilot = (ModelImporter)AssetImporter.GetAtPath(PilotFbx);
@@ -230,6 +237,7 @@ namespace Ooda.EditorTools
             var spin = root.AddComponent<PropellerSpin>();
             spin.aircraft = ac;
             spin.propeller = FindDeep(model.transform, "P51_Propeller");
+            if (spin.propeller != null) spin.propeller.position += root.transform.forward * PropellerForward;
 
             var mount = FindDeep(model.transform, "PilotMount");
             if (mount == null) { Debug.LogWarning("OODA: no PilotMount in P51.fbx."); mount = root.transform; }

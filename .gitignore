@@ -35,3 +35,6 @@ Tools~/FlightCoreCheck/obj/
 
 .DS_Store
 Thumbs.db
+
+# OODA > Plane Shots renders
+Shots~/
