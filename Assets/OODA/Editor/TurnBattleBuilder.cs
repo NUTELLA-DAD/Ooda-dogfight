@@ -43,6 +43,7 @@ namespace Ooda.EditorTools
             var wolfMat = TestWorldBuilder.Textured("WolfPilot", Art + "/WolfPilot/Wolf_BaseColor.png", Art + "/WolfPilot/Wolf_MetallicSmoothness.png");
             var wolfCtrl = MakeSeatedAnimator(WolfFbx, "WolfPilot");
             var spit = MakeSpitfirePrefab(mats, spitMat, wolfMat, wolfCtrl);
+            MakeB17Prefab();
             MakeScene(spit);
             AssetDatabase.SaveAssets();
             Debug.Log("OODA: turn battle built. Press Play.");
@@ -133,6 +134,48 @@ namespace Ooda.EditorTools
             pilot.AddComponent<PilotHeadLook>();
 
             var saved = PrefabUtility.SaveAsPrefabAsset(root, SpitPrefabPath);
+            Object.DestroyImmediate(root);
+            return saved;
+        }
+
+        // ---------- the B-17 ----------
+
+        const string B17Fbx = Art + "/B17/B17.fbx";
+        const string B17PrefabPath = Root + "/Prefabs/B17.prefab";
+
+        /// <summary>The bomber for the escort: no crew yet, four propellers each turned by its own PropellerSpin.</summary>
+        static GameObject MakeB17Prefab()
+        {
+            var imp = (ModelImporter)AssetImporter.GetAtPath(B17Fbx);
+            imp.materialImportMode = ModelImporterMaterialImportMode.None;
+            imp.animationType = ModelImporterAnimationType.None;
+            imp.importAnimation = false;
+            imp.importNormals = ModelImporterNormals.Calculate;
+            imp.normalSmoothingSource = ModelImporterNormalSmoothingSource.FromAngle;
+            imp.normalSmoothingAngle = PlaneSmoothingAngle;
+            imp.importTangents = ModelImporterTangents.CalculateMikk;
+            imp.SaveAndReimport();
+            var ms = (TextureImporter)AssetImporter.GetAtPath(Art + "/B17/B17_MetallicSmoothness.png");
+            if (ms.sRGBTexture) { ms.sRGBTexture = false; ms.SaveAndReimport(); }
+            var body = TestWorldBuilder.Textured("B17", Art + "/B17/B17_BaseColor.png", Art + "/B17/B17_MetallicSmoothness.png");
+
+            var root = new GameObject("B17");
+            root.AddComponent<TurnAircraftView>();
+            var model = (GameObject)PrefabUtility.InstantiatePrefab(AssetDatabase.LoadAssetAtPath<GameObject>(B17Fbx));
+            model.transform.SetParent(root.transform, false);
+            foreach (var r in model.GetComponentsInChildren<Renderer>())
+                r.sharedMaterials = Enumerable.Repeat(body, r.sharedMaterials.Length).ToArray();
+            for (int i = 0; i < 4; i++)
+            {
+                var spin = root.AddComponent<PropellerSpin>();
+                spin.propeller = TestWorldBuilder.FindDeep(model.transform, $"B17_Prop{i}");
+                spin.maxRpm = 1400;   // the Cyclone's 2,500 rpm through the 0.5625 reduction gear
+                if (spin.propeller == null) Debug.LogWarning($"OODA: no B17_Prop{i} in B17.fbx.");
+            }
+            float propZ = Enumerable.Range(0, 4).Select(i => TestWorldBuilder.FindDeep(model.transform, $"B17_Prop{i}")).Where(p => p != null).Average(p => p.position.z);
+            var b = model.GetComponentsInChildren<Renderer>().Select(r => r.bounds).Aggregate((x, y) => { x.Encapsulate(y); return x; });
+            Debug.Log($"OODA: B-17 prefab made: {b.size.x:F1} m span, {b.size.z:F1} m long, propellers {(propZ > b.center.z ? "ahead (+z)" : "behind (-z)")} of its middle, so the nose points {(propZ > b.center.z ? "+z like the Spitfire" : "-z: CHECK")}.");
+            var saved = PrefabUtility.SaveAsPrefabAsset(root, B17PrefabPath);
             Object.DestroyImmediate(root);
             return saved;
         }

@@ -373,7 +373,7 @@ namespace Ooda.EditorTools
 
             var terrain = AlpineWorld.Build(mats);
             MakeSea(mats);
-            MakeClouds(mats, terrain);
+            AlpineWorld.MakeClouds(terrain);
 
             // free flight starts low over the lake at the foot of the main valley, heading up it
             var plane = (GameObject)PrefabUtility.InstantiatePrefab(planePrefab);
@@ -418,33 +418,5 @@ namespace Ooda.EditorTools
             sea.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
         }
 
-        static void MakeClouds(Mats mats, Terrain terrain)
-        {
-            var parent = new GameObject("Clouds").transform;
-            var rnd = new System.Random(7);
-            float R(float a, float b) => a + (float)rnd.NextDouble() * (b - a);
-            for (int i = 0, tries = 0; i < 160 && tries < 2000; tries++)
-            {
-                // among the peaks, but clear of the rock
-                var at = new Vector3(R(-15000, 15000), R(2400, 4600), R(-15000, 15000));
-                if (terrain.SampleHeight(at) + terrain.transform.position.y > at.y - 350f) continue;
-                var cloud = new GameObject($"Cloud {i++}").transform;
-                cloud.SetParent(parent);
-                cloud.position = at;
-                int puffs = rnd.Next(4, 8);
-                for (int p = 0; p < puffs; p++)
-                {
-                    var s = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                    Object.DestroyImmediate(s.GetComponent<Collider>()); // fly through clouds
-                    s.transform.SetParent(cloud, false);
-                    float size = R(90, 260);
-                    s.transform.localPosition = new Vector3(R(-250, 250), R(-30, 60), R(-180, 180));
-                    s.transform.localScale = new Vector3(size * 1.4f, size * 0.7f, size);
-                    var rend = s.GetComponent<Renderer>();
-                    rend.sharedMaterial = mats.cloud;
-                    rend.shadowCastingMode = ShadowCastingMode.Off;
-                }
-            }
-        }
     }
 }

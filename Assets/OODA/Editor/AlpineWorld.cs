@@ -617,7 +617,7 @@ namespace Ooda.EditorTools
 
             Vector3 centre = rail[(k0 + k1) / 2];
             string name = $"Bridge {n} ({(viaduct ? "stone viaduct" : "steel truss")}, {length:F0} m long, {depth:F0} m high)";
-            var go = MeshObject(name, SaveMesh(mb, $"Bridge{n}"), viaduct ? new[] { m.stone, m.stone } : new[] { m.steel, m.stone }, root);
+            var go = MeshObject(name, SaveMesh(mb, $"Bridge{n}"), viaduct ? new[] { m.stone, m.stone } : new[] { m.steel, m.stone }, root, true);
             // a marker for the shot tools: where the middle is and which way the bridge runs
             var mark = new GameObject($"Bridge {n} centre").transform;
             mark.SetParent(go.transform, false);
@@ -643,7 +643,7 @@ namespace Ooda.EditorTools
             Vector3 b = at + Vector3.down * BedDepth;
             mb.Box(b + rot * new Vector3(0, 5f, -1.5f), rot, new Vector3(11f, 10f, 3f), 0);
             mb.Box(b + rot * new Vector3(0, 3f, -1.2f), rot, new Vector3(5.5f, 6.2f, 3.1f), 1);
-            MeshObject(name, SaveMesh(mb, name.Replace(" ", "")), new[] { m.stone, m.dark }, root);
+            MeshObject(name, SaveMesh(mb, name.Replace(" ", "")), new[] { m.stone, m.dark }, root, true);
         }
 
         // ---------- lakes and the village ----------
@@ -693,7 +693,7 @@ namespace Ooda.EditorTools
                 foreach (float side in new[] { -1f, 1f })
                     mb.Box(c + new Vector3(side * 3.6f, 14.3f, 0), Quaternion.Euler(0, 0, side * 40), new Vector3(10.5f, 0.5f, 23f), 2);
             }
-            MeshObject("Village", SaveMesh(mb, "Village"), new[] { m.plaster, m.wood, m.roof }, null);
+            MeshObject("Village", SaveMesh(mb, "Village"), new[] { m.plaster, m.wood, m.roof }, null, true);
             Debug.Log($"OODA: a village of {placed.Count} chalets and a church.");
         }
 
@@ -707,14 +707,119 @@ namespace Ooda.EditorTools
             return mesh;
         }
 
-        static GameObject MeshObject(string name, Mesh mesh, Material[] mats, Transform parent)
+        /// <param name="obstacle">Solid: a MeshCollider on the Obstacles layer, which the turn battle's linecasts crash planes and stop rounds on.</param>
+        static GameObject MeshObject(string name, Mesh mesh, Material[] mats, Transform parent, bool obstacle = false)
         {
             var go = new GameObject(name);
             if (parent != null) go.transform.SetParent(parent, false);
             go.AddComponent<MeshFilter>().sharedMesh = mesh;
             go.AddComponent<MeshRenderer>().sharedMaterials = mats;
             go.isStatic = true;
+            if (obstacle)
+            {
+                go.AddComponent<MeshCollider>().sharedMesh = mesh;
+                go.layer = ObstacleLayerIndex();
+            }
             return go;
+        }
+
+        // ---------- the Obstacles layer ----------
+
+        public const string ObstacleLayer = "Obstacles";
+
+        /// <summary>The Obstacles layer's index, adding it to the project's layers (in the first free user slot) if it is missing.</summary>
+        public static int ObstacleLayerIndex()
+        {
+            int have = LayerMask.NameToLayer(ObstacleLayer);
+            if (have >= 0) return have;
+            var tags = new SerializedObject(AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset")[0]);
+            var layers = tags.FindProperty("layers");
+            for (int i = 8; i < layers.arraySize; i++)
+                if (string.IsNullOrEmpty(layers.GetArrayElementAtIndex(i).stringValue))
+                {
+                    layers.GetArrayElementAtIndex(i).stringValue = ObstacleLayer;
+                    tags.ApplyModifiedPropertiesWithoutUndo();
+                    Debug.Log($"OODA: added the {ObstacleLayer} layer as layer {i}.");
+                    return i;
+                }
+            Debug.LogError($"OODA: no free layer for {ObstacleLayer}.");
+            return 0;
+        }
+
+        // ---------- clouds ----------
+
+        const string CloudFbx = "Assets/OODA/Art/Cloud/Cloud.fbx";
+
+        /// <summary>The stylized cloud model scattered in three layers among the peaks, with some low ones lying in the valleys.</summary>
+        public static void MakeClouds(Terrain terrain)
+        {
+            var imp = (ModelImporter)AssetImporter.GetAtPath(CloudFbx);
+            imp.materialImportMode = ModelImporterMaterialImportMode.None;
+            imp.animationType = ModelImporterAnimationType.None;
+            imp.importAnimation = false;
+            imp.SaveAndReimport();
+            var ms = (TextureImporter)AssetImporter.GetAtPath("Assets/OODA/Art/Cloud/Cloud_MetallicSmoothness.png");
+            if (ms.sRGBTexture) { ms.sRGBTexture = false; ms.SaveAndReimport(); }
+            var mat = TestWorldBuilder.Textured("Cloud3D", "Assets/OODA/Art/Cloud/Cloud_BaseColor.png", "Assets/OODA/Art/Cloud/Cloud_MetallicSmoothness.png");
+            mat.SetFloat("_Metallic", 0f);         // vapour, not metal: the map's smoothness still shapes the highlights
+            var model = AssetDatabase.LoadAssetAtPath<GameObject>(CloudFbx);
+            // the model is meant to be 100 m long: measure what the import gives and make up the difference
+            var probe = (GameObject)PrefabUtility.InstantiatePrefab(model);
+            var pb = probe.GetComponentsInChildren<Renderer>().Select(r => r.bounds).Aggregate((x, y) => { x.Encapsulate(y); return x; });
+            Object.DestroyImmediate(probe);
+            float length = Mathf.Max(pb.size.x, pb.size.z);
+            float fit = length > 1f ? 100f / length : 1f;
+            Debug.Log($"OODA: Cloud.fbx imports {pb.size.x:F1} x {pb.size.y:F1} x {pb.size.z:F1} m; scaled by {fit:F2} to 100 m long.");
+
+            var parent = new GameObject("Clouds").transform;
+            var rnd = new System.Random(7);
+            float R(float a, float b) => a + (float)rnd.NextDouble() * (b - a);
+            float Ground(float x, float z) => terrain.SampleHeight(new Vector3(x, 0, z)) + terrain.transform.position.y;
+            int made = 0, low = 0;
+            void Place(Vector3 at, float scale)
+            {
+                var c = (GameObject)PrefabUtility.InstantiatePrefab(model);
+                c.name = $"Cloud {made++}";
+                c.transform.SetParent(parent, false);
+                c.transform.SetPositionAndRotation(at, Quaternion.Euler(0, R(0, 360), 0));
+                c.transform.localScale = Vector3.one * scale * fit;
+                foreach (var r in c.GetComponentsInChildren<Renderer>())
+                {
+                    r.sharedMaterials = Enumerable.Repeat(mat, r.sharedMaterials.Length).ToArray();
+                    r.shadowCastingMode = ShadowCastingMode.Off;
+                }
+            }
+            // clear of the rock under the whole cloud, not only its middle (the model is 100 m long at scale 1)
+            bool Clear(Vector3 at, float scale, float margin)
+            {
+                float reach = 55f * scale;
+                foreach (var d in new[] { Vector2.zero, V(reach, 0), V(-reach, 0), V(0, reach), V(0, -reach) })
+                    if (Ground(at.x + d.x, at.z + d.y) > at.y - margin) return false;
+                return true;
+            }
+            var bands = new[] { (2400f, 3000f, 45), (3200f, 3800f, 45), (4200f, 4800f, 30) };
+            foreach (var (lo, hi, count) in bands)
+                for (int n = 0, tries = 0; n < count && tries < 3000; tries++)
+                {
+                    float scale = R(0.6f, 2.5f);
+                    var at = new Vector3(R(-15000, 15000), R(lo, hi), R(-15000, 15000));
+                    if (!Clear(at, scale, 120f)) continue;
+                    Place(at, scale);
+                    n++;
+                }
+            // low cloud in the valleys: a few hundred metres over the floor, where the ground is low
+            for (int tries = 0; low < 25 && tries < 6000; tries++)
+            {
+                float x = R(-8500, 8500), z = R(-8500, 8500);
+                float g = Ground(x, z);
+                if (g < 250 || g > 1000) continue;
+                float scale = R(0.6f, 1.6f);
+                var at = new Vector3(x, g + R(150, 450), z);
+                if (!Clear(at, scale, 60f)) continue;
+                Place(at, scale);
+                low++;
+            }
+            Debug.Log($"OODA: {made} clouds, {low} of them low in the valleys.");
         }
 
         /// <summary>Boxes, cones and discs with flat normals, gathered into one mesh with a submesh per material.</summary>

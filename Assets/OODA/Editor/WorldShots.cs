@@ -54,6 +54,27 @@ namespace Ooda.EditorTools
                 Shot(cam, rt, dir, $"world_bridge{n}_close", low, m.position);
             }
 
+            // the clouds: up the valley from low over the lake, and among the peaks from high
+            Shot(cam, rt, dir, "world_clouds_valley", new Vector3(0, 900, -9500), new Vector3(0, 1700, -2500));
+            Shot(cam, rt, dir, "world_clouds_high", new Vector3(-3000, 3400, -7000), new Vector3(1000, 3000, 0));
+
+            // the B-17 prefab, alone in the sky over the map
+            var b17 = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/OODA/Prefabs/B17.prefab");
+            if (b17 != null)
+            {
+                var b = (GameObject)PrefabUtility.InstantiatePrefab(b17);
+                b.transform.position = new Vector3(0, 2600, -3000);
+                float near = cam.nearClipPlane, fov = cam.fieldOfView;
+                cam.nearClipPlane = 0.3f;
+                cam.fieldOfView = 40f;
+                Shot(cam, rt, dir, "b17_front34", b.transform.position + new Vector3(-30, 9, 38), b.transform.position + new Vector3(0, 0, 2));
+                Shot(cam, rt, dir, "b17_side", b.transform.position + new Vector3(-60, 4, 0), b.transform.position);
+                Shot(cam, rt, dir, "b17_top", b.transform.position + new Vector3(0, 55, -10), b.transform.position);
+                cam.nearClipPlane = near;
+                cam.fieldOfView = fov;
+                Object.DestroyImmediate(b);
+            }
+
             var village = GameObject.Find("Village");
             if (village != null)
             {
