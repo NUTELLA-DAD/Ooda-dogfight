@@ -30,6 +30,10 @@ namespace Ooda.CameraSystem
         public float cockpitFov = 75f;
         public Vector2 lookLimits = new Vector2(160f, 80f);
 
+        [Header("Buffet")]
+        [Tooltip("Shake in degrees at the stall line, and in a departure or spin.")]
+        public float stallBuffetDeg = 0.5f, departureBuffetDeg = 1.2f;
+
         Camera cam;
         Vector3 chasePos;
         Vector3 chaseUp = Vector3.up;
@@ -50,6 +54,17 @@ namespace Ooda.CameraSystem
             look = Vector2.zero;
         }
 
+        /// <summary>The airframe shaking at the stall: a small fast wobble, stronger once it departs.</summary>
+        Quaternion Buffet()
+        {
+            var m = aircraft.Model;
+            if (m == null || aircraft.Crashed) return Quaternion.identity;
+            float amp = m.Departed ? departureBuffetDeg : m.stalled ? stallBuffetDeg : 0f;
+            if (amp <= 0) return Quaternion.identity;
+            float t = Time.time * 18f;
+            return Quaternion.Euler((Mathf.PerlinNoise(t, 1.3f) - 0.5f) * 2f * amp, (Mathf.PerlinNoise(2.7f, t) - 0.5f) * 2f * amp, 0);
+        }
+
         void LateUpdate()
         {
             if (aircraft == null || aircraft.Input == null) return;
@@ -66,7 +81,7 @@ namespace Ooda.CameraSystem
                 look += new Vector2(lookIn.x, -lookIn.y);
                 look.x = Mathf.Clamp(look.x, -lookLimits.x, lookLimits.x);
                 look.y = Mathf.Clamp(look.y, -lookLimits.y * 0.5f, lookLimits.y);
-                transform.SetPositionAndRotation(cockpitEye.position, plane.rotation * Quaternion.Euler(-look.y, look.x, 0));
+                transform.SetPositionAndRotation(cockpitEye.position, plane.rotation * Quaternion.Euler(-look.y, look.x, 0) * Buffet());
                 cam.fieldOfView = cockpitFov;
                 return;
             }
@@ -86,7 +101,7 @@ namespace Ooda.CameraSystem
             if (rel.magnitude > distance * 1.6f) chasePos = plane.position + rel.normalized * distance * 1.6f;
 
             Vector3 aim = plane.position + plane.forward * lookAhead * (looking ? 0.2f : 1f);
-            transform.SetPositionAndRotation(chasePos, Quaternion.LookRotation(aim - chasePos, chaseUp));
+            transform.SetPositionAndRotation(chasePos, Quaternion.LookRotation(aim - chasePos, chaseUp) * Buffet());
             cam.fieldOfView = Mathf.Lerp(baseFov, fastFov, Mathf.InverseLerp(150, fastKias, aircraft.Kias));
         }
     }

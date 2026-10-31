@@ -165,15 +165,23 @@ namespace Ooda.EditorTools
             {
                 plane = Textured("P51", Art + "/P51/P51_BaseColor.png", Art + "/P51/P51_MetallicSmoothness.png"),
                 pilot = Textured("TigerPilot", Art + "/TigerPilot/Pilot_BaseColor.png", Art + "/TigerPilot/Pilot_MetallicSmoothness.png"),
-                canopy = Mat("P51_CanopyGlass", new Color(0.85f, 0.92f, 1f, 0.22f), 0.95f),
+                canopy = Mat("P51_CanopyGlass", new Color(0.92f, 0.96f, 1f, 0.06f), 0.8f),
                 cockpit = Mat("P51_Cockpit", new Color(0.13f, 0.15f, 0.10f), 0.2f),
                 water = Mat("Sea", new Color(0.08f, 0.22f, 0.35f), 0.85f),
                 cloud = Mat("Cloud", new Color(1f, 1f, 1f), 0f),
                 towerRed = Mat("TowerRed", new Color(0.8f, 0.12f, 0.1f), 0.3f),
                 towerWhite = Mat("TowerWhite", new Color(0.92f, 0.92f, 0.9f), 0.3f),
             };
-            r.canopy.SetTexture("_BaseMap", AssetDatabase.LoadAssetAtPath<Texture2D>(Art + "/P51/P51_BaseColor.png"));
+            // clear glass: no painted texture (it had baked reflections in it), no sky reflections, only the sun's glint,
+            // and seen from outside only, so it is clear from the cockpit
+            r.canopy.SetTexture("_BaseMap", null);
+            r.canopy.SetTexture("_MainTex", null);
             MakeTransparent(r.canopy);
+            r.canopy.SetFloat("_Cull", (float)CullMode.Back);
+            r.canopy.SetFloat("_EnvironmentReflections", 0);
+            r.canopy.EnableKeyword("_ENVIRONMENTREFLECTIONS_OFF");
+            r.canopy.SetFloat("_BlendModePreserveSpecular", 0); // straight alpha: the glint fades with the glass
+            r.canopy.DisableKeyword("_ALPHAPREMULTIPLY_ON");
             r.cloud.SetColor("_EmissionColor", new Color(0.35f, 0.35f, 0.38f));
             r.cloud.EnableKeyword("_EMISSION");
 

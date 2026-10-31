@@ -68,6 +68,27 @@ static class Program
         c.roll = 0; c.pitch = 1; double maxG = 0;
         for (int i = 0; i < 50 * 10; i++) { fm.Step(c, 0.02); maxG = Math.Max(maxG, fm.g); }
         Console.WriteLine($"  10 s full aft stick: peaked {maxG:F1} G, now {fm.Ktas:F0} KTAS, {fm.g:F1} G, stalled {fm.stalled}");
+
+        // Departure: slow, full aft stick and right rudder, then recovery
+        var sp = new FlightModel(p, PointMass.Make(new Vec3d(0, 0, 10000), 150, Math.PI / 2));
+        var sc = new FlightControls { throttle = 0.5, pitch = 1, yaw = 1 };
+        double clock = 0; string seen = "";
+        void Fly(double secs) { for (int i = 0; i < (int)(secs / 0.02); i++) { sp.Step(sc, 0.02); clock += 0.02; string d = sp.departure.ToString(); if (!seen.EndsWith(d)) { seen += $" {clock:F1}s:{d}"; } } }
+        Fly(8);
+        Console.WriteLine($"  spin entry (full aft, right rudder, from 150 KTAS): {seen.Trim()}");
+        Console.WriteLine($"    after 8 s: {sp.departure} dir {sp.spinDir}, {sp.Kias:F0} KIAS, roll {sp.rollRateDps:F0} deg/s, path {Math.Asin(sp.Forward.z) * 180 / Math.PI:F0} deg, lost {10000 - sp.AltFt:F0} ft");
+        seen = ""; double alt0 = sp.AltFt; sc = new FlightControls { throttle = 0, pitch = -0.3, yaw = -1 };
+        Fly(6);
+        Console.WriteLine($"  recovery (throttle idle, left rudder, stick forward): {seen.Trim()}, lost {alt0 - sp.AltFt:F0} ft, {sp.Kias:F0} KIAS");
+        sc = new FlightControls { throttle = 1, pitch = 0.3 }; Fly(6);
+        Console.WriteLine($"  pull out: {sp.departure}, {sp.Kias:F0} KIAS, path {Math.Asin(sp.Forward.z) * 180 / Math.PI:F0} deg");
+        // Holding pro-spin without rudder: does it still depart (wing drop)?
+        var ws = new FlightModel(p, PointMass.Make(new Vec3d(0, 0, 10000), 150, Math.PI / 2));
+        for (int i = 0; i < 400; i++) ws.Step(new FlightControls { throttle = 0.5, pitch = 1 }, 0.02);
+        Console.WriteLine($"  full aft, no rudder, 8 s: {ws.departure} dir {ws.spinDir}");
+        var fast = new FlightModel(p, PointMass.Make(new Vec3d(0, 0, 10000), 300, Math.PI / 2));
+        for (int i = 0; i < 150; i++) fast.Step(new FlightControls { throttle = 1, pitch = 1 }, 0.02);
+        Console.WriteLine($"  full aft at 300 KTAS, 3 s (fast, should not depart yet): {fast.departure}, {fast.g:F1} G, {fast.Kias:F0} KIAS");
         return fails;
     }
 }

@@ -51,6 +51,17 @@ namespace Ooda.Flight.Core
         public double alphaZeroLiftDeg = -1;
         public double alphaStallDeg = 16;
 
+        // Departure and spin (estimates to tune by feel; the point mass has no rotation of its own, so these drive it)
+        public double departureStallMarginG = 0.75; // G asked beyond the stall line before a departure starts building
+        public double departureSec = 0.8;           // seconds of that (less with rudder or aileron) before a wing drops
+        public double incipientSec = 2.5;           // the incipient phase; held pro-spin past it, the spin develops
+        public double spinRateDps = 150;            // developed autorotation, about 2.4 s a turn
+        public double spinAlphaDeg = 40;            // the nose sits this far above the falling path
+        public double spinLiftFraction = 0.3;       // the stalled wing's lift against the stall line
+        public double spinDragPerWeight = 0.9;      // extra drag at 120 KIAS, so the spin settles near that speed
+        public double incipientRecoverySec = 0.8;   // stick forward held this long gets out of an incipient spin
+        public double spinRecoverySec = 2.5;        // opposite rudder and stick forward held this long stops a developed one
+
         /// <summary>The most G the wing gives at this speed before it stalls: (KIAS / stall speed)^2.</summary>
         public double StallLimitG(double kias) => (kias / stallKias) * (kias / stallKias);
 

@@ -36,6 +36,12 @@ namespace Ooda.UI
             GUI.Label(new Rect(x, y + 120, 400, 24), $"Ps {m.excess * m.Ktas * 1.68781 * 60,6:F0} ft/min   roll {m.rollRateDps,4:F0} deg/s", small);
 
             if (aircraft.Crashed) GUI.Label(new Rect(0, Screen.height * 0.35f, Screen.width, 60), "CRASHED", warn);
+            else if (m.departure == Ooda.Flight.Core.Departure.Spin)
+            {
+                GUI.Label(new Rect(0, Screen.height * 0.35f, Screen.width, 60), m.spinDir > 0 ? "SPIN RIGHT" : "SPIN LEFT", warn);
+                GUI.Label(new Rect(0, Screen.height * 0.35f + 50, Screen.width, 30), $"throttle idle, {(m.spinDir > 0 ? "LEFT" : "RIGHT")} rudder, stick forward, hold", new GUIStyle(small) { alignment = TextAnchor.MiddleCenter });
+            }
+            else if (m.departure == Ooda.Flight.Core.Departure.Incipient) GUI.Label(new Rect(0, Screen.height * 0.35f, Screen.width, 60), "DEPARTURE", warn);
             else if (m.stalled) GUI.Label(new Rect(0, Screen.height * 0.35f, Screen.width, 60), "STALL", warn);
 
             if (showHelp)
