@@ -2,11 +2,31 @@
 
 An open-world WW2 dogfighting game in Unity: arcade-paced like a space-shooter, but free-roaming instead of on rails. The flight model is the OODA tool's point-mass model (`dads-debreif`, `src/core/point-mass.js`), ported to C#.
 
-## Milestone 1: fly the P-51
+## Milestone 1: fly the P-51 (now the sandbox)
 
 - A P-51D with a spinning propeller, a clear canopy, and the tiger pilot seated inside (Humanoid rig) who looks into the turn.
 - The OODA flight model: G and roll from the stick, energy from thrust minus drag, the stall line and the G limits, smoothed G onset and roll. No assists: let go in a bank and it stays banked.
 - Chase and cockpit cameras, a tuning HUD, and a test island with sea, hills, clouds and towers.
+
+## The game: turn-based dogfight (Mustang against Spitfire)
+
+Each turn lasts 3 seconds, and both pilots plan at the same time. You drag a flight-path arrow to say where the nose should point when the turn ends, inside a white ring that shows how far the aircraft can turn in 3 s. The aircraft flies the best roll and pull to get there, with the same flight model as free flight. A blue ghost path shows where you will go. Orange tracers show where your rounds will go: they arc and take time to arrive, so you must lead the target. A red line shows the Spitfire if it keeps doing what it's doing. Then press **Fly turn**: the AI plans without seeing your plan, both aircraft fly, and the turn plays back. Shoot it down to win; get shot down or hit the ground and you lose.
+
+Build it with **OODA > Build Turn Battle** (after Build Test World), open `Assets/OODA/Scenes/TurnBattle.unity`, and press Play. The free-flight `TestWorld` stays as the sandbox.
+
+| | Mouse and touch | Keyboard | Gamepad |
+|---|---|---|---|
+| Move the arrow | Drag the yellow tip | WASD or the arrow keys | Left stick |
+| Straight ahead | | X | Left bumper |
+| Throttle, WEP | Slider, WEP box | Shift / Ctrl, Space | Triggers |
+| Gun burst | Drag on the timeline (a tap clears it) | B steps through bursts, F fires where hits are predicted | X, right bumper |
+| Fly the turn | Fly turn button | Enter | A |
+| Replay, restart | Buttons | R, Backspace | B, Start |
+| Look around, zoom | Drag away from the tip, right-drag, wheel | + / - | Right stick, d-pad |
+| Camera (player, Spitfire, both, cockpit) | View button | V | Right stick press |
+| Enemy projection on or off | Projection button | P | Y |
+
+The turn engine is plain C# in `Assets/OODA/Scripts/Turn/Core/`: the autopilot that flies the arrow (`AutoPilot.cs`), the reach ring (`Envelope.cs`), guns and hits (`Combat.cs`, `Battle.cs`), the AI (`EnemyAi.cs`) and the start (`Scenarios.cs`). Damage is simple hit points for now; each hit already records where it struck, for hit locations later. The Spitfire IX's numbers and both aircraft's gun numbers are estimates from public figures, to tune by feel.
 
 ## First run
 
@@ -53,8 +73,10 @@ The P-51D's numbers are in `Assets/OODA/Settings/P51D.asset` (made by Build Test
 | `Assets/OODA/Scripts/Pilot/PilotHeadLook.cs` | The pilot's look-at IK |
 | `Assets/OODA/Scripts/UI/FlightHud.cs` | The readout |
 | `Assets/OODA/Editor/TestWorldBuilder.cs` | The OODA > Build Test World menu item |
-| `Assets/OODA/Art/` | The cleaned P-51 (48k triangles) and the rigged tiger pilot, with 2K textures |
-| `Tools~/FlightCoreCheck/` | Checks the C# core against the OODA tool's JavaScript (Unity ignores this folder) |
+| `Assets/OODA/Art/` | The cleaned P-51 (48k triangles) and the rigged tiger pilot; the Spitfire IX (106k) and the rigged wolf pilot; 2K textures |
+| `Assets/OODA/Scripts/Turn/` | The turn battle: `TurnBattle` (planning, playback, screen), `TurnAircraftView`, `TurnCamera`, `LinePool`; the turn engine in `Core/` |
+| `Assets/OODA/Editor/TurnBattleBuilder.cs` | The OODA > Build Turn Battle menu item: the Spitfire prefab and the `TurnBattle` scene |
+| `Tools~/FlightCoreCheck/` | Checks the C# core against the OODA tool's JavaScript, and the turn engine (Unity ignores this folder) |
 
 ## Checking the port
 
@@ -65,4 +87,4 @@ cd Tools~/FlightCoreCheck
 dotnet run -- <path to dads-debreif>/src/core
 ```
 
-It also prints the P-51D's top speeds, climb, turn and roll numbers.
+It also prints both aircraft's top speeds, climb, turn and roll numbers, then checks the turn engine: the reach ring, the autopilot arriving on the arrow, rounds hitting and dropping, and two AI pilots fighting from the head-on start.
