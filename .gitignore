@@ -1,0 +1,37 @@
+# Unity
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+/[Rr]ecordings/
+*.pidb.meta
+*.pdb.meta
+*.mdb.meta
+sysinfo.txt
+crashlytics-buildsettings.txt
+*.apk
+*.aab
+*.unitypackage
+*.app
+
+# IDEs
+.vs/
+.vscode/
+.idea/
+*.csproj
+*.sln
+*.suo
+*.user
+*.userprefs
+
+# The flight core checker's build output (Tools~ is ignored by Unity)
+Tools~/FlightCoreCheck/bin/
+Tools~/FlightCoreCheck/obj/
+!Tools~/FlightCoreCheck/FlightCoreCheck.csproj
+
+.DS_Store
+Thumbs.db
