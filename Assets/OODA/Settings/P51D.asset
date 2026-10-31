@@ -1,0 +1,40 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: da8084958e74a884eb2e93da4c3e1dc6, type: 3}
+  m_Name: P51D
+  m_EditorClassIdentifier: Assembly-CSharp::Ooda.Flight.AircraftPerformance
+  numbers:
+    name: P-51D Mustang
+    maxG: 8
+    minG: -4
+    stallKias: 90
+    negStallKias: 115
+    vneKias: 440
+    rollPerKtasDps: 0.45
+    maxRollRateDps: 100
+    rollFullRateSec: 0.3
+    stalledRollFactor: 0.3
+    gOnsetGps: 6
+    gOnsetAccelGps2: 24
+    rudderSideG: 0.35
+    rudderFullKias: 180
+    sideslipDragPerG: 0.05
+    thrustK: 76.4
+    thrustV0Kt: 40
+    thrustDensityExp: 0.9
+    thrustFlatSigma: 0.553
+    maxStaticThrustPerWeight: 0.45
+    wepFactor: 1.15
+    dragA: 0.000001399
+    dragB: 843.6
+    alphaZeroLiftDeg: -1
+    alphaStallDeg: 16

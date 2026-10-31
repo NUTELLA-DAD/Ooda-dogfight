@@ -94,6 +94,9 @@ namespace Ooda.EditorTools
             }
             pilot.clipAnimations = clips;
             pilot.SaveAndReimport();
+            var avatar = AssetDatabase.LoadAllAssetsAtPath(PilotFbx).OfType<Avatar>().FirstOrDefault();
+            if (avatar != null && avatar.isValid && avatar.isHuman) Debug.Log("OODA: TigerPilot avatar is valid (Humanoid).");
+            else Debug.LogError($"OODA: TigerPilot avatar is not a valid humanoid (found: {avatar != null}, valid: {avatar?.isValid}, human: {avatar?.isHuman}).");
 
             foreach (var t in new[] { Art + "/P51/P51_MetallicSmoothness.png", Art + "/TigerPilot/Pilot_MetallicSmoothness.png" })
             {
