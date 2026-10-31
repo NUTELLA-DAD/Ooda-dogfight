@@ -304,10 +304,11 @@ namespace Ooda.Turn
             if (phase != Phase.Planning) return;
             var b = battle; var pilots = ais; float ts = turnSec; int n = battle.Count;
             thinkingFor = b;
+            b.CheckBreak();   // so the wingmen get their own plans the turn the formation breaks
             thinking = Task.Run(() =>
             {
                 var plans = new TurnPlan?[n];
-                Parallel.For(1, n, i => { if (pilots[i] != null && !b.Out(i)) plans[i] = pilots[i].Plan(b, ts); });
+                Parallel.For(1, n, i => { if (pilots[i] != null && !b.Out(i) && !b.InFormation(i)) plans[i] = pilots[i].Plan(b, ts); });
                 return plans;
             });
             phase = Phase.Thinking;

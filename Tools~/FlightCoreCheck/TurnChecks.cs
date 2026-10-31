@@ -212,9 +212,9 @@ static class TurnChecks
             const double F = 3.28084;
             var routeM = new[] { (0, 664, -9600), (0, 672, -7800), (0, 680, -6000), (634, 728, -4641), (634, 781, -3141), (0, 829, -1781), (0, 881, -281), (-634, 929, 1078), (-634, 982, 2578), (0, 1030, 3938), (0, 1083, 5438), (634, 1131, 6797), (634, 1180, 8297) };
             var route = routeM.Select(p => new Vec3d(p.Item1 * F, p.Item3 * F, p.Item2 * F)).ToArray();
-            var flakM = new[] { (412, 383, -5282), (564, 455, -3816), (70, 557, -956), (-412, 608, 437), (-564, 659, 1903), (-349, 707, 3356), (70, 760, 4763), (564, 856, 7622) };
+            var flakM = new[] { (380, 403, -5267), (599, 455, -3816), (35, 557, -956), (-380, 609, 452), (-599, 658, 1903), (-317, 708, 3341), (35, 759, 4763), (599, 857, 7622) };
             var flak = flakM.Select(p => new Vec3d(p.Item1 * F, p.Item3 * F, p.Item2 * F)).ToArray();
-            // the valley: a 200 m floor 300 m under the route, walls rising 1.5 in 1 to 1,000 m over the floor
+            // the valley: a 140 m floor 300 m under the route, walls rising 2 in 1 to 1,000 m over the floor
             double Ground(double x, double y)
             {
                 double best = double.PositiveInfinity, floor = 0;
@@ -225,7 +225,7 @@ static class TurnChecks
                     double d = Math.Sqrt(Math.Pow(x - a.x - u * dx, 2) + Math.Pow(y - a.y - u * dy, 2));
                     if (d < best) { best = d; floor = a.z + (b.z - a.z) * u - 300 * F; }
                 }
-                return floor + Math.Min(1000 * F, Math.Max(0, best - 330) * 1.5);
+                return floor + Math.Min(1000 * F, Math.Max(0, best - 230) * 2.0);
             }
             var fight = Scenarios.Squadron(route, flak);
             fight.groundFt = Ground;
@@ -243,14 +243,26 @@ static class TurnChecks
                 bool ours = fight.side[i] == 0;
                 ais[i] = new EnemyAi { me = i, rng = new Lcg((uint)(11 + i * 7)), role = ours ? (i % 2 == 0 ? EnemyAi.Role.Escort : EnemyAi.Role.Fighter) : (i % 2 == 0 ? EnemyAi.Role.Hunter : EnemyAi.Role.Fighter) };
             }
+            double worstSlot = 0; int formedTurns = 0;
             var sw = Stopwatch.StartNew(); double worstTurn = 0; int turn = 0, flakHits = 0, flakOnBombers = 0, ground = 0;
             for (; turn < 40 && !fight.Over; turn++)
             {
                 var t0 = sw.Elapsed.TotalMilliseconds;
                 var plans = new TurnPlan?[n];
-                System.Threading.Tasks.Parallel.For(0, n, i => { if (ais[i] != null && !fight.Out(i)) plans[i] = ais[i].Plan(fight, Scenarios.TurnSec); });
+                bool wasFormed = !fight.formationBroken;
+                fight.CheckBreak();
+                if (wasFormed && fight.formationBroken) Console.WriteLine($"    turn {turn + 1}: the formation breaks, nearest foe {Nearest(fight):F0} ft; widest gap from a slot so far {worstSlot:F0} ft");
+                if (!fight.formationBroken)
+                    for (int i = 0; i < n; i++)
+                        if (fight.slots[i] != null && !fight.Out(i))
+                        {
+                            var sl = fight.slots[i]; var l = fight.planes[sl.leader];
+                            worstSlot = Math.Max(worstSlot, (sl.Where(l.state.pos, l.state.vel) - fight.planes[i].state.pos).Length);
+                        }
+                System.Threading.Tasks.Parallel.For(0, n, i => { if (ais[i] != null && !fight.Out(i) && !fight.InFormation(i)) plans[i] = ais[i].Plan(fight, Scenarios.TurnSec); });
                 worstTurn = Math.Max(worstTurn, sw.Elapsed.TotalMilliseconds - t0);
                 var wasDown = (bool[])fight.down.Clone(); var hpBefore = (double[])fight.health.Clone();
+                if (!fight.formationBroken) formedTurns++;
                 var r = fight.Resolve(plans, Scenarios.TurnSec);
                 flakHits += r.hits.Count(h => h.shooter < 0); flakOnBombers += r.hits.Count(h => h.shooter < 0 && fight.routes[h.target] != null);
                 for (int i = 0; i < n; i++)
@@ -270,6 +282,8 @@ static class TurnChecks
             for (int i = 0; i < n; i++) if (fight.crashed[i]) ground++;
             Console.WriteLine($"  squadron AI vs AI: over {fight.Over} after {turn} turns; {ground} flew into the ground; flak hit {flakHits} times ({flakOnBombers} on bombers); slowest turn's planning {worstTurn:F0} ms for {ais.Count(a => a != null)} AI pilots on {Environment.ProcessorCount} cores");
             Check(worstTurn < 3000, "all the AI pilots plan a turn in under 3 s together");
+            Console.WriteLine($"  close formation: held {formedTurns} turns, widest gap from a slot {worstSlot:F0} ft");
+            Check(formedTurns >= 2 && worstSlot < 400, "the escorts hold close formation (within 400 ft of their slots) until the Bf 109s arrive, then break");
         }
         return fails;
     }
