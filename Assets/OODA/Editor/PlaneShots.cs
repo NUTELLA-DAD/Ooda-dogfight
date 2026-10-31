@@ -46,7 +46,17 @@ namespace Ooda.EditorTools
             Shot(cam, rt, dir, "front34", c + new Vector3(-8, 2, 10), c + new Vector3(0, 0, 3));
             Shot(cam, rt, dir, "nose", c + new Vector3(-3.5f, 0.8f, 7), c + new Vector3(0, 0, 4));
             Shot(cam, rt, dir, "noseside", c + new Vector3(-6, 0.3f, 4), c + new Vector3(0, 0, 4));
-            Shot(cam, rt, dir, "top",c + new Vector3(0, 18, 0.01f), c);
+            Shot(cam, rt, dir, "top", c + new Vector3(0, 18, 0.01f), c);
+            Shot(cam, rt, dir, "canopy", c + new Vector3(-3, 2.2f, -1.5f), c + new Vector3(0, 0.8f, 0.5f));
+
+            var eye = FindDeep(plane.transform, "CockpitCamera");
+            if (eye != null)
+            {
+                cam.fieldOfView = 70f;
+                cam.nearClipPlane = 0.02f;
+                Shot(cam, rt, dir, "cockpit", eye.position, eye.position + eye.forward * 10f);
+                Shot(cam, rt, dir, "cockpit_left", eye.position, eye.position - eye.right * 10f + eye.up * 2f);
+            }
 
             Object.DestroyImmediate(plane);
             Object.DestroyImmediate(camGo);
@@ -91,6 +101,13 @@ namespace Ooda.EditorTools
                 else { bladeMin = Mathf.Min(bladeMin, p.z); bladeMax = Mathf.Max(bladeMax, p.z); }
             }
             Debug.Log($"OODA shots: propeller z hub(r<0.35) {hubMin:F2}..{hubMax:F2} roots(0.35-0.6) {rootMin:F2}..{rootMax:F2} blades {bladeMin:F2}..{bladeMax:F2}");
+        }
+
+        static Transform FindDeep(Transform t, string name)
+        {
+            if (t.name == name) return t;
+            foreach (Transform c in t) { var f = FindDeep(c, name); if (f != null) return f; }
+            return null;
         }
 
         static void Shot(Camera cam, RenderTexture rt, string dir, string name, Vector3 from, Vector3 at)
