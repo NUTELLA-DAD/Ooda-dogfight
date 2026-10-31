@@ -120,10 +120,21 @@ namespace Ooda.Turn
             return Math.Max(0, h) * Atmosphere.FtPerM;
         }
 
+        int obstacleMask = -2;
+
+        /// <summary>A straight line between two points (feet) through anything on the Obstacles layer: bridges, tunnel mouths, buildings.</summary>
+        bool ObstacleHit(Vec3d aFt, Vec3d bFt)
+        {
+            if (obstacleMask == -2) obstacleMask = LayerMask.GetMask("Obstacles");
+            if (obstacleMask == 0) return false;
+            return Physics.Linecast(UnityFrame.Pos(aFt), UnityFrame.Pos(bFt), obstacleMask, QueryTriggerInteraction.Ignore);
+        }
+
         public void Restart()
         {
             battle = Scenarios.HeadOn(UnityFrame.Pos(startCentre), startAltFt, startKias, startGapM);
             battle.groundFt = GroundFt;
+            battle.obstacleHit = ObstacleHit;
             ai = new EnemyAi();
             player.Bind(battle.planes[0]);
             enemy.Bind(battle.planes[1]);

@@ -37,6 +37,8 @@ namespace Ooda.Turn.Core
         public bool dispersion = true;
         public Lcg rng = new Lcg(1940);
         public Func<double, double, double> groundFt = (x, y) => 0;
+        /// <summary>Solid things above the ground (bridges, tunnel mouths, buildings): true if the segment from a to b (feet) hits one.</summary>
+        public Func<Vec3d, Vec3d, bool> obstacleHit;
 
         double[] fireClock = new double[2];
 
@@ -101,7 +103,8 @@ namespace Ooda.Turn.Core
                         ? new FlightControls { pitch = -0.1, roll = 0.25 * (i == 0 ? 1 : -1), throttle = 0 }
                         : plans[i].ControlsFor(m);
                     m.Step(c, StepSec);
-                    if (m.AltFt <= groundFt(m.state.pos.x, m.state.pos.y)) { crashed[i] = true; down[i] = true; }
+                    if (m.AltFt <= groundFt(m.state.pos.x, m.state.pos.y) || (obstacleHit != null && obstacleHit(before[i], m.state.pos)))
+                    { crashed[i] = true; down[i] = true; }
                 }
 
                 // Guns: a packet each packetSec of trigger while there is ammunition
@@ -138,6 +141,7 @@ namespace Ooda.Turn.Core
                         if (record && traceOf.TryGetValue(b, out var ht)) ht.hit = true;
                     }
                     if (b.age > combat[b.owner].lifeSec || b.pos.z < groundFt(b.pos.x, b.pos.y)) b.alive = false;
+                    else if (b.alive && obstacleHit != null && obstacleHit(p0b, b.pos)) b.alive = false;
                     if (record && traceOf.TryGetValue(b, out var tr)) tr.points.Add(b.pos);
                     if (!b.alive) bullets.RemoveAt(bi);
                 }

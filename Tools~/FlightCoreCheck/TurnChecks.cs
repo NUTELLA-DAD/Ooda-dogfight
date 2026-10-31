@@ -74,6 +74,18 @@ static class TurnChecks
             Check(drop > 0 && tof > 0.3 && tof < 1.0, "rounds take time to arrive and fall: you must lead and hold the nose up");
         }
 
+        // A bridge across the path: flying into it crashes, the rounds stop on it
+        {
+            var a = new FlightModel(AircraftNumbers.P51D(), PointMass.Make(new Vec3d(0, 0, 5000), 300, Math.PI / 2));
+            var far = new FlightModel(AircraftNumbers.P51D(), PointMass.Make(new Vec3d(50000, 0, 5000), 300, 0));
+            var b = new Battle(a, CombatNumbers.P51D(), far, CombatNumbers.P51D()) { dispersion = false };
+            b.obstacleHit = (p, q) => (p.y < 800) != (q.y < 800) && Math.Abs(p.z - 5000) < 100;   // a wall 800 ft ahead
+            var r = b.Resolve(new TurnPlan { aim = a.Forward, throttle = 1, burstStart = 0, burstEnd = 0.1 }, TurnPlan.Holding(), 3);
+            double furthest = 0; foreach (var tr in r.traces) foreach (var q in tr.points) furthest = Math.Max(furthest, q.y);
+            Console.WriteLine($"  flying at a bridge 800 ft ahead: crashed {b.crashed[0]}; furthest round {furthest:F0} ft");
+            Check(b.crashed[0] && furthest < 1000, "a bridge in the way stops the aircraft and the rounds");
+        }
+
         // Two AI pilots fight from the head-on start
         {
             var fight = Scenarios.HeadOn(new Vec3d(0, -19685, 0));
