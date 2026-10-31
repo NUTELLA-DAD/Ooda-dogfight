@@ -46,6 +46,31 @@ static class TurnChecks
             }
         }
 
+        // Timed marks: level for 1 s, roll to 60 degrees right, then pull 5 G from 1.6 s
+        {
+            var m = new FlightModel(AircraftNumbers.P51D(), PointMass.Make(new Vec3d(0, 0, 8000), Atmosphere.IasToTasKt(300, 8000), Math.PI / 2)) { throttle = 1 };
+            var p = new TurnPlan { throttle = 1, marks = new[] { new Mark(0, 0, 1), new Mark(1.0, 60, 1), new Mark(1.6, 60, 5) } };
+            double bankAt1 = 0, bankAt16 = 0, headAt1 = 0; bool departed = false; double peak = 0;
+            for (int s = 0; s < 150; s++)
+            {
+                double t = s * Battle.StepSec;
+                m.Step(p.ControlsFor(m, t), Battle.StepSec);
+                departed |= m.Departed; peak = Math.Max(peak, m.g);
+                if (s == 49) { bankAt1 = AutoPilot.BankDeg(m); headAt1 = Math.Atan2(m.state.vel.x, m.state.vel.y) * D; }
+                if (s == 79) bankAt16 = AutoPilot.BankDeg(m);
+            }
+            double head = Math.Atan2(m.state.vel.x, m.state.vel.y) * D;
+            Console.WriteLine($"  marks (level 1 s, roll 60 right, pull 5 G at 1.6 s): bank {bankAt1:F0} at 1 s, {bankAt16:F0} at 1.6 s, {AutoPilot.BankDeg(m):F0} at 3 s; heading {headAt1:F0} then {head:F0}; peak {peak:F1} G");
+            Check(Math.Abs(bankAt1) < 3 && bankAt16 > 30 && Math.Abs(AutoPilot.BankDeg(m) - 60) < 10 && head > headAt1 + 10 && !departed, "level, then roll, then pull: it rolls on straight flight and turns right");
+            // the same marks asking 9 G at 160 KIAS: past the stall line, it stalls
+            var slow = new FlightModel(AircraftNumbers.P51D(), PointMass.Make(new Vec3d(0, 0, 8000), Atmosphere.IasToTasKt(160, 8000), Math.PI / 2)) { throttle = 1 };
+            var hard = new TurnPlan { throttle = 1, marks = new[] { new Mark(0, 60, 9) } };
+            bool stalled = false;
+            for (int s = 0; s < 150; s++) { slow.Step(hard.ControlsFor(slow, s * Battle.StepSec), Battle.StepSec); stalled |= slow.stalled; }
+            Console.WriteLine($"  a 9 G mark at 160 KIAS: stalled {stalled}, departure {slow.departure}");
+            Check(stalled, "a mark asking more G than the wing has stalls it, like the arrow's overpull");
+        }
+
         // Overpull: past the ring at 160 KIAS the wing stalls and it departs; the next turn's arrow recovers it
         {
             var m = new FlightModel(AircraftNumbers.P51D(), PointMass.Make(new Vec3d(0, 0, 8000), Atmosphere.IasToTasKt(160, 8000), Math.PI / 2));

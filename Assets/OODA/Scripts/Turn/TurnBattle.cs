@@ -115,7 +115,9 @@ namespace Ooda.Turn
         readonly List<(Transform t, float born)> flashes = new List<(Transform, float)>();
         Material flashMat, tipMat;
 
-        bool dragArrow, dragLook, dragBurst;
+        bool dragArrow, dragLook, dragBurst, dragMoves;
+        Rect movesRect;
+        float markT;               // the moment on the moves slider being edited, s into the turn
         Vector2 lastPointer;
         float guiScale = 1;
         Rect burstRect;
@@ -263,6 +265,8 @@ namespace Ooda.Turn
             plan.overpull = 0;
             plan.burstStart = plan.burstEnd = 0;
             plan.wep = false;
+            plan.marks = null;
+            markT = 0;
             burstPreset = 0;
             dirty = true;
             ShowAllLive();
@@ -460,17 +464,19 @@ namespace Ooda.Turn
                 if (pointer.press.wasPressedThisFrame)
                 {
                     if (phase == Phase.Planning && burstRect.Contains(gui)) { dragBurst = true; SetBurstFromBar(gui.x, true); }
+                    else if (phase == Phase.Planning && movesRect.Contains(gui)) { dragMoves = true; SetMarkTime(gui.x); }
                     else if (guiRects.Any(r => r.Contains(gui))) { }
-                    else if (phase == Phase.Planning && NearTip(pos)) dragArrow = true;
+                    else if (phase == Phase.Planning && !plan.HasMarks && NearTip(pos)) dragArrow = true;
                     else dragLook = true;
                 }
                 else if (pointer.press.isPressed)
                 {
                     if (dragArrow) DragArrow(pos);
                     else if (dragBurst) SetBurstFromBar(gui.x, false);
+                    else if (dragMoves) SetMarkTime(gui.x);
                     else if (dragLook && view != null && (mouse == null || !mouse.rightButton.isPressed)) view.Orbit((pos - lastPointer) * 0.25f);
                 }
-                if (pointer.press.wasReleasedThisFrame) { dragArrow = dragLook = false; if (dragBurst) { dragBurst = false; TidyBurst(); } }
+                if (pointer.press.wasReleasedThisFrame) { dragArrow = dragLook = dragMoves = false; if (dragBurst) { dragBurst = false; TidyBurst(); } }
                 lastPointer = pos;
             }
 
@@ -489,12 +495,27 @@ namespace Ooda.Turn
             }
             if (pad != null) move += pad.leftStick.ReadValue();
             if (stickPitch) move.y = -move.y;   // back on the stick (S, down) brings the nose, and the arrow, up
+            // The moves slider: [ and ] (or the d-pad) pick the moment; Q and E bank; with marks set the stick edits them
+            float scrub = 0;
+            if (kb != null) { if (kb.leftBracketKey.isPressed) scrub -= 1; if (kb.rightBracketKey.isPressed) scrub += 1; }
+            if (pad != null) { if (pad.dpad.left.isPressed) scrub -= 1; if (pad.dpad.right.isPressed) scrub += 1; }
+            if (scrub != 0) markT = Mathf.Clamp(markT + scrub * dt * 1.0f, 0, turnSec);
+            float bank = 0;
+            if (kb != null) { if (kb.qKey.isPressed) bank -= 1; if (kb.eKey.isPressed) bank += 1; }
+            if (pad != null && pad.leftStickButton.isPressed) bank += pad.leftStick.ReadValue().x;   // stick click + sideways banks
+            if (bank != 0) EditMark(bank * 90f * dt, 0);
+            if (plan.HasMarks)
+            {
+                if (Mathf.Abs(move.x) > 0.1f && bank == 0) EditMark(move.x * 90f * dt, 0);
+                if (Mathf.Abs(move.y) > 0.1f) EditMark(0, move.y * 3f * dt);
+                move = Vector2.zero;
+            }
             if (move.sqrMagnitude > 0.01f)
             {
                 double rate = 45 * Math.PI / 180 * dt;
                 SetAim(plan.aim + env.up * (move.y * rate) + env.right * (move.x * rate));
             }
-            if (Pressed(Key.X) || (pad != null && pad.leftShoulder.wasPressedThisFrame)) SetAim(env.fwd);
+            if (Pressed(Key.X) || (pad != null && pad.leftShoulder.wasPressedThisFrame)) { if (plan.HasMarks) ClearMarks(); else SetAim(env.fwd); }
 
             // Throttle and WEP
             float thr = 0;
@@ -555,6 +576,51 @@ namespace Ooda.Turn
             dirty = true;
         }
 
+        // ---------- timed moves ----------
+
+        void SetMarkTime(float guiX)
+        {
+            markT = Mathf.Round(Mathf.Clamp01((guiX - movesRect.x) / movesRect.width) * turnSec / 0.1f) * 0.1f;
+        }
+
+        /// <summary>
+        /// Change the bank and pull from the slider's moment on: the mark there, made if there is none (starting from what
+        /// is in force then). The first mark sits at 0 and starts as the aircraft is now: its bank, 1 G.
+        /// </summary>
+        void EditMark(float dBank, float dG)
+        {
+            var m = battle.planes[0];
+            var list = plan.HasMarks ? plan.marks.ToList() : new List<Mark> { new Mark(0, Math.Round(AutoPilot.BankDeg(m) / 5) * 5, 1) };
+            int at = list.FindIndex(k => Math.Abs(k.time - markT) < 0.05);
+            if (at < 0)
+            {
+                var basis = new TurnPlan { marks = list.ToArray() }.MarkAt(markT);
+                list.Add(new Mark(Math.Round(markT * 10) / 10, basis.bankDeg, basis.g));
+                list.Sort((a, b) => a.time.CompareTo(b.time));
+                at = list.FindIndex(k => Math.Abs(k.time - markT) < 0.05);
+            }
+            var k0 = list[at];
+            double bankDeg = k0.bankDeg + dBank;
+            while (bankDeg > 180) bankDeg -= 360;
+            while (bankDeg < -180) bankDeg += 360;
+            var n = m.numbers;
+            double g = Math.Max(n.minG, Math.Min(n.maxG + 2, k0.g + dG));
+            list[at] = new Mark(k0.time, bankDeg, g);
+            plan.marks = list.ToArray();
+            plan.overpull = 0;
+            dirty = true;
+        }
+
+        void ClearMarks() { plan.marks = null; dirty = true; }
+
+        void DeleteMarkAtSlider()
+        {
+            if (!plan.HasMarks) return;
+            var list = plan.marks.Where(k => Math.Abs(k.time - markT) >= 0.05 || k.time == 0).ToList();
+            plan.marks = list.Count > 0 ? list.ToArray() : null;
+            dirty = true;
+        }
+
         void SetBurstFromBar(float guiX, bool start)
         {
             float t = Mathf.Clamp01((guiX - burstRect.x) / burstRect.width) * turnSec;
@@ -600,7 +666,7 @@ namespace Ooda.Turn
                 warning = previewDeparts ? (plan.overpull > 0 ? "SPINNING: still overpulling, it stays departed" : "SPINNING: the arrow flies the recovery, it is not out yet")
                                          : "SPINNING: the arrow flies the recovery (idle, opposite rudder, stick forward)";
             else if (previewDeparts) warning = "OVERPULL: it will depart into a spin";
-            else if (plan.overpull > 0 && stalls) warning = "OVERPULL: the wing stalls, the turn mushes and bleeds speed";
+            else if ((plan.overpull > 0 || plan.HasMarks) && stalls) warning = "OVERPULL: the wing stalls, the turn mushes and bleeds speed";
             else warning = null;
         }
 
@@ -628,6 +694,22 @@ namespace Ooda.Turn
             lines.Strip(outer, 0.35f, new Color(overpullColor.r, overpullColor.g, overpullColor.b, 0.35f), true);
             lines.Line(c, c + UnityFrame.Dir(env.fwd) * arrowLength, 0.3f, new Color(1, 1, 1, 0.3f));
 
+            if (plan.HasMarks)
+            {
+                tip.gameObject.SetActive(false);
+                if (preview != null)
+                {
+                    int fi = Mathf.Clamp(Mathf.RoundToInt(markT / (float)preview.dt), 0, preview.FrameCount - 1);
+                    var fr = preview.frames[0][fi];
+                    Vector3 p = UnityFrame.Pos(fr.pos), up = UnityFrame.Dir(fr.up), fwd = UnityFrame.Dir(fr.vel.Normalized);
+                    Vector3 right = Vector3.Cross(up, fwd);
+                    float sz = Mathf.Max(6f, W(p) * 30f);
+                    lines.Line(p - right * sz, p + right * sz, 1.6f, arrowColor);   // the wings at that moment: you see the bank
+                    lines.Line(p, p + up * sz * 0.6f, 1.2f, arrowColor);
+                }
+                goto Paths;
+            }
+
             // The arrow
             Vector3 t = TipPos;
             Color arrow = Color.Lerp(arrowColor, overpullColor, plan.overpull > 0 ? 0.5f + 0.5f * (float)plan.overpull : 0f);
@@ -637,6 +719,7 @@ namespace Ooda.Turn
             tip.position = t;
             tip.localScale = Vector3.one * W(t) * 8f;
 
+        Paths:
             if (preview == null) return;
             int end = preview.FrameCount - 1;
             DrawPath(preview.frames[0], end, previewDeparts ? overpullColor : ghostColor, holoMine == null);
@@ -923,7 +1006,7 @@ namespace Ooda.Turn
             if (phase == Phase.Playing) GUI.Label(new Rect(0, sh - 60, sw, 30), $"Turn playing  {playT:F1} / {turnSec:F0} s   (hold Tab to speed up)", new GUIStyle(label) { alignment = TextAnchor.MiddleCenter });
             var warn = new GUIStyle(big) { fontSize = 26 };
             warn.normal.textColor = overpullColor;
-            if (planning && warning != null) GUI.Label(new Rect(0, sh - 200, sw, 40), warning, warn);
+            if (planning && warning != null) GUI.Label(new Rect(0, sh - 330, sw, 40), warning, warn);
             if (phase == Phase.Playing && last != null)
             {
                 int now = Mathf.Min(last.FrameCount - 1, Mathf.RoundToInt(playT / (float)last.dt));
@@ -965,6 +1048,7 @@ namespace Ooda.Turn
         void PlanningPanel(float sw, float sh)
         {
             float pw = Mathf.Min(640, sw - 40), px = (sw - pw) / 2, py = sh - 150;
+            MovesPanel(px, py - 128, pw);
             Rect panel = new Rect(px - 10, py - 10, pw + 20, 150);
             GUI.Box(panel, GUIContent.none);
             guiRects.Add(panel);
@@ -1001,6 +1085,47 @@ namespace Ooda.Turn
             int theirs = preview == null ? 0 : preview.hits.Count(h => h.target == 0);
             GUI.Label(new Rect(px, py + 104, pw - 140, 22), $"Predicted if they hold: you hit {predicted}, you get hit {theirs}", label);
             if (GUI.Button(new Rect(px + pw - 130, py + 102, 130, 26), "Fire at hits (F)")) FireAtPredicted();
+        }
+
+        /// <summary>The moves: a slider through the turn, and the bank and pull from that moment on.</summary>
+        void MovesPanel(float px, float py, float pw)
+        {
+            Rect panel = new Rect(px - 10, py - 10, pw + 20, 124);
+            GUI.Box(panel, GUIContent.none);
+            guiRects.Add(panel);
+            var m = battle.planes[0];
+            double avail = m.numbers.AvailableG(m.Kias);
+            if (!plan.HasMarks)
+            {
+                GUI.Label(new Rect(px, py, pw, 22), $"Moves: flying to the arrow.  Q/E bank or the buttons below to plan bank and pull by time instead.", small);
+            }
+            else
+            {
+                var k = plan.MarkAt(markT);
+                var red = new GUIStyle(label); red.normal.textColor = k.g > avail ? overpullColor : label.normal.textColor;
+                GUI.Label(new Rect(px, py, pw, 22), $"From {markT:F1} s:  bank {(k.bankDeg >= 0 ? "right" : "left")} {Math.Abs(k.bankDeg):F0}°,  pull {k.g:F1} G   (the wing has {avail:F1} G now)", red);
+            }
+            movesRect = new Rect(px, py + 24, pw, 22);
+            GUI.Box(movesRect, GUIContent.none);
+            if (plan.HasMarks)
+                foreach (var k in plan.marks)
+                    Fill(new Rect(movesRect.x + (float)(k.time / turnSec) * pw - 2, movesRect.y, 4, movesRect.height), k.g > avail ? overpullColor : arrowColor);
+            Fill(new Rect(movesRect.x + markT / turnSec * pw - 1, movesRect.y - 3, 2, movesRect.height + 6), Color.white);
+            // bank and pull at the slider's moment
+            var cur = plan.HasMarks ? plan.MarkAt(markT) : new Mark(markT, AutoPilot.BankDeg(m), 1);
+            GUI.Label(new Rect(px, py + 50, 60, 22), "Bank", label);
+            float b = GUI.HorizontalSlider(new Rect(px + 60, py + 56, pw / 2 - 80, 20), (float)cur.bankDeg, -180f, 180f);
+            if (Math.Abs(b - cur.bankDeg) > 0.5) EditMark(Mathf.Round((b - (float)cur.bankDeg) / 5) * 5, 0);
+            GUI.Label(new Rect(px + pw / 2, py + 50, 60, 22), "Pull", label);
+            float g = GUI.HorizontalSlider(new Rect(px + pw / 2 + 50, py + 56, pw / 2 - 50, 20), (float)cur.g, (float)m.numbers.minG, (float)m.numbers.maxG + 2);
+            if (Math.Abs(g - cur.g) > 0.05) EditMark(0, Mathf.Round((g - (float)cur.g) * 10) / 10);
+            float bw = (pw - 30) / 4;
+            if (GUI.Button(new Rect(px, py + 80, bw, 26), "Level here")) { EditMark(-(float)cur.bankDeg, (float)(1 - cur.g)); }
+            if (GUI.Button(new Rect(px + bw + 10, py + 80, bw, 26), "Max pull here")) { EditMark(0, (float)(avail * 0.97 - cur.g)); }
+            GUI.enabled = plan.HasMarks;
+            if (GUI.Button(new Rect(px + 2 * (bw + 10), py + 80, bw, 26), "Delete mark")) DeleteMarkAtSlider();
+            if (GUI.Button(new Rect(px + 3 * (bw + 10), py + 80, bw, 26), "Clear (X): arrow")) ClearMarks();
+            GUI.enabled = true;
         }
 
         void Bar(Rect r, double fraction, Color c, string text)

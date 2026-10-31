@@ -153,7 +153,7 @@ namespace Ooda.Turn.Core
                     var m = planes[i];
                     FlightControls c = down[i]
                         ? new FlightControls { pitch = -0.1, roll = 0.25 * (i % 2 == 0 ? 1 : -1), throttle = 0 }
-                        : plans[i].ControlsFor(m);
+                        : plans[i].ControlsFor(m, t);
                     m.Step(c, StepSec);
                     if (m.AltFt <= groundFt(m.state.pos.x, m.state.pos.y) || (obstacleHit != null && obstacleHit(before[i], m.state.pos)))
                     { crashed[i] = true; down[i] = true; }
