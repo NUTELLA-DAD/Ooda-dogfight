@@ -53,10 +53,13 @@ namespace Ooda.Turn
             Place(pos, vel, up, alpha);
         }
 
-        void Place(Vec3d pos, Vec3d vel, Vec3d up, double alphaDeg)
+        void Place(Vec3d pos, Vec3d vel, Vec3d up, double alphaDeg) => Pose(transform, pos, vel, up, alphaDeg);
+
+        /// <summary>Put any transform where an aircraft is: on its path, its up, nose raised by the angle of attack.</summary>
+        public static void Pose(Transform t, Vec3d pos, Vec3d vel, Vec3d up, double alphaDeg)
         {
             var path = Quaternion.LookRotation(UnityFrame.Dir(vel.Normalized), UnityFrame.Dir(up));
-            transform.SetPositionAndRotation(UnityFrame.Pos(pos), path * Quaternion.Euler(-(float)alphaDeg, 0, 0));
+            t.SetPositionAndRotation(UnityFrame.Pos(pos), path * Quaternion.Euler(-(float)alphaDeg, 0, 0));
         }
 
         /// <summary>0 none, 1 a thin trail (damaged), 2 thick black (going down).</summary>
