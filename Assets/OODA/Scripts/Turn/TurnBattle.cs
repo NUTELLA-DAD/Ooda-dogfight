@@ -16,6 +16,8 @@ namespace Ooda.Turn
     /// 3 s timeline, and sees the ghost path, the tracers and the enemy's "keeps doing what it's doing"
     /// projection. Fly turn: the AI plans without seeing the player's plan, the turn engine flies both,
     /// and the turn plays back. A kill wins; being shot down or hitting the ground loses.
+    /// Escort mission (M switches): a B-17 flies its route up the valley and the Spitfire goes for it; you
+    /// lose if the bomber goes down, and win by shooting down the Spitfire or seeing the bomber to the end.
     ///
     /// Mouse or touch: drag the yellow tip; drag anywhere else (or right-drag) to look around; wheel zooms;
     /// drag on the timeline to set the burst. Keyboard: WASD or arrows move the arrow, Shift/Ctrl throttle,
@@ -30,6 +32,21 @@ namespace Ooda.Turn
         public TurnCamera view;
         public Terrain terrain;
         public PilotHeadLook playerPilot, enemyPilot;
+        [Tooltip("The bomber for the escort mission (hidden in the dogfight).")]
+        public TurnAircraftView bomber;
+
+        public enum Mission { Dogfight, Escort }
+        [Header("Mission")]
+        public Mission mission = Mission.Escort;
+        [Tooltip("The bomber's route, metres (Unity x east, y height, z north); the first point is where it starts.")]
+        public Vector3[] escortRoute =
+        {
+            new Vector3(0, 1250, -6500), new Vector3(0, 1300, 0), new Vector3(0, 1350, 5000), new Vector3(2500, 1450, 8000),
+        };
+        public float bomberKias = 160;
+        [Tooltip("How far ahead along the route the Spitfire starts, metres.")]
+        public float escortGapM = 5000;
+        public Color bomberColor = new Color(0.4f, 1f, 0.45f, 0.7f);
 
         [Header("Start (head-on)")]
         [Tooltip("Middle of the fight, metres (Unity x east, z north; height is ignored).")]
@@ -65,7 +82,7 @@ namespace Ooda.Turn
         TurnPlan plan;
         bool dirty;
         TurnResult preview, last;
-        double[] healthBefore = new double[2];
+        double[] healthBefore = new double[0];
         float playT, prevPlayT;
         string outcome, notice;
         float noticeUntil;
@@ -130,15 +147,29 @@ namespace Ooda.Turn
             return Physics.Linecast(UnityFrame.Pos(aFt), UnityFrame.Pos(bFt), obstacleMask, QueryTriggerInteraction.Ignore);
         }
 
+        bool Escorting => mission == Mission.Escort && bomber != null && escortRoute != null && escortRoute.Length >= 2;
+
         public void Restart()
         {
-            battle = Scenarios.HeadOn(UnityFrame.Pos(startCentre), startAltFt, startKias, startGapM);
+            if (Escorting)
+            {
+                var route = escortRoute.Select(p => new Vec3d(p.x * Atmosphere.FtPerM, p.z * Atmosphere.FtPerM, p.y * Atmosphere.FtPerM)).ToArray();
+                battle = Scenarios.Escort(route, bomberKias, escortGapM);
+            }
+            else battle = Scenarios.HeadOn(UnityFrame.Pos(startCentre), startAltFt, startKias, startGapM);
             battle.groundFt = GroundFt;
             battle.obstacleHit = ObstacleHit;
             ai = new EnemyAi();
             player.Bind(battle.planes[0]);
             enemy.Bind(battle.planes[1]);
-            plan = new TurnPlan { throttle = 1 };
+            if (bomber != null)
+            {
+                bomber.gameObject.SetActive(battle.Count > 2);
+                if (battle.Count > 2) bomber.Bind(battle.planes[2]);
+            }
+            healthBefore = (double[])battle.health.Clone();
+            shownHp = (double[])battle.health.Clone();
+            plan = new TurnPlan { throttle = battle.planes[0].throttle };
             last = null;
             outcome = null;
             foreach (var f in flashes) Destroy(f.t.gameObject);
@@ -160,15 +191,17 @@ namespace Ooda.Turn
             dirty = true;
             player.ShowLive(battle.planes[0]);
             enemy.ShowLive(battle.planes[1]);
-            UpdateSmoke(battle.health[0], battle.health[1], battle.down[0], battle.down[1]);
+            if (Bombing) bomber.ShowLive(battle.planes[2]);
+            UpdateSmoke(battle.health, battle.down);
         }
+
+        bool Bombing => bomber != null && battle != null && battle.Count > 2;
 
         void Commit()
         {
             if (phase != Phase.Planning) return;
             var theirs = ai.Plan(battle, turnSec);
-            healthBefore[0] = battle.health[0];
-            healthBefore[1] = battle.health[1];
+            healthBefore = (double[])battle.health.Clone();
             lastOverpull = plan.overpull;
             last = battle.Resolve(plan, theirs, turnSec, true);
             phaseAfterPlayback = battle.Over ? Phase.Over : Phase.Planning;
@@ -195,12 +228,27 @@ namespace Ooda.Turn
         string Outcome()
         {
             bool me = battle.down[0], them = battle.down[1];
+            if (Bombing)
+            {
+                if (me) return battle.crashed[0] ? "You flew into the ground. Mission failed." : "You were shot down. Mission failed.";
+                if (battle.Out(2)) return battle.crashed[2] ? "The B-17 flew into the mountains. Mission failed." : "The B-17 went down. Mission failed.";
+                if (them) return (battle.crashed[1] ? "The Spitfire flew into the ground." : "Spitfire shot down.") + " The bomber is safe. You win!";
+                return "The B-17 made it through the valley. Mission complete!";
+            }
             if (me && them) return "Both aircraft went down. A draw.";
             if (them) return battle.crashed[1] ? "The Spitfire flew into the ground. You win!" : "Spitfire shot down. You win!";
             return battle.crashed[0] ? "You flew into the ground." : "You were shot down.";
         }
 
         void Notice(string s) { notice = s; noticeUntil = Time.time + 3f; }
+
+        void SwitchMission()
+        {
+            if (bomber == null) { Notice("No bomber in this scene: dogfight only."); return; }
+            mission = mission == Mission.Escort ? Mission.Dogfight : Mission.Escort;
+            Restart();
+            Notice(mission == Mission.Escort ? "Escort: keep the Spitfire off the B-17." : "Dogfight: you and the Spitfire, head-on.");
+        }
 
         // ---------- every frame ----------
 
@@ -236,6 +284,7 @@ namespace Ooda.Turn
 
             bool Pressed(Key k) => kb != null && kb[k].wasPressedThisFrame;
             if (Pressed(Key.H)) showHelp = !showHelp;
+            if (Pressed(Key.M)) SwitchMission();
             if (Pressed(Key.Backspace) || (pad != null && pad.startButton.wasPressedThisFrame)) Restart();
             if (Pressed(Key.R) || (pad != null && pad.buttonEast.wasPressedThisFrame)) Replay();
             if (Pressed(Key.P) || (pad != null && pad.buttonNorth.wasPressedThisFrame)) showProjection = !showProjection;
@@ -454,6 +503,7 @@ namespace Ooda.Turn
             int end = preview.FrameCount - 1;
             DrawPath(preview.frames[0], end, previewDeparts ? overpullColor : ghostColor, holoMine == null);
             if (showProjection) DrawPath(preview.frames[1], end, projectionColor, holoTheirs == null);
+            if (Bombing) DrawPath(preview.frames[2], end, bomberColor, true);
             ShowHolo(holoMine, preview.frames[0][end], true, previewDeparts ? overpullColor : holoColor);
             ShowHolo(holoTheirs, preview.frames[1][end], showProjection, holoEnemyColor);
             foreach (var tr in preview.traces)
@@ -558,6 +608,7 @@ namespace Ooda.Turn
             bool c0 = last.frames[0][now].down && battle.crashed[0] && now == n;
             player.ShowFrame(last.frames[0][i], last.frames[0][i + 1], u, Time.deltaTime, c0);
             enemy.ShowFrame(last.frames[1][i], last.frames[1][i + 1], u, Time.deltaTime, false);
+            if (Bombing) bomber.ShowFrame(last.frames[2][i], last.frames[2][i + 1], u, Time.deltaTime, false);
 
             DrawLastPaths(now);
             foreach (var tr in last.traces)
@@ -571,14 +622,14 @@ namespace Ooda.Turn
 
             // Hits: a flash where they land, and the damage so far shown as smoke
             double t0 = last.startTime;
-            double[] hp = { healthBefore[0], healthBefore[1] };
+            double[] hp = (double[])healthBefore.Clone();
             foreach (var h in last.hits)
             {
                 double ht = h.time - t0;
                 if (ht <= playT) hp[h.target] -= battle.combat[h.shooter].damage;
                 if (ht > prevPlayT && ht <= playT) Flash(UnityFrame.Pos(h.pos));
             }
-            UpdateSmoke(hp[0], hp[1], last.frames[0][now].down, last.frames[1][now].down);
+            UpdateSmoke(hp, last.frames.Select(fr => fr[now].down).ToArray());
 
             if (playT >= turnSec - 1e-4f)
             {
@@ -596,15 +647,17 @@ namespace Ooda.Turn
             if (last == null) return;
             DrawPath(last.frames[0], upTo, ghostColor * new Color(1, 1, 1, 0.6f), false);
             DrawPath(last.frames[1], upTo, projectionColor * new Color(1, 1, 1, 0.6f), false);
+            if (Bombing) DrawPath(last.frames[2], upTo, bomberColor * new Color(1, 1, 1, 0.6f), false);
         }
 
-        readonly double[] shownHp = new double[2];
+        double[] shownHp = new double[0];
 
-        void UpdateSmoke(double hp0, double hp1, bool down0, bool down1)
+        void UpdateSmoke(double[] hp, bool[] down)
         {
-            shownHp[0] = hp0; shownHp[1] = hp1;
-            player.SetSmoke(down0 ? 2 : hp0 < battle.combat[0].health * 0.5 ? 1 : 0);
-            enemy.SetSmoke(down1 ? 2 : hp1 < battle.combat[1].health * 0.5 ? 1 : 0);
+            shownHp = (double[])hp.Clone();
+            var views = new[] { player, enemy, bomber };
+            for (int i = 0; i < battle.Count && i < views.Length; i++)
+                if (views[i] != null) views[i].SetSmoke(down[i] ? 2 : hp[i] < battle.combat[i].health * 0.5 ? 1 : 0);
         }
 
         void Flash(Vector3 at)
@@ -665,10 +718,21 @@ namespace Ooda.Turn
             GUI.Label(new Rect(20, 108, 290, 22), $"Spitfire {range:F0} ft, {ata:F0}° off your nose", label);
             GUI.Label(new Rect(20, 128, 290, 22), $"You are {aa:F0}° off its tail ({(aa < 45 ? "behind it" : aa > 135 ? "in front of it" : "beside it")})", label);
             Bar(new Rect(20, 152, 270, 14), shownHp[1] / battle.combat[1].health, new Color(0.9f, 0.3f, 0.3f), "Spitfire");
+            if (Bombing)
+            {
+                Rect bp = new Rect(10, 184, 300, 64);
+                guiRects.Add(bp);
+                GUI.Box(bp, GUIContent.none);
+                var bm = bomber.Model;
+                var route = battle.routes[2];
+                string togo = route.Done ? "through" : $"waypoint {route.next} of {route.points.Length - 1}";
+                GUI.Label(new Rect(20, 188, 290, 22), $"B-17  {bm.Kias:F0} KIAS  {bm.AltFt:F0} ft  {togo}", label);
+                Bar(new Rect(20, 214, 270, 14), shownHp[2] / battle.combat[2].health, bomberColor, "B-17 airframe");
+            }
 
             // Right: buttons
             float bx = sw - 190, by = 10;
-            Rect buttons = new Rect(bx - 10, 0, 200, 300);
+            Rect buttons = new Rect(bx - 10, 0, 200, 340);
             guiRects.Add(buttons);
             bool planning = phase == Phase.Planning;
             GUI.enabled = planning;
@@ -684,6 +748,8 @@ namespace Ooda.Turn
             if (GUI.Button(new Rect(bx, by, 180, 30), $"View: {(view != null ? view.focus.ToString() : "-")}  (V)") && view != null) view.NextFocus();
             by += 36;
             if (GUI.Button(new Rect(bx, by, 180, 30), "Restart  (Backspace)")) Restart();
+            by += 36;
+            if (GUI.Button(new Rect(bx, by, 180, 30), $"Mission: {(Bombing ? "Escort" : "Dogfight")}  (M)")) SwitchMission();
             by += 36;
             if (GUI.Button(new Rect(bx, by, 180, 30), showHelp ? "Hide help  (H)" : "Help  (H)")) showHelp = !showHelp;
 
@@ -709,19 +775,21 @@ namespace Ooda.Turn
 
             if (showHelp)
             {
-                Rect help = new Rect(10, 190, 440, 280);
+                float hy = Bombing ? 258 : 190;
+                Rect help = new Rect(10, hy, 440, 280);
                 GUI.Box(help, GUIContent.none);
                 guiRects.Add(help);
-                GUI.Label(new Rect(20, 196, 425, 270),
+                GUI.Label(new Rect(20, hy + 6, 425, 270),
                     "Plan where your nose points when the 3 s turn ends.\n" +
                     "Drag the yellow tip inside the white ring (how far you can turn).\n" +
                     "Past the ring, up to the red ring, you overpull: stall, maybe spin.\n" +
                     "Blue: your path. Red: the Spitfire if it keeps doing what it's doing.\n" +
+                    (Bombing ? "Green: the B-17's course. Keep the Spitfire off it.\n" : "") +
                     "Orange: your rounds. They arc and take time: lead the target.\n" +
                     "Drag on the timeline to fire; F fires where hits are predicted.\n\n" +
                     "Keys: WASD arrow (S pulls up, like the stick), Shift/Ctrl throttle,\n" +
                     "Space WEP, B bursts, " +
-                    "Enter fly, R replay, P projection, V view, X straight, H help.\n" +
+                    "Enter fly, R replay, P projection, V view, X straight, M mission, H help.\n" +
                     "Right-drag or drag away from the tip to look; wheel zooms.\n" +
                     "Pad: left stick arrow, triggers throttle, A fly, X bursts,\n" +
                     "RB fire at predicted hits, Y projection, B replay, right stick look.", small);

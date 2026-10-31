@@ -8,16 +8,17 @@ namespace Ooda.Turn.Core
     public class TurnResult
     {
         public double startTime, dt;
-        public AircraftFrame[][] frames = new AircraftFrame[2][];
+        public AircraftFrame[][] frames;
         public List<Trace> traces = new List<Trace>();
         public List<HitEvent> hits = new List<HitEvent>();
         public int FrameCount => frames[0].Length;
     }
 
     /// <summary>
-    /// Two aircraft (0 the player, 1 the enemy), their guns and the rounds in the air. Resolve flies one
-    /// simultaneous turn from both plans in small steps, firing, moving and checking every packet, and
-    /// reports frames for playback. Pure C#, feet, x east, y north, z up; the ground comes in as a function.
+    /// The aircraft (0 the player, 1 the enemy, then any others, such as the bomber the player escorts), their
+    /// sides, their guns and the rounds in the air. Rounds hit aircraft on the other side. Resolve flies one
+    /// simultaneous turn from everyone's plans in small steps, firing, moving and checking every packet, and
+    /// reports frames for playback. An aircraft with a route flies it by itself. Pure C#, feet, x east, y north, z up; the ground comes in as a function.
     /// A Clone flies a "what if" without touching the real battle (the ghost path, tracer preview, the AI).
     /// </summary>
     public class Battle
@@ -25,12 +26,15 @@ namespace Ooda.Turn.Core
         public const double StepSec = 0.02;
         public const double CollisionFt = 25;
 
-        public FlightModel[] planes = new FlightModel[2];
-        public CombatNumbers[] combat = new CombatNumbers[2];
-        public double[] health = new double[2];
-        public double[] ammo = new double[2];       // seconds of trigger left
-        public bool[] down = new bool[2];            // shot down or collided: out of the fight, falling
-        public bool[] crashed = new bool[2];         // hit the ground or sea: stopped
+        public FlightModel[] planes = new FlightModel[0];
+        public CombatNumbers[] combat = new CombatNumbers[0];
+        public int[] side = new int[0];              // 0 the player's side, 1 the enemy's
+        public Route[] routes = new Route[0];        // set for an aircraft that flies a route by itself
+        public double[] health = new double[0];
+        public double[] ammo = new double[0];        // seconds of trigger left
+        public bool[] down = new bool[0];            // shot down or collided: out of the fight, falling
+        public bool[] crashed = new bool[0];         // hit the ground or sea: stopped
+        public int Count => planes.Length;
         public List<Bullet> bullets = new List<Bullet>();
         public double time;
         public int turn;
@@ -40,21 +44,47 @@ namespace Ooda.Turn.Core
         /// <summary>Solid things above the ground (bridges, tunnel mouths, buildings): true if the segment from a to b (feet) hits one.</summary>
         public Func<Vec3d, Vec3d, bool> obstacleHit;
 
-        double[] fireClock = new double[2];
+        double[] fireClock = new double[0];
 
         public Battle(FlightModel a, CombatNumbers ca, FlightModel b, CombatNumbers cb)
         {
-            planes[0] = a; planes[1] = b; combat[0] = ca; combat[1] = cb;
-            for (int i = 0; i < 2; i++) { health[i] = combat[i].health; ammo[i] = combat[i].ammoSec; }
+            Add(a, ca, 0);
+            Add(b, cb, 1);
         }
 
-        public bool Over => down[0] || down[1] || crashed[0] || crashed[1];
+        /// <summary>Add an aircraft on a side (0 the player's, 1 the enemy's), flying a route by itself if one is given. Returns its index.</summary>
+        public int Add(FlightModel m, CombatNumbers c, int onSide, Route route = null)
+        {
+            int n = planes.Length;
+            Array.Resize(ref planes, n + 1); planes[n] = m;
+            Array.Resize(ref combat, n + 1); combat[n] = c;
+            Array.Resize(ref side, n + 1); side[n] = onSide;
+            Array.Resize(ref routes, n + 1); routes[n] = route?.Copy();
+            Array.Resize(ref health, n + 1); health[n] = c.health;
+            Array.Resize(ref ammo, n + 1); ammo[n] = c.ammoSec;
+            Array.Resize(ref down, n + 1);
+            Array.Resize(ref crashed, n + 1);
+            Array.Resize(ref fireClock, n + 1);
+            return n;
+        }
+
+        /// <summary>The fight is over when any aircraft is out, or one flying a route has reached its end.</summary>
+        public bool Over
+        {
+            get
+            {
+                for (int i = 0; i < Count; i++) if (Out(i) || (routes[i] != null && routes[i].Done)) return true;
+                return false;
+            }
+        }
         public bool Out(int i) => down[i] || crashed[i];
 
         public Battle Clone()
         {
             var c = (Battle)MemberwiseClone();
-            c.planes = new[] { planes[0].Clone(), planes[1].Clone() };
+            c.planes = new FlightModel[Count];
+            c.routes = new Route[Count];
+            for (int i = 0; i < Count; i++) { c.planes[i] = planes[i].Clone(); c.routes[i] = routes[i]?.Copy(); }
             c.health = (double[])health.Clone(); c.ammo = (double[])ammo.Clone();
             c.down = (bool[])down.Clone(); c.crashed = (bool[])crashed.Clone();
             c.fireClock = (double[])fireClock.Clone();
@@ -73,42 +103,47 @@ namespace Ooda.Turn.Core
         /// <summary>
         /// Fly one turn. With record false nothing is stored for playback (faster, for previews and the AI);
         /// hits and outcomes still happen. onStep sees the battle after each step (the AI scores along the way).
+        /// p0 and p1 are the player's and the enemy's plans; aircraft with routes plan for themselves.
         /// </summary>
         public TurnResult Resolve(TurnPlan p0, TurnPlan p1, double turnSec, bool record = true, Action<Battle, int> onStep = null)
         {
-            var plans = new[] { p0, p1 };
+            int n = Count;
+            var plans = new TurnPlan[n];
+            for (int i = 0; i < n; i++)
+                plans[i] = routes[i] != null ? routes[i].Plan(planes[i]) : i == 0 ? p0 : i == 1 ? p1 : TurnPlan.Holding();
             int steps = (int)Math.Round(turnSec / StepSec);
-            var res = new TurnResult { startTime = time, dt = StepSec };
+            var res = new TurnResult { startTime = time, dt = StepSec, frames = new AircraftFrame[n][] };
             var traceOf = record ? new Dictionary<Bullet, Trace>() : null;
             if (record)
             {
-                res.frames[0] = new AircraftFrame[steps + 1];
-                res.frames[1] = new AircraftFrame[steps + 1];
-                for (int i = 0; i < 2; i++) res.frames[i][0] = Frame(i, false);
+                for (int i = 0; i < n; i++) { res.frames[i] = new AircraftFrame[steps + 1]; res.frames[i][0] = Frame(i, false); }
                 foreach (var b in bullets) StartTrace(res, traceOf, b, 0);
             }
 
             for (int k = 1; k <= steps; k++)
             {
                 double t = (k - 1) * StepSec;   // time into the turn at the start of this step
-                bool[] firing = new bool[2];
-                var before = new[] { planes[0].state.pos, planes[1].state.pos };
+                bool[] firing = new bool[n];
+                var before = new Vec3d[n];
+                for (int i = 0; i < n; i++) before[i] = planes[i].state.pos;
 
                 // Aircraft
-                for (int i = 0; i < 2; i++)
+                for (int i = 0; i < n; i++)
                 {
                     if (crashed[i]) continue;
                     var m = planes[i];
                     FlightControls c = down[i]
-                        ? new FlightControls { pitch = -0.1, roll = 0.25 * (i == 0 ? 1 : -1), throttle = 0 }
+                        ? new FlightControls { pitch = -0.1, roll = 0.25 * (i % 2 == 0 ? 1 : -1), throttle = 0 }
                         : plans[i].ControlsFor(m);
                     m.Step(c, StepSec);
                     if (m.AltFt <= groundFt(m.state.pos.x, m.state.pos.y) || (obstacleHit != null && obstacleHit(before[i], m.state.pos)))
                     { crashed[i] = true; down[i] = true; }
                 }
 
+                for (int i = 0; i < n; i++) routes[i]?.Advance(planes[i]);
+
                 // Guns: a packet each packetSec of trigger while there is ammunition
-                for (int i = 0; i < 2; i++)
+                for (int i = 0; i < n; i++)
                 {
                     if (Out(i) || !plans[i].Fires(t) || ammo[i] <= 0) { fireClock[i] = 0; continue; }
                     firing[i] = true;
@@ -133,12 +168,15 @@ namespace Ooda.Turn.Core
                     b.vel = new Vec3d(vAir.x * decay, vAir.y * decay, vAir.z * decay - Atmosphere.GFtps2 * StepSec);
                     b.pos = b.pos + (vAir + b.vel) * (StepSec / 2);
                     b.age += StepSec;
-                    int target = 1 - b.owner;
-                    if (!crashed[target] && Passes(p0b - before[target], b.pos - planes[target].state.pos, combat[b.owner].hitRadiusFt))
+                    for (int target = 0; target < n && b.alive; target++)
                     {
-                        Hit(b, target, res);
-                        b.alive = false;
-                        if (record && traceOf.TryGetValue(b, out var ht)) ht.hit = true;
+                        if (side[target] == side[b.owner] || crashed[target]) continue;
+                        if (Passes(p0b - before[target], b.pos - planes[target].state.pos, combat[b.owner].hitRadiusFt + combat[target].sizeFt))
+                        {
+                            Hit(b, target, res);
+                            b.alive = false;
+                            if (record && traceOf.TryGetValue(b, out var ht)) ht.hit = true;
+                        }
                     }
                     if (b.age > combat[b.owner].lifeSec || b.pos.z < groundFt(b.pos.x, b.pos.y)) b.alive = false;
                     else if (b.alive && obstacleHit != null && obstacleHit(p0b, b.pos)) b.alive = false;
@@ -147,13 +185,13 @@ namespace Ooda.Turn.Core
                 }
 
                 // Mid-air collision: both go down
-                if (!crashed[0] && !crashed[1] && Passes(before[0] - before[1], planes[0].state.pos - planes[1].state.pos, CollisionFt))
-                {
-                    down[0] = down[1] = true;
-                }
+                for (int i = 0; i < n; i++)
+                    for (int j = i + 1; j < n; j++)
+                        if (!crashed[i] && !crashed[j] && Passes(before[i] - before[j], planes[i].state.pos - planes[j].state.pos, CollisionFt + combat[i].sizeFt + combat[j].sizeFt))
+                            down[i] = down[j] = true;
 
                 time += StepSec;
-                if (record) for (int i = 0; i < 2; i++) res.frames[i][k] = Frame(i, firing[i]);
+                if (record) for (int i = 0; i < n; i++) res.frames[i][k] = Frame(i, firing[i]);
                 onStep?.Invoke(this, k);
             }
             turn++;
