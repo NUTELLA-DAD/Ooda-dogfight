@@ -37,6 +37,20 @@ static class TurnChecks
             }
         }
 
+        // Overpull: past the ring at 160 KIAS the wing stalls and it departs; the next turn's arrow recovers it
+        {
+            var m = new FlightModel(AircraftNumbers.P51D(), PointMass.Make(new Vec3d(0, 0, 8000), Atmosphere.IasToTasKt(160, 8000), Math.PI / 2));
+            var env = Envelope.Compute(m, 3);
+            var aim = env.Clamp(env.Direction(0, env.MaxAngle(0) + Envelope.OverpullRange), true);
+            double op = env.Overpull(aim);
+            bool departed = false;
+            for (int s = 0; s < 150; s++) { m.Step(AutoPilot.Controls(m, aim, 1, false, op), Battle.StepSec); departed |= m.Departed; }
+            var straight = m.Forward;
+            for (int s = 0; s < 150; s++) m.Step(AutoPilot.Controls(m, straight, 1, false), Battle.StepSec);
+            Console.WriteLine($"  overpull at 160 KIAS: departed {departed}; after a normal turn: {m.departure}, {m.Kias:F0} KIAS");
+            Check(departed && !m.Departed, "overpulling departs, and the next normal arrow recovers");
+        }
+
         // Guns: a target 1,000 ft ahead flying the same way
         {
             var shooter = new FlightModel(AircraftNumbers.P51D(), PointMass.Make(new Vec3d(0, 0, 5000), 300, Math.PI / 2));

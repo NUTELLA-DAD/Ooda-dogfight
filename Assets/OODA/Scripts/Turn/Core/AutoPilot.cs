@@ -14,19 +14,21 @@ namespace Ooda.Turn.Core
         public bool wep;           // war emergency power (with the throttle full)
         public double burstStart, burstEnd;
         public bool hold;          // fly on with the stick where it is instead (the "keeps doing what it's doing" projection)
+        public double overpull;    // 0..1: the arrow past the ring; the stick goes that far beyond the stall line toward full aft
 
         public bool Fires(double t) => burstEnd > burstStart && t >= burstStart && t < burstEnd;
 
         public static TurnPlan Straight(FlightModel m) => new TurnPlan { aim = m.Forward, throttle = 1 };
         public static TurnPlan Holding() => new TurnPlan { hold = true };
 
-        public FlightControls ControlsFor(FlightModel m) => hold ? AutoPilot.Hold(m) : AutoPilot.Controls(m, aim, throttle, wep);
+        public FlightControls ControlsFor(FlightModel m) => hold ? AutoPilot.Hold(m) : AutoPilot.Controls(m, aim, throttle, wep, overpull);
     }
 
     /// <summary>
     /// Flies a FlightModel toward a wanted flight path the way a good pilot would: roll the lift onto the
-    /// turn, pull to the stall line (never past it, so the autopilot never departs), and ease off as the
-    /// nose arrives. It works the real stick, so everything the free-flight model does (G onset, roll
+    /// turn, pull to the stall line, and ease off as the nose arrives. Asked to overpull (the arrow past
+    /// the ring), it hauls the stick beyond the stall line: the wing stalls, the turn mushes and, held long
+    /// enough, it departs into a spin. Departed without an overpull order, it flies the spin recovery. It works the real stick, so everything the free-flight model does (G onset, roll
     /// acceleration, energy bleed in the turn) shows in the result.
     /// </summary>
     public static class AutoPilot
@@ -36,9 +38,10 @@ namespace Ooda.Turn.Core
         /// <summary>The share of the stall line the autopilot will use: the last bit is buffet, not turn.</summary>
         public const double StallMargin = 0.97;
 
-        public static FlightControls Controls(FlightModel m, Vec3d aim, double throttle, bool wep)
+        public static FlightControls Controls(FlightModel m, Vec3d aim, double throttle, bool wep, double overpull = 0)
         {
             var n = m.numbers;
+            if (m.Departed && overpull < 0.5) return Recovery(m);
             Vec3d fwd = m.Forward, up = m.Up, right = m.Right;
             double v = m.state.vel.Length;
 
@@ -71,6 +74,9 @@ namespace Ooda.Turn.Core
             gWant = Math.Max(lo, Math.Min(hi, gWant));
 
             double pitch = gWant >= 1 ? (gWant - 1) / (n.maxG - 1) : -(1 - gWant) / (1 - n.minG);
+            // Overpull: only when pulling (the lift roughly where it is wanted), the stick goes on past the stall line
+            if (overpull > 0 && Math.Abs(rollErr) < Math.PI / 4 && pitch > 0)
+                pitch += (1 - pitch) * Math.Max(0, Math.Min(1, overpull));
 
             // Roll rate wanted: stop on the error with the roll acceleration available
             double maxRate = Math.Max(1, n.MaxRollRateDps(m.Ktas));
@@ -88,6 +94,12 @@ namespace Ooda.Turn.Core
                 wep = wep,
             };
         }
+
+        /// <summary>Spin recovery: throttle idle, rudder against the spin, stick forward of neutral, ailerons neutral.</summary>
+        public static FlightControls Recovery(FlightModel m) => new FlightControls
+        {
+            pitch = -0.3, roll = 0, yaw = -m.spinDir, throttle = 0,
+        };
 
         /// <summary>
         /// "If it keeps doing what it's doing": the stick held where it is (the same G, no roll), the throttle where it is.

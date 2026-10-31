@@ -63,12 +63,26 @@ namespace Ooda.Turn.Core
             return maxAngle[i] * (1 - u) + maxAngle[(i + 1) % Directions] * u;
         }
 
-        /// <summary>Hold a wanted direction inside the shell.</summary>
-        public Vec3d Clamp(Vec3d d)
+        /// <summary>How far past the ring the arrow may go to overpull (radians beyond the ring).</summary>
+        public const double OverpullRange = 25 * Math.PI / 180;
+
+        /// <summary>The furthest the arrow may go toward phi: the ring plus the overpull band.</summary>
+        public double OuterAngle(double phi) => Math.Min(Math.PI * 0.97, MaxAngle(phi) + OverpullRange);
+
+        /// <summary>Hold a wanted direction inside the shell (or, allowing overpull, inside the outer band).</summary>
+        public Vec3d Clamp(Vec3d d, bool allowOverpull = false)
+        {
+            Polar(d, out double phi, out double theta);
+            double max = allowOverpull ? OuterAngle(phi) : MaxAngle(phi);
+            return theta <= max ? d.Normalized : Direction(phi, max);
+        }
+
+        /// <summary>0 inside the ring, rising to 1 at the outer edge of the overpull band.</summary>
+        public double Overpull(Vec3d d)
         {
             Polar(d, out double phi, out double theta);
             double max = MaxAngle(phi);
-            return theta <= max ? d.Normalized : Direction(phi, max);
+            return Math.Max(0, Math.Min(1, (theta - max) / Math.Max(1e-6, OuterAngle(phi) - max)));
         }
 
         public static double Angle(Vec3d a, Vec3d b) => Math.Acos(Math.Max(-1, Math.Min(1, Vec3d.Dot(a.Normalized, b.Normalized))));
