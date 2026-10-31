@@ -46,14 +46,23 @@ namespace Ooda.EditorTools
                 cam.fieldOfView = 35f;
                 cam.transform.position = spit.position + spit.right * 7f + spit.up * 2.2f + spit.forward * 3f;
                 cam.transform.LookAt(spit.position + spit.up * 0.6f + spit.forward * 0.5f);
+                Redraw(behaviours, cam);
                 Save(cam, rt, dir, "turn_spitfire");
                 cam.transform.position = spit.position + spit.right * 2.2f + spit.up * 1.6f - spit.forward * 0.3f;
                 cam.transform.LookAt(spit.position + spit.up * 0.7f + spit.forward * 0.4f);
+                Redraw(behaviours, cam);
                 Save(cam, rt, dir, "turn_wolf");
             }
             else Debug.LogWarning("OODA shots: no Spitfire in the scene.");
             cam.targetTexture = null;
             Debug.Log($"OODA shots: turn battle saved to {dir}");
+        }
+
+        // Lines are sized from the camera's position, so lay them out again once the camera has moved (but don't let its own scripts move it back).
+        static void Redraw(MonoBehaviour[] behaviours, Camera cam)
+        {
+            foreach (var b in behaviours) if (b != null && b.gameObject != cam.gameObject) Call(b, "Update");
+            foreach (var b in behaviours) if (b != null && b.gameObject != cam.gameObject) Call(b, "LateUpdate");
         }
 
         static void Call(MonoBehaviour b, string method)
