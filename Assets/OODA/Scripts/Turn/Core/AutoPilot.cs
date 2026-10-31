@@ -15,7 +15,7 @@ namespace Ooda.Turn.Core
         public double burstStart, burstEnd;
         public bool hold;          // fly on with the stick where it is instead (the "keeps doing what it's doing" projection)
         public double overpull;    // 0..1: the arrow past the ring; the stick goes that far beyond the stall line toward full aft
-        /// <summary>Timed marks instead of the arrow: from each mark's time on, roll to its bank and pull its G (the first should be at 0).</summary>
+        /// <summary>The turn's timeline instead of the arrow: points that each change some settings from their time on (see Mark, StateAt).</summary>
         public Mark[] marks;
 
         public bool HasMarks => marks != null && marks.Length > 0;
@@ -31,24 +31,68 @@ namespace Ooda.Turn.Core
         public FlightControls ControlsFor(FlightModel m, double t)
         {
             if (hold) return AutoPilot.Hold(m);
-            if (HasMarks) { var k = MarkAt(t); return AutoPilot.BankAndPull(m, k.bankDeg, k.g, throttle, wep); }
-            return AutoPilot.Controls(m, aim, throttle, wep, overpull);
+            if (!HasMarks) return AutoPilot.Controls(m, aim, throttle, wep, overpull);
+            var s = StateAt(t);
+            var c = s.bankDeg == null ? AutoPilot.HoldBankAndPull(m, s.g, s.throttle, s.wep)
+                                      : AutoPilot.BankAndPull(m, s.bankDeg.Value, s.g, s.throttle, s.wep);
+            if (!m.Departed) c.yaw = s.rudder;
+            return c;
         }
 
-        /// <summary>The mark in force at t: the last one at or before it (the first one before that).</summary>
-        public Mark MarkAt(double t)
+        /// <summary>
+        /// Everything in force at t: each point sets only what it names, the rest carries on from the point before.
+        /// Before any point names them: wings held where they are, 1 G, the plan's throttle and WEP, no rudder.
+        /// </summary>
+        public MarkState StateAt(double t)
         {
-            Mark k = marks[0];
-            foreach (var x in marks) if (x.time <= t + 1e-9 && x.time >= k.time) k = x;
-            return k;
+            var s = new MarkState { g = 1, throttle = throttle, wep = wep };
+            if (marks == null) return s;
+            foreach (var k in Sorted())
+            {
+                if (k.time > t + 1e-9) break;
+                s.Apply(k);
+            }
+            return s;
+        }
+
+        /// <summary>The marks by time.</summary>
+        public Mark[] Sorted()
+        {
+            var a = (Mark[])marks.Clone();
+            Array.Sort(a, (x, y) => x.time.CompareTo(y.time));
+            return a;
         }
     }
 
-    /// <summary>One timed input: from time (s into the turn) roll to bankDeg (right positive, from wings level) and pull g.</summary>
+    /// <summary>
+    /// One point on the turn's timeline: from time (s into the turn) on, whatever it names. A null field leaves
+    /// that setting as it was. Bank is right positive from wings level; rudder -1..1 (+ right pedal).
+    /// </summary>
     public struct Mark
     {
-        public double time, bankDeg, g;
-        public Mark(double time, double bankDeg, double g) { this.time = time; this.bankDeg = bankDeg; this.g = g; }
+        public double time;
+        public double? bankDeg, g, throttle, rudder;
+        public bool? wep;
+        public Mark(double time, double bankDeg, double g) : this() { this.time = time; this.bankDeg = bankDeg; this.g = g; }
+        public Mark(double time) : this() { this.time = time; }
+        public bool Empty => bankDeg == null && g == null && throttle == null && rudder == null && wep == null;
+    }
+
+    /// <summary>The settings in force at one moment of a timeline.</summary>
+    public struct MarkState
+    {
+        public double? bankDeg;   // null: wings held where they are
+        public double g, throttle, rudder;
+        public bool wep;
+
+        public void Apply(Mark k)
+        {
+            if (k.bankDeg != null) bankDeg = k.bankDeg;
+            if (k.g != null) g = k.g.Value;
+            if (k.throttle != null) throttle = k.throttle.Value;
+            if (k.rudder != null) rudder = k.rudder.Value;
+            if (k.wep != null) wep = k.wep.Value;
+        }
     }
 
     /// <summary>
@@ -123,9 +167,11 @@ namespace Ooda.Turn.Core
         }
 
         /// <summary>The aircraft's bank: the wings' tilt from level around the flight path, degrees, right wing down positive.</summary>
-        public static double BankDeg(FlightModel m)
+        public static double BankDeg(FlightModel m) => BankDeg(m.Forward, m.Up);
+
+        /// <summary>The bank of wings whose flight path is f and lift line is up: right positive, from wings level.</summary>
+        public static double BankDeg(Vec3d f, Vec3d up)
         {
-            Vec3d f = m.Forward, up = m.Up;
             Vec3d rl = Vec3d.Cross(f, Vec3d.Up);
             if (rl.Length < 1e-6) return 0;                       // straight up or down: no bank to speak of
             rl = rl.Normalized;
@@ -163,6 +209,14 @@ namespace Ooda.Turn.Core
                 roll = Math.Max(-1, Math.Min(1, wantRate / maxRate)),
                 throttle = throttle, wep = wep,
             };
+        }
+
+        /// <summary>Pull a G with the wings held where they are (no roll asked).</summary>
+        public static FlightControls HoldBankAndPull(FlightModel m, double g, double throttle, bool wep)
+        {
+            var c = BankAndPull(m, BankDeg(m), g, throttle, wep);
+            c.roll = Math.Max(-1, Math.Min(1, -m.rollRateDps / Math.Max(1, m.numbers.MaxRollRateDps(m.Ktas))));
+            return c;
         }
 
         /// <summary>Spin recovery: throttle idle, rudder against the spin, stick forward of neutral, ailerons neutral.</summary>

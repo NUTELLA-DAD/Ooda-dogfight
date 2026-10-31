@@ -46,10 +46,13 @@ static class TurnChecks
             }
         }
 
-        // Timed marks: level for 1 s, roll to 60 degrees right, then pull 5 G from 1.6 s
+        // Timeline points that each set only some things: level for 1 s, roll to 60 right at 1 s, pull 5 G at 1.6 s
+        // (the bank carries on), throttle to idle at 2 s (bank and pull carry on)
         {
             var m = new FlightModel(AircraftNumbers.P51D(), PointMass.Make(new Vec3d(0, 0, 8000), Atmosphere.IasToTasKt(300, 8000), Math.PI / 2)) { throttle = 1 };
-            var p = new TurnPlan { throttle = 1, marks = new[] { new Mark(0, 0, 1), new Mark(1.0, 60, 1), new Mark(1.6, 60, 5) } };
+            var p = new TurnPlan { throttle = 1, marks = new[] { new Mark(2.0) { throttle = 0 }, new Mark(0, 0, 1), new Mark(1.0) { bankDeg = 60 }, new Mark(1.6) { g = 5 } } };
+            var st = p.StateAt(2.5);
+            Check(st.bankDeg == 60 && st.g == 5 && st.throttle == 0 && !st.wep, "a point changes only what it names; the rest carries on");
             double bankAt1 = 0, bankAt16 = 0, headAt1 = 0; bool departed = false; double peak = 0;
             for (int s = 0; s < 150; s++)
             {

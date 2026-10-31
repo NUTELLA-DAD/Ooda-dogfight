@@ -495,19 +495,25 @@ namespace Ooda.Turn
             }
             if (pad != null) move += pad.leftStick.ReadValue();
             if (stickPitch) move.y = -move.y;   // back on the stick (S, down) brings the nose, and the arrow, up
-            // The moves slider: [ and ] (or the d-pad) pick the moment; Q and E bank; with marks set the stick edits them
+            // The timeline: [ and ] (or the d-pad) move the slider; Q/E bank and Z/C rudder at the slider's moment.
+            // Once there are points, W/S pull, Shift/Ctrl throttle and Space WEP also set them at the slider's moment.
             float scrub = 0;
             if (kb != null) { if (kb.leftBracketKey.isPressed) scrub -= 1; if (kb.rightBracketKey.isPressed) scrub += 1; }
             if (pad != null) { if (pad.dpad.left.isPressed) scrub -= 1; if (pad.dpad.right.isPressed) scrub += 1; }
-            if (scrub != 0) markT = Mathf.Clamp(markT + scrub * dt * 1.0f, 0, turnSec);
+            if (scrub != 0) markT = Mathf.Clamp(markT + scrub * dt * 1.5f, 0, turnSec);
+            if (Pressed(Key.Comma)) JumpPoint(-1);
+            if (Pressed(Key.Period)) JumpPoint(1);
             float bank = 0;
             if (kb != null) { if (kb.qKey.isPressed) bank -= 1; if (kb.eKey.isPressed) bank += 1; }
             if (pad != null && pad.leftStickButton.isPressed) bank += pad.leftStick.ReadValue().x;   // stick click + sideways banks
-            if (bank != 0) EditMark(bank * 90f * dt, 0);
+            if (bank != 0) NudgeBank(bank * 90f * dt);
+            float rud = 0;
+            if (kb != null) { if (kb.zKey.isPressed) rud -= 1; if (kb.cKey.isPressed) rud += 1; }
+            if (rud != 0) NudgeRudder(rud * 1.5f * dt);
             if (plan.HasMarks)
             {
-                if (Mathf.Abs(move.x) > 0.1f && bank == 0) EditMark(move.x * 90f * dt, 0);
-                if (Mathf.Abs(move.y) > 0.1f) EditMark(0, move.y * 3f * dt);
+                if (Mathf.Abs(move.x) > 0.1f && bank == 0) NudgeBank(move.x * 90f * dt);
+                if (Mathf.Abs(move.y) > 0.1f) NudgeG(move.y * 3f * dt);
                 move = Vector2.zero;
             }
             if (move.sqrMagnitude > 0.01f)
@@ -521,8 +527,16 @@ namespace Ooda.Turn
             float thr = 0;
             if (kb != null) { if (kb.leftShiftKey.isPressed) thr += 1; if (kb.leftCtrlKey.isPressed) thr -= 1; }
             if (pad != null) thr += pad.rightTrigger.ReadValue() - pad.leftTrigger.ReadValue();
-            if (Mathf.Abs(thr) > 0.05f) { plan.throttle = Math.Max(0, Math.Min(1, plan.throttle + thr * 0.6 * dt)); dirty = true; }
-            if (Pressed(Key.Space)) { plan.wep = !plan.wep; dirty = true; }
+            if (Mathf.Abs(thr) > 0.05f)
+            {
+                if (plan.HasMarks) { var st = plan.StateAt(markT); double v = Math.Max(0, Math.Min(1, st.throttle + thr * 0.6 * dt)); EditPoint(k => { k.throttle = v; return k; }); }
+                else { plan.throttle = Math.Max(0, Math.Min(1, plan.throttle + thr * 0.6 * dt)); dirty = true; }
+            }
+            if (Pressed(Key.Space))
+            {
+                if (plan.HasMarks) { bool v = !plan.StateAt(markT).wep; EditPoint(k => { k.wep = v; return k; }); }
+                else { plan.wep = !plan.wep; dirty = true; }
+            }
 
             // Guns
             if (Pressed(Key.B) || (pad != null && pad.buttonWest.wasPressedThisFrame))
@@ -576,39 +590,70 @@ namespace Ooda.Turn
             dirty = true;
         }
 
-        // ---------- timed moves ----------
+        // ---------- the timeline: points that set bank, G, throttle, WEP or rudder from their moment on ----------
 
         void SetMarkTime(float guiX)
         {
-            markT = Mathf.Round(Mathf.Clamp01((guiX - movesRect.x) / movesRect.width) * turnSec / 0.1f) * 0.1f;
+            float t = Mathf.Clamp01((guiX - movesRect.x) / movesRect.width) * turnSec;
+            // snap onto a point when close, so a tap on a tick picks that point
+            if (plan.HasMarks)
+                foreach (var k in plan.marks)
+                    if (Math.Abs(k.time - t) < turnSec * 0.03) { markT = (float)k.time; return; }
+            markT = Mathf.Round(t / 0.1f) * 0.1f;
         }
 
-        /// <summary>
-        /// Change the bank and pull from the slider's moment on: the mark there, made if there is none (starting from what
-        /// is in force then). The first mark sits at 0 and starts as the aircraft is now: its bank, 1 G.
-        /// </summary>
-        void EditMark(float dBank, float dG)
+        int PointAt(Mark[] list, double t) => list == null ? -1 : Array.FindIndex(list, k => Math.Abs(k.time - t) < 0.05);
+
+        /// <summary>Change the point at the slider's moment (made there if there is none). A point left setting nothing goes.</summary>
+        void EditPoint(Func<Mark, Mark> change)
         {
-            var m = battle.planes[0];
-            var list = plan.HasMarks ? plan.marks.ToList() : new List<Mark> { new Mark(0, Math.Round(AutoPilot.BankDeg(m) / 5) * 5, 1) };
+            var list = plan.HasMarks ? plan.marks.ToList() : new List<Mark>();
             int at = list.FindIndex(k => Math.Abs(k.time - markT) < 0.05);
-            if (at < 0)
-            {
-                var basis = new TurnPlan { marks = list.ToArray() }.MarkAt(markT);
-                list.Add(new Mark(Math.Round(markT * 10) / 10, basis.bankDeg, basis.g));
-                list.Sort((a, b) => a.time.CompareTo(b.time));
-                at = list.FindIndex(k => Math.Abs(k.time - markT) < 0.05);
-            }
-            var k0 = list[at];
-            double bankDeg = k0.bankDeg + dBank;
-            while (bankDeg > 180) bankDeg -= 360;
-            while (bankDeg < -180) bankDeg += 360;
-            var n = m.numbers;
-            double g = Math.Max(n.minG, Math.Min(n.maxG + 2, k0.g + dG));
-            list[at] = new Mark(k0.time, bankDeg, g);
-            plan.marks = list.ToArray();
+            if (at < 0) { list.Add(new Mark(Math.Round(markT * 10) / 10)); at = list.Count - 1; }
+            var k1 = change(list[at]);
+            if (k1.Empty) list.RemoveAt(at); else list[at] = k1;
+            list.Sort((a, b) => a.time.CompareTo(b.time));
+            plan.marks = list.Count > 0 ? list.ToArray() : null;
             plan.overpull = 0;
             dirty = true;
+        }
+
+        /// <summary>The bank in force at the slider's moment: the timeline's, or where the ghost's wings are then.</summary>
+        double BankAtSlider()
+        {
+            var st = plan.StateAt(markT);
+            if (st.bankDeg != null) return st.bankDeg.Value;
+            if (preview != null)
+            {
+                int fi = Mathf.Clamp(Mathf.RoundToInt(markT / (float)preview.dt), 0, preview.FrameCount - 1);
+                var fr = preview.frames[0][fi];
+                return AutoPilot.BankDeg(fr.vel.Normalized, fr.up);
+            }
+            return AutoPilot.BankDeg(battle.planes[0]);
+        }
+
+        static double Wrap180(double d) { while (d > 180) d -= 360; while (d < -180) d += 360; return d; }
+
+        void SetBank(double deg) { deg = Wrap180(Math.Round(deg)); EditPoint(k => { k.bankDeg = deg; return k; }); }
+        void NudgeBank(double d) => SetBank(BankAtSlider() + d);
+        void SetG(double g)
+        {
+            var n = battle.planes[0].numbers;
+            g = Math.Max(n.minG, Math.Min(n.maxG + 2, Math.Round(g * 10) / 10));
+            EditPoint(k => { k.g = g; return k; });
+        }
+        void NudgeG(double d) => SetG(plan.StateAt(markT).g + d);
+        void SetRudder(double r) { r = Math.Max(-1, Math.Min(1, Math.Round(r * 20) / 20)); EditPoint(k => { k.rudder = r; return k; }); }
+        void NudgeRudder(double d) => SetRudder(plan.StateAt(markT).rudder + d);
+
+        /// <summary>Move the slider to the previous or next point.</summary>
+        void JumpPoint(int dir)
+        {
+            if (!plan.HasMarks) return;
+            var times = plan.Sorted().Select(k => (float)k.time).ToList();
+            float? to = dir < 0 ? times.Where(t => t < markT - 0.01f).Select(t => (float?)t).LastOrDefault()
+                                : times.Where(t => t > markT + 0.01f).Select(t => (float?)t).FirstOrDefault();
+            if (to != null) markT = to.Value;
         }
 
         void ClearMarks() { plan.marks = null; dirty = true; }
@@ -616,7 +661,7 @@ namespace Ooda.Turn
         void DeleteMarkAtSlider()
         {
             if (!plan.HasMarks) return;
-            var list = plan.marks.Where(k => Math.Abs(k.time - markT) >= 0.05 || k.time == 0).ToList();
+            var list = plan.marks.Where(k => Math.Abs(k.time - markT) >= 0.05).ToList();
             plan.marks = list.Count > 0 ? list.ToArray() : null;
             dirty = true;
         }
@@ -1006,7 +1051,7 @@ namespace Ooda.Turn
             if (phase == Phase.Playing) GUI.Label(new Rect(0, sh - 60, sw, 30), $"Turn playing  {playT:F1} / {turnSec:F0} s   (hold Tab to speed up)", new GUIStyle(label) { alignment = TextAnchor.MiddleCenter });
             var warn = new GUIStyle(big) { fontSize = 26 };
             warn.normal.textColor = overpullColor;
-            if (planning && warning != null) GUI.Label(new Rect(0, sh - 330, sw, 40), warning, warn);
+            if (planning && warning != null) GUI.Label(new Rect(0, sh - 400, sw, 40), warning, warn);
             if (phase == Phase.Playing && last != null)
             {
                 int now = Mathf.Min(last.FrameCount - 1, Mathf.RoundToInt(playT / (float)last.dt));
@@ -1048,13 +1093,13 @@ namespace Ooda.Turn
         void PlanningPanel(float sw, float sh)
         {
             float pw = Mathf.Min(640, sw - 40), px = (sw - pw) / 2, py = sh - 150;
-            MovesPanel(px, py - 128, pw);
+            MovesPanel(px, py - 196, pw);
             Rect panel = new Rect(px - 10, py - 10, pw + 20, 150);
             GUI.Box(panel, GUIContent.none);
             guiRects.Add(panel);
 
             // Throttle and WEP
-            GUI.Label(new Rect(px, py, 110, 22), $"Throttle {plan.throttle * 100:F0}%", label);
+            GUI.Label(new Rect(px, py, 110, 22), plan.HasMarks ? $"Start {plan.throttle * 100:F0}%" : $"Throttle {plan.throttle * 100:F0}%", label);
             float thr = GUI.HorizontalSlider(new Rect(px + 120, py + 6, pw - 260, 20), (float)plan.throttle, 0f, 1f);
             if (Math.Abs(thr - plan.throttle) > 1e-4) { plan.throttle = thr; dirty = true; }
             bool wep = GUI.Toggle(new Rect(px + pw - 130, py, 130, 22), plan.wep, " WEP (Space)");
@@ -1087,45 +1132,89 @@ namespace Ooda.Turn
             if (GUI.Button(new Rect(px + pw - 130, py + 102, 130, 26), "Fire at hits (F)")) FireAtPredicted();
         }
 
-        /// <summary>The moves: a slider through the turn, and the bank and pull from that moment on.</summary>
+        /// <summary>
+        /// The timeline: a slider through the turn with a tick for each point, and the bank, pull, throttle, rudder and WEP
+        /// in force at the slider's moment. Changing one sets it from that moment on (a point is made there);
+        /// the x beside a setting the point sets lets it carry on from before instead.
+        /// </summary>
         void MovesPanel(float px, float py, float pw)
         {
-            Rect panel = new Rect(px - 10, py - 10, pw + 20, 124);
+            const float H = 196;
+            Rect panel = new Rect(px - 10, py - 10, pw + 20, H);
             GUI.Box(panel, GUIContent.none);
             guiRects.Add(panel);
             var m = battle.planes[0];
-            double avail = m.numbers.AvailableG(m.Kias);
-            if (!plan.HasMarks)
-            {
-                GUI.Label(new Rect(px, py, pw, 22), $"Moves: flying to the arrow.  Q/E bank or the buttons below to plan bank and pull by time instead.", small);
-            }
-            else
-            {
-                var k = plan.MarkAt(markT);
-                var red = new GUIStyle(label); red.normal.textColor = k.g > avail ? overpullColor : label.normal.textColor;
-                GUI.Label(new Rect(px, py, pw, 22), $"From {markT:F1} s:  bank {(k.bankDeg >= 0 ? "right" : "left")} {Math.Abs(k.bankDeg):F0}°,  pull {k.g:F1} G   (the wing has {avail:F1} G now)", red);
-            }
-            movesRect = new Rect(px, py + 24, pw, 22);
+            var n = m.numbers;
+            double avail = n.AvailableG(m.Kias);
+            int at = PointAt(plan.marks, markT);
+            Mark here = at >= 0 ? plan.marks[at] : new Mark(markT);
+            var st = plan.StateAt(markT);
+
+            string head = !plan.HasMarks
+                ? $"Timeline at {markT:F1} s: flying to the arrow. Change anything below to set it from this moment instead."
+                : at >= 0 ? $"Point at {markT:F1} s: bright settings change here, dim ones carry on from before."
+                          : $"At {markT:F1} s (no point here): change anything to put a point here.";
+            GUI.Label(new Rect(px, py, pw, 22), head, small);
+
+            // the bar: ticks for points, the white slider, seconds under it
+            movesRect = new Rect(px + 30, py + 22, pw - 60, 22);
+            if (GUI.Button(new Rect(px, py + 22, 26, 22), "<")) JumpPoint(-1);
+            if (GUI.Button(new Rect(px + pw - 26, py + 22, 26, 22), ">")) JumpPoint(1);
             GUI.Box(movesRect, GUIContent.none);
+            float bw0 = movesRect.width;
             if (plan.HasMarks)
                 foreach (var k in plan.marks)
-                    Fill(new Rect(movesRect.x + (float)(k.time / turnSec) * pw - 2, movesRect.y, 4, movesRect.height), k.g > avail ? overpullColor : arrowColor);
-            Fill(new Rect(movesRect.x + markT / turnSec * pw - 1, movesRect.y - 3, 2, movesRect.height + 6), Color.white);
-            // bank and pull at the slider's moment
-            var cur = plan.HasMarks ? plan.MarkAt(markT) : new Mark(markT, AutoPilot.BankDeg(m), 1);
-            GUI.Label(new Rect(px, py + 50, 60, 22), "Bank", label);
-            float b = GUI.HorizontalSlider(new Rect(px + 60, py + 56, pw / 2 - 80, 20), (float)cur.bankDeg, -180f, 180f);
-            if (Math.Abs(b - cur.bankDeg) > 0.5) EditMark(Mathf.Round((b - (float)cur.bankDeg) / 5) * 5, 0);
-            GUI.Label(new Rect(px + pw / 2, py + 50, 60, 22), "Pull", label);
-            float g = GUI.HorizontalSlider(new Rect(px + pw / 2 + 50, py + 56, pw / 2 - 50, 20), (float)cur.g, (float)m.numbers.minG, (float)m.numbers.maxG + 2);
-            if (Math.Abs(g - cur.g) > 0.05) EditMark(0, Mathf.Round((g - (float)cur.g) * 10) / 10);
-            float bw = (pw - 30) / 4;
-            if (GUI.Button(new Rect(px, py + 80, bw, 26), "Level here")) { EditMark(-(float)cur.bankDeg, (float)(1 - cur.g)); }
-            if (GUI.Button(new Rect(px + bw + 10, py + 80, bw, 26), "Max pull here")) { EditMark(0, (float)(avail * 0.97 - cur.g)); }
-            GUI.enabled = plan.HasMarks;
-            if (GUI.Button(new Rect(px + 2 * (bw + 10), py + 80, bw, 26), "Delete mark")) DeleteMarkAtSlider();
-            if (GUI.Button(new Rect(px + 3 * (bw + 10), py + 80, bw, 26), "Clear (X): arrow")) ClearMarks();
+                {
+                    bool over = k.g != null && k.g.Value > avail;
+                    Fill(new Rect(movesRect.x + (float)(k.time / turnSec) * bw0 - 3, movesRect.y, 6, movesRect.height), over ? overpullColor : arrowColor);
+                }
+            Fill(new Rect(movesRect.x + markT / turnSec * bw0 - 1, movesRect.y - 4, 2, movesRect.height + 8), Color.white);
+            for (int sec = 0; sec <= (int)turnSec; sec++)
+                GUI.Label(new Rect(movesRect.x + sec / turnSec * bw0 - 6, movesRect.yMax - 2, 30, 18), $"{sec}s", small);
+
+            var on = new GUIStyle(label);
+            var dim = new GUIStyle(label); dim.normal.textColor = new Color(0.6f, 0.7f, 0.6f, 0.8f);
+            var red = new GUIStyle(label); red.normal.textColor = overpullColor;
+            float col = pw / 2, lw = 150, y = py + 62;
+            bool marks = plan.HasMarks;
+
+            // left column: bank, pull, rudder
+            double bankNow = BankAtSlider();
+            Row(px, y, col - 10, lw, here.bankDeg != null, marks,
+                st.bankDeg == null ? $"Bank: hold ({(bankNow >= 0 ? "R" : "L")}{Math.Abs(bankNow):F0}°)" : $"Bank {(st.bankDeg >= 0 ? "right" : "left")} {Math.Abs(st.bankDeg.Value):F0}°",
+                on, dim, (float)bankNow, -180, 180, v => SetBank(v), () => EditPoint(k => { k.bankDeg = null; return k; }));
+            Row(px, y + 26, col - 10, lw, here.g != null, marks,
+                $"Pull {st.g:F1} G  (wing {avail:F1})", st.g > avail ? red : on, st.g > avail ? red : dim, (float)st.g, (float)n.minG, (float)n.maxG + 2, v => SetG(v), () => EditPoint(k => { k.g = null; return k; }));
+            Row(px, y + 52, col - 10, lw, here.rudder != null, marks,
+                st.rudder == 0 ? "Rudder: centred" : $"Rudder {(st.rudder > 0 ? "right" : "left")} {Math.Abs(st.rudder) * 100:F0}%",
+                on, dim, (float)st.rudder, -1, 1, v => SetRudder(v), () => EditPoint(k => { k.rudder = null; return k; }));
+
+            // right column: throttle, WEP, and the buttons
+            float rx = px + col + 10;
+            Row(rx, y, col - 10, 120, here.throttle != null, marks, $"Throttle {st.throttle * 100:F0}%", on, dim, (float)st.throttle, 0, 1,
+                v => { double t = Math.Round(v * 20) / 20; EditPoint(k => { k.throttle = t; return k; }); }, () => EditPoint(k => { k.throttle = null; return k; }));
+            bool wep = GUI.Toggle(new Rect(rx, y + 26, 120, 22), st.wep, marks && here.wep == null ? " WEP (carried)" : " WEP");
+            if (wep != st.wep) EditPoint(k => { k.wep = wep; return k; });
+            if (marks && here.wep != null && GUI.Button(new Rect(rx + 124, y + 26, 22, 22), "x")) EditPoint(k => { k.wep = null; return k; });
+            if (GUI.Button(new Rect(rx + 150, y + 26, col - 160, 22), "Level, 1 G here")) EditPoint(k => { k.bankDeg = 0; k.g = 1; return k; });
+            float bw = (col - 20) / 2;
+            GUI.enabled = at >= 0;
+            if (GUI.Button(new Rect(rx, y + 52, bw, 24), "Delete point")) DeleteMarkAtSlider();
+            GUI.enabled = marks;
+            if (GUI.Button(new Rect(rx + bw + 10, y + 52, bw, 24), "Clear all (X)")) ClearMarks();
             GUI.enabled = true;
+            GUI.Label(new Rect(px, y + 80, pw, 20), "[ ] slider   , . points   Q/E bank   W/S pull   Z/C rudder   Shift/Ctrl throttle   Space WEP", small);
+        }
+
+        /// <summary>One setting: its label (bright when this point sets it), a slider, and an x to let it carry on instead.</summary>
+        void Row(float x, float y, float w, float lw, bool setHere, bool marks, string text, GUIStyle on, GUIStyle dim,
+                 float value, float lo, float hi, Action<float> set, Action unset)
+        {
+            GUI.Label(new Rect(x, y, lw, 22), text, !marks || setHere ? on : dim);
+            float sw = w - lw - 30;
+            float v = GUI.HorizontalSlider(new Rect(x + lw, y + 6, sw, 20), value, lo, hi);
+            if (Math.Abs(v - value) > (hi - lo) * 0.004f) set(v);
+            if (marks && setHere && GUI.Button(new Rect(x + lw + sw + 6, y, 22, 22), "x")) unset();
         }
 
         void Bar(Rect r, double fraction, Color c, string text)
