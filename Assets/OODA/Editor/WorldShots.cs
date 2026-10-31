@@ -31,6 +31,33 @@ namespace Ooda.EditorTools
 
             Shot(cam, rt, dir, "world_overview", new Vector3(-9000, 9000, -17000), new Vector3(0, 800, -1000));
             Shot(cam, rt, dir, "world_overview_east", new Vector3(16000, 7000, -6000), new Vector3(0, 1200, 0));
+            // the narrow main valley along the escort route: from the bombers' start, inside a bend, and from above with the
+            // route (green) and the flak sites (red) drawn in for this shot only
+            var route = AlpineWorld.EscortRoute;
+            Shot(cam, rt, dir, "valley_start", route[0] + new Vector3(0, 30, -150), route[3] + Vector3.down * 60);
+            Vector3 bend = Vector3.MoveTowards(route[4], route[5], 300f);
+            Shot(cam, rt, dir, "valley_bend", bend, bend + (route[5] - route[4]).normalized * 1000f + Vector3.down * 40);
+            var lineGo = new GameObject("RouteLine");
+            var lr = lineGo.AddComponent<LineRenderer>();
+            lr.positionCount = route.Length;
+            lr.SetPositions(route.Select(p => p + Vector3.up * 400).ToArray());
+            lr.widthMultiplier = 90f;
+            lr.material = new Material(Shader.Find("Sprites/Default")) { color = new Color(0.2f, 1f, 0.3f) };
+            var flak = AlpineWorld.FlakSites.Select(s =>
+            {
+                var f = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                f.transform.position = new Vector3(s.x, s.y + 450, s.z);
+                f.transform.localScale = Vector3.one * 260f;
+                f.GetComponent<Renderer>().sharedMaterial = new Material(Shader.Find("Sprites/Default")) { color = Color.red };
+                return f;
+            }).ToList();
+            float fov0 = cam.fieldOfView;
+            cam.fieldOfView = 60f;
+            Shot(cam, rt, dir, "valley_topdown", new Vector3(0, 19000, -600), new Vector3(0, 0, -500));
+            cam.fieldOfView = fov0;
+            Object.DestroyImmediate(lineGo);
+            foreach (var f in flak) Object.DestroyImmediate(f);
+
             var fight = AlpineWorld.FightCentre;
             float alt = AlpineWorld.FightAltFt * 0.3048f;
             Shot(cam, rt, dir, "world_valley", new Vector3(fight.x - 40, alt, fight.z - 1500), new Vector3(fight.x, alt - 120, fight.z + 2000));
