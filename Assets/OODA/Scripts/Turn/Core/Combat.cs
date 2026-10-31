@@ -15,6 +15,7 @@ namespace Ooda.Turn.Core
         public double packetSec = 0.05;     // one packet every this many seconds of trigger
         public double spreadMil = 3;        // dispersion, milliradians (1 sigma)
         public double hitRadiusFt = 14;     // a packet passing this close to the target's centre hits
+        public double sizeFt = 0;           // as a target: added to the shooter's hit radius (a big aircraft is easier to hit)
         public double damage = 1;           // per packet that hits
         public double ammoSec = 18;         // seconds of trigger
         public double lifeSec = 2.5;        // packets are gone after this (spent, out of range)
@@ -30,6 +31,15 @@ namespace Ooda.Turn.Core
         public static CombatNumbers SpitfireIX() => new CombatNumbers
         {
             guns = "2 x 20 mm + 2 x .50 cal", muzzleFps = 2850, damage = 1.4, ammoSec = 12, dragPerSec = 0.35,
+        };
+
+        /// <summary>
+        /// The B-17G as a target: 104 ft span, so a much bigger hit sphere; four engines and a big airframe take
+        /// about three times a fighter's damage. Its own gunners come later: no guns for now. Estimates to tune.
+        /// </summary>
+        public static CombatNumbers B17G() => new CombatNumbers
+        {
+            guns = "none yet", ammoSec = 0, sizeFt = 22, health = 36,
         };
     }
 

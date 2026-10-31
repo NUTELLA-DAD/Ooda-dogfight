@@ -112,6 +112,25 @@ namespace Ooda.Flight.Core
             alphaStallDeg = 15,
         };
 
+        /// <summary>
+        /// The B-17G Flying Fortress at a combat weight of about 55,000 lb. Seeded from public figures (1,420 sq ft
+        /// wing, aspect ratio 7.6, Cd0 about 0.026 with the turrets, Oswald e about 0.75, four Wright R-1820s at
+        /// 1,200 hp each, turbo-supercharged so the power holds to about 25,000 ft, prop efficiency about 0.8, stall
+        /// about 100 mph, a 3 G limit and a heavy, slow roll). Estimates to tune: it cruises near 170 KIAS low down
+        /// and tops out a little under 200 KIAS at the valley heights.
+        /// </summary>
+        public static AircraftNumbers B17G() => new AircraftNumbers
+        {
+            name = "B-17G Flying Fortress",
+            maxG = 3, minG = -1, stallKias = 87, negStallKias = 120, vneKias = 235,
+            rollPerKtasDps = 0.15, maxRollRateDps = 30, rollFullRateSec = 0.8,
+            gOnsetGps = 1.5, gOnsetAccelGps2 = 4,
+            rudderSideG = 0.1,
+            thrustK = 46.9, thrustV0Kt = 40, thrustDensityExp = 0.9, thrustFlatSigma = 0.448,
+            maxStaticThrustPerWeight = 0.25, wepFactor = 1.0, dragA = 2.273e-6, dragB = 640.5,
+            alphaStallDeg = 16,
+        };
+
         /// <summary>The OODA tool's T-6A set (core/t6a-turn-data.js T6A_FIT and T6A_LIMITS), kept to check the port.</summary>
         public static AircraftNumbers T6A() => new AircraftNumbers
         {

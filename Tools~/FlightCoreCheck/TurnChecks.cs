@@ -110,6 +110,43 @@ static class TurnChecks
             Console.WriteLine($"  AI vs AI: {end} after {turn} turns; slowest AI plan {worst:F0} ms");
             Check(worst < 1500, "an AI plan takes well under the time a player spends planning");
         }
+        // Escort: the B-17 flies its route up a valley and bends with it; the Spitfire goes for it
+        {
+            var route = new[] { new Vec3d(0, -19700, 4100), new Vec3d(0, 16400, 4300), new Vec3d(8200, 26200, 5200), new Vec3d(13100, 34800, 5600) };
+            var fight = Scenarios.Escort(route);
+            var ai0 = new EnemyAi { me = 0, rng = new Lcg(5) };
+            var ai1 = new EnemyAi { me = 1 };
+            Console.WriteLine($"  B-17 starts at {fight.planes[2].Kias:F0} KIAS; the Spitfire goes for aircraft {ai1.Target(fight)}");
+            Check(ai1.Target(fight) == 2, "the Spitfire picks the bomber");
+            int turn = 0; double worst = 0; var sw = Stopwatch.StartNew();
+            for (; turn < 80 && !fight.Over; turn++)
+            {
+                var t0 = sw.Elapsed.TotalMilliseconds;
+                var p0 = ai0.Plan(fight, Scenarios.TurnSec);
+                var p1 = ai1.Plan(fight, Scenarios.TurnSec);
+                worst = Math.Max(worst, (sw.Elapsed.TotalMilliseconds - t0) / 2);
+                var r = fight.Resolve(p0, p1, Scenarios.TurnSec);
+                var bm = fight.planes[2];
+                if (turn < 6 || turn % 5 == 0 || fight.Over)
+                    Console.WriteLine($"    turn {turn + 1,2}: B-17 {bm.Kias,3:F0} KIAS {bm.AltFt,5:F0} ft heading {Math.Atan2(bm.state.vel.x, bm.state.vel.y) * D,4:F0} waypoint {fight.routes[2].next} hp {fight.health[2],4:F1}" +
+                                      $"  Spit {(fight.planes[1].state.pos - bm.state.pos).Length,6:F0} ft off hp {fight.health[1],4:F1}  P-51 hp {fight.health[0],4:F1}  hits {r.hits.Count}");
+            }
+            string end = fight.routes[2].Done ? "the B-17 reached the target" : fight.Out(2) ? "the B-17 went down" : fight.Out(1) ? "the Spitfire went down" : fight.Out(0) ? "the P-51 went down" : "no result";
+            Console.WriteLine($"  escort AI vs AI: {end} after {turn} turns; slowest AI plan {worst:F0} ms");
+            Check(fight.Over && worst < 1500, "the escort fight ends, and the AI still plans quickly with three aircraft");
+
+            // The bomber alone keeps to its route and its speed
+            var solo = Scenarios.Escort(route);
+            solo.planes[1] = new FlightModel(AircraftNumbers.SpitfireIX(), PointMass.Make(new Vec3d(-90000, 0, 20000), 300, 0));
+            int t2 = 0; double minK = 999, maxK = 0;
+            for (; t2 < 120 && !solo.routes[2].Done && !solo.Out(2); t2++)
+            {
+                solo.Resolve(TurnPlan.Holding(), TurnPlan.Holding(), Scenarios.TurnSec, false);
+                if (t2 > 3) { minK = Math.Min(minK, solo.planes[2].Kias); maxK = Math.Max(maxK, solo.planes[2].Kias); }
+            }
+            Console.WriteLine($"  B-17 alone: route done {solo.routes[2].Done} after {t2} turns, {minK:F0} to {maxK:F0} KIAS");
+            Check(solo.routes[2].Done && minK > 140 && maxK < 180, "the bomber flies its whole route near its cruise speed");
+        }
         return fails;
     }
 }

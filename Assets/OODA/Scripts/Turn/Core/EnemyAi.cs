@@ -13,6 +13,8 @@ namespace Ooda.Turn.Core
     public class EnemyAi
     {
         public int me = 1;
+        /// <summary>Who to go for: an aircraft index, or -1 to choose (one flying a route, such as the bomber, first).</summary>
+        public int target = -1;
         /// <summary>0 plays the best it finds; more adds noise to its choice (a less sharp pilot).</summary>
         public double sloppiness = 0.15;
         public double idealRangeFt = 900;
@@ -22,7 +24,7 @@ namespace Ooda.Turn.Core
 
         public TurnPlan Plan(Battle battle, double turnSec)
         {
-            int them = 1 - me;
+            int them = Target(battle);
             var m = battle.planes[me];
             var env = Envelope.Compute(m, turnSec);
             bool slow = m.Kias < 220;
@@ -50,6 +52,19 @@ namespace Ooda.Turn.Core
 
         TurnPlan TheirProjection() => TurnPlan.Holding();
 
+        public int Target(Battle battle)
+        {
+            if (target >= 0 && !battle.Out(target)) return target;
+            int best = -1; double bestRange = double.PositiveInfinity;
+            for (int j = 0; j < battle.Count; j++)
+            {
+                if (battle.side[j] == battle.side[me] || battle.Out(j)) continue;
+                double r = (battle.planes[j].state.pos - battle.planes[me].state.pos).Length - (battle.routes[j] != null ? 1e9 : 0);
+                if (r < bestRange) { bestRange = r; best = j; }
+            }
+            return best >= 0 ? best : 1 - me;
+        }
+
         double Score(Battle battle, TurnPlan plan, int them, double turnSec)
         {
             var sim = battle.Clone();
@@ -76,11 +91,17 @@ namespace Ooda.Turn.Core
             double range = l.Length;
             double ata = Envelope.Angle(mine.Forward, l);          // my nose off the line to them
             double aa = Envelope.Angle(theirs.Forward, l);         // 0 when I am at their six
-            double theirAta = Envelope.Angle(theirs.Forward, -l);   // their nose off the line to me
 
             double score = -2.0 * ata - 1.2 * aa;
             score -= Math.Abs(range - idealRangeFt) / 2500;
-            if (theirAta < 20 * Math.PI / 180 && range < 4000) score -= 1.5 * (1 - theirAta / (20 * Math.PI / 180));
+            // anyone on the other side with guns pointing at me
+            for (int j = 0; j < sim.Count; j++)
+            {
+                if (sim.side[j] == sim.side[me] || sim.Out(j) || sim.combat[j].ammoSec <= 0) continue;
+                Vec3d lj = sim.planes[j].state.pos - mine.state.pos;
+                double rj = lj.Length, theirAta = Envelope.Angle(sim.planes[j].Forward, -lj);   // their nose off the line to me
+                if (theirAta < 20 * Math.PI / 180 && rj < 4000) score -= 1.5 * (1 - theirAta / (20 * Math.PI / 180));
+            }
             score += 0.5 * (mine.Kias - 250) / 200 + 0.2 * (mine.AltFt - battle.planes[me].AltFt) / 1000;
             if (minClear < 1500) score -= (1500 - minClear) / 300;
             if (mine.Departed) score -= 3;
@@ -95,9 +116,10 @@ namespace Ooda.Turn.Core
             test.burstStart = 0; test.burstEnd = turnSec;
             var sim = battle.Clone();
             sim.dispersion = false;
-            sim.health[1 - me] = double.PositiveInfinity;   // keep the target flying to see the whole burst
+            for (int j = 0; j < sim.Count; j++) if (sim.side[j] != sim.side[me]) sim.health[j] = double.PositiveInfinity;   // keep targets flying to see the whole burst
             // The target will not fly exactly as projected: fire at anything that comes near (a wider "hit" here)
-            sim.combat = new[] { sim.combat[0].Copy(), sim.combat[1].Copy() };
+            sim.combat = (CombatNumbers[])sim.combat.Clone();
+            for (int j = 0; j < sim.Count; j++) sim.combat[j] = sim.combat[j].Copy();
             sim.combat[me].hitRadiusFt *= burstSlack;
             // rounds already in the air are not this burst's
             sim.bullets.Clear();
