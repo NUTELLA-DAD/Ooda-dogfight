@@ -10,13 +10,13 @@ An open-world WW2 dogfighting game in Unity: arcade-paced like a space-shooter, 
 
 ## The game: turn-based dogfight (Mustang against Spitfire)
 
-Each turn lasts 3 seconds, and both pilots plan at the same time. You drag a flight-path arrow to say where the nose should point when the turn ends, inside a white ring that shows how far the aircraft can turn in 3 s. The aircraft flies the best roll and pull to get there, with the same flight model as free flight. A blue ghost path shows where you will go. Orange tracers show where your rounds will go: they arc and take time to arrive, so you must lead the target. A red line shows the Spitfire if it keeps doing what it's doing. Then press **Fly turn**: the AI plans without seeing your plan, both aircraft fly, and the turn plays back. Shoot it down to win; get shot down or hit the ground and you lose.
+Each turn lasts 3 seconds, and both pilots plan at the same time. You drag a flight-path arrow to say where the nose should point when the turn ends, inside a white ring that shows how far the aircraft can turn in 3 s. Past the ring, out to a red ring, you overpull: the stick goes beyond the stall line, the turn mushes, and held long enough it departs into a spin. The arrow turns red and the screen says what will happen; the next turn's arrow flies the spin recovery. The aircraft flies the best roll and pull to get there, with the same flight model as free flight. A holographic copy of your aircraft shows where the turn leaves you, at the end of the blue ghost path. Orange tracers show where your rounds will go: they arc and take time to arrive, so you must lead the target. A red line shows the Spitfire if it keeps doing what it's doing. Then press **Fly turn**: the AI plans without seeing your plan, both aircraft fly, and the turn plays back. Shoot it down to win; get shot down or hit the ground and you lose.
 
 Build it with **OODA > Build Turn Battle** (after Build Test World), open `Assets/OODA/Scenes/TurnBattle.unity`, and press Play. The free-flight `TestWorld` stays as the sandbox.
 
 | | Mouse and touch | Keyboard | Gamepad |
 |---|---|---|---|
-| Move the arrow | Drag the yellow tip | WASD or the arrow keys | Left stick |
+| Move the arrow | Drag the yellow tip | WASD or the arrow keys (S and down pull the arrow up, like the stick) | Left stick (back pulls up) |
 | Straight ahead | | X | Left bumper |
 | Throttle, WEP | Slider, WEP box | Shift / Ctrl, Space | Triggers |
 | Gun burst | Drag on the timeline (a tap clears it) | B steps through bursts, F fires where hits are predicted | X, right bumper |

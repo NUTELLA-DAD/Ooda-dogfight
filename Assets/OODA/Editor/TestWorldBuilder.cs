@@ -29,7 +29,6 @@ namespace Ooda.EditorTools
         internal const string ScenePath = Root + "/Scenes/TestWorld.unity";
         const string PrefabPath = Root + "/Prefabs/P51.prefab";
 
-        const float PilotScale = 1.2f;
         const float PlaneSmoothingAngle = 80f;
         const float PropellerForward = 0.3f; // metres: the blades sit inside the cowl lip as modelled
         const float WorldSize = 20000f, WorldHeight = 1400f, SeaFloor = -80f;
@@ -53,7 +52,7 @@ namespace Ooda.EditorTools
 
         static void EnsureUrp()
         {
-            if (GraphicsSettings.defaultRenderPipeline != null) return;
+            if (GraphicsSettings.defaultRenderPipeline is UniversalRenderPipelineAsset existing) { TuneQuality(existing); return; }
             var data = ScriptableObject.CreateInstance<UniversalRendererData>();
             AssetDatabase.CreateAsset(data, Root + "/Settings/OODA_Renderer.asset");
             var urp = UniversalRenderPipelineAsset.Create(data);
@@ -65,6 +64,55 @@ namespace Ooda.EditorTools
                 QualitySettings.renderPipeline = urp;
             }
             Debug.Log("OODA: created a URP asset and set it as the render pipeline.");
+            TuneQuality(urp);
+        }
+
+        /// <summary>
+        /// Sharp by default, on every run so existing projects get it too: full render scale, 4x MSAA, HDR, big soft shadows
+        /// out to 3 km in 4 cascades, and in every quality level the pipeline, forced anisotropic filtering and full-res textures.
+        /// </summary>
+        static void TuneQuality(UniversalRenderPipelineAsset urp)
+        {
+            var so = new SerializedObject(urp);
+            void Set(string prop, System.Action<SerializedProperty> set)
+            {
+                var p = so.FindProperty(prop);
+                if (p != null) set(p); else Debug.LogWarning($"OODA: URP asset has no {prop}.");
+            }
+            Set("m_RenderScale", p => p.floatValue = 1f);
+            Set("m_MSAA", p => p.intValue = 4);
+            Set("m_SupportsHDR", p => p.boolValue = true);
+            Set("m_UpscalingFilter", p => p.intValue = 0); // automatic
+            Set("m_MainLightShadowsSupported", p => p.boolValue = true);
+            Set("m_MainLightShadowmapResolution", p => p.intValue = 4096);
+            Set("m_AdditionalLightsShadowmapResolution", p => p.intValue = 2048);
+            Set("m_ShadowDistance", p => p.floatValue = 3000f);
+            Set("m_ShadowCascadeCount", p => p.intValue = 4);
+            Set("m_Cascade4Split", p => p.vector3Value = new Vector3(0.02f, 0.08f, 0.3f)); // 60 m, 240 m, 900 m, 3 km
+            Set("m_SoftShadowsSupported", p => p.boolValue = true);
+            so.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(urp);
+
+            int current = QualitySettings.GetQualityLevel();
+            for (int i = 0; i < QualitySettings.names.Length; i++)
+            {
+                QualitySettings.SetQualityLevel(i, false);
+                QualitySettings.renderPipeline = urp;
+                QualitySettings.anisotropicFiltering = AnisotropicFiltering.ForceEnable;
+                QualitySettings.globalTextureMipmapLimit = 0;
+            }
+            QualitySettings.SetQualityLevel(current, false);
+
+            // The planes' and pilots' textures: mipmapped, and filtered well at the grazing angles a wing is seen at.
+            foreach (var guid in AssetDatabase.FindAssets("t:Texture2D", new[] { Art }))
+            {
+                var ti = AssetImporter.GetAtPath(AssetDatabase.GUIDToAssetPath(guid)) as TextureImporter;
+                if (ti == null || (ti.mipmapEnabled && ti.anisoLevel == 8)) continue;
+                ti.mipmapEnabled = true;
+                ti.anisoLevel = 8;
+                ti.SaveAndReimport();
+            }
+            Debug.Log($"OODA: quality tuned (URP {urp.name}: MSAA 4x, shadows 4096 to 3 km in 4 cascades; {QualitySettings.names.Length} quality levels, current {QualitySettings.names[current]}).");
         }
 
         // ---------- imports ----------
@@ -211,6 +259,43 @@ namespace Ooda.EditorTools
 
         // ---------- plane prefab ----------
 
+        /// <summary>
+        /// Where a cartoon pilot sits: scaled up so he nearly overfills the cockpit with his head well out, raised by
+        /// <c>lift</c>, and his forearms on the rails, which are <c>railHalfWidth</c> either side of the centre line,
+        /// <c>railHeight</c> above PilotMount and <c>railForward</c> ahead of it (all in metres of the plane).
+        /// </summary>
+        internal struct Seat { public float scale, lift, back, railHalfWidth, railHeight, railForward; }
+
+        // Cartoon size, no glass: the tiger nearly overfills the cockpit with his forearms on the rails (1.2 fitted under the canopy).
+        static readonly Seat TigerSeat = new Seat { scale = 1.55f, lift = 0.05f, back = 0f, railHalfWidth = 0.45f, railHeight = 0.72f, railForward = 0.28f };
+
+        /// <summary>No glass: the canopy is hidden, so the pilot sits in the open.</summary>
+        internal static void HideCanopy(GameObject model)
+        {
+            foreach (var r in model.GetComponentsInChildren<Renderer>(true))
+                if (r.name.Contains("Canopy")) r.enabled = false;
+        }
+
+        internal static void SeatPilot(GameObject pilot, Transform mount, Seat seat)
+        {
+            pilot.transform.SetParent(mount, false);
+            pilot.transform.localPosition = new Vector3(0, seat.lift, -seat.back);
+            pilot.transform.localRotation = Quaternion.identity;
+            pilot.transform.localScale = Vector3.one * seat.scale;
+            Transform Rail(string name, float side)
+            {
+                var old = mount.Find(name);
+                if (old != null) Object.DestroyImmediate(old.gameObject);
+                var t = new GameObject(name).transform;
+                t.SetParent(mount, false);
+                t.localPosition = new Vector3(side * seat.railHalfWidth, seat.railHeight, seat.railForward);
+                return t;
+            }
+            var rails = pilot.GetComponent<PilotRails>() ?? pilot.AddComponent<PilotRails>();
+            rails.railL = Rail("RailL", -1);
+            rails.railR = Rail("RailR", 1);
+        }
+
         internal static Transform FindDeep(Transform t, string name)
         {
             if (t.name == name) return t;
@@ -247,13 +332,11 @@ namespace Ooda.EditorTools
             spin.propeller = FindDeep(model.transform, "P51_Propeller");
             if (spin.propeller != null) spin.propeller.position += root.transform.forward * PropellerForward;
 
+            HideCanopy(model);
             var mount = FindDeep(model.transform, "PilotMount");
             if (mount == null) { Debug.LogWarning("OODA: no PilotMount in P51.fbx."); mount = root.transform; }
             var pilot = (GameObject)PrefabUtility.InstantiatePrefab(AssetDatabase.LoadAssetAtPath<GameObject>(PilotFbx));
-            pilot.transform.SetParent(mount, false);
-            pilot.transform.localPosition = Vector3.zero;
-            pilot.transform.localRotation = Quaternion.identity;
-            pilot.transform.localScale = Vector3.one * PilotScale;
+            SeatPilot(pilot, mount, TigerSeat);
             foreach (var r in pilot.GetComponentsInChildren<Renderer>())
                 r.sharedMaterials = Enumerable.Repeat(mats.pilot, r.sharedMaterials.Length).ToArray();
             var anim = pilot.GetComponent<Animator>();

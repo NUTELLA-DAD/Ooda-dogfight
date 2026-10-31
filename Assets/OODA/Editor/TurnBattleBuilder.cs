@@ -29,7 +29,8 @@ namespace Ooda.EditorTools
         const string SpitPrefabPath = Root + "/Prefabs/Spitfire.prefab";
         const string ScenePath = Root + "/Scenes/TurnBattle.unity";
 
-        const float WolfScale = 0.82f;          // fitted under the Spitfire's canopy in Blender
+        // Cartoon size, no glass: the wolf nearly overfills the cockpit with his forearms on the rails (0.82 fitted under the canopy).
+        static readonly TestWorldBuilder.Seat WolfSeat = new TestWorldBuilder.Seat { scale = 1.35f, lift = -0.34f, back = 0f, railHalfWidth = 0.37f, railHeight = 0.42f, railForward = 0.22f };
         const float PlaneSmoothingAngle = 80f;
 
         [MenuItem("OODA/Build Turn Battle")]
@@ -120,10 +121,8 @@ namespace Ooda.EditorTools
             var mount = TestWorldBuilder.FindDeep(model.transform, "PilotMount");
             if (mount == null) { Debug.LogWarning("OODA: no PilotMount in Spitfire.fbx."); mount = root.transform; }
             var pilot = (GameObject)PrefabUtility.InstantiatePrefab(AssetDatabase.LoadAssetAtPath<GameObject>(WolfFbx));
-            pilot.transform.SetParent(mount, false);
-            pilot.transform.localPosition = Vector3.zero;
-            pilot.transform.localRotation = Quaternion.identity;
-            pilot.transform.localScale = Vector3.one * WolfScale;
+            TestWorldBuilder.HideCanopy(model);
+            TestWorldBuilder.SeatPilot(pilot, mount, WolfSeat);
             foreach (var r in pilot.GetComponentsInChildren<Renderer>())
                 r.sharedMaterials = Enumerable.Repeat(pilotMat, r.sharedMaterials.Length).ToArray();
             var anim = pilot.GetComponent<Animator>();

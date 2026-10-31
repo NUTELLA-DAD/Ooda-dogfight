@@ -73,7 +73,7 @@ namespace Ooda.Turn.Core
         public double time;
         public Vec3d pos, vel, up;
         public double alphaDeg, g, throttle;
-        public bool firing, stalled, down;
+        public bool firing, stalled, departed, down;
     }
 
     /// <summary>One packet's path through a turn, for drawing tracers: a point for each frame from startFrame.</summary>

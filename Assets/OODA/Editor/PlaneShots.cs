@@ -1,106 +1,130 @@
 using System.IO;
+using System.Linq;
+using System.Text;
 using UnityEditor;
 using UnityEngine;
 
 namespace Ooda.EditorTools
 {
     /// <summary>
-    /// OODA > Plane Shots: renders the P-51 prefab from a few angles to PNGs in the project's Shots~ folder
-    /// and logs each part's bounds, for checking the model without pressing Play.
+    /// OODA > Plane Shots: renders the P-51 and Spitfire prefabs, with their pilots posed (seated clip and IK), from a few
+    /// angles to PNGs in the project's Shots~ folder, and logs the cockpit's measurements, for checking the models
+    /// without pressing Play.
     /// </summary>
     public static class PlaneShots
     {
         [MenuItem("OODA/Plane Shots")]
         public static void Capture()
         {
-            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/OODA/Prefabs/P51.prefab");
-            var plane = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
-            plane.transform.position = new Vector3(0, 5000, 0);
-
-            foreach (var r in plane.GetComponentsInChildren<Renderer>())
-            {
-                var mf = r.GetComponent<MeshFilter>();
-                var mesh = mf != null ? mf.sharedMesh : (r as SkinnedMeshRenderer)?.sharedMesh;
-                Debug.Log($"OODA shots: {r.name} bounds centre {r.bounds.center - plane.transform.position} size {r.bounds.size} tris {(mesh != null ? mesh.triangles.Length / 3 : 0)} verts {(mesh != null ? mesh.vertexCount : 0)}");
-            }
-
-            MeasureNose(plane);
+            string dir = Path.GetFullPath("Shots~");
+            Directory.CreateDirectory(dir);
 
             var camGo = new GameObject("ShotCam");
             var cam = camGo.AddComponent<Camera>();
-            cam.fieldOfView = 30f;
-            cam.nearClipPlane = 0.1f;
-            cam.farClipPlane = 1000f;
             cam.clearFlags = CameraClearFlags.SolidColor;
             cam.backgroundColor = new Color(0.55f, 0.65f, 0.75f);
             var light = new GameObject("ShotLight").AddComponent<Light>();
             light.type = LightType.Directional;
             light.transform.rotation = Quaternion.Euler(40, -30, 0);
-
             var rt = new RenderTexture(1600, 1000, 24);
             cam.targetTexture = rt;
-            string dir = Path.GetFullPath("Shots~");
-            Directory.CreateDirectory(dir);
-            Vector3 c = plane.transform.position;
-            Shot(cam, rt, dir, "side", c + new Vector3(-16, 1, 0), c);
-            Shot(cam, rt, dir, "front34", c + new Vector3(-8, 2, 10), c + new Vector3(0, 0, 3));
-            Shot(cam, rt, dir, "nose", c + new Vector3(-3.5f, 0.8f, 7), c + new Vector3(0, 0, 4));
-            Shot(cam, rt, dir, "noseside", c + new Vector3(-6, 0.3f, 4), c + new Vector3(0, 0, 4));
-            Shot(cam, rt, dir, "top", c + new Vector3(0, 18, 0.01f), c);
-            Shot(cam, rt, dir, "canopy", c + new Vector3(-3, 2.2f, -1.5f), c + new Vector3(0, 0.8f, 0.5f));
 
-            var eye = FindDeep(plane.transform, "CockpitCamera");
-            if (eye != null)
+            foreach (var (path, tag) in new[] { ("Assets/OODA/Prefabs/P51.prefab", "p51"), ("Assets/OODA/Prefabs/Spitfire.prefab", "spit") })
             {
-                cam.fieldOfView = 70f;
-                cam.nearClipPlane = 0.02f;
-                Shot(cam, rt, dir, "cockpit", eye.position, eye.position + eye.forward * 10f);
-                Shot(cam, rt, dir, "cockpit_left", eye.position, eye.position - eye.right * 10f + eye.up * 2f);
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                if (prefab == null) { Debug.LogWarning($"OODA shots: no {path}"); continue; }
+                var plane = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+                plane.transform.position = new Vector3(0, 5000, 0);
+                Pose(plane);
+                Measure(plane, tag);
+
+                Vector3 c = plane.transform.position;
+                var mount = FindDeep(plane.transform, "PilotMount");
+                Vector3 m = mount != null ? mount.position : c;
+                cam.fieldOfView = 30f;
+                cam.nearClipPlane = 0.05f;
+                cam.farClipPlane = 1000f;
+                Shot(cam, rt, dir, tag + "_side", c + new Vector3(-16, 1, 0), c);
+                Shot(cam, rt, dir, tag + "_front34", c + new Vector3(-8, 2, 10), c + new Vector3(0, 0, 3));
+                Shot(cam, rt, dir, tag + "_pilot", m + new Vector3(-3.2f, 1.6f, 2.6f), m + new Vector3(0, 0.6f, 0));
+                Shot(cam, rt, dir, tag + "_pilotfront", m + new Vector3(0.6f, 1.5f, 3.6f), m + new Vector3(0, 0.6f, 0));
+                Shot(cam, rt, dir, tag + "_pilotback", m + new Vector3(1.4f, 1.8f, -3.4f), m + new Vector3(0, 0.6f, 0));
+
+                var eye = FindDeep(plane.transform, "CockpitCamera");
+                var look = plane.GetComponentInChildren<Pilot.PilotHeadLook>();
+                if (eye != null)
+                {
+                    if (look != null) { look.hideHead = true; Call(look, "LateUpdate"); }
+                    cam.fieldOfView = 70f;
+                    cam.nearClipPlane = 0.02f;
+                    Shot(cam, rt, dir, tag + "_cockpit", eye.position, eye.position + eye.forward * 10f);
+                    Shot(cam, rt, dir, tag + "_cockpit_left", eye.position, eye.position - eye.right * 10f + eye.up * 2f);
+                }
+                Object.DestroyImmediate(plane);
             }
 
-            Object.DestroyImmediate(plane);
+            cam.targetTexture = null;
             Object.DestroyImmediate(camGo);
             Object.DestroyImmediate(light.gameObject);
             Debug.Log($"OODA shots: saved to {dir}");
         }
 
-        // The body's radius about the propeller axis, slice by slice along the nose, and where the propeller's hub and blades sit.
-        static void MeasureNose(GameObject plane)
+        // The seated clip and the hand IK, run by hand: there is no play loop in batch mode.
+        static void Pose(GameObject plane)
         {
-            Transform body = null, prop = null;
-            foreach (var mf in plane.GetComponentsInChildren<MeshFilter>())
+            foreach (var anim in plane.GetComponentsInChildren<Animator>())
             {
-                if (mf.name == "P51") body = mf.transform;
-                if (mf.name == "P51_Propeller") prop = mf.transform;
+                anim.Rebind();
+                for (int i = 0; i < 4; i++) anim.Update(0.1f);
             }
-            if (body == null || prop == null) { Debug.LogWarning("OODA shots: body or propeller not found."); return; }
-            var root = plane.transform;
-            Vector3 axis = root.InverseTransformPoint(prop.GetComponent<Renderer>().bounds.center);
-            Debug.Log($"OODA shots: propeller pivot (root space) {root.InverseTransformPoint(prop.position)} rot {prop.localEulerAngles} bounds centre {axis}");
+        }
 
-            var slices = new float[60];
-            foreach (var v in body.GetComponent<MeshFilter>().sharedMesh.vertices)
+        static void Call(MonoBehaviour b, string method) =>
+            b.GetType().GetMethod(method, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic)?.Invoke(b, null);
+
+        static void Measure(GameObject plane, string tag)
+        {
+            var root = plane.transform;
+            string P(Vector3 world) { var v = root.InverseTransformPoint(world); return $"({v.x:F2},{v.y:F2},{v.z:F2})"; }
+            var sb = new StringBuilder($"OODA shots [{tag}]:");
+            var mount = FindDeep(root, "PilotMount");
+            if (mount != null) sb.Append($" mount {P(mount.position)} scale {mount.lossyScale.x:F3}");
+            foreach (var n in new[] { "RailL", "RailR", "CockpitCamera" })
             {
-                var p = root.InverseTransformPoint(body.TransformPoint(v));
-                int i = Mathf.FloorToInt((p.z - 2.0f) / 0.05f);
-                if (i < 0 || i >= slices.Length) continue;
-                float r = new Vector2(p.x - axis.x, p.y - axis.y).magnitude;
-                if (r < 1.2f) slices[i] = Mathf.Max(slices[i], r);
+                var t = FindDeep(root, n);
+                if (t != null) sb.Append($" {n} {P(t.position)}");
             }
-            var sb = new System.Text.StringBuilder("OODA shots: body radius by z:");
-            for (int i = 0; i < slices.Length; i++) if (slices[i] > 0) sb.Append($" {2.0f + i * 0.05f:F2}:{slices[i]:F2}");
+            var anim = plane.GetComponentInChildren<Animator>();
+            if (anim != null && anim.isHuman)
+                foreach (var b in new[] { HumanBodyBones.Hips, HumanBodyBones.Head, HumanBodyBones.LeftShoulder, HumanBodyBones.LeftUpperArm, HumanBodyBones.LeftLowerArm, HumanBodyBones.LeftHand, HumanBodyBones.RightHand })
+                {
+                    var t = anim.GetBoneTransform(b);
+                    if (t != null) sb.Append($" {b} {P(t.position)}");
+                }
+            foreach (var r in plane.GetComponentsInChildren<Renderer>(true))
+                if (r.name.Contains("Canopy") || r.name.Contains("Cockpit"))
+                    sb.Append($" {r.name}[{(r.enabled ? "on" : "off")}] min {P(r.bounds.min)} max {P(r.bounds.max)}");
             Debug.Log(sb.ToString());
 
-            float hubMin = 99, hubMax = -99, bladeMin = 99, bladeMax = -99, rootMin = 99, rootMax = -99;
-            foreach (var v in prop.GetComponent<MeshFilter>().sharedMesh.vertices)
+            // The fuselage's top edge across the cockpit: the highest body point in each 5 cm strip out from the centre line.
+            var body = plane.GetComponentsInChildren<MeshFilter>()
+                .Where(f => f.sharedMesh != null && !f.name.Contains("Canopy") && !f.name.Contains("Cockpit") && !f.name.Contains("Propeller"))
+                .OrderByDescending(f => f.sharedMesh.vertexCount).FirstOrDefault();
+            if (body == null || mount == null) return;
+            float mz = root.InverseTransformPoint(mount.position).z;
+            foreach (float dz in new[] { -0.3f, 0f, 0.3f, 0.6f })
             {
-                var p = root.InverseTransformPoint(prop.TransformPoint(v));
-                float r = new Vector2(p.x - axis.x, p.y - axis.y).magnitude;
-                if (r < 0.35f) { hubMin = Mathf.Min(hubMin, p.z); hubMax = Mathf.Max(hubMax, p.z); }
-                else if (r < 0.6f) { rootMin = Mathf.Min(rootMin, p.z); rootMax = Mathf.Max(rootMax, p.z); }
-                else { bladeMin = Mathf.Min(bladeMin, p.z); bladeMax = Mathf.Max(bladeMax, p.z); }
+                var top = new float[16];
+                for (int i = 0; i < top.Length; i++) top[i] = float.NaN;
+                foreach (var v in body.sharedMesh.vertices)
+                {
+                    var p = root.InverseTransformPoint(body.transform.TransformPoint(v));
+                    if (Mathf.Abs(p.z - (mz + dz)) > 0.05f) continue;
+                    int i = Mathf.FloorToInt(Mathf.Abs(p.x) / 0.05f);
+                    if (i < top.Length && (float.IsNaN(top[i]) || p.y > top[i])) top[i] = p.y;
+                }
+                Debug.Log($"OODA shots [{tag}]: body top at z {mz + dz:F2} by |x|: " + string.Join(" ", top.Select((y, i) => $"{i * 0.05f:F2}:{(float.IsNaN(y) ? "-" : y.ToString("F2"))}")));
             }
-            Debug.Log($"OODA shots: propeller z hub(r<0.35) {hubMin:F2}..{hubMax:F2} roots(0.35-0.6) {rootMin:F2}..{rootMax:F2} blades {bladeMin:F2}..{bladeMax:F2}");
         }
 
         static Transform FindDeep(Transform t, string name)

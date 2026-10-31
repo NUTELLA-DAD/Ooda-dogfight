@@ -41,6 +41,8 @@ namespace Ooda.Turn
         public float playbackSpeed = 1f;
         public bool showProjection = true;
         public bool showHelp = true;
+        [Tooltip("S, the down arrow or the stick pulled back moves the arrow up, as the stick pulls the nose up.")]
+        public bool stickPitch = true;
 
         [Header("Drawing")]
         public float arrowLength = 150f;   // metres
@@ -50,6 +52,9 @@ namespace Ooda.Turn
         public Color projectionColor = new Color(1f, 0.3f, 0.25f, 0.8f);
         public Color myTracer = new Color(1f, 0.75f, 0.2f, 0.9f);
         public Color theirTracer = new Color(1f, 0.35f, 0.5f, 0.9f);
+        public Color overpullColor = new Color(1f, 0.15f, 0.1f, 1f);
+        public Color holoColor = new Color(0.25f, 0.85f, 1f, 0.35f);
+        public Color holoEnemyColor = new Color(1f, 0.3f, 0.25f, 0.3f);
 
         enum Phase { Planning, Playing, Over }
 
@@ -78,12 +83,17 @@ namespace Ooda.Turn
 
         static readonly (float a, float b)[] BurstPresets = { (0, 0), (0, 1), (1, 2), (2, 3), (0, 3) };
         int burstPreset;
+        string warning;            // what the preview says the plan does to the wing
+        bool previewDeparts;
+        double lastOverpull;
+        GameObject holoMine, holoTheirs;
+        readonly List<Material> holoMats = new List<Material>();
 
         // ---------- set up ----------
 
         void Start()
         {
-            lines = new LinePool(transform, "Lines");
+            lines = new LinePool(transform, "Lines") { sizeAt = W };
             tipMat = new Material(Shader.Find("Sprites/Default")) { color = arrowColor };
             flashMat = new Material(Shader.Find("Sprites/Default")) { color = new Color(1f, 0.9f, 0.4f, 1f) };
             var t = GameObject.CreatePrimitive(PrimitiveType.Sphere);
@@ -97,6 +107,8 @@ namespace Ooda.Turn
             if (view != null) { view.player = player.transform; view.enemy = enemy.transform; }
             if (playerPilot != null) playerPilot.target = enemy.transform;
             if (enemyPilot != null) enemyPilot.target = player.transform;
+            holoMine = MakeHolo(player.gameObject, holoColor, "GhostP51");
+            holoTheirs = MakeHolo(enemy.gameObject, holoEnemyColor, "GhostSpitfire");
             Restart();
         }
 
@@ -130,6 +142,7 @@ namespace Ooda.Turn
             var m = battle.planes[0];
             env = Envelope.Compute(m, turnSec);
             plan.aim = m.Forward;
+            plan.overpull = 0;
             plan.burstStart = plan.burstEnd = 0;
             plan.wep = false;
             burstPreset = 0;
@@ -145,6 +158,7 @@ namespace Ooda.Turn
             var theirs = ai.Plan(battle, turnSec);
             healthBefore[0] = battle.health[0];
             healthBefore[1] = battle.health[1];
+            lastOverpull = plan.overpull;
             last = battle.Resolve(plan, theirs, turnSec, true);
             phaseAfterPlayback = battle.Over ? Phase.Over : Phase.Planning;
             if (battle.Over) outcome = Outcome();
@@ -188,6 +202,11 @@ namespace Ooda.Turn
             else DrawLastPaths(last != null ? last.FrameCount - 1 : 0);
             lines.End();
             tip.gameObject.SetActive(phase == Phase.Planning);
+            if (phase != Phase.Planning)
+            {
+                if (holoMine != null) holoMine.SetActive(false);
+                if (holoTheirs != null) holoTheirs.SetActive(false);
+            }
             FadeFlashes();
             if (playerPilot != null && view != null) playerPilot.hideHead = view.focus == TurnCamera.Focus.Cockpit;
         }
@@ -269,14 +288,13 @@ namespace Ooda.Turn
                 if (kb.aKey.isPressed || kb.leftArrowKey.isPressed) move.x -= 1;
             }
             if (pad != null) move += pad.leftStick.ReadValue();
+            if (stickPitch) move.y = -move.y;   // back on the stick (S, down) brings the nose, and the arrow, up
             if (move.sqrMagnitude > 0.01f)
             {
                 double rate = 45 * Math.PI / 180 * dt;
-                Vec3d a = plan.aim + env.up * (move.y * rate) + env.right * (move.x * rate);
-                plan.aim = env.Clamp(a);
-                dirty = true;
+                SetAim(plan.aim + env.up * (move.y * rate) + env.right * (move.x * rate));
             }
-            if (Pressed(Key.X) || (pad != null && pad.leftShoulder.wasPressedThisFrame)) { plan.aim = env.fwd; dirty = true; }
+            if (Pressed(Key.X) || (pad != null && pad.leftShoulder.wasPressedThisFrame)) SetAim(env.fwd);
 
             // Throttle and WEP
             float thr = 0;
@@ -326,7 +344,14 @@ namespace Ooda.Turn
             }
             else point = r.GetPoint(-b);
             Vector3 dir = (point - c).normalized;
-            plan.aim = env.Clamp(UnityFrame.Dir(dir));
+            SetAim(UnityFrame.Dir(dir));
+        }
+
+        /// <summary>The arrow may go past the ring into the overpull band: past the stall line, toward a spin.</summary>
+        void SetAim(Vec3d d)
+        {
+            plan.aim = env.Clamp(d, true);
+            plan.overpull = env.Overpull(plan.aim);
             dirty = true;
         }
 
@@ -369,6 +394,14 @@ namespace Ooda.Turn
             sim.dispersion = false;
             preview = sim.Resolve(plan, TurnPlan.Holding(), turnSec, true);
             dirty = false;
+            previewDeparts = preview.frames[0].Any(f => f.departed);
+            bool stalls = preview.frames[0].Any(f => f.stalled);
+            if (battle.planes[0].Departed)
+                warning = previewDeparts ? (plan.overpull > 0 ? "SPINNING: still overpulling, it stays departed" : "SPINNING: the arrow flies the recovery, it is not out yet")
+                                         : "SPINNING: the arrow flies the recovery (idle, opposite rudder, stick forward)";
+            else if (previewDeparts) warning = "OVERPULL: it will depart into a spin";
+            else if (plan.overpull > 0 && stalls) warning = "OVERPULL: the wing stalls, the turn mushes and bleeds speed";
+            else warning = null;
         }
 
         void DrawPlanning()
@@ -377,7 +410,6 @@ namespace Ooda.Turn
             player.ShowLive(me);
             enemy.ShowLive(battle.planes[1]);
             Vector3 c = PlayerPos;
-            float w = W(c);
 
             // The reach shell: its rim and four spokes, and where the nose is now
             var rim = new List<Vector3>();
@@ -386,19 +418,33 @@ namespace Ooda.Turn
                 double phi = 2 * Math.PI * k / 48;
                 rim.Add(c + UnityFrame.Dir(env.Direction(phi, env.MaxAngle(phi))) * arrowLength);
             }
-            lines.Strip(rim, w * 0.6f, shellColor, true);
-            for (int k = 0; k < 4; k++) lines.Line(c, rim[k * 12], w * 0.3f, shellColor * new Color(1, 1, 1, 0.5f));
-            lines.Line(c, c + UnityFrame.Dir(env.fwd) * arrowLength, w * 0.3f, new Color(1, 1, 1, 0.3f));
+            lines.Strip(rim, 0.6f, shellColor, true);
+            for (int k = 0; k < 4; k++) lines.Line(c, rim[k * 12], 0.3f, shellColor * new Color(1, 1, 1, 0.5f));
+            // The overpull band's outer edge: past the ring the stick goes beyond the stall line
+            var outer = new List<Vector3>();
+            for (int k = 0; k < 48; k++)
+            {
+                double phi = 2 * Math.PI * k / 48;
+                outer.Add(c + UnityFrame.Dir(env.Direction(phi, env.OuterAngle(phi))) * arrowLength);
+            }
+            lines.Strip(outer, 0.35f, new Color(overpullColor.r, overpullColor.g, overpullColor.b, 0.35f), true);
+            lines.Line(c, c + UnityFrame.Dir(env.fwd) * arrowLength, 0.3f, new Color(1, 1, 1, 0.3f));
 
             // The arrow
             Vector3 t = TipPos;
-            lines.Line(c, t, w * 1.2f, arrowColor);
+            Color arrow = Color.Lerp(arrowColor, overpullColor, plan.overpull > 0 ? 0.5f + 0.5f * (float)plan.overpull : 0f);
+            if (previewDeparts) arrow = Color.Lerp(overpullColor, Color.white, 0.4f * (0.5f + 0.5f * Mathf.Sin(Time.time * 10f)));
+            tipMat.color = arrow;
+            lines.Line(c, t, 1.2f, arrow);
             tip.position = t;
             tip.localScale = Vector3.one * W(t) * 8f;
 
             if (preview == null) return;
-            DrawPath(preview.frames[0], preview.FrameCount - 1, ghostColor, true);
-            if (showProjection) DrawPath(preview.frames[1], preview.FrameCount - 1, projectionColor, true);
+            int end = preview.FrameCount - 1;
+            DrawPath(preview.frames[0], end, previewDeparts ? overpullColor : ghostColor, holoMine == null);
+            if (showProjection) DrawPath(preview.frames[1], end, projectionColor, holoTheirs == null);
+            ShowHolo(holoMine, preview.frames[0][end], true, previewDeparts ? overpullColor : holoColor);
+            ShowHolo(holoTheirs, preview.frames[1][end], showProjection, holoEnemyColor);
             foreach (var tr in preview.traces)
             {
                 if (tr.owner == 1 && !showProjection) continue;
@@ -406,7 +452,7 @@ namespace Ooda.Turn
                 for (int i = 0; i < tr.points.Count; i += 2) pts.Add(UnityFrame.Pos(tr.points[i]));
                 pts.Add(UnityFrame.Pos(tr.points[tr.points.Count - 1]));
                 var col = tr.owner == 0 ? myTracer : theirTracer;
-                lines.Strip(pts, W(pts[0]) * 0.35f, col, false, new Color(col.r, col.g, col.b, 0.1f));
+                lines.Strip(pts, 0.35f, col, false, new Color(col.r, col.g, col.b, 0.1f));
             }
         }
 
@@ -416,16 +462,74 @@ namespace Ooda.Turn
             var pts = new List<Vector3>();
             for (int i = 0; i <= upTo; i += 3) pts.Add(UnityFrame.Pos(frames[i].pos));
             pts.Add(UnityFrame.Pos(frames[upTo].pos));
-            lines.Strip(pts, W(pts[pts.Count - 1]) * 0.8f, new Color(color.r, color.g, color.b, color.a * 0.35f), false, color);
+            lines.Strip(pts, 0.8f, new Color(color.r, color.g, color.b, color.a * 0.35f), false, color);
             if (!endMark) return;
             var f = frames[upTo];
             Vector3 p = UnityFrame.Pos(f.pos), fwd = UnityFrame.Dir(f.vel.Normalized), up = UnityFrame.Dir(f.up);
             Vector3 right = Vector3.Cross(up, fwd);
             float s = Mathf.Max(6f, W(p) * 25f);
-            float lw = W(p) * 1.2f;
+            float lw = 1.2f;
             lines.Line(p - right * s, p + right * s, lw, color);
             lines.Line(p - fwd * s * 0.8f, p + fwd * s * 0.5f, lw, color);
             lines.Line(p - fwd * s * 0.8f, p - fwd * s * 0.8f + up * s * 0.45f, lw, color);
+        }
+
+        // ---------- the holographic ghosts ----------
+
+        /// <summary>
+        /// A see-through glowing copy of an aircraft's own model, for where the plan puts it: the scripts,
+        /// the pilot and the smoke are taken out, and every surface gets one additive colour.
+        /// </summary>
+        GameObject MakeHolo(GameObject source, Color color, string name)
+        {
+            if (source == null) return null;
+            var g = Instantiate(source);
+            g.name = name;
+            foreach (var a in g.GetComponentsInChildren<Animator>(true)) if (a != null) DestroyImmediate(a.gameObject);
+            foreach (var mb in g.GetComponentsInChildren<MonoBehaviour>(true)) DestroyImmediate(mb);
+            foreach (var ps in g.GetComponentsInChildren<ParticleSystem>(true)) if (ps != null) DestroyImmediate(ps.gameObject);
+            foreach (var c in g.GetComponentsInChildren<Collider>(true)) DestroyImmediate(c);
+            foreach (var rb in g.GetComponentsInChildren<Rigidbody>(true)) DestroyImmediate(rb);
+            var mat = HoloMaterial(color);
+            holoMats.Add(mat);
+            foreach (var r in g.GetComponentsInChildren<Renderer>(true))
+            {
+                r.sharedMaterials = Enumerable.Repeat(mat, r.sharedMaterials.Length).ToArray();
+                r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                r.receiveShadows = false;
+            }
+            g.SetActive(false);
+            return g;
+        }
+
+        static Material HoloMaterial(Color color)
+        {
+            var shader = Shader.Find("Universal Render Pipeline/Unlit");
+            if (shader == null) return new Material(Shader.Find("Sprites/Default")) { color = color };
+            var m = new Material(shader);
+            m.SetFloat("_Surface", 1);       // transparent
+            m.SetFloat("_Blend", 2);         // additive: it glows over what is behind
+            m.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            m.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.One);
+            m.SetFloat("_ZWrite", 0);
+            m.SetFloat("_Cull", (float)UnityEngine.Rendering.CullMode.Back);
+            m.SetOverrideTag("RenderType", "Transparent");
+            m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            m.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+            m.SetColor("_BaseColor", color);
+            return m;
+        }
+
+        void ShowHolo(GameObject holo, AircraftFrame f, bool show, Color color)
+        {
+            if (holo == null) return;
+            holo.SetActive(show);
+            if (!show) return;
+            TurnAircraftView.Pose(holo.transform, f.pos, f.vel, f.up, f.alphaDeg);
+            // a slow shimmer, like a projection
+            float k = 0.8f + 0.2f * Mathf.Sin(Time.time * 6f) + 0.05f * Mathf.Sin(Time.time * 37f);
+            var r = holo.GetComponentInChildren<Renderer>();
+            if (r != null) r.sharedMaterial.SetColor("_BaseColor", new Color(color.r, color.g, color.b, color.a * k));
         }
 
         // ---------- playback ----------
@@ -451,7 +555,7 @@ namespace Ooda.Turn
                 if (p1 == null) continue;
                 var p0 = tr.At(now - 3) ?? tr.points[0];
                 Vector3 a = UnityFrame.Pos(p0), b = UnityFrame.Pos(p1.Value);
-                lines.Line(a, b, W(b) * 0.6f, tr.owner == 0 ? myTracer : theirTracer);
+                lines.Line(a, b, 0.6f, tr.owner == 0 ? myTracer : theirTracer);
             }
 
             // Hits: a flash where they land, and the damage so far shown as smoke
@@ -574,6 +678,16 @@ namespace Ooda.Turn
 
             if (planning) PlanningPanel(sw, sh);
             if (phase == Phase.Playing) GUI.Label(new Rect(0, sh - 60, sw, 30), $"Turn playing  {playT:F1} / {turnSec:F0} s   (hold Tab to speed up)", new GUIStyle(label) { alignment = TextAnchor.MiddleCenter });
+            var warn = new GUIStyle(big) { fontSize = 26 };
+            warn.normal.textColor = overpullColor;
+            if (planning && warning != null) GUI.Label(new Rect(0, sh - 200, sw, 40), warning, warn);
+            if (phase == Phase.Playing && last != null)
+            {
+                int now = Mathf.Min(last.FrameCount - 1, Mathf.RoundToInt(playT / (float)last.dt));
+                var f = last.frames[0][now];
+                if (f.departed) GUI.Label(new Rect(0, sh * 0.3f, sw, 50), "DEPARTED", warn);
+                else if (f.stalled && lastOverpull > 0) GUI.Label(new Rect(0, sh * 0.3f, sw, 50), "STALL", warn);
+            }
             if (phase == Phase.Over && outcome != null)
             {
                 GUI.Label(new Rect(0, sh * 0.3f, sw, 50), outcome, big);
@@ -584,16 +698,18 @@ namespace Ooda.Turn
 
             if (showHelp)
             {
-                Rect help = new Rect(10, 190, 420, 250);
+                Rect help = new Rect(10, 190, 440, 280);
                 GUI.Box(help, GUIContent.none);
                 guiRects.Add(help);
-                GUI.Label(new Rect(20, 196, 405, 240),
+                GUI.Label(new Rect(20, 196, 425, 270),
                     "Plan where your nose points when the 3 s turn ends.\n" +
                     "Drag the yellow tip inside the white ring (how far you can turn).\n" +
+                    "Past the ring, up to the red ring, you overpull: stall, maybe spin.\n" +
                     "Blue: your path. Red: the Spitfire if it keeps doing what it's doing.\n" +
                     "Orange: your rounds. They arc and take time: lead the target.\n" +
                     "Drag on the timeline to fire; F fires where hits are predicted.\n\n" +
-                    "Keys: WASD arrow, Shift/Ctrl throttle, Space WEP, B bursts,\n" +
+                    "Keys: WASD arrow (S pulls up, like the stick), Shift/Ctrl throttle,\n" +
+                    "Space WEP, B bursts, " +
                     "Enter fly, R replay, P projection, V view, X straight, H help.\n" +
                     "Right-drag or drag away from the tip to look; wheel zooms.\n" +
                     "Pad: left stick arrow, triggers throttle, A fly, X bursts,\n" +

@@ -5,7 +5,7 @@ namespace Ooda.Turn
 {
     /// <summary>
     /// Plain coloured lines (the reach shell, the arrow, the ghost path, the projection, tracers), drawn
-    /// fresh each frame from a pool: call Begin, then Line or Strip as many times as needed, then End.
+    /// fresh each frame from a pool: call Begin, then Line or Strip (width is a multiple of sizeAt) as many times as needed, then End.
     /// </summary>
     public class LinePool
     {
@@ -13,6 +13,12 @@ namespace Ooda.Turn
         readonly Material mat;
         readonly List<LineRenderer> lines = new List<LineRenderer>();
         int used;
+
+        /// <summary>
+        /// How wide a line of width 1 is at a point (for example a share of the distance to the camera), so a
+        /// long line stays thin up close and visible far away: each end gets its own width.
+        /// </summary>
+        public System.Func<Vector3, float> sizeAt = p => 1f;
 
         public LinePool(Transform parent, string name)
         {
@@ -56,6 +62,8 @@ namespace Ooda.Turn
             l.positionCount = 2;
             l.SetPosition(0, a);
             l.SetPosition(1, b);
+            l.startWidth = width * sizeAt(a);
+            l.endWidth = width * sizeAt(b);
         }
 
         public void Strip(IList<Vector3> pts, float width, Color color, bool loop = false, Color? endColor = null)
@@ -66,6 +74,8 @@ namespace Ooda.Turn
             l.loop = loop;
             l.positionCount = pts.Count;
             for (int i = 0; i < pts.Count; i++) l.SetPosition(i, pts[i]);
+            l.startWidth = width * sizeAt(pts[0]);
+            l.endWidth = width * sizeAt(pts[pts.Count - 1]);
         }
     }
 }

@@ -6,6 +6,9 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
+    path: Assets/OODA/Scenes/TurnBattle.unity
+    guid: 616ac63cc5c3b4f40a871fc26cec30d5
+  - enabled: 1
     path: Assets/OODA/Scenes/TestWorld.unity
     guid: cf181c1e56190854bb20399fdd8ae895
   m_configObjects: {}
