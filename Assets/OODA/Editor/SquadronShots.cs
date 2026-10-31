@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using Ooda.Flight;
+using Ooda.Flight.Core;
 using Ooda.Turn;
 using Ooda.Turn.Core;
 using UnityEditor;
@@ -149,6 +150,55 @@ namespace Ooda.EditorTools
             var after = (TurnPlan)planField.GetValue(tb);
             Debug.Log($"OODA marks: plan has {after.marks?.Length ?? 0} marks ({string.Join("; ", (after.marks ?? new Mark[0]).Select(k => $"{k.time:F1} s bank {k.bankDeg:F0} {k.g:F1} G"))}); the arrow tip is {(tip.gameObject.activeSelf ? "SHOWN" : "hidden")}; markT {typeof(TurnBattle).GetField("markT", Any).GetValue(tb)}.");
             Save(cam, rt, dir, "marks_two");
+            cam.targetTexture = null;
+        }
+
+        /// <summary>
+        /// OODA > Timeline Shot: a timeline of four points, each setting only some controls (level at 0 s; bank 60 right at 1 s;
+        /// pull 4 G at 1.6 s; throttle 30 % and half right rudder at 2.2 s), the slider at 1.6 s; renders the ghost and logs bank,
+        /// G and throttle from the preview at 1, 2 and 3 s.
+        /// </summary>
+        [MenuItem("OODA/Timeline Shot")]
+        public static void TimelineShot()
+        {
+            EditorSceneManager.OpenScene("Assets/OODA/Scenes/TurnBattle.unity");
+            var all = Object.FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None);
+            foreach (var name in new[] { "Awake", "OnEnable", "Start" }) foreach (var b in all) Call(b, name);
+            all = Object.FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None);
+            Frames(all, 5);
+            var tb = Object.FindFirstObjectByType<TurnBattle>();
+            var cam = Camera.main;
+            var rt = new RenderTexture(1600, 1000, 24) { antiAliasing = 4 };
+            cam.targetTexture = rt;
+
+            var planField = typeof(TurnBattle).GetField("plan", Any);
+            var plan = (TurnPlan)planField.GetValue(tb);
+            plan.marks = new[]
+            {
+                new Mark(0, 0, 1),
+                new Mark(1.0) { bankDeg = 60 },
+                new Mark(1.6) { g = 4 },
+                new Mark(2.2) { throttle = 0.3, rudder = 0.5 },
+            };
+            planField.SetValue(tb, plan);
+            typeof(TurnBattle).GetField("markT", Any).SetValue(tb, 1.6f);
+            typeof(TurnBattle).GetField("dirty", Any).SetValue(tb, true);
+            Frames(all, 5);
+            var tip = (Transform)typeof(TurnBattle).GetField("tip", Any).GetValue(tb);
+            var preview = typeof(TurnBattle).GetField("preview", Any).GetValue(tb) as TurnResult;
+            if (preview == null) { Debug.LogError("OODA timeline: no preview."); return; }
+            foreach (double s in new[] { 0.0, 1.0, 1.6, 2.0, 2.2, 3.0 })
+            {
+                int i = Mathf.Clamp((int)System.Math.Round(s / preview.dt), 0, preview.FrameCount - 1);
+                var f = preview.frames[0][i];
+                Vector3 fwd = UnityFrame.Dir(f.vel).normalized, up = UnityFrame.Dir(f.up).normalized;
+                Vector3 right = Vector3.Cross(Vector3.up, fwd).normalized;
+                float bank = Mathf.Atan2(Vector3.Dot(up, right), Vector3.Dot(up, Vector3.Cross(fwd, right).normalized)) * Mathf.Rad2Deg;
+                float kias = (float)Atmosphere.TasToIasKt(f.vel.Length * Atmosphere.FtpsToKt, f.pos.z);
+                Debug.Log($"OODA timeline: at {s:F1} s (frame {i}): bank {bank:F0} (+ right), {f.g:F2} G, throttle {f.throttle:F2}, {kias:F0} kias, alpha {f.alphaDeg:F1}.");
+            }
+            Debug.Log($"OODA timeline: {((TurnPlan)planField.GetValue(tb)).marks.Length} marks; arrow tip {(tip.gameObject.activeSelf ? "SHOWN" : "hidden")}.");
+            Save(cam, rt, Path.GetFullPath("Shots~"), "timeline_ghost");
             cam.targetTexture = null;
         }
 
