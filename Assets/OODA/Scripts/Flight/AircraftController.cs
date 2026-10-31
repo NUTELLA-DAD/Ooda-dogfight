@@ -10,7 +10,7 @@ namespace Ooda.Flight
     /// is a crash, and the aircraft starts again where it began.
     /// </summary>
     [RequireComponent(typeof(Rigidbody), typeof(PlaneInput))]
-    public class AircraftController : MonoBehaviour
+    public class AircraftController : MonoBehaviour, IFlightView
     {
         public AircraftPerformance performance;
         [Tooltip("True airspeed at the start, knots.")]

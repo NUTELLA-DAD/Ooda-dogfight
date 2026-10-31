@@ -23,6 +23,7 @@ namespace Ooda.Pilot
 
         [HideInInspector] public bool hideHead;
 
+        IFlightView source;
         Animator anim;
         Transform head;
         Vector3 lookDir = Vector3.forward;
@@ -35,10 +36,15 @@ namespace Ooda.Pilot
             seed = Random.value * 100f;
         }
 
+        void Start()
+        {
+            source = aircraft != null ? (IFlightView)aircraft : GetComponentInParent<IFlightView>();
+        }
+
         void OnAnimatorIK(int layer)
         {
-            if (aircraft == null || aircraft.Model == null || head == null) return;
-            Transform plane = aircraft.transform;
+            if (source == null || source.Model == null || head == null) return;
+            Transform plane = source.transform;
             Vector3 want;
             Vector3 toTarget = target != null ? target.position - head.position : Vector3.zero;
             if (target != null && Vector3.Angle(plane.forward, toTarget) < 150f)
@@ -47,7 +53,7 @@ namespace Ooda.Pilot
             }
             else
             {
-                var m = aircraft.Model;
+                var m = source.Model;
                 float pull = Mathf.Clamp01(((float)m.g - 1f) / 5f);
                 float roll = Mathf.Clamp((float)m.rollRateDps / 90f, -1, 1);
                 // slow glances left and right, as if checking six

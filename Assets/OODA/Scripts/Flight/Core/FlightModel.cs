@@ -51,7 +51,7 @@ namespace Ooda.Flight.Core
         public double departTime;       // seconds since departing
         public double recoverTime;      // seconds of recovery inputs held
         double alphaShown;
-        readonly Random wingDrop = new Random(1944);
+        uint wingDrop = 1944;           // a tiny deterministic generator, so a cloned model flies the same future
 
         public bool Departed => departure != Departure.None;
         public double Ktas => state.vel.Length * Atmosphere.FtpsToKt;
@@ -68,6 +68,15 @@ namespace Ooda.Flight.Core
         {
             this.numbers = numbers;
             state = start;
+        }
+
+        /// <summary>A copy that flies on independently: for the ghost path, the reach shell and the AI's look-ahead.</summary>
+        public FlightModel Clone() => (FlightModel)MemberwiseClone();
+
+        double NextWingDrop()
+        {
+            wingDrop = wingDrop * 1664525u + 1013904223u;
+            return (wingDrop >> 8) / 16777216.0;
         }
 
         /// <summary>The angle of attack for the picture, degrees: from the lift asked of the wing against the stall line, or the spin's.</summary>
@@ -121,7 +130,7 @@ namespace Ooda.Flight.Core
                 {
                     departure = Departure.Incipient;
                     double bias = ped + 0.5 * ail;
-                    spinDir = Math.Abs(bias) > 0.1 ? Math.Sign(bias) : (wingDrop.NextDouble() < 0.5 ? -1 : 1);
+                    spinDir = Math.Abs(bias) > 0.1 ? Math.Sign(bias) : (NextWingDrop() < 0.5 ? -1 : 1);
                     departTime = recoverTime = departBuild = 0;
                 }
             }

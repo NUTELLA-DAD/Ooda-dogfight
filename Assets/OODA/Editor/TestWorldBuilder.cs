@@ -26,7 +26,7 @@ namespace Ooda.EditorTools
         const string Gen = Root + "/Generated";
         const string P51Fbx = Art + "/P51/P51.fbx";
         const string PilotFbx = Art + "/TigerPilot/TigerPilot.fbx";
-        const string ScenePath = Root + "/Scenes/TestWorld.unity";
+        internal const string ScenePath = Root + "/Scenes/TestWorld.unity";
         const string PrefabPath = Root + "/Prefabs/P51.prefab";
 
         const float PilotScale = 1.2f;
@@ -115,11 +115,11 @@ namespace Ooda.EditorTools
 
         // ---------- materials ----------
 
-        class Mats { public Material plane, canopy, cockpit, pilot, terrain, water, cloud, towerRed, towerWhite; }
+        internal class Mats { public Material plane, canopy, cockpit, pilot, terrain, water, cloud, towerRed, towerWhite; }
 
         static Shader Lit => Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
 
-        static Material Mat(string name, Color color, float smooth = 0.3f, float metal = 0f)
+        internal static Material Mat(string name, Color color, float smooth = 0.3f, float metal = 0f)
         {
             string path = $"{Gen}/{name}.mat";
             var m = AssetDatabase.LoadAssetAtPath<Material>(path);
@@ -133,7 +133,7 @@ namespace Ooda.EditorTools
             return m;
         }
 
-        static Material Textured(string name, string baseMap, string metalSmooth)
+        internal static Material Textured(string name, string baseMap, string metalSmooth)
         {
             var m = Mat(name, Color.white, 1f, 1f);
             m.SetTexture("_BaseMap", AssetDatabase.LoadAssetAtPath<Texture2D>(baseMap));
@@ -159,7 +159,7 @@ namespace Ooda.EditorTools
             m.renderQueue = (int)RenderQueue.Transparent;
         }
 
-        static Mats MakeMaterials()
+        internal static Mats MakeMaterials()
         {
             var r = new Mats
             {
@@ -211,7 +211,7 @@ namespace Ooda.EditorTools
 
         // ---------- plane prefab ----------
 
-        static Transform FindDeep(Transform t, string name)
+        internal static Transform FindDeep(Transform t, string name)
         {
             if (t.name == name) return t;
             foreach (Transform c in t) { var f = FindDeep(c, name); if (f != null) return f; }

@@ -34,28 +34,33 @@ static class Program
         Console.WriteLine("body-frame (player) step, no roll, vs bank step:");
         Console.WriteLine("  " + Run("loop", 250, 4, 0, 8, true));
 
-        // The P-51D: top speeds, climb, sustained and instantaneous turns
-        var p = AircraftNumbers.P51D();
-        Console.WriteLine($"\n{p.name}");
-        foreach (double alt in new[] { 0.0, 10000, 20000, 25000, 30000 })
+        // Top speeds, climb, sustained and instantaneous turns
+        void Perf(AircraftNumbers p)
         {
-            foreach (bool wep in new[] { false, true })
+            Console.WriteLine($"\n{p.name}");
+            foreach (double alt in new[] { 0.0, 10000, 20000, 25000, 30000 })
             {
-                double v = 100; double k = wep ? p.wepFactor : 1;
-                for (double t = 100; t < 600; t += 0.5) { double kias = Atmosphere.TasToIasKt(t, alt); if (k * p.ThrustPerWeight(t, alt) - p.DragPerWeight(kias, 1) > 0) v = t; }
-                Console.Write($"  {alt,6} ft top speed {(wep ? "WEP" : "mil")} {v:F0} KTAS ({v * 1.15078:F0} mph)");
+                foreach (bool wep in new[] { false, true })
+                {
+                    double v = 100; double k = wep ? p.wepFactor : 1;
+                    for (double t = 100; t < 600; t += 0.5) { double kias = Atmosphere.TasToIasKt(t, alt); if (k * p.ThrustPerWeight(t, alt) - p.DragPerWeight(kias, 1) > 0) v = t; }
+                    Console.Write($"  {alt,6} ft top speed {(wep ? "WEP" : "mil")} {v:F0} KTAS ({v * 1.15078:F0} mph)");
+                }
+                double best = 0, bestV = 0;
+                for (double t = 100; t < 450; t += 1) { double ps = (p.ThrustPerWeight(t, alt) - p.DragPerWeight(Atmosphere.TasToIasKt(t, alt), 1)) * t * Atmosphere.KtToFtps * 60; if (ps > best) { best = ps; bestV = t; } }
+                Console.WriteLine($"  best climb {best:F0} ft/min at {bestV:F0} KTAS");
             }
-            double best = 0, bestV = 0;
-            for (double t = 100; t < 450; t += 1) { double ps = (p.ThrustPerWeight(t, alt) - p.DragPerWeight(Atmosphere.TasToIasKt(t, alt), 1)) * t * Atmosphere.KtToFtps * 60; if (ps > best) { best = ps; bestV = t; } }
-            Console.WriteLine($"  best climb {best:F0} ft/min at {bestV:F0} KTAS");
+            foreach (double kias in new[] { 150.0, 200, 250, 300, 350 })
+            {
+                double gs = 1; for (double g = 1; g <= p.AvailableG(kias); g += 0.01) if (p.ThrustPerWeight(kias, 0) - p.DragPerWeight(kias, g) >= 0) gs = g;
+                double vfps = kias * Atmosphere.KtToFtps;
+                double rate(double g) => g > 1 ? Math.Sqrt(g * g - 1) * Atmosphere.GFtps2 / vfps * 180 / Math.PI : 0;
+                Console.WriteLine($"  SL {kias} KIAS: sustained {gs:F1} G {rate(gs):F1} deg/s, max {p.AvailableG(kias):F1} G {rate(p.AvailableG(kias)):F1} deg/s, roll {p.MaxRollRateDps(kias):F0} deg/s");
+            }
         }
-        foreach (double kias in new[] { 150.0, 200, 250, 300, 350 })
-        {
-            double gs = 1; for (double g = 1; g <= p.AvailableG(kias); g += 0.01) if (p.ThrustPerWeight(kias, 0) - p.DragPerWeight(kias, g) >= 0) gs = g;
-            double vfps = kias * Atmosphere.KtToFtps;
-            double rate(double g) => g > 1 ? Math.Sqrt(g * g - 1) * Atmosphere.GFtps2 / vfps * 180 / Math.PI : 0;
-            Console.WriteLine($"  SL {kias} KIAS: sustained {gs:F1} G {rate(gs):F1} deg/s, max {p.AvailableG(kias):F1} G {rate(p.AvailableG(kias)):F1} deg/s, roll {p.MaxRollRateDps(kias):F0} deg/s");
-        }
+        Perf(AircraftNumbers.P51D());
+        Perf(AircraftNumbers.SpitfireIX());
+        var p = AircraftNumbers.P51D();
 
         // The player model flies: full power level from 200 kt, a full-aft pull, a full-stick roll
         var fm = new FlightModel(p, PointMass.Make(new Vec3d(0, 0, 5000), 250, Math.PI / 2));
@@ -89,6 +94,7 @@ static class Program
         var fast = new FlightModel(p, PointMass.Make(new Vec3d(0, 0, 10000), 300, Math.PI / 2));
         for (int i = 0; i < 150; i++) fast.Step(new FlightControls { throttle = 1, pitch = 1 }, 0.02);
         Console.WriteLine($"  full aft at 300 KTAS, 3 s (fast, should not depart yet): {fast.departure}, {fast.g:F1} G, {fast.Kias:F0} KIAS");
+        fails += TurnChecks.Run();
         return fails;
     }
 }

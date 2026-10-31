@@ -96,6 +96,22 @@ namespace Ooda.Flight.Core
         /// </summary>
         public static AircraftNumbers P51D() => new AircraftNumbers { name = "P-51D Mustang" };
 
+        /// <summary>
+        /// The Spitfire LF IX, clean, about 7,400 lb. Seeded from public figures (242 sq ft wing, aspect ratio 5.6,
+        /// Cd0 about 0.021, Oswald e about 0.8, Merlin 66 about 1,580 hp, about 404 mph at 21,000 ft, stall about
+        /// 90 mph, 450 mph IAS dive limit, ailerons heavy at speed so a lower roll cap). Estimates to tune.
+        /// It turns tighter and climbs better than the Mustang and is a little slower; the Mustang rolls and dives better.
+        /// </summary>
+        public static AircraftNumbers SpitfireIX() => new AircraftNumbers
+        {
+            name = "Spitfire IX",
+            maxG = 8, minG = -4, stallKias = 81, negStallKias = 105, vneKias = 390,
+            rollPerKtasDps = 0.4, maxRollRateDps = 80,
+            thrustK = 98.9, thrustV0Kt = 40, thrustDensityExp = 0.9, thrustFlatSigma = 0.53,
+            maxStaticThrustPerWeight = 0.45, dragA = 2.294e-6, dragB = 650.6,
+            alphaStallDeg = 15,
+        };
+
         /// <summary>The OODA tool's T-6A set (core/t6a-turn-data.js T6A_FIT and T6A_LIMITS), kept to check the port.</summary>
         public static AircraftNumbers T6A() => new AircraftNumbers
         {
