@@ -15,13 +15,40 @@ namespace Ooda.Turn.Core
         public double burstStart, burstEnd;
         public bool hold;          // fly on with the stick where it is instead (the "keeps doing what it's doing" projection)
         public double overpull;    // 0..1: the arrow past the ring; the stick goes that far beyond the stall line toward full aft
+        /// <summary>Timed marks instead of the arrow: from each mark's time on, roll to its bank and pull its G (the first should be at 0).</summary>
+        public Mark[] marks;
+
+        public bool HasMarks => marks != null && marks.Length > 0;
 
         public bool Fires(double t) => burstEnd > burstStart && t >= burstStart && t < burstEnd;
 
         public static TurnPlan Straight(FlightModel m) => new TurnPlan { aim = m.Forward, throttle = 1 };
         public static TurnPlan Holding() => new TurnPlan { hold = true };
 
-        public FlightControls ControlsFor(FlightModel m) => hold ? AutoPilot.Hold(m) : AutoPilot.Controls(m, aim, throttle, wep, overpull);
+        public FlightControls ControlsFor(FlightModel m) => ControlsFor(m, 0);
+
+        /// <summary>The stick at t seconds into the turn.</summary>
+        public FlightControls ControlsFor(FlightModel m, double t)
+        {
+            if (hold) return AutoPilot.Hold(m);
+            if (HasMarks) { var k = MarkAt(t); return AutoPilot.BankAndPull(m, k.bankDeg, k.g, throttle, wep); }
+            return AutoPilot.Controls(m, aim, throttle, wep, overpull);
+        }
+
+        /// <summary>The mark in force at t: the last one at or before it (the first one before that).</summary>
+        public Mark MarkAt(double t)
+        {
+            Mark k = marks[0];
+            foreach (var x in marks) if (x.time <= t + 1e-9 && x.time >= k.time) k = x;
+            return k;
+        }
+    }
+
+    /// <summary>One timed input: from time (s into the turn) roll to bankDeg (right positive, from wings level) and pull g.</summary>
+    public struct Mark
+    {
+        public double time, bankDeg, g;
+        public Mark(double time, double bankDeg, double g) { this.time = time; this.bankDeg = bankDeg; this.g = g; }
     }
 
     /// <summary>
@@ -92,6 +119,49 @@ namespace Ooda.Turn.Core
                 yaw = 0,
                 throttle = throttle,
                 wep = wep,
+            };
+        }
+
+        /// <summary>The aircraft's bank: the wings' tilt from level around the flight path, degrees, right wing down positive.</summary>
+        public static double BankDeg(FlightModel m)
+        {
+            Vec3d f = m.Forward, up = m.Up;
+            Vec3d rl = Vec3d.Cross(f, Vec3d.Up);
+            if (rl.Length < 1e-6) return 0;                       // straight up or down: no bank to speak of
+            rl = rl.Normalized;
+            Vec3d ul = Vec3d.Cross(rl, f);
+            return Math.Atan2(Vec3d.Dot(up, rl), Vec3d.Dot(up, ul)) * 180 / Math.PI;
+        }
+
+        /// <summary>
+        /// The pilot's own hands: roll to a bank angle and hold it, and pull a G. Asked for more G than the wing has
+        /// at this speed, the stick goes past the stall line, the same as an overpull. Departed, it flies the
+        /// recovery unless the G asked is past the stall line (holding it in).
+        /// </summary>
+        public static FlightControls BankAndPull(FlightModel m, double bankDeg, double g, double throttle, bool wep)
+        {
+            var n = m.numbers;
+            double avail = n.AvailableG(m.Kias);
+            if (m.Departed && g <= avail) return Recovery(m);
+            double pitch = g >= 1 ? (g - 1) / (n.maxG - 1) : -(1 - g) / (1 - n.minG);
+            if (g > avail && avail > 0)
+            {
+                // past the stall line: how far toward full aft, by how far past it is asked (2 G past is full aft)
+                double stallPitch = (avail - 1) / (n.maxG - 1);
+                pitch = Math.Max(pitch, stallPitch + (1 - stallPitch) * Math.Min(1, (g - avail) / 2));
+            }
+            double errDeg = bankDeg - BankDeg(m);
+            while (errDeg > 180) errDeg -= 360;
+            while (errDeg < -180) errDeg += 360;
+            double maxRate = Math.Max(1, n.MaxRollRateDps(m.Ktas));
+            double accel = n.maxRollRateDps / n.rollFullRateSec;
+            double wantRate = Math.Sign(errDeg) * Math.Min(maxRate, Math.Sqrt(2 * accel * 0.5 * Math.Abs(errDeg)));
+            wantRate = Math.Max(-maxRate, Math.Min(maxRate, wantRate + errDeg * 2));
+            return new FlightControls
+            {
+                pitch = Math.Max(-1, Math.Min(1, pitch)),
+                roll = Math.Max(-1, Math.Min(1, wantRate / maxRate)),
+                throttle = throttle, wep = wep,
             };
         }
 

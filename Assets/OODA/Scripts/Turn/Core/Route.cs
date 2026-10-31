@@ -12,7 +12,7 @@ namespace Ooda.Turn.Core
     public class Route
     {
         public Vec3d[] points = new Vec3d[0];
-        public double kias = 160;
+        public double kias = 135;
         public double reachFt = 1500;
         public double maxTurnDeg = 20;
         public double maxClimbDeg = 2.5;

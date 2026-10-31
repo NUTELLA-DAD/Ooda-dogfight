@@ -33,6 +33,12 @@ namespace Ooda.Turn.Core
             guns = "2 x 20 mm + 2 x .50 cal", muzzleFps = 2850, damage = 1.4, ammoSec = 12, dragPerSec = 0.35,
         };
 
+        /// <summary>One 20 mm MG 151 through the hub and two 13 mm MG 131s over the engine: about 15 s of fire.</summary>
+        public static CombatNumbers Bf109G() => new CombatNumbers
+        {
+            guns = "20 mm + 2 x 13 mm", muzzleFps = 2650, damage = 1.25, ammoSec = 15, dragPerSec = 0.35,
+        };
+
         /// <summary>
         /// The B-17G as a target: 104 ft span, so a much bigger hit sphere; four engines and a big airframe take
         /// about three times a fighter's damage. Its own gunners come later: no guns for now. Estimates to tune.
@@ -57,10 +63,12 @@ namespace Ooda.Turn.Core
         }
     }
 
-    /// <summary>One packet of rounds in flight.</summary>
+    /// <summary>One packet of rounds in flight. It carries what it does when it hits, so ground guns can fire them too.</summary>
     public class Bullet
     {
-        public int owner;
+        public int owner;          // the aircraft that fired it, or -1 - k for flak site k
+        public int side;           // it hits aircraft on the other side
+        public double damage, hitRadiusFt, dragPerSec, lifeSec;
         public Vec3d pos, vel;
         public double age;
         public double fireTime;   // battle time it left the guns
@@ -72,7 +80,8 @@ namespace Ooda.Turn.Core
     public struct HitEvent
     {
         public double time;
-        public int shooter, target;
+        public int shooter, target;   // shooter: an aircraft, or -1 - k for flak site k
+        public double damage;
         public Vec3d pos, local;
         public double fireTime;
     }

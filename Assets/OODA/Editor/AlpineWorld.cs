@@ -22,19 +22,70 @@ namespace Ooda.EditorTools
         const float Cell = Size / (Res - 1);
         const string Dir = "Assets/OODA/Generated/Alpine";
 
-        // The head-on fight starts in the main valley, which runs straight north for 15 km: x = 0.
-        public static readonly Vector3 FightCentre = new Vector3(0, 0, -4500);
-        public const float FightAltFt = 3600f;     // about 1100 m: 650 m over the valley floor, well under the peaks
-        public static readonly Vector3 FreeFlightSpawn = new Vector3(0, 1100f, -9000f);
+        // ---------- the main valley ----------
+        // Straight north across the basin at the south end (the lower lake and the village), then narrow and twisting:
+        // a floor about 200 m wide between walls of 950 m and more, turning 25 degrees left or right every 1.5 km so you
+        // can't see far up it. The escort route flies its centreline.
 
-        // The B-17's way up the main valley (x east, height, z north; the first point is the start): over the long
-        // viaduct at z -1300 and round the bend to the north-east, at least 350 m over the ground everywhere.
-        public static readonly Vector3[] EscortRoute =
+        const float MainLeg = 1500f;
+        static readonly float[] MainTurns = { 25, 0, -25, 0, -25, 0, 25, 0, 25, 0 };   // headings, degrees east of north
+
+        static readonly Vector2[] MainLine = MakeMainLine();
+
+        static Vector2[] MakeMainLine()
         {
-            new Vector3(0, 1250, -6500), new Vector3(0, 1300, 0), new Vector3(0, 1350, 5000), new Vector3(2500, 1450, 8000),
-        };
+            var pts = new List<Vector2> { V(0, -10600), V(0, -9600), V(0, -7800), V(0, -6000) };
+            Vector2 p = pts[pts.Count - 1];
+            foreach (float hdg in MainTurns)
+            {
+                p += MainLeg * V(Mathf.Sin(hdg * Mathf.Deg2Rad), Mathf.Cos(hdg * Mathf.Deg2Rad));
+                pts.Add(p);
+            }
+            return pts.ToArray();
+        }
 
-        /// <summary>The least height over the ground (and over anything on the Obstacles layer) along the route, every 25 m, logged leg by leg.</summary>
+        /// <summary>The main valley's floor at a point on its line: 360 m over the basin, rising to 880 m at the north end.</summary>
+        static float MainFloorAt(float z) => z < -6000 ? Mathf.Lerp(360f, 380f, Mathf.InverseLerp(-10600, -6000, z)) : Mathf.Lerp(380f, 880f, Mathf.InverseLerp(-6000, 8200, z));
+
+        /// <summary>How far a point is from the narrow part of the main valley's line, and the floor height there.</summary>
+        static float MainDistance(float x, float z, out float floor)
+        {
+            float best = float.MaxValue; floor = 0;
+            var q = V(x, z);
+            for (int s = 3; s + 1 < MainLine.Length; s++)
+            {
+                Vector2 a = MainLine[s], b = MainLine[s + 1];
+                float u = Mathf.Clamp01(Vector2.Dot(q - a, b - a) / (b - a).sqrMagnitude);
+                var c = Vector2.Lerp(a, b, u);
+                float d = Vector2.Distance(q, c);
+                if (d < best) { best = d; floor = MainFloorAt(c.y); }
+            }
+            return best;
+        }
+
+        // The dogfight's head-on starts over the basin, straight north over the lake and the village.
+        public static readonly Vector3 FightCentre = new Vector3(0, 0, -8000);
+        public const float FightAltFt = 3600f;     // about 1100 m: 730 m over the basin, well under the peaks
+        public static readonly Vector3 FreeFlightSpawn = new Vector3(0, 1000f, -9400f);
+
+        /// <summary>The bombers' way up the main valley (x east, height, z north; the first point is the start): its centreline at
+        /// 300 m over the floor, down between the walls, turning 25 degrees at most at each point.</summary>
+        public static readonly Vector3[] EscortRoute = MainLine.Skip(1).Select(p => new Vector3(p.x, MainFloorAt(p.y) + 300f, p.y)).ToArray();
+
+        /// <summary>Flak along the route: on the valley floor beside the line, every other leg, alternating sides.</summary>
+        public static readonly Vector3[] FlakSites = Enumerable.Range(0, 8).Select(i =>
+        {
+            int s = new[] { 3, 4, 6, 7, 8, 9, 10, 12 }[i];   // the narrow valley's legs, skipping the one gorge one cuts across, and one more
+            Vector2 a = MainLine[s], b = MainLine[s + 1], mid = Vector2.Lerp(a, b, 0.55f);
+            Vector2 side = V(b.y - a.y, a.x - b.x).normalized * (i % 2 == 0 ? 70f : -70f);
+            Vector2 p = mid + side;
+            return new Vector3(p.x, MainFloorAt(p.y), p.y);
+        }).ToArray();
+
+        /// <summary>
+        /// The least clearance along the route, every 25 m and 120 m either side (the bombers fly a vic about 150 m wide):
+        /// over the ground and anything on the Obstacles layer below, and under anything on it above (counted as negative).
+        /// </summary>
         public static float CheckEscortRoute(Terrain terrain)
         {
             float worst = float.MaxValue;
@@ -44,20 +95,24 @@ namespace Ooda.EditorTools
                 Vector3 a = EscortRoute[i], b = EscortRoute[i + 1];
                 float leg = float.MaxValue, over = 0;
                 Vector3 at = a;
+                string what = "ground";
                 int n = Mathf.CeilToInt(Vector3.Distance(a, b) / 25f);
                 for (int k = 0; k <= n; k++)
                 {
                     Vector3 p = Vector3.Lerp(a, b, k / (float)n);
-                    // the bomber is 32 m across: look 30 m either side too
-                    foreach (float side in new[] { -30f, 0f, 30f })
+                    foreach (float side in new[] { -120f, -60f, 0f, 60f, 120f })
                     {
                         Vector3 q = p + Vector3.Cross(Vector3.up, (b - a).normalized) * side;
                         float g = terrain.SampleHeight(q) + terrain.transform.position.y;
-                        if (Physics.Raycast(q, Vector3.down, out var hit, 5000f, mask)) g = Mathf.Max(g, hit.point.y);
-                        if (p.y - g < leg) { leg = p.y - g; at = q; over = g; }
+                        string w = "ground";
+                        if (Physics.Raycast(q, Vector3.down, out var hit, 5000f, mask) && hit.point.y > g) { g = hit.point.y; w = hit.collider.name.Split('(')[0].Trim(); }
+                        float c = p.y - g;
+                        if (Physics.Raycast(q, Vector3.up, out var above, 3000f, mask)) { c = -above.distance; w = "UNDER " + above.collider.name.Split('(')[0].Trim(); }
+                        if (c < leg) { leg = c; at = q; over = g; what = w; }
                     }
                 }
-                Debug.Log($"OODA: escort leg {i} ({a.x:F0}, {a.y:F0}, {a.z:F0}) to ({b.x:F0}, {b.y:F0}, {b.z:F0}): least clearance {leg:F0} m, over {over:F0} m at ({at.x:F0}, {at.z:F0}).");
+                float turn = i + 2 < EscortRoute.Length ? Vector2.Angle(V(b.x - a.x, b.z - a.z), V(EscortRoute[i + 2].x - b.x, EscortRoute[i + 2].z - b.z)) : 0;
+                Debug.Log($"OODA: escort leg {i} ({a.x:F0}, {a.y:F0}, {a.z:F0}) to ({b.x:F0}, {b.y:F0}, {b.z:F0}): least clearance {leg:F0} m over {what} at {over:F0} m, ({at.x:F0}, {at.z:F0}); then turns {turn:F0} degrees.");
                 worst = Mathf.Min(worst, leg);
             }
             return worst;
@@ -68,13 +123,15 @@ namespace Ooda.EditorTools
         class Valley
         {
             public Vector2[] pts; public float[] floor; public float halfFloor, wall; public bool gorge;
+            public float minWall;   // raise the land beside the valley to at least this over its floor first, so its walls are tall
         }
 
         static readonly Valley[] Valleys =
         {
-            // The main valley, where the fight starts: straight north, then bending north-east.
-            new Valley { pts = new[] { V(0, -10600), V(0, -6500), V(0, 5000), V(2500, 8000), V(4000, 10600) },
-                         floor = new[] { 360f, 380f, 700f, 900f, 950f }, halfFloor = 650, wall = 1900 },
+            // The main valley's narrow twisting part, first: its walls are raised, and the valleys after it cut through them.
+            new Valley { pts = MainLine.Skip(2).ToArray(), floor = MainLine.Skip(2).Select(p => MainFloorAt(p.y)).ToArray(), halfFloor = 100, wall = 800, minWall = 950 },
+            // The basin at its foot: the lower lake and the village.
+            new Valley { pts = new[] { V(0, -10600), V(0, -7800), V(0, -6100) }, floor = new[] { 360f, 372f, 380f }, halfFloor = 450, wall = 1500 },
             // The rail valley, winding east-west across the north.
             new Valley { pts = Enumerable.Range(0, 15).Select(i => { float x = -10600 + i * 1514f; return V(x, 2600 + 1300 * Mathf.Sin(x / 2600f)); }).ToArray(),
                          floor = Enumerable.Range(0, 15).Select(i => 950f + 60 * Mathf.Sin(i * 0.7f)).ToArray(), halfFloor = 300, wall = 1300 },
@@ -174,6 +231,7 @@ namespace Ooda.EditorTools
             MakeLakes(m);
             BuildRailway(rail, states, original, m);
             MakeVillage(h, m);
+            MakeFlakSites(h);
 
             float lo = float.MaxValue, hi = float.MinValue;
             foreach (var v in h) { lo = Mathf.Min(lo, v); hi = Mathf.Max(hi, v); }
@@ -200,7 +258,8 @@ namespace Ooda.EditorTools
             {
                 for (int j = 0; j < Res; j++) for (int i = 0; i < Res; i++) dist[j, i] = float.MaxValue;
                 float reach = v.halfFloor + v.wall;
-                int rc = Mathf.CeilToInt(reach / Cell) + 1;
+                float shoulder = v.minWall > 0 ? 700f : 0f;    // how far past the wall the raised land eases back down
+                int rc = Mathf.CeilToInt((reach + shoulder) / Cell) + 1;
                 float step = v.gorge ? 15f : 40f;
                 for (int s = 0; s + 1 < v.pts.Length; s++)
                 {
@@ -225,6 +284,9 @@ namespace Ooda.EditorTools
                     for (int i = 0; i < Res; i++)
                     {
                         float d = dist[j, i];
+                        if (d >= reach + shoulder) continue;
+                        if (v.minWall > 0)
+                            h[j, i] = Mathf.Max(h[j, i], floor[j, i] + v.minWall * (0.8f + 0.7f * Ridged(X(i) * 1.7f + 900, X(j) * 1.7f)) * (1 - Step(reach, reach + shoulder, d)));   // not a flat terrace: crests along the rim
                         if (d >= reach) continue;
                         float t = Mathf.Clamp01((d - v.halfFloor) / v.wall);
                         float shape = v.gorge ? Mathf.Pow(t, 0.5f) : t * t * (3 - 2 * t);
@@ -400,6 +462,13 @@ namespace Ooda.EditorTools
                 for (int k = 1; k < y.Length; k++) y[k] = Mathf.Clamp(y[k], y[k - 1] - rise, y[k - 1] + rise);
                 for (int k = y.Length - 2; k >= 0; k--) y[k] = Mathf.Clamp(y[k], y[k + 1] - rise, y[k + 1] + rise);
             }
+            // across the main valley it stays low, 110 m over the floor at most, so its bridge passes under the bombers
+            // flying up the valley at 300 m rather than across their path; then the line either side comes down to meet
+            // that at the same grade (only ever lowering it, so the cap holds)
+            for (int k = 0; k < y.Length; k++)
+                if (MainDistance(path[k].x, path[k].z, out float mainFloor) < 900f) y[k] = Mathf.Min(y[k], mainFloor + 110f);
+            for (int k = 1; k < y.Length; k++) y[k] = Mathf.Min(y[k], y[k - 1] + rise);
+            for (int k = y.Length - 2; k >= 0; k--) y[k] = Mathf.Min(y[k], y[k + 1] + rise);
             for (int k = 0; k < path.Count; k++) path[k] = new Vector3(path[k].x, y[k], path[k].z);
             return path;
         }
@@ -690,6 +759,20 @@ namespace Ooda.EditorTools
             foreach (var l in Lakes) mb.Disc(new Vector3(l.c.x, l.level, l.c.y), l.r * 1.05f, 48, 0);
             var go = MeshObject("Lakes", SaveMesh(mb, "Lakes"), new[] { m.water }, null);
             go.GetComponent<MeshRenderer>().shadowCastingMode = ShadowCastingMode.Off;
+        }
+
+        /// <summary>Empty markers where the flak guns go, standing on the ground at the FlakSites.</summary>
+        static void MakeFlakSites(float[,] h)
+        {
+            var parent = new GameObject("Flak").transform;
+            for (int i = 0; i < FlakSites.Length; i++)
+            {
+                var s = FlakSites[i];
+                var t = new GameObject($"FlakSite {i}").transform;
+                t.SetParent(parent, false);
+                t.position = new Vector3(s.x, SampleArr(h, s.x, s.z), s.z);
+            }
+            Debug.Log("OODA: flak sites " + string.Join(", ", parent.Cast<Transform>().Select(t => $"({t.position.x:F0}, {t.position.y:F0}, {t.position.z:F0}) slope {Slope(h, t.position.x, t.position.z):F0}")) + ".");
         }
 
         static void MakeVillage(float[,] h, WMats m)

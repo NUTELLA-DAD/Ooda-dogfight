@@ -113,6 +113,23 @@ namespace Ooda.Flight.Core
         };
 
         /// <summary>
+        /// The Bf 109 G-6, clean, about 6,940 lb. Seeded from public figures (173 sq ft wing, aspect ratio 6.1,
+        /// Cd0 about 0.024, Oswald e about 0.75, DB 605A about 1,455 hp held to about 18,700 ft, prop efficiency about
+        /// 0.8, about 386 mph at 22,600 ft, slats so a clean stall near 105 mph, 750 km/h IAS dive limit, light
+        /// ailerons slow but heavy at high speed). Estimates to tune. It climbs well and is fast low down; the
+        /// Mustang is faster high up, rolls better at speed and out-turns it a little.
+        /// </summary>
+        public static AircraftNumbers Bf109G() => new AircraftNumbers
+        {
+            name = "Bf 109 G-6",
+            maxG = 7.5, minG = -3.5, stallKias = 90, negStallKias = 112, vneKias = 405,
+            rollPerKtasDps = 0.42, maxRollRateDps = 90,
+            thrustK = 92.2, thrustV0Kt = 40, thrustDensityExp = 0.9, thrustFlatSigma = 0.56,
+            maxStaticThrustPerWeight = 0.45, dragA = 2.026e-6, dragB = 824,
+            alphaStallDeg = 17,
+        };
+
+        /// <summary>
         /// The B-17G Flying Fortress at a combat weight of about 55,000 lb. Seeded from public figures (1,420 sq ft
         /// wing, aspect ratio 7.6, Cd0 about 0.026 with the turrets, Oswald e about 0.75, four Wright R-1820s at
         /// 1,200 hp each, turbo-supercharged so the power holds to about 25,000 ft, prop efficiency about 0.8, stall
