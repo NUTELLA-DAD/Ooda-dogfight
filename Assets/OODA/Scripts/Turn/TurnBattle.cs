@@ -93,6 +93,14 @@ namespace Ooda.Turn
         public Color holoColor = new Color(0.25f, 0.85f, 1f, 0.35f);
         public Color holoEnemyColor = new Color(1f, 0.3f, 0.25f, 0.3f);
         public Color holoFriendColor = new Color(0.35f, 1f, 0.55f, 0.22f);
+        [Tooltip("The enemy ghost when your planned burst hits it, if it holds.")]
+        public Color holoTargetHitColor = new Color(1f, 0.12f, 0.08f, 0.6f);
+        [Tooltip("Preview tracers that hit.")]
+        public Color hitTracer = new Color(1f, 0.12f, 0.1f, 1f);
+        [Tooltip("Preview tracers that pass within twice the hit distance: close, but a miss.")]
+        public Color nearTracer = new Color(1f, 0.95f, 0.2f, 0.95f);
+        [Tooltip("How strong the always-on gun line (where a burst would go) is drawn, when no burst is set.")]
+        [Range(0, 1)] public float gunLineAlpha = 0.25f;
 
         enum Phase { Planning, Thinking, Playing, Over }
 
@@ -132,7 +140,15 @@ namespace Ooda.Turn
         int burstPreset;
         string warning;            // what the preview says the plan does to the wing
         bool previewDeparts;
+        bool previewCrashes;       // the preview flies the player into the ground or an obstacle
         double lastOverpull;
+        TurnResult gunPreview;     // the same turn with the guns firing all the way through and the enemy unbreakable: where the rounds would connect
+        readonly List<(double a, double b)> hitWindows = new List<(double, double)>();   // s into the turn when a round fired connects, from gunPreview
+        bool[] burstHits = new bool[0];   // by aircraft: the player's planned burst hits it in the preview
+        int confidenceTarget = -1;        // the enemy the planned burst hits most, for the what-if-it-breaks check
+        int confidenceHits = -1, confidenceOf;   // hits in confidenceHits of confidenceOf tries; -1 not known (yet)
+        bool confidencePending;
+        float confidenceAt;
         GameObject holoMine, holoTheirs;
         GameObject[] holos = new GameObject[0];   // a ghost for each aircraft: where the preview puts it at the end of the turn
         readonly List<Material> holoMats = new List<Material>();
@@ -577,6 +593,8 @@ namespace Ooda.Turn
             if (Pressed(Key.G)) ArmMissile(!plan.missile);
 
             if (dirty) RunPreview();
+            // the what-if-it-breaks check, once the plan has settled (not while dragging or every frame)
+            if (confidencePending && !dirty && !dragArrow && !dragBurst && Time.unscaledTime >= confidenceAt) RunConfidence();
         }
 
         // ---------- planning ----------
@@ -723,13 +741,8 @@ namespace Ooda.Turn
         void FireAtPredicted()
         {
             if (preview == null) return;
-            var full = plan; full.burstStart = 0; full.burstEnd = turnSec;
-            var sim = battle.Clone();
-            sim.dispersion = false;
-            for (int j = 0; j < sim.Count; j++) if (sim.side[j] != sim.side[0]) sim.health[j] = double.PositiveInfinity;
-            sim.bullets.Clear();
-            var r = sim.Resolve(new TurnPlan?[] { full }, turnSec, false);
-            var times = r.hits.Where(h => h.shooter == 0).Select(h => h.fireTime - battle.time).ToList();
+            if (dirty || gunPreview == null) RunPreview();
+            var times = gunPreview.hits.Where(h => h.shooter == 0).Select(h => h.fireTime - gunPreview.startTime).ToList();
             if (times.Count == 0) { Notice("No hits predicted on this path if the enemy holds its turn."); plan.burstStart = plan.burstEnd = 0; }
             else { plan.burstStart = Math.Max(0, times.Min() - 0.15); plan.burstEnd = Math.Min(turnSec, times.Max() + 0.15); }
             dirty = true;
@@ -744,12 +757,81 @@ namespace Ooda.Turn
             dirty = false;
             previewDeparts = preview.frames[0].Any(f => f.departed);
             bool stalls = preview.frames[0].Any(f => f.stalled);
-            if (battle.planes[0].Departed)
+            // flown into the ground or an obstacle (not shot down first and falling)
+            previewCrashes = !battle.Out(0) && sim.crashed[0] && sim.health[0] > 0;
+            if (previewCrashes) warning = sim.hitObstacle[0] ? "OBSTACLE: this turn hits a cable or structure" : "TERRAIN: this turn flies into the ground";
+            else if (battle.planes[0].Departed)
                 warning = previewDeparts ? (plan.overpull > 0 ? "SPINNING: still overpulling, it stays departed" : "SPINNING: the arrow flies the recovery, it is not out yet")
                                          : "SPINNING: the arrow flies the recovery (idle, opposite rudder, stick forward)";
             else if (previewDeparts) warning = "OVERPULL: it will depart into a spin";
             else if ((plan.overpull > 0 || plan.HasMarks) && stalls) warning = "OVERPULL: the wing stalls, the turn mushes and bleeds speed";
             else warning = null;
+
+            // who the planned burst hits, if they hold
+            burstHits = new bool[battle.Count];
+            var byTarget = new int[battle.Count];
+            foreach (var h in preview.hits)
+                if (h.shooter == 0 && h.target >= 0 && h.target < battle.Count) { burstHits[h.target] = true; byTarget[h.target]++; }
+            confidenceTarget = -1;
+            for (int i = 0; i < battle.Count; i++)
+                if (byTarget[i] > 0 && battle.side[i] != battle.side[0] && (confidenceTarget < 0 || byTarget[i] > byTarget[confidenceTarget])) confidenceTarget = i;
+            confidenceHits = -1; confidenceOf = 0;
+            confidencePending = confidenceTarget >= 0 && battle.routes[confidenceTarget] == null && !battle.InFormation(confidenceTarget);
+            confidenceAt = Time.unscaledTime + 0.25f;
+
+            // The gun line: the same turn with the trigger held all the way and the enemy unbreakable, so every chance shows
+            var full = plan; full.burstStart = 0; full.burstEnd = turnSec; full.missile = false;
+            var gsim = battle.Clone();
+            gsim.dispersion = false;
+            for (int j = 0; j < gsim.Count; j++) if (gsim.side[j] != gsim.side[0]) gsim.health[j] = double.PositiveInfinity;
+            gsim.bullets.Clear();
+            gunPreview = gsim.Resolve(new TurnPlan?[] { full }, turnSec, true);
+            // the hit window: when a round fired connects, short gaps merged
+            hitWindows.Clear();
+            var times = gunPreview.hits.Where(h => h.shooter == 0).Select(h => h.fireTime - gunPreview.startTime).OrderBy(x => x).ToList();
+            double half = battle.combat[0].packetSec / 2;
+            foreach (var ht in times)
+            {
+                double a = Math.Max(0, ht - half), b = Math.Min(turnSec, ht + half);
+                int n = hitWindows.Count;
+                if (n > 0 && a - hitWindows[n - 1].b < 0.1) hitWindows[n - 1] = (hitWindows[n - 1].a, Math.Max(b, hitWindows[n - 1].b));
+                else hitWindows.Add((a, b));
+            }
+        }
+
+        /// <summary>
+        /// The confidence check: fly the plan again with the enemy the burst hits breaking left, breaking right and pulling up
+        /// instead of holding, and count how many of the four still hit it. Run once the plan has settled, not every frame.
+        /// </summary>
+        void RunConfidence()
+        {
+            confidencePending = false;
+            int j = confidenceTarget;
+            if (preview == null || j < 0 || j >= battle.Count || battle.Out(j)) return;
+            var m = battle.planes[j];
+            Vec3d fwd = m.Forward;
+            Vec3d right = new Vec3d(fwd.y, -fwd.x, 0);   // the horizontal right of its heading: a break is a level turn
+            right = right.Length > 1e-3 ? right.Normalized : m.Right;
+            double theta = 90 * Math.PI / 180;           // past what it can reach in a turn: it pulls as hard as the wing allows
+            Vec3d[] aims =
+            {
+                (fwd * Math.Cos(theta) - right * Math.Sin(theta)).Normalized,   // break left
+                (fwd * Math.Cos(theta) + right * Math.Sin(theta)).Normalized,   // break right
+                (fwd * Math.Cos(theta) + m.Up * Math.Sin(theta)).Normalized,    // pull up
+            };
+            int hits = 1;   // holding, it is hit: that is why we are checking
+            foreach (var aim in aims)
+            {
+                var plans = new TurnPlan?[battle.Count];
+                plans[0] = plan;
+                plans[j] = new TurnPlan { aim = aim, throttle = 1, wep = m.Kias < 220 };
+                var sim = battle.Clone();
+                sim.dispersion = false;
+                var r = sim.Resolve(plans, turnSec, false);
+                if (r.hits.Any(h => h.shooter == 0 && h.target == j)) hits++;
+            }
+            confidenceHits = hits;
+            confidenceOf = aims.Length + 1;
         }
 
         void DrawPlanning()
@@ -804,7 +886,8 @@ namespace Ooda.Turn
         Paths:
             if (preview == null) return;
             int end = preview.FrameCount - 1;
-            DrawPath(preview.frames[0], end, previewDeparts ? overpullColor : ghostColor, holoMine == null);
+            bool badPath = previewDeparts || previewCrashes;
+            DrawPath(preview.frames[0], end, badPath ? overpullColor : ghostColor, holoMine == null);
             for (int i = 1; i < battle.Count; i++)
             {
                 if (battle.Out(i)) continue;
@@ -813,19 +896,43 @@ namespace Ooda.Turn
                 else if (battle.side[i] != 0) { if (showProjection) DrawPath(preview.frames[i], end, projectionColor, noGhost); }
                 else DrawPath(preview.frames[i], end, wingmanColor, noGhost);
             }
-            ShowHolo(holoMine, preview.frames[0][end], true, previewDeparts ? overpullColor : holoColor);
+            ShowHolo(holoMine, preview.frames[0][end], true, badPath ? overpullColor : holoColor);
             for (int i = 1; i < holos.Length; i++)
-                ShowHolo(holos[i], preview.frames[i][end], !battle.Out(i) && (battle.side[i] == 0 || showProjection), battle.side[i] == 0 ? holoFriendColor : holoEnemyColor);
+            {
+                bool hitByMe = i < burstHits.Length && burstHits[i] && battle.side[i] != battle.side[0];
+                ShowHolo(holos[i], preview.frames[i][end], !battle.Out(i) && (battle.side[i] == 0 || showProjection),
+                         battle.side[i] == 0 ? holoFriendColor : hitByMe ? holoTargetHitColor : holoEnemyColor);
+            }
             foreach (var tr in preview.traces)
             {
                 if (tr.owner != 0 && !showProjection) continue;
-                var pts = new List<Vector3>();
-                for (int i = 0; i < tr.points.Count; i += 2) pts.Add(UnityFrame.Pos(tr.points[i]));
-                pts.Add(UnityFrame.Pos(tr.points[tr.points.Count - 1]));
-                var col = tr.missile ? new Color(1f, 1f, 1f, 0.8f) : TracerColor(tr.owner);
-                lines.Strip(pts, tr.missile ? 1.0f : 0.35f, col, false, new Color(col.r, col.g, col.b, tr.missile ? 0.3f : 0.1f));
+                if (tr.missile) { DrawPreviewTrace(tr, new Color(1f, 1f, 1f, 0.8f), 1.0f, 0.3f); continue; }
+                DrawPreviewTrace(tr, OutcomeColor(tr, TracerColor(tr.owner)), tr.hit ? 0.5f : 0.35f, tr.hit ? 0.5f : 0.1f);
             }
+            // The gun line: where a burst would go, faint, until a burst is set
+            if (gunPreview != null && plan.burstEnd == plan.burstStart)
+                foreach (var tr in gunPreview.traces)
+                {
+                    if (tr.owner != 0 || tr.missile) continue;
+                    var col = OutcomeColor(tr, myTracer);
+                    col.a *= gunLineAlpha;
+                    DrawPreviewTrace(tr, col, 0.3f, col.a * 0.3f);
+                }
         }
+
+        /// <summary>A preview tracer's whole path; fading to tailAlpha at its far end.</summary>
+        void DrawPreviewTrace(Trace tr, Color col, float width, float tailAlpha)
+        {
+            if (tr.points.Count == 0) return;
+            var pts = new List<Vector3>();
+            for (int i = 0; i < tr.points.Count; i += 2) pts.Add(UnityFrame.Pos(tr.points[i]));
+            pts.Add(UnityFrame.Pos(tr.points[tr.points.Count - 1]));
+            if (pts.Count < 2) return;
+            lines.Strip(pts, width, col, false, new Color(col.r, col.g, col.b, tailAlpha));
+        }
+
+        /// <summary>A preview tracer's colour by what it does: red if it hits, yellow if it passes close, else the normal colour.</summary>
+        Color OutcomeColor(Trace tr, Color normal) => tr.hit ? hitTracer : tr.Near ? nearTracer : normal;
 
         /// <summary>A missile in playback: a white smoke trail behind it, fading, and a bright head.</summary>
         void DrawMissile(Trace tr, int now)
@@ -1174,6 +1281,10 @@ namespace Ooda.Turn
                 double a = Math.Min(plan.burstStart, plan.burstEnd), b = Math.Max(plan.burstStart, plan.burstEnd);
                 Fill(new Rect(burstRect.x + (float)(a / turnSec) * pw, burstRect.y + 3, (float)((b - a) / turnSec) * pw, burstRect.height - 6), new Color(1f, 0.6f, 0.1f, 0.85f));
             }
+            // The hit window: when rounds fired would connect if they hold (from the gun line), over the whole bar
+            foreach (var w in hitWindows)
+                Fill(new Rect(burstRect.x + (float)(w.a / turnSec) * pw, burstRect.y, Mathf.Max(2f, (float)((w.b - w.a) / turnSec) * pw), burstRect.height),
+                     new Color(hitTracer.r, hitTracer.g, hitTracer.b, 0.35f));
             int predicted = 0;
             if (preview != null)
                 foreach (var h in preview.hits)
@@ -1186,7 +1297,15 @@ namespace Ooda.Turn
             for (int s = 0; s <= (int)turnSec; s++)
                 GUI.Label(new Rect(burstRect.x + s / turnSec * pw - 8, burstRect.yMax, 40, 20), $"{s}s", small);
             int theirs = preview == null ? 0 : preview.hits.Count(h => h.target == 0);
-            GUI.Label(new Rect(px, py + 104, pw - 140, 22), $"Predicted if they hold: you hit {predicted}, you get hit {theirs}", label);
+            if (predicted > 0)
+            {
+                var hitStyle = new GUIStyle(label) { fontStyle = FontStyle.Bold };
+                hitStyle.normal.textColor = hitTracer;
+                string sure = confidenceHits >= 0 ? $"   (hits in {confidenceHits} of {confidenceOf})" : confidencePending ? "   (checking...)" : "";
+                string hitBack = theirs > 0 ? $"   you get hit {theirs}" : "";
+                GUI.Label(new Rect(px, py + 104, pw - 140, 22), $"HITS: {predicted} if they hold{sure}{hitBack}", hitStyle);
+            }
+            else GUI.Label(new Rect(px, py + 104, pw - 140, 22), $"Predicted if they hold: you hit {predicted}, you get hit {theirs}", label);
             if (GUI.Button(new Rect(px + pw - 130, py + 102, 130, 26), "Fire at hits (F)")) FireAtPredicted();
 
             // The missile: armed, it leaves the first moment the seeker locks this turn

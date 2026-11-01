@@ -40,6 +40,7 @@ namespace Ooda.Turn.Core
         public int[] missiles = new int[0];          // missiles left
         public bool[] down = new bool[0];            // shot down or collided: out of the fight, falling
         public bool[] crashed = new bool[0];         // hit the ground or sea: stopped
+        public bool[] hitObstacle = new bool[0];     // crashed into an obstacle (a cable, a bridge, a building) rather than the ground
         public int Count => planes.Length;
         public List<Bullet> bullets = new List<Bullet>();
         public double time;
@@ -74,6 +75,7 @@ namespace Ooda.Turn.Core
             Array.Resize(ref missiles, n + 1); missiles[n] = c.missiles;
             Array.Resize(ref down, n + 1);
             Array.Resize(ref crashed, n + 1);
+            Array.Resize(ref hitObstacle, n + 1);
             Array.Resize(ref fireClock, n + 1);
             return n;
         }
@@ -108,7 +110,7 @@ namespace Ooda.Turn.Core
             for (int i = 0; i < Count; i++) { c.planes[i] = planes[i].Clone(); c.routes[i] = routes[i]?.Copy(); }
             c.slots = (Slot[])slots.Clone();   // slots never change, so they can be shared
             c.health = (double[])health.Clone(); c.ammo = (double[])ammo.Clone(); c.missiles = (int[])missiles.Clone();
-            c.down = (bool[])down.Clone(); c.crashed = (bool[])crashed.Clone();
+            c.down = (bool[])down.Clone(); c.crashed = (bool[])crashed.Clone(); c.hitObstacle = (bool[])hitObstacle.Clone();
             c.fireClock = (double[])fireClock.Clone();
             c.flak = new FlakSite[flak.Length];
             for (int k = 0; k < flak.Length; k++) c.flak[k] = flak[k].Copy();
@@ -168,8 +170,8 @@ namespace Ooda.Turn.Core
                         ? new FlightControls { pitch = -0.1, roll = 0.25 * (i % 2 == 0 ? 1 : -1), throttle = 0 }
                         : plans[i].ControlsFor(m, t);
                     m.Step(c, StepSec);
-                    if (m.AltFt <= groundFt(m.state.pos.x, m.state.pos.y) || (obstacleHit != null && obstacleHit(before[i], m.state.pos)))
-                    { crashed[i] = true; down[i] = true; }
+                    if (m.AltFt <= groundFt(m.state.pos.x, m.state.pos.y)) { crashed[i] = true; down[i] = true; }
+                    else if (obstacleHit != null && obstacleHit(before[i], m.state.pos)) { crashed[i] = true; down[i] = true; hitObstacle[i] = true; }
                 }
 
                 for (int i = 0; i < n; i++) routes[i]?.Advance(planes[i]);
@@ -210,6 +212,8 @@ namespace Ooda.Turn.Core
                 {
                     var b = bullets[bi];
                     Vec3d p0b = b.pos;
+                    Trace bt = null;
+                    if (record) traceOf.TryGetValue(b, out bt);
                     if (b is Missile ms)
                     {
                         bool ok = ms.target >= 0 && ms.target < n && !Out(ms.target);
@@ -226,16 +230,25 @@ namespace Ooda.Turn.Core
                     for (int target = 0; target < n && b.alive; target++)
                     {
                         if (side[target] == b.side || crashed[target]) continue;
-                        if (Passes(p0b - before[target], b.pos - planes[target].state.pos, b.hitRadiusFt + combat[target].sizeFt))
+                        Vec3d r0 = p0b - before[target], r1 = b.pos - planes[target].state.pos;
+                        double reach = b.hitRadiusFt + combat[target].sizeFt;
+                        if (bt != null)
+                        {
+                            // the closest pass so far, against whichever target it comes nearest to hitting (for the preview's near-miss colour)
+                            double d = Closest(r0, r1);
+                            if (bt.closestTarget < 0 || d / Math.Max(1e-6, reach) < bt.closestFt / Math.Max(1e-6, bt.reachFt))
+                            { bt.closestFt = d; bt.reachFt = reach; bt.closestTarget = target; }
+                        }
+                        if (Passes(r0, r1, reach))
                         {
                             Hit(b, target, res);
                             b.alive = false;
-                            if (record && traceOf.TryGetValue(b, out var ht)) ht.hit = true;
+                            if (bt != null) bt.hit = true;
                         }
                     }
                     if (b.age > b.lifeSec || b.pos.z < groundFt(b.pos.x, b.pos.y)) b.alive = false;
                     else if (b.alive && obstacleHit != null && obstacleHit(p0b, b.pos)) b.alive = false;
-                    if (record && traceOf.TryGetValue(b, out var tr)) tr.points.Add(b.pos);
+                    if (bt != null) bt.points.Add(b.pos);
                     if (!b.alive) bullets.RemoveAt(bi);
                 }
 
@@ -412,13 +425,13 @@ namespace Ooda.Turn.Core
             var c = (Battle)MemberwiseClone();
             int n = keep.Length;
             c.planes = new FlightModel[n]; c.combat = new CombatNumbers[n]; c.side = new int[n]; c.routes = new Route[n];
-            c.health = new double[n]; c.ammo = new double[n]; c.missiles = new int[n]; c.down = new bool[n]; c.crashed = new bool[n]; c.fireClock = new double[n];
+            c.health = new double[n]; c.ammo = new double[n]; c.missiles = new int[n]; c.down = new bool[n]; c.crashed = new bool[n]; c.hitObstacle = new bool[n]; c.fireClock = new double[n];
             var map = new Dictionary<int, int>();
             for (int j = 0; j < n; j++)
             {
                 int i = keep[j]; map[i] = j;
                 c.planes[j] = planes[i].Clone(); c.combat[j] = combat[i]; c.side[j] = side[i]; c.routes[j] = routes[i]?.Copy();
-                c.health[j] = health[i]; c.ammo[j] = ammo[i]; c.missiles[j] = missiles[i]; c.down[j] = down[i]; c.crashed[j] = crashed[i]; c.fireClock[j] = fireClock[i];
+                c.health[j] = health[i]; c.ammo[j] = ammo[i]; c.missiles[j] = missiles[i]; c.down[j] = down[i]; c.crashed[j] = crashed[i]; c.hitObstacle[j] = hitObstacle[i]; c.fireClock[j] = fireClock[i];
             }
             c.slots = new Slot[n];
             for (int j = 0; j < n; j++)
@@ -466,6 +479,16 @@ namespace Ooda.Turn.Core
             if (down[target]) return;
             health[target] -= b.damage;
             if (health[target] <= 0) down[target] = true;
+        }
+
+        /// <summary>How close a straight relative move from r0 to r1 comes to the origin.</summary>
+        static double Closest(Vec3d r0, Vec3d r1)
+        {
+            Vec3d d = r1 - r0;
+            double dd = Vec3d.Dot(d, d);
+            double s = dd > 1e-12 ? Math.Max(0, Math.Min(1, -Vec3d.Dot(r0, d) / dd)) : 0;
+            Vec3d c = r0 + d * s;
+            return Math.Sqrt(Vec3d.Dot(c, c));
         }
 
         /// <summary>Whether a straight relative move from r0 to r1 comes within radius of the origin.</summary>

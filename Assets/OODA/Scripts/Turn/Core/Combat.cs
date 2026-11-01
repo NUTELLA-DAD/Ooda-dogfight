@@ -25,8 +25,11 @@ namespace Ooda.Turn.Core
 
         public CombatNumbers Copy() => (CombatNumbers)MemberwiseClone();
 
-        /// <summary>Six .50 in Brownings, 1,880 rounds: about 18 s of fire.</summary>
-        public static CombatNumbers P51D() => new CombatNumbers { guns = "6 x .50 cal" };
+        /// <summary>
+        /// Six .50 in Brownings, 1,880 rounds: about 18 s of fire. The player's side gets a forgiving hit radius and a
+        /// tighter cone (a game liberty, so shots are easier to land); the enemy's guns keep the defaults.
+        /// </summary>
+        public static CombatNumbers P51D() => new CombatNumbers { guns = "6 x .50 cal", hitRadiusFt = 20, spreadMil = 2.5 };
 
         /// <summary>Two 20 mm Hispanos (120 rounds each) and two .50s: harder hitting, about 12 s of cannon.</summary>
         public static CombatNumbers SpitfireIX() => new CombatNumbers
@@ -157,6 +160,14 @@ namespace Ooda.Turn.Core
         public System.Collections.Generic.List<Vec3d> points = new System.Collections.Generic.List<Vec3d>();
         public bool hit;
         public bool missile;      // a missile's smoke trail rather than a tracer
+        /// <summary>
+        /// Recorded runs only: the closest the packet came to an opposing aircraft (ft), against the target it came
+        /// nearest to hitting (closestTarget, -1 none), and that pass's hit distance (the round's hit radius plus the target's size).
+        /// </summary>
+        public double closestFt = double.PositiveInfinity, reachFt = 1;
+        public int closestTarget = -1;
+        /// <summary>A near miss: it did not hit, but passed within twice the hit distance.</summary>
+        public bool Near => !hit && closestTarget >= 0 && closestFt <= 2 * reachFt;
         public Vec3d? At(int frame) => frame >= startFrame && frame - startFrame < points.Count ? points[frame - startFrame] : (Vec3d?)null;
     }
 }
