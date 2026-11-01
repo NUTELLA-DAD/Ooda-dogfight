@@ -141,6 +141,7 @@ namespace Ooda.Turn
 
         void Start()
         {
+            if (Ooda.UI.TitleScreen.ChosenMission is int chosen) mission = (Mission)chosen;   // picked on the title screen
             lines = new LinePool(transform, "Lines") { sizeAt = W };
             tipMat = new Material(Shader.Find("Sprites/Default")) { color = arrowColor };
             flashMat = new Material(Shader.Find("Sprites/Default")) { color = new Color(1f, 0.9f, 0.4f, 1f) };
