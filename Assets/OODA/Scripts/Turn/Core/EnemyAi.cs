@@ -77,6 +77,13 @@ namespace Ooda.Turn.Core
                 }
             }
             PlanBurst(sub, ref best, turnSec);
+            // a missile at the target whenever it might come into the seeker's cone this turn (it launches only once locked)
+            if (battle.missiles[me] > 0 && battle.routes[me] == null)
+            {
+                Vec3d r = battle.planes[them].state.pos - m.state.pos;
+                if (r.Length < Missile.MaxRangeFt * 1.2 && Vec3d.Dot(r.Normalized, m.Forward) > Math.Cos(60 * Math.PI / 180))
+                { best.missile = true; best.missileTarget = them; }
+            }
             return best;
         }
 

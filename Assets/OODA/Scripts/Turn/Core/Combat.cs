@@ -21,6 +21,7 @@ namespace Ooda.Turn.Core
         public double lifeSec = 2.5;        // packets are gone after this (spent, out of range)
         public double dragPerSec = 0.3;     // the round's speed falls by this share each second (exponential)
         public double health = 12;          // damage the airframe takes before it goes down
+        public int missiles = 2;             // heat-seekers carried (a game liberty: no WW2 fighter had them)
 
         public CombatNumbers Copy() => (CombatNumbers)MemberwiseClone();
 
@@ -45,7 +46,7 @@ namespace Ooda.Turn.Core
         /// </summary>
         public static CombatNumbers B17G() => new CombatNumbers
         {
-            guns = "none yet", ammoSec = 0, sizeFt = 22, health = 36,
+            guns = "gunners (see FlakSite.B17Gunner)", ammoSec = 0, sizeFt = 22, health = 36, missiles = 0,
         };
     }
 
@@ -76,6 +77,60 @@ namespace Ooda.Turn.Core
         public Bullet Copy() => (Bullet)MemberwiseClone();
     }
 
+    /// <summary>
+    /// A heat-seeking missile (a game liberty for a WW2 setting): a short motor burn, then it coasts and slows. It steers by
+    /// proportional navigation at up to maxG, and loses its target for good if the target gets more than gimbalDeg off its nose
+    /// (a hard break across it) or goes down; then it flies on unguided. It bursts within its hit radius (a proximity fuse).
+    /// Numbers are estimates to tune by feel.
+    /// </summary>
+    public class Missile : Bullet
+    {
+        public int target = -1;
+        public double burnSec = 2.5, thrustFps2 = 700, maxG = 20, gimbalDeg = 40, nav = 4;
+
+        /// <summary>Launch envelope: the target within this cone off the shooter's nose, between these ranges.</summary>
+        public const double LockConeDeg = 30, MinRangeFt = 1200, MaxRangeFt = 9000;
+        /// <summary>A heat-seeker needs the engine's heat: no lock from inside this cone off the target's nose (head-on).</summary>
+        public const double NoLockNoseDeg = 80;
+
+        public static Missile Make(int owner, int side, int target, Vec3d pos, Vec3d vel, double time) => new Missile
+        {
+            owner = owner, side = side, target = target, pos = pos, vel = vel, fireTime = time,
+            damage = 8, hitRadiusFt = 30, dragPerSec = 0.05, lifeSec = 9,
+        };
+
+        /// <summary>One step of flight: steer at the target (if still held), the motor while it burns, drag and gravity.</summary>
+        public void Step(Vec3d targetPos, Vec3d targetVel, bool targetOk, double dt)
+        {
+            double speed = Math.Max(1, vel.Length);
+            Vec3d dir = vel * (1 / speed);
+            Vec3d acc = new Vec3d(0, 0, -Atmosphere.GFtps2);
+            if (target >= 0 && targetOk)
+            {
+                Vec3d r = targetPos - pos;
+                double range = Math.Max(1, r.Length);
+                if (Vec3d.Dot(r * (1 / range), dir) < Math.Cos(gimbalDeg * Math.PI / 180)) target = -1;   // off the seeker: lost
+                else
+                {
+                    Vec3d vr = targetVel - vel;
+                    Vec3d omega = Vec3d.Cross(r, vr) * (1 / (range * range));   // the sight line's turn rate
+                    Vec3d a = Vec3d.Cross(omega, vel) * nav;
+                    a = a - dir * Vec3d.Dot(a, dir);                              // steering only, across the path
+                    a = a + new Vec3d(0, 0, Atmosphere.GFtps2) - dir * (Atmosphere.GFtps2 * dir.z);   // and hold itself up against gravity
+                    double max = maxG * Atmosphere.GFtps2, len = a.Length;
+                    if (len > max) a = a * (max / len);
+                    acc = acc + a;
+                }
+            }
+            else if (target >= 0) target = -1;
+            if (age < burnSec) acc = acc + dir * thrustFps2;
+            Vec3d v0 = vel;
+            vel = (vel + acc * dt) * Math.Exp(-dragPerSec * dt);
+            pos = pos + (v0 + vel) * (dt / 2);
+            age += dt;
+        }
+    }
+
     /// <summary>A packet that struck: where on the target (its own frame: x right, y forward, z up, ft) for hit locations later.</summary>
     public struct HitEvent
     {
@@ -101,6 +156,7 @@ namespace Ooda.Turn.Core
         public int owner, startFrame;
         public System.Collections.Generic.List<Vec3d> points = new System.Collections.Generic.List<Vec3d>();
         public bool hit;
+        public bool missile;      // a missile's smoke trail rather than a tracer
         public Vec3d? At(int frame) => frame >= startFrame && frame - startFrame < points.Count ? points[frame - startFrame] : (Vec3d?)null;
     }
 }

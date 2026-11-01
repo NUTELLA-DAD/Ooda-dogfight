@@ -227,6 +227,24 @@ static class TurnChecks
             Check(onFoe > 0 && onOwn == 0, "the B-17's gunners hit a fighter closing on its tail, and never their own bomber");
         }
 
+        // Missiles: from 4,000 ft behind a 109 flying straight it hits; one launched at a 109 already breaking hard across it can miss
+        {
+            FlightModel At(AircraftNumbers n, double y, double kias) => new FlightModel(n, PointMass.Make(new Vec3d(0, y, 10000), Atmosphere.IasToTasKt(kias, 10000), Math.PI / 2)) { throttle = 1 };
+            var mb = new Battle(At(AircraftNumbers.P51D(), 0, 300), CombatNumbers.P51D(), At(AircraftNumbers.Bf109G(), 4000, 280), CombatNumbers.Bf109G());
+            var shot = new TurnPlan { aim = new Vec3d(0, 1, 0), throttle = 1, missile = true, missileTarget = 1 };
+            int mHits = 0;
+            for (int t = 0; t < 3; t++)
+            {
+                var r = mb.Resolve(new TurnPlan?[] { t == 0 ? shot : TurnPlan.Straight(mb.planes[0]), TurnPlan.Straight(mb.planes[1]) }, 3);
+                mHits += r.hits.Count(h => h.shooter == 0 && h.damage >= 5);
+            }
+            Console.WriteLine($"  missile at a straight-flying 109 from 4,000 ft behind: {mHits} hit, 109 down {mb.Out(1)}, missiles left {mb.missiles[0]}");
+            Check(mHits == 1 && mb.missiles[0] == 1, "a missile fired from behind at a 109 flying straight hits it, and uses one of two");
+            var far = new Battle(At(AircraftNumbers.P51D(), 0, 300), CombatNumbers.P51D(), At(AircraftNumbers.Bf109G(), 15000, 280), CombatNumbers.Bf109G());
+            var rf = far.Resolve(new TurnPlan?[] { shot, TurnPlan.Straight(far.planes[1]) }, 3);
+            Check(far.missiles[0] == 2 && !rf.traces.Any(tr => tr.missile), "no missile leaves while the target is out of range");
+        }
+
         // The squadron battle in a twisting valley like the alpine map's: 8 v 8, 3 bombers, flak
         {
             const double F = 3.28084;

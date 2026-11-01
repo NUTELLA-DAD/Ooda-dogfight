@@ -287,6 +287,7 @@ namespace Ooda.Turn
             plan.burstStart = plan.burstEnd = 0;
             plan.wep = false;
             plan.marks = null;
+            plan.missile = false;
             markT = 0;
             burstPreset = 0;
             dirty = true;
@@ -573,6 +574,7 @@ namespace Ooda.Turn
                 dirty = true;
             }
             if (Pressed(Key.F) || (pad != null && pad.rightShoulder.wasPressedThisFrame)) FireAtPredicted();
+            if (Pressed(Key.G)) ArmMissile(!plan.missile);
 
             if (dirty) RunPreview();
         }
@@ -689,6 +691,15 @@ namespace Ooda.Turn
             if (!plan.HasMarks) return;
             var list = plan.marks.Where(k => Math.Abs(k.time - markT) >= 0.05).ToList();
             plan.marks = list.Count > 0 ? list.ToArray() : null;
+            dirty = true;
+        }
+
+        /// <summary>Arm (or safe) this turn's missile: it leaves the first moment the enemy in focus, or failing that any, is locked.</summary>
+        void ArmMissile(bool on)
+        {
+            if (on && battle.missiles[0] <= 0) on = false;
+            plan.missile = on;
+            plan.missileTarget = focus;
             dirty = true;
         }
 
@@ -811,9 +822,20 @@ namespace Ooda.Turn
                 var pts = new List<Vector3>();
                 for (int i = 0; i < tr.points.Count; i += 2) pts.Add(UnityFrame.Pos(tr.points[i]));
                 pts.Add(UnityFrame.Pos(tr.points[tr.points.Count - 1]));
-                var col = TracerColor(tr.owner);
-                lines.Strip(pts, 0.35f, col, false, new Color(col.r, col.g, col.b, 0.1f));
+                var col = tr.missile ? new Color(1f, 1f, 1f, 0.8f) : TracerColor(tr.owner);
+                lines.Strip(pts, tr.missile ? 1.0f : 0.35f, col, false, new Color(col.r, col.g, col.b, tr.missile ? 0.3f : 0.1f));
             }
+        }
+
+        /// <summary>A missile in playback: a white smoke trail behind it, fading, and a bright head.</summary>
+        void DrawMissile(Trace tr, int now)
+        {
+            var pts = new List<Vector3>();
+            for (int f = Mathf.Max(tr.startFrame, now - 60); f <= now; f += 3) { var p = tr.At(f); if (p != null) pts.Add(UnityFrame.Pos(p.Value)); }
+            var head = tr.At(now);
+            if (head != null) pts.Add(UnityFrame.Pos(head.Value));
+            if (pts.Count >= 2) lines.Strip(pts, 1.6f, new Color(0.95f, 0.95f, 0.95f, 0.75f), false, new Color(0.9f, 0.9f, 0.9f, 0f));
+            if (head != null) { Vector3 h = UnityFrame.Pos(head.Value); lines.Line(h, h + (h - pts[Mathf.Max(0, pts.Count - 2)]).normalized * 3f, 1.2f, new Color(1f, 0.85f, 0.4f)); }
         }
 
         Color TracerColor(int owner) => owner == 0 ? myTracer
@@ -920,6 +942,7 @@ namespace Ooda.Turn
             {
                 var p1 = tr.At(now);
                 if (p1 == null) continue;
+                if (tr.missile) { DrawMissile(tr, now); continue; }
                 var p0 = tr.At(now - 3) ?? tr.points[0];
                 Vector3 a = UnityFrame.Pos(p0), b = UnityFrame.Pos(p1.Value);
                 lines.Line(a, b, 0.6f, TracerColor(tr.owner));
@@ -1019,7 +1042,7 @@ namespace Ooda.Turn
             GUI.Label(new Rect(20, 14, 290, 26), $"P-51D   Turn {battle.turn + (phase == Phase.Planning ? 1 : 0)}", title);
             GUI.Label(new Rect(20, 42, 290, 22), $"{me.Kias:F0} KIAS   {me.AltFt:F0} ft   {me.g:F1} G", label);
             Bar(new Rect(20, 68, 270, 14), shownHp[0] / battle.combat[0].health, new Color(0.3f, 0.9f, 0.3f), "Airframe");
-            Bar(new Rect(20, 88, 270, 14), battle.ammo[0] / battle.combat[0].ammoSec, new Color(0.9f, 0.75f, 0.2f), $"Ammo {battle.ammo[0]:F1} s");
+            Bar(new Rect(20, 88, 270, 14), battle.ammo[0] / battle.combat[0].ammoSec, new Color(0.9f, 0.75f, 0.2f), $"Ammo {battle.ammo[0]:F1} s   Missiles {battle.missiles[0]}");
             Vec3d los = them.state.pos - me.state.pos;
             double range = los.Length;
             double ata = Envelope.Angle(me.Forward, los) * 180 / Math.PI;
@@ -1081,7 +1104,7 @@ namespace Ooda.Turn
             if (phase == Phase.Playing) GUI.Label(new Rect(0, sh - 60, sw, 30), $"Turn playing  {playT:F1} / {turnSec:F0} s   (hold Tab to speed up)", new GUIStyle(label) { alignment = TextAnchor.MiddleCenter });
             var warn = new GUIStyle(big) { fontSize = 26 };
             warn.normal.textColor = overpullColor;
-            if (planning && warning != null) GUI.Label(new Rect(0, sh - 400, sw, 40), warning, warn);
+            if (planning && warning != null) GUI.Label(new Rect(0, sh - 460, sw, 40), warning, warn);
             if (phase == Phase.Playing && last != null)
             {
                 int now = Mathf.Min(last.FrameCount - 1, Mathf.RoundToInt(playT / (float)last.dt));
@@ -1112,7 +1135,7 @@ namespace Ooda.Turn
                     "Orange: your rounds. They arc and take time: lead the target.\n" +
                     "Drag on the timeline to fire; F fires where hits are predicted.\n\n" +
                     "Keys: WASD arrow (S pulls up, like the stick), Shift/Ctrl throttle,\n" +
-                    "Space WEP, B bursts, " +
+                    "Space WEP, B bursts, G missile, T advanced timeline, " +
                     "Enter fly, R replay, P projection, V view, X straight, M mission, H help.\n" +
                     "Right-drag or drag away from the tip to look; wheel zooms.\n" +
                     "Pad: left stick arrow, triggers throttle, A fly, X bursts,\n" +
@@ -1122,14 +1145,14 @@ namespace Ooda.Turn
 
         void PlanningPanel(float sw, float sh)
         {
-            float pw = Mathf.Min(640, sw - 40), px = (sw - pw) / 2, py = sh - 150;
+            float pw = Mathf.Min(640, sw - 40), px = (sw - pw) / 2, py = sh - 178;
             if (showMoves || plan.HasMarks) MovesPanel(px, py - 196, pw);
             else movesRect = Rect.zero;
             string adv = showMoves ? "Advanced: timeline (T)  \u25BE" : plan.HasMarks ? "Advanced: timeline in use (T)  \u25B8" : "Advanced: timeline (T)  \u25B8";
             Rect advRect = new Rect(px + pw - 230, (showMoves || plan.HasMarks) ? py - 236 : py - 40, 230, 24);
             guiRects.Add(advRect);
             if (GUI.Button(advRect, adv)) showMoves = !showMoves;
-            Rect panel = new Rect(px - 10, py - 10, pw + 20, 150);
+            Rect panel = new Rect(px - 10, py - 10, pw + 20, 178);
             GUI.Box(panel, GUIContent.none);
             guiRects.Add(panel);
 
@@ -1165,6 +1188,22 @@ namespace Ooda.Turn
             int theirs = preview == null ? 0 : preview.hits.Count(h => h.target == 0);
             GUI.Label(new Rect(px, py + 104, pw - 140, 22), $"Predicted if they hold: you hit {predicted}, you get hit {theirs}", label);
             if (GUI.Button(new Rect(px + pw - 130, py + 102, 130, 26), "Fire at hits (F)")) FireAtPredicted();
+
+            // The missile: armed, it leaves the first moment the seeker locks this turn
+            int left = battle.missiles[0];
+            bool lockedNow = battle.LockTarget(0, focus) >= 0;
+            string mText;
+            if (left <= 0) mText = "Missiles: none left";
+            else if (!plan.missile) mText = $"Missiles: {left} left.  {(lockedNow ? "Seeker has a lock now." : "No lock: get behind one, 1,200 to 9,000 ft, within 30\u00B0 of your nose.")}";
+            else
+            {
+                var mt = preview?.traces.FirstOrDefault(tr => tr.missile && tr.owner == 0);
+                mText = mt == null ? "Missile armed: no lock on this path, it stays on the rail" : mt.hit ? "Missile armed: it hits, if they hold" : "Missile armed: it launches, but misses if they hold";
+            }
+            GUI.Label(new Rect(px, py + 134, pw - 140, 22), mText, label);
+            GUI.enabled = left > 0;
+            if (GUI.Button(new Rect(px + pw - 130, py + 132, 130, 26), plan.missile ? "Missile: ARMED (G)" : "Missile (G)")) ArmMissile(!plan.missile);
+            GUI.enabled = true;
         }
 
         /// <summary>

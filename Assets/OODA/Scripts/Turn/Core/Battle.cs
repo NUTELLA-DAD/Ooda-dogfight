@@ -37,6 +37,7 @@ namespace Ooda.Turn.Core
         public Slot playerSlot;
         public double[] health = new double[0];
         public double[] ammo = new double[0];        // seconds of trigger left
+        public int[] missiles = new int[0];          // missiles left
         public bool[] down = new bool[0];            // shot down or collided: out of the fight, falling
         public bool[] crashed = new bool[0];         // hit the ground or sea: stopped
         public int Count => planes.Length;
@@ -70,6 +71,7 @@ namespace Ooda.Turn.Core
             Array.Resize(ref slots, n + 1);
             Array.Resize(ref health, n + 1); health[n] = c.health;
             Array.Resize(ref ammo, n + 1); ammo[n] = c.ammoSec;
+            Array.Resize(ref missiles, n + 1); missiles[n] = c.missiles;
             Array.Resize(ref down, n + 1);
             Array.Resize(ref crashed, n + 1);
             Array.Resize(ref fireClock, n + 1);
@@ -105,7 +107,7 @@ namespace Ooda.Turn.Core
             c.routes = new Route[Count];
             for (int i = 0; i < Count; i++) { c.planes[i] = planes[i].Clone(); c.routes[i] = routes[i]?.Copy(); }
             c.slots = (Slot[])slots.Clone();   // slots never change, so they can be shared
-            c.health = (double[])health.Clone(); c.ammo = (double[])ammo.Clone();
+            c.health = (double[])health.Clone(); c.ammo = (double[])ammo.Clone(); c.missiles = (int[])missiles.Clone();
             c.down = (bool[])down.Clone(); c.crashed = (bool[])crashed.Clone();
             c.fireClock = (double[])fireClock.Clone();
             c.flak = new FlakSite[flak.Length];
@@ -141,6 +143,7 @@ namespace Ooda.Turn.Core
                          : InFormation(i) ? slots[i].Plan(this, i, turnSec)
                          : i < given.Length && given[i].HasValue ? given[i].Value : TurnPlan.Holding();
             int steps = (int)Math.Round(turnSec / StepSec);
+            var launched = new bool[n];
             var res = new TurnResult { startTime = time, dt = StepSec, frames = new AircraftFrame[n][] };
             var traceOf = record ? new Dictionary<Bullet, Trace>() : null;
             if (record)
@@ -189,16 +192,37 @@ namespace Ooda.Turn.Core
                 }
                 for (int f = 0; f < flak.Length; f++) FireFlak(f, res, traceOf, k);
 
+                // Missiles: one a turn for each plan that asks, the first moment a target is in the lock cone
+                for (int i = 0; i < n; i++)
+                {
+                    if (!plans[i].missile || launched[i] || missiles[i] <= 0 || Out(i)) continue;
+                    int tgt = LockTarget(i, plans[i].missileTarget);
+                    if (tgt < 0) continue;
+                    var m = planes[i];
+                    var ms = Missile.Make(i, side[i], tgt, m.state.pos + m.Forward * 20 - m.Up * 4, m.state.vel + m.Forward * 60, time + StepSec);
+                    bullets.Add(ms);
+                    missiles[i]--; launched[i] = true;
+                    if (record) StartTrace(res, traceOf, ms, k);
+                }
+
                 // Rounds: gravity and drag, then a check against each other aircraft over the step
                 for (int bi = bullets.Count - 1; bi >= 0; bi--)
                 {
                     var b = bullets[bi];
                     Vec3d p0b = b.pos;
-                    double decay = Math.Exp(-b.dragPerSec * StepSec);
-                    Vec3d vAir = b.vel;
-                    b.vel = new Vec3d(vAir.x * decay, vAir.y * decay, vAir.z * decay - Atmosphere.GFtps2 * StepSec);
-                    b.pos = b.pos + (vAir + b.vel) * (StepSec / 2);
-                    b.age += StepSec;
+                    if (b is Missile ms)
+                    {
+                        bool ok = ms.target >= 0 && ms.target < n && !Out(ms.target);
+                        ms.Step(ok ? planes[ms.target].state.pos : default, ok ? planes[ms.target].state.vel : default, ok, StepSec);
+                    }
+                    else
+                    {
+                        double decay = Math.Exp(-b.dragPerSec * StepSec);
+                        Vec3d vAir = b.vel;
+                        b.vel = new Vec3d(vAir.x * decay, vAir.y * decay, vAir.z * decay - Atmosphere.GFtps2 * StepSec);
+                        b.pos = b.pos + (vAir + b.vel) * (StepSec / 2);
+                        b.age += StepSec;
+                    }
                     for (int target = 0; target < n && b.alive; target++)
                     {
                         if (side[target] == b.side || crashed[target]) continue;
@@ -241,7 +265,7 @@ namespace Ooda.Turn.Core
 
         static void StartTrace(TurnResult res, Dictionary<Bullet, Trace> traceOf, Bullet b, int frame)
         {
-            var tr = new Trace { owner = b.owner, startFrame = frame };
+            var tr = new Trace { owner = b.owner, startFrame = frame, missile = b is Missile };
             tr.points.Add(b.pos);
             traceOf[b] = tr;
             res.traces.Add(tr);
@@ -316,6 +340,29 @@ namespace Ooda.Turn.Core
             return best;
         }
 
+        /// <summary>
+        /// Who aircraft i's seeker can lock now: the wanted one if it is in the cone and range, else the one nearest the nose; -1 none.
+        /// </summary>
+        public int LockTarget(int i, int wanted = -1)
+        {
+            var m = planes[i];
+            double cos = Math.Cos(Missile.LockConeDeg * Math.PI / 180);
+            int best = -1; double bestCos = cos;
+            for (int j = 0; j < Count; j++)
+            {
+                if (side[j] == side[i] || Out(j)) continue;
+                Vec3d r = planes[j].state.pos - m.state.pos;
+                double range = r.Length;
+                if (range < Missile.MinRangeFt || range > Missile.MaxRangeFt) continue;
+                double c = Vec3d.Dot(r * (1 / range), m.Forward);
+                if (c < cos) continue;
+                if (Vec3d.Dot(r * (-1 / range), planes[j].Forward) > Math.Cos(Missile.NoLockNoseDeg * Math.PI / 180)) continue;   // head-on: no heat to see
+                if (j == wanted) return j;
+                if (c > bestCos) { bestCos = c; best = j; }
+            }
+            return wanted >= 0 ? (best >= 0 ? best : -1) : best;
+        }
+
         /// <summary>A clear line between two points: over the ground all the way and through no obstacle.</summary>
         public bool CanSee(Vec3d a, Vec3d b)
         {
@@ -365,13 +412,13 @@ namespace Ooda.Turn.Core
             var c = (Battle)MemberwiseClone();
             int n = keep.Length;
             c.planes = new FlightModel[n]; c.combat = new CombatNumbers[n]; c.side = new int[n]; c.routes = new Route[n];
-            c.health = new double[n]; c.ammo = new double[n]; c.down = new bool[n]; c.crashed = new bool[n]; c.fireClock = new double[n];
+            c.health = new double[n]; c.ammo = new double[n]; c.missiles = new int[n]; c.down = new bool[n]; c.crashed = new bool[n]; c.fireClock = new double[n];
             var map = new Dictionary<int, int>();
             for (int j = 0; j < n; j++)
             {
                 int i = keep[j]; map[i] = j;
                 c.planes[j] = planes[i].Clone(); c.combat[j] = combat[i]; c.side[j] = side[i]; c.routes[j] = routes[i]?.Copy();
-                c.health[j] = health[i]; c.ammo[j] = ammo[i]; c.down[j] = down[i]; c.crashed[j] = crashed[i]; c.fireClock[j] = fireClock[i];
+                c.health[j] = health[i]; c.ammo[j] = ammo[i]; c.missiles[j] = missiles[i]; c.down[j] = down[i]; c.crashed[j] = crashed[i]; c.fireClock[j] = fireClock[i];
             }
             c.slots = new Slot[n];
             for (int j = 0; j < n; j++)
@@ -382,8 +429,13 @@ namespace Ooda.Turn.Core
             c.bullets = new List<Bullet>();
             foreach (var b in bullets)
             {
-                if (b.owner >= 0 && !map.ContainsKey(b.owner)) continue;
-                var bc = b.Copy(); if (b.owner >= 0) bc.owner = map[b.owner]; c.bullets.Add(bc);
+                var ms = b as Missile;
+                bool aimedIn = ms != null && ms.target >= 0 && map.ContainsKey(ms.target);
+                if (b.owner >= 0 && !map.ContainsKey(b.owner) && !aimedIn) continue;   // keep a missile chasing someone kept, whoever fired it
+                var bc = b.Copy();
+                if (b.owner >= 0) bc.owner = map.TryGetValue(b.owner, out int oj) ? oj : -1000;
+                if (bc is Missile mc) mc.target = aimedIn ? map[ms.target] : -1;
+                c.bullets.Add(bc);
             }
             var kept = new List<FlakSite>();
             foreach (var g0 in flak)
