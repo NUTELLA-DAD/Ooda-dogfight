@@ -11,6 +11,7 @@ namespace Ooda.Pilot
     /// close, flinches when he is hit and cheers a kill (<see cref="Play"/>). The gestures are Animator states named
     /// like the triggers; the base state is Fly.
     /// </summary>
+    [ExecuteAlways] // so the editor's shot tools see the paws on the stick and throttle too
     [RequireComponent(typeof(Animator))]
     public class PilotControls : MonoBehaviour
     {
@@ -99,6 +100,7 @@ namespace Ooda.Pilot
 
         void Update()
         {
+            if (!Application.isPlaying) return;   // in the editor only the hands are posed
             float dt = Time.deltaTime;
             leftFree = Mathf.Max(0, leftFree - dt); rightFree = Mathf.Max(0, rightFree - dt); lookFree = Mathf.Max(0, lookFree - dt);
             // the head-look would fight a look back over the shoulder or down at the panel
