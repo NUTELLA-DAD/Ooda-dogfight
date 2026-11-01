@@ -33,6 +33,8 @@ namespace Ooda.Turn.Core
         public Slot[] slots = new Slot[0];           // set for a wingman holding close formation until the formation breaks
         /// <summary>The player's side has broken formation: an enemy fighter came within Slot.BreakFt, or one of ours was hit.</summary>
         public bool formationBroken;
+        /// <summary>The player's own place in the formation (never flown for them): straying from it breaks the formation.</summary>
+        public Slot playerSlot;
         public double[] health = new double[0];
         public double[] ammo = new double[0];        // seconds of trigger left
         public bool[] down = new bool[0];            // shot down or collided: out of the fight, falling
@@ -343,6 +345,11 @@ namespace Ooda.Turn.Core
             bool any = false;
             for (int i = 0; i < slots.Length; i++) any |= slots[i] != null;
             if (!any) return;
+            if (playerSlot != null && !Out(0) && !Out(playerSlot.leader))
+            {
+                var l = planes[playerSlot.leader];
+                if ((playerSlot.Where(l.state.pos, l.state.vel) - planes[0].state.pos).Length > Slot.LeadStrayFt) { formationBroken = true; return; }
+            }
             for (int i = 0; i < Count && !formationBroken; i++)
             {
                 if (side[i] != 0 || Out(i)) continue;

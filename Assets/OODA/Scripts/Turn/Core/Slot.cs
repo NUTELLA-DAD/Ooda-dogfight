@@ -9,8 +9,10 @@ namespace Ooda.Turn.Core
     /// </summary>
     public class Slot
     {
-        /// <summary>An enemy fighter this close to any of ours breaks the formation: about 2 NM, a turn or two before guns range.</summary>
-        public const double BreakFt = 12000;
+        /// <summary>An enemy fighter this close to any of ours breaks the formation: about 3 NM, so there is time to turn in.</summary>
+        public const double BreakFt = 18000;
+        /// <summary>The player leading off from their own place in the formation by this much breaks it too: the flight follows its lead.</summary>
+        public const double LeadStrayFt = 1500;
 
         public int leader;
         public double lateralFt, backFt, upFt;

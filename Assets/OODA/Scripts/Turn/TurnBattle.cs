@@ -92,6 +92,7 @@ namespace Ooda.Turn
         public Color overpullColor = new Color(1f, 0.15f, 0.1f, 1f);
         public Color holoColor = new Color(0.25f, 0.85f, 1f, 0.35f);
         public Color holoEnemyColor = new Color(1f, 0.3f, 0.25f, 0.3f);
+        public Color holoFriendColor = new Color(0.35f, 1f, 0.55f, 0.22f);
 
         enum Phase { Planning, Thinking, Playing, Over }
 
@@ -100,6 +101,7 @@ namespace Ooda.Turn
         TurnAircraftView[] views = new TurnAircraftView[0];
         EnemyAi[] ais = new EnemyAi[0];
         readonly List<GameObject> spawned = new List<GameObject>();
+        readonly List<Material> spawnedHoloMats = new List<Material>();
         HeightGrid grid;
         Task<TurnPlan?[]> thinking;
         Battle thinkingFor;
@@ -132,6 +134,7 @@ namespace Ooda.Turn
         bool previewDeparts;
         double lastOverpull;
         GameObject holoMine, holoTheirs;
+        GameObject[] holos = new GameObject[0];   // a ghost for each aircraft: where the preview puts it at the end of the turn
         readonly List<Material> holoMats = new List<Material>();
 
         // ---------- set up ----------
@@ -235,6 +238,20 @@ namespace Ooda.Turn
             }
             if (bomber != null) bomber.gameObject.SetActive(sceneBomberUsed);
             for (int i = 0; i < n; i++) if (views[i] != null) views[i].Bind(battle.planes[i]);
+            // the same holographic ghost as the player's for everyone: green ours, red theirs
+            foreach (var m in spawnedHoloMats) Destroy(m);
+            spawnedHoloMats.Clear();
+            holos = new GameObject[n];
+            holos[0] = holoMine;
+            for (int i = 1; i < n; i++)
+            {
+                if (views[i] == null) continue;
+                int before = holoMats.Count;
+                holos[i] = MakeHolo(views[i].gameObject, battle.side[i] == 0 ? holoFriendColor : holoEnemyColor, $"Ghost {i}");
+                if (holos[i] != null) spawned.Add(holos[i]);
+                for (int k = before; k < holoMats.Count; k++) spawnedHoloMats.Add(holoMats[k]);
+                holoMats.RemoveRange(before, holoMats.Count - before);
+            }
 
             // an AI pilot for everyone but the player and the bombers
             ais = new EnemyAi[n];
@@ -410,7 +427,7 @@ namespace Ooda.Turn
             tip.gameObject.SetActive((phase == Phase.Planning || phase == Phase.Thinking) && !plan.HasMarks);
             if (phase != Phase.Planning && phase != Phase.Thinking)
             {
-                if (holoMine != null) holoMine.SetActive(false);
+                foreach (var h in holos) if (h != null) h.SetActive(false);
                 if (holoTheirs != null) holoTheirs.SetActive(false);
             }
             FadeFlashes();
@@ -779,12 +796,14 @@ namespace Ooda.Turn
             for (int i = 1; i < battle.Count; i++)
             {
                 if (battle.Out(i)) continue;
-                if (battle.routes[i] != null) DrawPath(preview.frames[i], end, bomberColor, true);
-                else if (battle.side[i] != 0) { if (showProjection) DrawPath(preview.frames[i], end, projectionColor, i != focus || holoTheirs == null); }
-                else DrawPath(preview.frames[i], end, wingmanColor, true);
+                bool noGhost = i >= holos.Length || holos[i] == null;
+                if (battle.routes[i] != null) DrawPath(preview.frames[i], end, bomberColor, noGhost);
+                else if (battle.side[i] != 0) { if (showProjection) DrawPath(preview.frames[i], end, projectionColor, noGhost); }
+                else DrawPath(preview.frames[i], end, wingmanColor, noGhost);
             }
             ShowHolo(holoMine, preview.frames[0][end], true, previewDeparts ? overpullColor : holoColor);
-            ShowHolo(holoTheirs, preview.frames[focus][end], showProjection && !battle.Out(focus), holoEnemyColor);
+            for (int i = 1; i < holos.Length; i++)
+                ShowHolo(holos[i], preview.frames[i][end], !battle.Out(i) && (battle.side[i] == 0 || showProjection), battle.side[i] == 0 ? holoFriendColor : holoEnemyColor);
             foreach (var tr in preview.traces)
             {
                 if (tr.owner != 0 && !showProjection) continue;

@@ -54,6 +54,8 @@ namespace Ooda.Turn.Core
             var near = new List<FlakSite>();
             foreach (var g in sub.flak) if ((g.pos - m.state.pos).Length < g.rangeFt + 3000) near.Add(g);
             sub.flak = near.ToArray();
+            // and only the ground and gunners' rounds already in the air that could reach it
+            sub.bullets.RemoveAll(b => b.owner < 0 && (b.pos - m.state.pos).Length > 8000);
             var env = Envelope.Compute(m, turnSec);
             bool slow = m.Kias < 220;
 

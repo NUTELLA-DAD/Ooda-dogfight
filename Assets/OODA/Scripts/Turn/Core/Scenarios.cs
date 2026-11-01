@@ -89,6 +89,7 @@ namespace Ooda.Turn.Core
             var battle = new Battle(
                 Make(AircraftNumbers.P51D(), Around(start, dir, right, escort[0].Item1, escort[0].Item2, escort[0].Item3), bomberKias, heading, 0.6), CombatNumbers.P51D(),
                 Make(AircraftNumbers.Bf109G(), Around(at, -edir, eright, foe[0].Item1, foe[0].Item2, foe[0].Item3), 300, ehead, 1), CombatNumbers.Bf109G());
+            if (bombers > 0) battle.playerSlot = new Slot { leader = 2, lateralFt = escort[0].Item1, backFt = escort[0].Item2, upFt = escort[0].Item3 };
             var vic = new[] { (0.0, 0.0), (-220, 250), (220, 250) };   // a tight vic: the valley is narrow
             for (int b = 0; b < bombers; b++)
             {
