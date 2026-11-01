@@ -38,7 +38,7 @@ namespace Ooda.Turn
         [Tooltip("The bomber for the escort mission (hidden in the dogfight).")]
         public TurnAircraftView bomber;
 
-        public enum Mission { Squadron, Escort, Dogfight }
+        public enum Mission { Squadron, Escort, Dogfight, ValleyRun }
         [Header("Mission")]
         public Mission mission = Mission.Squadron;
         [Tooltip("The bomber's route, metres (Unity x east, y height, z north); the first point is where it starts.")]
@@ -200,7 +200,9 @@ namespace Ooda.Turn
         bool HasRoute => escortRoute != null && escortRoute.Length >= 2;
         bool CanEscort => bomber != null && HasRoute;
         bool CanSquadron => CanEscort && wingmanPrefab != null && enemyPrefab != null && bomberPrefab != null;
-        Mission Playing => mission == Mission.Squadron && CanSquadron ? Mission.Squadron : mission != Mission.Dogfight && CanEscort ? Mission.Escort : Mission.Dogfight;
+        bool CanValleyRun => HasRoute && wingmanPrefab != null && enemyPrefab != null;
+        Mission Playing => mission == Mission.ValleyRun ? (CanValleyRun ? Mission.ValleyRun : Mission.Dogfight)
+                         : mission == Mission.Squadron && CanSquadron ? Mission.Squadron : mission != Mission.Dogfight && CanEscort ? Mission.Escort : Mission.Dogfight;
 
         static Vec3d Ft(Vector3 unityM) => new Vec3d(unityM.x * Atmosphere.FtPerM, unityM.z * Atmosphere.FtPerM, unityM.y * Atmosphere.FtPerM);
 
@@ -217,6 +219,12 @@ namespace Ooda.Turn
                     battle = Scenarios.Squadron(route, flak, squadronFighters, squadronBombers, bomberKias, squadronGapM);
                     break;
                 case Mission.Escort: battle = Scenarios.Escort(route, bomberKias, escortGapM); break;
+                case Mission.ValleyRun:
+                {
+                    var guns = flakSites == null ? new Vec3d[0] : flakSites.Where(f => f != null).Select(f => Ft(f.position)).ToArray();
+                    battle = Scenarios.ValleyRun(route, guns);
+                    break;
+                }
                 default: battle = Scenarios.HeadOn(UnityFrame.Pos(startCentre), startAltFt, startKias, startGapM); break;
             }
             if (grid != null) battle.groundFt = grid.At; else battle.groundFt = GroundFt;
@@ -394,6 +402,15 @@ namespace Ooda.Turn
                 if (enemies == 0) return (bombers > 1 ? "The enemy squadron is gone." : "Bf 109 down.") + " The bombers are safe. You win!" + tally;
                 return "The bombers made it through the valley. Mission complete!" + tally;
             }
+            if (Playing == Mission.ValleyRun)
+            {
+                int foes = 0, crashedFoes = 0;
+                for (int i = 0; i < battle.Count; i++)
+                    if (battle.side[i] != 0) { foes++; if (battle.crashed[i]) crashedFoes++; }
+                string downed = $" {foes - enemies} of {foes} Bf 109s down" + (crashedFoes > 0 ? $", {crashedFoes} of them into the valley." : ".");
+                if (me) return (battle.crashed[0] ? "You crashed." : "You were shot down.") + " Mission failed." + downed;
+                return "Both Bf 109s down. You win!" + (crashedFoes > 0 ? $" {crashedFoes} of them flew into the valley." : "");
+            }
             bool them = battle.down[1];
             if (me && them) return "Both aircraft went down. A draw.";
             if (them) return battle.crashed[1] ? "The Bf 109 flew into the ground. You win!" : "Bf 109 shot down. You win!";
@@ -404,14 +421,16 @@ namespace Ooda.Turn
 
         void SwitchMission()
         {
-            for (int k = 0; k < 3; k++)
+            int missions = Enum.GetValues(typeof(Mission)).Length;
+            for (int k = 0; k < missions; k++)
             {
-                mission = (Mission)(((int)mission + 1) % 3);
+                mission = (Mission)(((int)mission + 1) % missions);
                 if (Playing == mission) break;   // skip what this scene can't play
             }
             Restart();
             Notice(Playing == Mission.Squadron ? "Squadron: 8 P-51s and 3 B-17s against 8 Bf 109s and the flak. Get the bombers through."
                  : Playing == Mission.Escort ? "Escort: keep the Bf 109 off the B-17."
+                 : Playing == Mission.ValleyRun ? "Valley Run: you and your wingman low in the valley after two Bf 109s. Mind the wires and the balloons."
                  : "Dogfight: you and the Bf 109, head-on.");
         }
 
@@ -825,6 +844,7 @@ namespace Ooda.Turn
                 var col = tr.missile ? new Color(1f, 1f, 1f, 0.8f) : TracerColor(tr.owner);
                 lines.Strip(pts, tr.missile ? 1.0f : 0.35f, col, false, new Color(col.r, col.g, col.b, tr.missile ? 0.3f : 0.1f));
             }
+            DrawHazards();
         }
 
         /// <summary>A missile in playback: a white smoke trail behind it, fading, and a bright head.</summary>
@@ -1303,6 +1323,76 @@ namespace Ooda.Turn
         {
             if (white == null) { white = new Texture2D(1, 1); white.SetPixel(0, 0, Color.white); white.Apply(); }
             var old = GUI.color; GUI.color = c; GUI.DrawTexture(r, white); GUI.color = old;
+        }
+
+        // ---------- the hazards in the planning view ----------
+
+        [Header("Hazards")]
+        [Tooltip("Wires (balloon tethers, cable-car ropes, masts and their guys) nearer the player than this are drawn while planning, m.")]
+        public float hazardShowM = 3000;
+        public Color wireColor = new Color(0.55f, 1f, 1f, 0.4f);
+        public Color flakReachColor = new Color(1f, 0.25f, 0.2f, 0.16f);
+        HazardMarkers hazards;
+        bool hazardsLooked;
+
+        /// <summary>The wires near the player as thin bright lines, a ring round each barrage balloon, and each flak gun's reach as a faint dome.</summary>
+        void DrawHazards()
+        {
+            if (!hazardsLooked) { hazards = FindFirstObjectByType<HazardMarkers>(); hazardsLooked = true; }
+            Vector3 me = PlayerPos;
+            float show2 = hazardShowM * hazardShowM;
+            float SegDist2(Vector3 p, Vector3 a, Vector3 b)
+            {
+                Vector3 d = b - a;
+                float u = d.sqrMagnitude < 1e-6f ? 0f : Mathf.Clamp01(Vector3.Dot(p - a, d) / d.sqrMagnitude);
+                return (p - (a + d * u)).sqrMagnitude;
+            }
+            List<Vector3> Ring(Vector3 c, float r, float y, int n)
+            {
+                var pts = new List<Vector3>(n);
+                for (int k = 0; k < n; k++)
+                {
+                    float a = 2 * Mathf.PI * k / n;
+                    pts.Add(c + new Vector3(Mathf.Cos(a) * r, y, Mathf.Sin(a) * r));
+                }
+                return pts;
+            }
+            if (hazards != null)
+            {
+                for (int i = 0; i < hazards.WireCount; i++)
+                {
+                    Vector3 a = hazards.wireStarts[i], b = hazards.wireEnds[i];
+                    if (SegDist2(me, a, b) < show2) lines.Line(a, b, 0.4f, wireColor);
+                }
+                if (hazards.balloons != null)
+                    foreach (var c in hazards.balloons)
+                        if ((c - me).sqrMagnitude < show2) lines.Strip(Ring(c, hazards.balloonRadius * 1.5f, 0f, 16), 0.4f, wireColor, true);
+            }
+            // the flak's reach: a ring on the ground, two higher up and two arcs over the top
+            if (battle == null || battle.flak == null) return;
+            foreach (var g in battle.flak)
+            {
+                if (g == null || g.carrier >= 0) continue;
+                Vector3 c = UnityFrame.Pos(g.pos);
+                float r = (float)(g.rangeFt * Atmosphere.MPerFt);
+                if ((c - me).magnitude > r + hazardShowM) continue;
+                foreach (float el in new[] { 0f, 30f, 60f })
+                {
+                    float e = el * Mathf.Deg2Rad;
+                    lines.Strip(Ring(c, r * Mathf.Cos(e), r * Mathf.Sin(e), 48), 0.5f, flakReachColor, true);
+                }
+                for (int m = 0; m < 2; m++)
+                {
+                    var arc = new List<Vector3>(25);
+                    Vector3 across = m == 0 ? Vector3.right : Vector3.forward;
+                    for (int k = 0; k <= 24; k++)
+                    {
+                        float a = Mathf.PI * k / 24;
+                        arc.Add(c + across * (Mathf.Cos(a) * r) + Vector3.up * (Mathf.Sin(a) * r));
+                    }
+                    lines.Strip(arc, 0.5f, flakReachColor);
+                }
+            }
         }
     }
 }

@@ -342,6 +342,8 @@ namespace Ooda.EditorTools
             Physics.SyncTransforms();
             float clear = AlpineWorld.CheckEscortRoute(tb.terrain);
             if (clear < 350f) Debug.LogWarning($"OODA: the escort route comes within {clear:F0} m of the ground.");
+            if (Object.FindFirstObjectByType<HazardMarkers>() == null)
+                Debug.LogWarning("OODA: no air hazards (barrage balloons, cable cars, radio masts) in the test world: run OODA > Build Test World again, then this.");
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             // The turn battle is the game; the free-flight world stays in the build as the sandbox

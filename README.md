@@ -26,6 +26,12 @@ Build it with **OODA > Build Turn Battle** (after Build Test World), open `Asset
 | Camera (player, Spitfire, both, cockpit) | View button | V | Right stick press |
 | Enemy projection on or off | Projection button | P | Y |
 
+### Things to fly round, and the Valley Run
+
+The valley has obstacles in the air as well as the rock: 10 to 16 grey barrage balloons 400 to 900 m over the basin and the main valley, each on a steel tether to a winch on the ground; two or three cable-car spans wall to wall across the narrow valley, two ropes with a car in the middle and a lattice pylon and station at each end; and four to six red and white lattice radio masts, 120 to 200 m tall, on the crests beside the valley, each with three guy wires. All of it is solid (the Obstacles layer): fly into a balloon, a tether, a rope or a guy and you crash, and rounds stop on them. The wires are thin to look at but 4 m thick to the battle. `AlpineWorld` places them from a fixed seed, off the bombers' route: nothing within 150 m of it unless it is at least 120 m under it (the cable cars hang about 135 to 165 m under the bombers). While planning, the wires within 3 km show as thin cyan lines, the balloons as rings, and each flak gun's reach as a faint red dome; the scene keeps their places in a `HazardMarkers` component. Run **OODA > Build Test World** again, then **Build Turn Battle**, to get them.
+
+**Valley Run** (the fourth mission on the title screen, or M in the battle): you and a P-51 wingman low in the main valley, about 250 m over the floor among the ropes and the balloons' tethers, chasing two Bf 109s 1.8 km ahead up the valley, with the flak on the floor. Shoot both down to win. The AI pilots plan without seeing the obstacles, so they can fly into the wires too.
+
 The turn engine is plain C# in `Assets/OODA/Scripts/Turn/Core/`: the autopilot that flies the arrow (`AutoPilot.cs`), the reach ring (`Envelope.cs`), guns and hits (`Combat.cs`, `Battle.cs`), the AI (`EnemyAi.cs`) and the start (`Scenarios.cs`). Damage is simple hit points for now; each hit already records where it struck, for hit locations later. The Spitfire IX's numbers and both aircraft's gun numbers are estimates from public figures, to tune by feel.
 
 ## First run
