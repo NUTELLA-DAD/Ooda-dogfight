@@ -398,15 +398,15 @@ namespace Ooda.EditorTools
 
         static void Plant(TerrainData data, float[,] h, List<Vector3> rail, State[] states)
         {
-            // the round leafy tree low down, the tall one higher up, mixed in between
-            data.treePrototypes = new[] { TreePrefab(RoundTree), TreePrefab(TallTree) }.Select(p => new TreePrototype { prefab = p }).ToArray();
+            // the round leafy tree low down, the tall one above it and pines highest, mixed where they meet
+            data.treePrototypes = new[] { TreePrefab(RoundTree), TreePrefab(TallTree), TreePrefab(PineTree) }.Select(p => new TreePrototype { prefab = p }).ToArray();
             var rnd = new System.Random(23);
             var trees = new List<TreeInstance>();
             for (int tries = 0; tries < 160000 && trees.Count < 10000; tries++)
             {
                 float x = ((float)rnd.NextDouble() - 0.5f) * Size * 0.92f, z = ((float)rnd.NextDouble() - 0.5f) * Size * 0.92f;
                 float y = SampleArr(h, x, z);
-                if (y < 450 || y > 1800 || Slope(h, x, z) > 36) continue;
+                if (y < 450 || y > 2100 || Slope(h, x, z) > 36) continue;
                 // in clumps: the same noise as the forest colour, a little wider
                 if (Mathf.PerlinNoise(x * 0.0012f + 7, z * 0.0012f + 3) < 0.38f) continue;
                 if (NearRail(rail, x, z, 25f) || UnderMountain(x, z)) continue;
@@ -417,11 +417,11 @@ namespace Ooda.EditorTools
                     position = new Vector3((x + Size / 2) / Size, 0, (z + Size / 2) / Size),
                     widthScale = s, heightScale = s * (0.9f + (float)rnd.NextDouble() * 0.3f),
                     rotation = (float)rnd.NextDouble() * Mathf.PI * 2, color = Color.white, lightmapColor = Color.white,
-                    prototypeIndex = rnd.NextDouble() < Mathf.InverseLerp(700f, 1400f, y) ? 1 : 0,
+                    prototypeIndex = rnd.NextDouble() < Mathf.InverseLerp(1100f, 1500f, y) ? 2 : rnd.NextDouble() < Mathf.InverseLerp(650f, 1050f, y) ? 1 : 0,
                 });
             }
             data.SetTreeInstances(trees.ToArray(), true);
-            Debug.Log($"OODA: planted {trees.Count} trees ({trees.Count(t => t.prototypeIndex == 0)} round, {trees.Count(t => t.prototypeIndex == 1)} tall).");
+            Debug.Log($"OODA: planted {trees.Count} trees ({trees.Count(t => t.prototypeIndex == 0)} round, {trees.Count(t => t.prototypeIndex == 1)} tall, {trees.Count(t => t.prototypeIndex == 2)} pines).");
         }
 
         static bool NearRail(List<Vector3> rail, float x, float z, float r)

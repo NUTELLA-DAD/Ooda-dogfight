@@ -12,8 +12,8 @@ namespace Ooda.EditorTools
     /// <summary>
     /// The models the Alps are dressed with. The snowy mountain is the big peaks: copies at four sizes, each turned,
     /// stretched and sometimes mirrored, on the land between the valleys and crowding in beside the main pass, overlapping
-    /// into massifs. The grass hills are the foothills round their feet and on the low ground. The two trees replace the
-    /// old cone pines. The ground under each mountain and hill is raised to just under its surface, so the battle's ground
+    /// into massifs. The grass hills are the foothills round their feet and on the low ground. The three trees (round, tall and pine) replace
+    /// the old cone pines. The ground under each mountain and hill is raised to just under its surface, so the battle's ground
     /// check, the AI, the clouds and the trees all see them. Nothing of a copy may stand above the ground near a valley (see
     /// Valley.guard), on the railway or round the basin where the dogfight starts: a copy that would has to sink until it
     /// is under the ground there, and one that would have to sink too far is not placed.
@@ -40,6 +40,7 @@ namespace Ooda.EditorTools
         static readonly LandModel FoothillModel = new LandModel { name = "Foothill", dir = "Assets/OODA/Art/Foothill", nearTris = 30000, farTris = 5000, size = 1000 };
         static readonly LandModel RoundTree = new LandModel { name = "RoundTree", dir = "Assets/OODA/Art/Tree", nearTris = 2000, farTris = 250, byHeight = true, size = 12 };
         static readonly LandModel TallTree = new LandModel { name = "TallTree", dir = "Assets/OODA/Art/Tree", nearTris = 2000, farTris = 250, byHeight = true, size = 15 };
+        static readonly LandModel PineTree = new LandModel { name = "PineTree", dir = "Assets/OODA/Art/Tree", nearTris = 2000, farTris = 250, byHeight = true, size = 16 };
 
         struct Peak { public LandModel model; public string kind; public Vector3 pos; public float yaw, width; public Vector3 scale; }
         static readonly List<Peak> Peaks = new List<Peak>();
