@@ -217,10 +217,10 @@ MonoBehaviour:
   follow: 14
   overpullColor: {r: 1, g: 0.15, b: 0.1, a: 1}
   textureHeight: 512
-  stickCamera: {x: -0.75, y: 1.05, z: -2.2}
-  throttleCamera: {x: 0.75, y: 1.05, z: -2.2}
+  stickCamera: {x: -1.4, y: 1.1, z: -1.8}
+  throttleCamera: {x: -2.1, y: 1.2, z: -1.65}
   lookAt: {x: 0, y: 0.5, z: 0}
-  fieldOfView: 30
+  fieldOfView: 25
 --- !u!1 &4892307559992949718
 GameObject:
   m_ObjectHideFlags: 0

@@ -30,9 +30,9 @@ namespace Ooda.UI
         [Header("Look")]
         public Color overpullColor = new Color(1f, 0.15f, 0.1f, 1f);
         public int textureHeight = 512;
-        public Vector3 stickCamera = new Vector3(-0.75f, 1.05f, -2.2f), throttleCamera = new Vector3(0.75f, 1.05f, -2.2f);
+        public Vector3 stickCamera = new Vector3(-1.4f, 1.1f, -1.8f), throttleCamera = new Vector3(-2.1f, 1.2f, -1.65f);
         public Vector3 lookAt = new Vector3(0f, 0.5f, 0f);
-        public float fieldOfView = 30f;
+        public float fieldOfView = 25f;
 
         public RenderTexture StickTexture { get; private set; }
         public RenderTexture ThrottleTexture { get; private set; }
@@ -104,6 +104,9 @@ namespace Ooda.UI
             wep = warEmergency;
             if (snap) { shownStick = wantStick; shownOver = wantOver; shownThrottle = wantThrottle; Pose(); }
         }
+
+        /// <summary>Jump straight to what was last asked for.</summary>
+        public void Snap() => Show(wantStick, wantOver, wantThrottle, wep, true);
 
         /// <summary>Show or hide the gauge (its cameras stop rendering while hidden).</summary>
         public void SetVisible(bool on)

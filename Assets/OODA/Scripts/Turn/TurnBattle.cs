@@ -129,6 +129,7 @@ namespace Ooda.Turn
 
         LinePool lines;
         Transform tip;
+        Ooda.UI.StickThrottleGauge gauge;   // the stick and throttle in the bottom corners
         readonly List<(Transform t, float born)> flashes = new List<(Transform, float)>();
         Material flashMat, tipMat;
 
@@ -175,6 +176,8 @@ namespace Ooda.Turn
             tip.SetParent(transform, false);
             if (terrain == null) terrain = Terrain.activeTerrain;
             grid = MakeGrid(terrain);
+            gauge = Ooda.UI.StickThrottleGauge.Create();
+            if (gauge != null && view != null && view.Cam != null) view.Cam.cullingMask &= ~(1 << Ooda.UI.StickThrottleGauge.Layer);
             if (view != null) { view.player = player.transform; view.enemy = enemy.transform; }
             if (playerPilot != null) playerPilot.target = enemy.transform;
             if (enemyPilot != null) enemyPilot.target = player.transform;
@@ -489,6 +492,107 @@ namespace Ooda.Turn
             }
             FadeFlashes();
             if (playerPilot != null && view != null) playerPilot.hideHead = view.focus == TurnCamera.Focus.Cockpit;
+            UpdateGauge();
+        }
+
+        // ---------- the stick and throttle in the corners ----------
+
+        void UpdateGauge()
+        {
+            if (gauge == null) return;
+            bool show = phase != Phase.Over && !battle.Out(0);
+            gauge.SetVisible(show);
+            if (!show) return;
+            GaugeInput(out var stick, out float over, out float throttle, out bool wep);
+            gauge.Show(stick, over, throttle, wep);
+            gaugeThrottle = throttle; gaugeWep = wep; gaugeOver = over;
+        }
+
+        float gaugeThrottle, gaugeOver;
+        bool gaugeWep;
+
+        /// <summary>The throttle bottom left and the stick bottom right, as big as the room beside the planning panel allows.</summary>
+        void DrawGauge(float sw, float sh)
+        {
+            if (gauge == null || !gauge.Visible || gauge.StickTexture == null) return;
+            float pw = Mathf.Min(640, sw - 40);
+            float h = Mathf.Min(240f, ((sw - pw) / 2 - 20) / 0.9f, sh * 0.32f);
+            if (h < 90) return;   // no room beside the panel
+            float w = h * 0.9f, y = sh - h - 8;
+            Rect left = new Rect(10, y, w, h), right = new Rect(sw - w - 10, y, w, h);
+            GUI.DrawTexture(left, gauge.ThrottleTexture, ScaleMode.ScaleToFit, true);
+            GUI.DrawTexture(right, gauge.StickTexture, ScaleMode.ScaleToFit, true);
+            var cap = new GUIStyle(small) { alignment = TextAnchor.UpperCenter };
+            GUI.Label(new Rect(left.x, y - 18, w, 20), gaugeWep ? $"Throttle {gaugeThrottle * 100:F0}%  WEP" : $"Throttle {gaugeThrottle * 100:F0}%", cap);
+            if (gaugeOver > 0) cap.normal.textColor = overpullColor;
+            GUI.Label(new Rect(right.x, y - 18, w, 20), gaugeOver > 0 ? "Stick: overpull" : "Stick", cap);
+            guiRects.Add(left); guiRects.Add(right);
+        }
+
+        /// <summary>
+        /// What the corner stick shows. Planning with the arrow: where the arrow sits in the reach shell, up = back and
+        /// right = right, the white ring at <see cref="Ooda.UI.StickThrottleGauge.RingTravel"/> and the overpull band the
+        /// rest of the way. Planning with the timeline: the G and the roll at the slider's moment. Playing: the stick
+        /// the plane is flying with, its G and roll rate.
+        /// </summary>
+        void GaugeInput(out Vector2 stick, out float over, out float throttle, out bool wep)
+        {
+            const float ring = Ooda.UI.StickThrottleGauge.RingTravel;
+            var me = battle.planes[0];
+            if (phase == Phase.Planning || phase == Phase.Thinking)
+            {
+                if (!plan.HasMarks)
+                {
+                    env.Polar(plan.aim, out double phi, out double theta);
+                    float r = Mathf.Min(1f, (float)(theta / Math.Max(1e-6, env.MaxAngle(phi))));
+                    over = (float)plan.overpull;
+                    stick = new Vector2(Mathf.Sin((float)phi), Mathf.Cos((float)phi)) * (r * ring + over * (1 - ring));
+                    throttle = (float)plan.throttle; wep = plan.wep;
+                    return;
+                }
+                var st = plan.StateAt(markT);
+                stick = new Vector2(Mathf.Clamp(PreviewRollDps(markT) / 120f, -1, 1), PullTravel(me, st.g, out over));
+                throttle = (float)st.throttle; wep = st.wep;
+                return;
+            }
+            var m = player.Model;
+            stick = new Vector2(Mathf.Clamp((float)m.rollRateDps / 120f, -1, 1), PullTravel(m, m.g, out over));
+            if (last != null)
+            {
+                // a stalled wing: the stick is past the stall line, as far as the plan overpulled
+                var f = last.frames[0][Mathf.Min(last.FrameCount - 1, Mathf.RoundToInt(playT / (float)last.dt))];
+                if (f.stalled && lastOverpull > 0) { over = (float)lastOverpull; stick.y = ring + over * (1 - ring); }
+            }
+            throttle = (float)m.throttle;
+            wep = plan.HasMarks ? plan.StateAt(playT).wep : plan.wep;
+        }
+
+        /// <summary>The stick's back travel for a G: the most the wing gives clean at this speed is the ring, the plan's G
+        /// past that runs into the overpull band (2 G more is full aft); a push goes forward the same way.</summary>
+        static float PullTravel(FlightModel m, double g, out float over)
+        {
+            const float ring = Ooda.UI.StickThrottleGauge.RingTravel;
+            over = 0;
+            if (g >= 1)
+            {
+                double clean = Math.Max(1.5, m.numbers.AvailableG(m.Kias));
+                if (g <= clean) return (float)((g - 1) / (clean - 1)) * ring;
+                over = Mathf.Clamp01((float)((g - clean) / 2));
+                return ring + over * (1 - ring);
+            }
+            double neg = Math.Min(-0.5, m.numbers.AvailableNegG(m.Kias));
+            return -Mathf.Min(1f, (float)((1 - g) / (1 - neg))) * ring;
+        }
+
+        /// <summary>The ghost's roll rate at t into the turn (degrees a second, right positive), from the preview.</summary>
+        float PreviewRollDps(float t)
+        {
+            if (preview == null || preview.FrameCount < 2) return 0;
+            int i = Mathf.Clamp(Mathf.RoundToInt(t / (float)preview.dt), 1, preview.FrameCount - 1);
+            var a = preview.frames[0][i - 1]; var b = preview.frames[0][i];
+            double d = AutoPilot.BankDeg(b.vel.Normalized, b.up) - AutoPilot.BankDeg(a.vel.Normalized, a.up);
+            while (d > 180) d -= 360; while (d < -180) d += 360;
+            return (float)(d / preview.dt);
         }
 
         float W(Vector3 at) => view == null ? 0.5f : Mathf.Max(0.05f, Vector3.Distance(view.transform.position, at) * 0.0025f);
@@ -1290,6 +1394,7 @@ namespace Ooda.Turn
             by += 36;
             if (GUI.Button(new Rect(bx, by, 180, 30), showHelp ? "Hide help  (H)" : "Help  (H)")) showHelp = !showHelp;
 
+            DrawGauge(sw, sh);
             if (planning) PlanningPanel(sw, sh);
             if (phase == Phase.Playing) GUI.Label(new Rect(0, sh - 60, sw, 30), $"Turn playing  {playT:F1} / {turnSec:F0} s   (hold Tab to speed up)", new GUIStyle(label) { alignment = TextAnchor.MiddleCenter });
             var warn = new GUIStyle(big) { fontSize = 26 };

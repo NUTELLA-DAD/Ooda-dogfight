@@ -49,7 +49,7 @@ namespace Ooda.EditorTools
         static readonly Part ThrottlePart = new Part
         {
             name = "Throttle", tris = 45000,
-            moving = p => p.y > 0.535f || (p.x < LeverX && p.y > 0.2f) ? 1f : 0f,
+            moving = p => p.y > 0.535f || (p.x < LeverX && p.y > 0.2f) || (p.x < 0.235f && p.y > 0.49f) ? 1f : 0f,
             pivot = (c, s) => new Vector3(c.x, 0.34f, 0.39f),
         };
         static float LeverX = 0.178f;
@@ -165,7 +165,13 @@ namespace Ooda.EditorTools
             Object.DestroyImmediate(src);
 
             pivot = part.pivot(centre, size) - centre;
-            var mesh = new Mesh { name = part.name, indexFormat = pos.Count > 65000 ? IndexFormat.UInt32 : IndexFormat.UInt16 };
+            // refill the saved mesh in place, so the prefab keeps pointing at it (copying one mesh over another garbles it)
+            string path = $"{Gen}/Controls/{part.name}.asset";
+            var mesh = AssetDatabase.LoadAssetAtPath<Mesh>(path);
+            bool fresh = mesh == null;
+            if (fresh) mesh = new Mesh(); else mesh.Clear();
+            mesh.name = part.name;
+            mesh.indexFormat = pos.Count > 65000 ? IndexFormat.UInt32 : IndexFormat.UInt16;
             mesh.SetVertices(pos); mesh.SetNormals(nor); mesh.SetUVs(0, tc);
             mesh.subMeshCount = 2;
             mesh.SetTriangles(fixedTris, 0);
@@ -174,10 +180,7 @@ namespace Ooda.EditorTools
             mesh.bindposes = new[] { Matrix4x4.identity, Matrix4x4.Translate(-pivot) };
             mesh.RecalculateBounds();
             mesh.RecalculateTangents();
-            string path = $"{Gen}/Controls/{part.name}.asset";
-            var old = AssetDatabase.LoadAssetAtPath<Mesh>(path);
-            if (old != null) { EditorUtility.CopySerialized(mesh, old); Object.DestroyImmediate(mesh); mesh = old; }
-            else AssetDatabase.CreateAsset(mesh, path);
+            if (fresh) AssetDatabase.CreateAsset(mesh, path); else EditorUtility.SetDirty(mesh);
             Debug.Log($"OODA: {part.name}: {pos.Count} vertices, {fixedTris.Count / 3} fixed and {movingTris.Count / 3} moving triangles, pivot {pivot:F3}, size {size:F3}");
 
             var texture = AssetDatabase.LoadAssetAtPath<Texture2D>(tex);
@@ -232,13 +235,31 @@ namespace Ooda.EditorTools
                 Save(gauge.ThrottleTexture, gauge.transform.Find("Throttle").GetComponentInChildren<Camera>(), $"Shots~/controls/throttle_{p.name}.png");
                 foreach (var b in baked) Object.DestroyImmediate(b);
             }
+            // the cut: the moving part in plain red, seen from the side and from behind, at rest
+            gauge.Show(Vector2.zero, 0, 0.5f, false, true);
+            var red = new MaterialPropertyBlock();
+            red.SetColor("_BaseColor", Color.red);
+            foreach (var r in go.GetComponentsInChildren<SkinnedMeshRenderer>()) r.SetPropertyBlock(red, 1);
+            foreach (var (part, tex) in new[] { ("Stick", gauge.StickTexture), ("Throttle", gauge.ThrottleTexture) })
+            {
+                var cam = gauge.transform.Find(part).GetComponentInChildren<Camera>();
+                var root = cam.transform.parent;
+                foreach (var (side, at) in new[] { ("side", new Vector3(-2.4f, 0.5f, 0f)), ("back", new Vector3(0f, 0.6f, -2.4f)), ("front", new Vector3(0f, 0.6f, 2.4f)) })
+                {
+                    cam.transform.localPosition = at;
+                    cam.transform.LookAt(root.TransformPoint(new Vector3(0, 0.5f, 0)));
+                    var baked = Bake(go);
+                    Save(tex, cam, $"Shots~/controls/cut_{part.ToLower()}_{side}.png");
+                    foreach (var b in baked) Object.DestroyImmediate(b);
+                }
+            }
             Object.DestroyImmediate(light.gameObject);
             Object.DestroyImmediate(go);
             Debug.Log("OODA: stick and throttle shots in Shots~/controls.");
         }
 
         /// <summary>Batch renders do not skin: stand a baked copy of each skinned part in its place for the shot.</summary>
-        static List<GameObject> Bake(GameObject root)
+        internal static List<GameObject> Bake(GameObject root)
         {
             var made = new List<GameObject>();
             foreach (var smr in root.GetComponentsInChildren<SkinnedMeshRenderer>(true))
