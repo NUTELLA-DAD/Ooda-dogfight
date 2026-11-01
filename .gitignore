@@ -38,3 +38,8 @@ Thumbs.db
 
 # OODA > Plane Shots renders
 Shots~/
+
+# The stick and throttle source FBX (40 MB each): OODA builds the gauge meshes from them, which are committed
+Assets/OODA/Art/Controls/*.fbx
+Assets/OODA/Art/Controls/*.fbx.meta
+Assets/OODA/Art/Controls/Source~/
