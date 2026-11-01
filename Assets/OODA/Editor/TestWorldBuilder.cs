@@ -106,9 +106,12 @@ namespace Ooda.EditorTools
             foreach (var guid in AssetDatabase.FindAssets("t:Texture2D", new[] { Art }))
             {
                 var ti = AssetImporter.GetAtPath(AssetDatabase.GUIDToAssetPath(guid)) as TextureImporter;
-                if (ti == null || (ti.mipmapEnabled && ti.anisoLevel == 8)) continue;
+                string tp = AssetDatabase.GUIDToAssetPath(guid);
+                int size = tp.EndsWith("_BaseColor.png") || tp.EndsWith("Cockpit_Atlas.png") ? 4096 : 2048;   // the cleaned paint is 4K
+                if (ti == null || (ti.mipmapEnabled && ti.anisoLevel == 8 && ti.maxTextureSize == size)) continue;
                 ti.mipmapEnabled = true;
                 ti.anisoLevel = 8;
+                ti.maxTextureSize = size;
                 ti.SaveAndReimport();
             }
             Debug.Log($"OODA: quality tuned (URP {urp.name}: MSAA 4x, shadows 4096 to 3 km in 4 cascades; {QualitySettings.names.Length} quality levels, current {QualitySettings.names[current]}).");
@@ -129,28 +132,7 @@ namespace Ooda.EditorTools
             plane.importTangents = ModelImporterTangents.CalculateMikk;
             plane.SaveAndReimport();
 
-            var pilot = (ModelImporter)AssetImporter.GetAtPath(PilotFbx);
-            pilot.materialImportMode = ModelImporterMaterialImportMode.None;
-            pilot.animationType = ModelImporterAnimationType.Human;
-            pilot.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
-            pilot.importAnimation = true;
-            var clips = pilot.defaultClipAnimations;
-            foreach (var c in clips)
-            {
-                c.name = "Seated";
-                c.loopTime = true;
-                c.lockRootRotation = true;
-                c.lockRootHeightY = true;
-                c.lockRootPositionXZ = true;
-                c.keepOriginalOrientation = true;
-                c.keepOriginalPositionY = true;
-                c.keepOriginalPositionXZ = true;
-            }
-            pilot.clipAnimations = clips;
-            pilot.SaveAndReimport();
-            var avatar = AssetDatabase.LoadAllAssetsAtPath(PilotFbx).OfType<Avatar>().FirstOrDefault();
-            if (avatar != null && avatar.isValid && avatar.isHuman) Debug.Log("OODA: TigerPilot avatar is valid (Humanoid).");
-            else Debug.LogError($"OODA: TigerPilot avatar is not a valid humanoid (found: {avatar != null}, valid: {avatar?.isValid}, human: {avatar?.isHuman}).");
+            ImportPilot(PilotFbx, "TigerPilot");
 
             foreach (var t in new[] { Art + "/P51/P51_MetallicSmoothness.png", Art + "/TigerPilot/Pilot_MetallicSmoothness.png" })
             {
@@ -241,19 +223,90 @@ namespace Ooda.EditorTools
 
         // ---------- pilot animator ----------
 
-        static RuntimeAnimatorController MakePilotAnimator()
+        static RuntimeAnimatorController MakePilotAnimator() => MakePilotController(PilotFbx, "TigerPilot");
+
+        /// <summary>A pilot FBX as a Humanoid with one clip per take (named after the take), the root locked in his seat.</summary>
+        internal static void ImportPilot(string fbx, string label)
         {
-            string path = $"{Gen}/TigerPilot.controller";
+            var pilot = (ModelImporter)AssetImporter.GetAtPath(fbx);
+            pilot.materialImportMode = ModelImporterMaterialImportMode.None;
+            pilot.animationType = ModelImporterAnimationType.Human;
+            pilot.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
+            pilot.importAnimation = true;
+            var clips = pilot.defaultClipAnimations;
+            foreach (var c in clips)
+            {
+                string take = c.takeName ?? c.name;
+                c.name = take.Substring(take.LastIndexOf('|') + 1);
+                c.loopTime = c.name == "Fly" || c.name == "Seated";
+                c.lockRootRotation = true;
+                c.lockRootHeightY = true;
+                c.lockRootPositionXZ = true;
+                c.keepOriginalOrientation = true;
+                c.keepOriginalPositionY = true;
+                c.keepOriginalPositionXZ = true;
+            }
+            pilot.clipAnimations = clips;
+            pilot.SaveAndReimport();
+            var avatar = AssetDatabase.LoadAllAssetsAtPath(fbx).OfType<Avatar>().FirstOrDefault();
+            if (avatar != null && avatar.isValid && avatar.isHuman) Debug.Log($"OODA: {label} avatar is valid (Humanoid), clips: {string.Join(", ", clips.Select(c => c.name))}.");
+            else Debug.LogError($"OODA: {label} avatar is not a valid humanoid (found: {avatar != null}, valid: {avatar?.isValid}, human: {avatar?.isHuman}).");
+        }
+
+        /// <summary>
+        /// The pilot's animator: Fly (hands on the stick and throttle) as the base, and a state per gesture
+        /// (Instruments, ShakeFist, CheckSix, Cheer, Flinch), each entered by the trigger of the same name and
+        /// going back to Fly when it ends. IK Pass is on for the head look and the hands.
+        /// </summary>
+        internal static RuntimeAnimatorController MakePilotController(string fbx, string name)
+        {
+            string path = $"{Gen}/{name}.controller";
             AssetDatabase.DeleteAsset(path);
             var ctrl = AnimatorController.CreateAnimatorControllerAtPath(path);
-            var clip = AssetDatabase.LoadAllAssetsAtPath(PilotFbx).OfType<AnimationClip>().FirstOrDefault(c => !c.name.StartsWith("__preview"));
+            var all = AssetDatabase.LoadAllAssetsAtPath(fbx).OfType<AnimationClip>().Where(c => !c.name.StartsWith("__preview")).ToList();
+            AnimationClip Clip(string n) => all.FirstOrDefault(c => c.name == n);
             var layers = ctrl.layers;
-            layers[0].iKPass = true; // the head look needs it
+            layers[0].iKPass = true;
             ctrl.layers = layers;
-            var state = ctrl.layers[0].stateMachine.AddState("Seated");
-            state.motion = clip;
-            if (clip == null) Debug.LogWarning("OODA: no Seated clip found in TigerPilot.fbx.");
+            var sm = ctrl.layers[0].stateMachine;
+            var fly = sm.AddState("Fly");
+            fly.motion = Clip("Fly") ?? Clip("Seated") ?? all.FirstOrDefault();
+            sm.defaultState = fly;
+            if (Clip("Fly") == null) Debug.LogWarning($"OODA: no Fly clip in {fbx}; the pilot just sits.");
+            foreach (var g in new[] { "Instruments", "ShakeFist", "CheckSix", "Cheer", "Flinch" })
+            {
+                var clip = Clip(g);
+                if (clip == null) continue;
+                ctrl.AddParameter(g, AnimatorControllerParameterType.Trigger);
+                var st = sm.AddState(g);
+                st.motion = clip;
+                var go = sm.AddAnyStateTransition(st);
+                go.AddCondition(AnimatorConditionMode.If, 0, g);
+                go.hasExitTime = false;
+                go.duration = g == "Flinch" ? 0.05f : 0.2f;
+                go.canTransitionToSelf = false;
+                var back = st.AddTransition(fly);
+                back.hasExitTime = true;
+                back.exitTime = 0.9f;
+                back.duration = 0.25f;
+            }
             return ctrl;
+        }
+
+        /// <summary>The cockpit interiors' material: one atlas of flat paint swatches and the instrument panel.</summary>
+        internal static Material CockpitMat()
+        {
+            var m = Mat("Cockpit", Color.white, 0.25f, 0f);
+            var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(Art + "/Cockpit/Cockpit_Atlas.png");
+            m.SetTexture("_BaseMap", tex);
+            m.SetTexture("_MainTex", tex);
+            return m;
+        }
+
+        /// <summary>The pilot works the cockpit: hands on the stick and throttle, the needles live, gestures.</summary>
+        internal static void AddPilotControls(GameObject pilot)
+        {
+            if (pilot.GetComponent<PilotControls>() == null) pilot.AddComponent<PilotControls>();
         }
 
         // ---------- plane prefab ----------
@@ -321,7 +374,8 @@ namespace Ooda.EditorTools
             model.transform.SetParent(root.transform, false);
             foreach (var r in model.GetComponentsInChildren<Renderer>())
             {
-                Material m = r.name.Contains("Canopy") ? mats.canopy : r.name.Contains("Cockpit") ? mats.cockpit : mats.plane;
+                Material m = r.name.StartsWith("Pit_") ? CockpitMat() : r.name.Contains("Canopy") ? mats.canopy : r.name.Contains("Cockpit") ? mats.cockpit : mats.plane;
+                if (r.name.StartsWith("Pit_")) r.shadowCastingMode = ShadowCastingMode.Off;   // a tub in a tub: its own shadows only add noise
                 r.sharedMaterials = Enumerable.Repeat(m, r.sharedMaterials.Length).ToArray();
                 if (r.name.Contains("Canopy")) r.shadowCastingMode = ShadowCastingMode.Off;
             }
@@ -345,6 +399,7 @@ namespace Ooda.EditorTools
             anim.cullingMode = AnimatorCullingMode.AlwaysAnimate;
             var look = pilot.AddComponent<PilotHeadLook>();
             look.aircraft = ac;
+            AddPilotControls(pilot);
 
             var hud = root.AddComponent<FlightHud>();
             hud.aircraft = ac;
