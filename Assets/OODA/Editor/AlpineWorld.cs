@@ -233,6 +233,7 @@ namespace Ooda.EditorTools
             BuildRailway(rail, states, original, m);
             MakeVillage(h, m);
             MakeFlakSites(h);
+            MakeAirHazards(h, rail, m);
 
             float lo = float.MaxValue, hi = float.MinValue;
             foreach (var v in h) { lo = Mathf.Min(lo, v); hi = Mathf.Max(hi, v); }
@@ -817,6 +818,403 @@ namespace Ooda.EditorTools
             Debug.Log($"OODA: a village of {placed.Count} chalets and a church.");
         }
 
+        // ---------- things to fly round: barrage balloons, cable cars and radio masts ----------
+        // All of it is solid (the Obstacles layer): aircraft crash on it and rounds stop on it. It is placed from a fixed
+        // seed, and nothing goes inside the bombers' corridor (150 m either side of the escort route) unless it is at least
+        // 120 m under the route there, so CheckEscortRoute still passes. The wires are 0.3 m thick to look at but have a
+        // 4 m collider, so the battle's segment linecasts catch them reliably.
+
+        /// <summary>Every wire placed (balloon tethers, cable-car ropes, the masts and their guys), start and end, metres: for the planning view.</summary>
+        public static readonly List<(Vector3 a, Vector3 b)> HazardWires = new List<(Vector3 a, Vector3 b)>();
+        /// <summary>The middle of each barrage balloon, metres.</summary>
+        public static readonly List<Vector3> BalloonCentres = new List<Vector3>();
+        /// <summary>The foot of each radio mast, metres.</summary>
+        public static readonly List<Vector3> MastFeet = new List<Vector3>();
+        public const float BalloonRadius = 12f;    // half the balloon's length
+        const float WireThick = 4f;                // the wires' colliders
+        const float Corridor = 150f, CorridorMargin = 40f, UnderRoute = 120f;
+        const float PylonH = 24f;                  // a cable car's pylon, about, from the ground to the ropes
+
+        static void MakeAirHazards(float[,] h, List<Vector3> rail, WMats m)
+        {
+            HazardWires.Clear(); BalloonCentres.Clear(); MastFeet.Clear();
+            var root = new GameObject("Air hazards").transform;
+            var rnd = new System.Random(1944);
+            var wire = TestWorldBuilder.Mat("Alpine_Wire", new Color(0.22f, 0.23f, 0.25f), 0.5f, 0.7f);
+            var wires = new MeshBuilder(1);        // every thin wire, to look at (the colliders are separate)
+
+            int spans = MakeCableCars(h, root, wires, rnd, m);
+            int balloons = MakeBalloons(h, rail, root, wires, rnd);
+            int masts = MakeMasts(h, rail, root, wires, rnd);
+
+            var go = MeshObject("Hazard wires", SaveMesh(wires, "HazardWires"), new[] { wire }, root);
+            go.GetComponent<MeshRenderer>().shadowCastingMode = ShadowCastingMode.Off;
+
+            // the scene keeps a copy for the turn battle's planning view, which runs long after these lists are gone
+            var marks = root.gameObject.AddComponent<Ooda.Turn.HazardMarkers>();
+            marks.wireStarts = HazardWires.Select(w => w.a).ToArray();
+            marks.wireEnds = HazardWires.Select(w => w.b).ToArray();
+            marks.balloons = BalloonCentres.ToArray();
+            marks.balloonRadius = BalloonRadius;
+
+            // the clearance it leaves the bombers, worked out from the shapes (CheckEscortRoute measures it with the colliders)
+            float least = float.MaxValue;
+            foreach (var (a, b) in HazardWires)
+            {
+                int n = Mathf.Max(1, Mathf.CeilToInt(Vector3.Distance(a, b) / 10f));
+                for (int k = 0; k <= n; k++)
+                {
+                    Vector3 p = Vector3.Lerp(a, b, k / (float)n);
+                    if (RouteGap(p, out float ry) < Corridor) least = Mathf.Min(least, ry - p.y - WireThick / 2);
+                }
+            }
+            Debug.Log($"OODA: air hazards: {spans} cable-car spans, {balloons} barrage balloons, {masts} radio masts, {HazardWires.Count} wires; "
+                      + (least < float.MaxValue ? $"the nearest wire in the bombers' corridor is {least:F0} m under their route." : "no wire in the bombers' corridor."));
+            if (balloons < 10) Debug.LogWarning($"OODA: only {balloons} barrage balloons found room (10 to 16 wanted).");
+            if (spans < 2) Debug.LogWarning($"OODA: only {spans} cable-car spans found room (2 to 3 wanted).");
+            if (masts < 4) Debug.LogWarning($"OODA: only {masts} radio masts found room (4 to 6 wanted).");
+        }
+
+        /// <summary>Two or three cable-car spans wall to wall across the narrow main valley, well under the bombers: two ropes,
+        /// a car hanging in the middle, and a lattice pylon and a station hut at each end.</summary>
+        static int MakeCableCars(float[,] h, Transform root, MeshBuilder wires, System.Random rnd, WMats m)
+        {
+            var mats = new[]
+            {
+                TestWorldBuilder.Mat("Alpine_Pylon", new Color(0.36f, 0.38f, 0.37f), 0.3f, 0.5f),
+                m.wood,
+                m.roof,
+                TestWorldBuilder.Mat("Alpine_CableCar", new Color(0.78f, 0.13f, 0.10f), 0.4f, 0.2f),
+            };
+            var mb = new MeshBuilder(4);           // 0 steel, 1 wood, 2 roof, 3 the car
+            // where to try (a leg of the main line and how far along it), in order: clear of the gorge and the railway's crossing,
+            // and the first one between the Valley Run's start and the Bf 109s ahead of it
+            var spots = new[] { (4, 0.30f), (7, 0.45f), (10, 0.50f), (11, 0.55f), (12, 0.35f), (9, 0.50f) };
+            int made = 0;
+            foreach (var (s, u0) in spots)
+            {
+                if (made == 3) break;
+                Vector2 a2 = MainLine[s], b2 = MainLine[s + 1];
+                Vector2 c = Vector2.Lerp(a2, b2, Mathf.Clamp01(u0 + Rand(rnd, -0.06f, 0.06f)));
+                Vector2 along = (b2 - a2).normalized, across = V(along.y, -along.x);
+                float floor = MainFloorAt(c.y);
+                RouteGap(new Vector3(c.x, 0, c.y), out float routeY);
+                float ropeY = routeY - UnderRoute - 15f - Rand(rnd, 0f, 30f);   // 135 to 165 m under the bombers
+                if (ropeY < floor + 60f) continue;
+                // each end: out from the middle to where the wall comes up to a pylon's height under the ropes
+                var feet = new Vector3[2];
+                bool ok = true;
+                for (int e = 0; e < 2 && ok; e++)
+                {
+                    float side = e == 0 ? -1f : 1f;
+                    ok = false;
+                    for (float d = 60f; d < 900f; d += 4f)
+                    {
+                        Vector2 q = c + across * side * d;
+                        float g = SampleArr(h, q.x, q.y);
+                        if (g >= ropeY - PylonH) { feet[e] = new Vector3(q.x, g - 1f, q.y); ok = true; break; }
+                    }
+                }
+                if (!ok) { Debug.Log($"OODA: no cable car on main leg {s}: no wall to hang it from."); continue; }
+                Vector3 al = new Vector3(along.x, 0, along.y);
+                var tops = feet.Select(f => new Vector3(f.x, Mathf.Max(ropeY, f.y + 12f), f.z)).ToArray();
+                float span = Vector3.Distance(tops[0], tops[1]);
+                float sag = 0.025f * span;
+                const int segs = 8;
+                Vector3[] Rope(float off)
+                {
+                    var pts = new Vector3[segs + 1];
+                    for (int k = 0; k <= segs; k++)
+                    {
+                        float t = k / (float)segs;
+                        pts[k] = Vector3.Lerp(tops[0], tops[1], t) + al * off + Vector3.down * (4f * sag * t * (1 - t));
+                    }
+                    return pts;
+                }
+                var ropes = new[] { Rope(-3f), Rope(3f) };
+                bool clear = span < 1600f;
+                foreach (var r in ropes)
+                    for (int k = 0; k < segs && clear; k++)
+                        clear = ClearOfRoute(r[k], r[k + 1], WireThick / 2 + 8f)             // the car hangs 8 m under them
+                                && WireAboveGround(r[k], r[k + 1], h, k == 0 ? 0.3f : 0f, k == segs - 1 ? 0.7f : 1f, 6f);
+                if (!clear) { Debug.Log($"OODA: no cable car on main leg {s}: it would be in the bombers' way or in the ground."); continue; }
+
+                string name = $"Cable car {made}";
+                foreach (var r in ropes)
+                    for (int k = 0; k < segs; k++)
+                    {
+                        Beam(wires, r[k], r[k + 1], 0.3f, 0);
+                        WireCollider(r[k], r[k + 1], root, $"{name} rope", WireThick);
+                        HazardWires.Add((r[k], r[k + 1]));
+                    }
+                // the pylons, their cross-arms and the stations
+                for (int e = 0; e < 2; e++)
+                {
+                    Lattice(mb, feet[e], tops[e].y - feet[e].y, 3.5f, 1.5f, 4, 4f, 0.45f, 0);
+                    Beam(mb, tops[e] - al * 4.5f, tops[e] + al * 4.5f, 0.8f, 0);
+                    Vector3 outward = new Vector3(across.x, 0, across.y) * (e == 0 ? -1f : 1f);
+                    Vector3 hp = feet[e] + outward * 10f;
+                    float hg = SampleArr(h, hp.x, hp.z);
+                    var hr = Quaternion.LookRotation(outward);
+                    mb.Box(new Vector3(hp.x, hg + 1.75f, hp.z), hr, new Vector3(8f, 5.5f, 7f), 1);
+                    mb.Box(new Vector3(hp.x, hg + 4.8f, hp.z), hr, new Vector3(9.2f, 0.6f, 8.2f), 2);
+                }
+                // the car, in the middle, hanging from both ropes
+                Vector3 m0 = ropes[0][segs / 2], m1 = ropes[1][segs / 2], mid = (m0 + m1) / 2;
+                var cr = Quaternion.LookRotation(Flat(tops[1] - tops[0]));
+                Beam(mb, m0, m1, 0.4f, 0);
+                Beam(mb, mid, mid + Vector3.down * 4.2f, 0.35f, 0);
+                mb.Box(mid + Vector3.down * 4.2f, cr, new Vector3(3.2f, 0.3f, 4.6f), 0);
+                mb.Box(mid + Vector3.down * 5.7f, cr, new Vector3(3f, 2.8f, 4.4f), 3);
+                Debug.Log($"OODA: {name} across main leg {s} at ({c.x:F0}, {c.y:F0}): {span:F0} m wall to wall, ropes {ropeY:F0} m ({ropeY - floor:F0} m over the floor, {routeY - ropeY:F0} m under the bombers).");
+                made++;
+            }
+            if (made > 0) MeshObject("Cable cars", SaveMesh(mb, "CableCars"), mats, root, true);
+            return made;
+        }
+
+        /// <summary>Barrage balloons 400 to 900 m over the floor, over the basin and the main valley but off the bombers' line,
+        /// each on a steel tether straight down to a winch on the ground.</summary>
+        static int MakeBalloons(float[,] h, List<Vector3> rail, Transform root, MeshBuilder wires, System.Random rnd)
+        {
+            var silver = TestWorldBuilder.Mat("Alpine_Balloon", new Color(0.70f, 0.72f, 0.74f), 0.45f, 0.1f);
+            var winchMat = TestWorldBuilder.Mat("Alpine_Winch", new Color(0.24f, 0.27f, 0.22f), 0.2f, 0.3f);
+            // the blimp, nose to +z: a stretched sphere, about 24 m long, and three fins at the tail (one up, two down and out)
+            var body = new MeshBuilder(1);
+            body.Ellipsoid(Vector3.zero, Quaternion.identity, new Vector3(4.6f, 4.6f, BalloonRadius), 16, 10, 0);
+            foreach (float roll in new[] { 0f, 120f, 240f })
+            {
+                var r = Quaternion.AngleAxis(roll, Vector3.forward);
+                body.Box(r * new Vector3(0, 4.6f, -9f), r, new Vector3(0.8f, 5.5f, 6.5f), 0);
+            }
+            var mesh = SaveMesh(body, "Balloon");
+            var winches = new MeshBuilder(1);
+
+            float total = MainLength();
+            float wind = 205f;                     // they all ride nose into the same breeze, give or take
+            int made = 0;
+            for (int tries = 0; tries < 6000 && made < 14; tries++)
+            {
+                Vector2 c = AlongMain(Rand(rnd, 300f, total - 300f), out Vector2 dir);
+                Vector2 across = V(dir.y, -dir.x);
+                float side = rnd.Next(2) == 0 ? -1f : 1f;
+                Vector2 q = c + across * side * Rand(rnd, 210f, 480f);
+                float y = MainFloorAt(c.y) + Rand(rnd, 400f, 900f);
+                float g = SampleArr(h, q.x, q.y);
+                if (g > y - 150f) continue;        // too near the hillside: it would be sitting on the wall
+                bool clear = true;
+                for (int k = 0; k < 8 && clear; k++)
+                {
+                    float a = k * Mathf.PI / 4;
+                    if (SampleArr(h, q.x + Mathf.Cos(a) * 45f, q.y + Mathf.Sin(a) * 45f) > y - 30f) clear = false;
+                }
+                if (!clear) continue;
+                var centre = new Vector3(q.x, y, q.y);
+                var foot = new Vector3(q.x, g, q.y);
+                if (BalloonCentres.Any(p => Vector2.Distance(V(p.x, p.z), q) < 550f)) continue;
+                if (NearRail(rail, q.x, q.y, 40f) || InLake(q.x, q.y)) continue;
+                if (HazardWires.Any(w => SegDist(centre, w.a, w.b) < 250f)) continue;    // clear of the cable cars
+                if (!ClearOfRoute(foot, centre + Vector3.up * BalloonRadius, BalloonRadius + 2f)) continue;
+
+                var rot = Quaternion.Euler(-4f, wind + Rand(rnd, -15f, 15f), 0);
+                var go = MeshObject($"Barrage balloon {made}", mesh, new[] { silver }, root, true);
+                go.transform.SetPositionAndRotation(centre, rot);
+                Vector3 belly = centre + rot * new Vector3(0, -4.4f, 1.5f), winchTop = foot + Vector3.up * 2f;
+                Beam(wires, winchTop, belly, 0.3f, 0);
+                WireCollider(winchTop, belly, root, $"Barrage balloon {made} cable", WireThick);
+                HazardWires.Add((winchTop, belly));
+                winches.Box(foot + Vector3.up * 0.8f, Quaternion.Euler(0, rot.eulerAngles.y, 0), new Vector3(3f, 2.4f, 4.5f), 0);
+                BalloonCentres.Add(centre);
+                made++;
+            }
+            if (made > 0) MeshObject("Balloon winches", SaveMesh(winches, "BalloonWinches"), new[] { winchMat }, root, true);
+            Debug.Log($"OODA: {made} barrage balloons: " + string.Join(", ", BalloonCentres.Select(p => $"({p.x:F0}, {p.y:F0}, {p.z:F0})")) + ".");
+            return made;
+        }
+
+        /// <summary>Red and white lattice radio masts, 120 to 200 m tall, on crests and spurs beside the main valley, each held by three guy wires.</summary>
+        static int MakeMasts(float[,] h, List<Vector3> rail, Transform root, MeshBuilder wires, System.Random rnd)
+        {
+            var red = TestWorldBuilder.Mat("Alpine_MastRed", new Color(0.80f, 0.18f, 0.12f), 0.3f, 0.3f);
+            var white = TestWorldBuilder.Mat("Alpine_MastWhite", new Color(0.92f, 0.92f, 0.90f), 0.3f, 0.3f);
+            var mb = new MeshBuilder(2);
+            float start = MainLength(3), total = MainLength();
+            int made = 0;
+            for (int tries = 0; tries < 8000 && made < 5; tries++)
+            {
+                Vector2 c = AlongMain(Rand(rnd, start, total - 200f), out Vector2 dir);
+                Vector2 across = V(dir.y, -dir.x);
+                float side = rnd.Next(2) == 0 ? -1f : 1f;
+                Vector2 q = c + across * side * Rand(rnd, 450f, 1400f);
+                float g = SampleArr(h, q.x, q.y), floor = MainFloorAt(c.y);
+                if (g < floor + 350f || g > floor + 1600f || g > 2600f) continue;
+                float around = 0;
+                for (int k = 0; k < 8; k++)
+                {
+                    float a = k * Mathf.PI / 4;
+                    around += SampleArr(h, q.x + Mathf.Cos(a) * 150f, q.y + Mathf.Sin(a) * 150f) / 8f;
+                }
+                if (g - around < 12f) continue;   // a crest or the nose of a spur: higher than the ground round it
+                if (Slope(h, q.x, q.y) > 30f) continue;
+                if (MastFeet.Any(f => Vector2.Distance(V(f.x, f.z), q) < 1800f)) continue;
+                if (NearRail(rail, q.x, q.y, 80f) || MainDistance(q.x, q.y, out _) < 350f) continue;
+                float tall = Rand(rnd, 120f, 200f);
+                Vector3 foot = new Vector3(q.x, g - 1f, q.y), top = foot + Vector3.up * tall, guyTop = foot + Vector3.up * (tall * 0.8f);
+                if (!ClearOfRoute(foot, top, 30f)) continue;
+                // three guys from 80 % of the way up to anchors on the ground half the height out, turned till they're clear of it
+                Vector3[] anchors = null;
+                float a0 = Rand(rnd, 0f, 120f);
+                foreach (float turn in new[] { 0f, 40f, 80f })
+                {
+                    var tryA = new Vector3[3];
+                    bool fine = true;
+                    for (int k = 0; k < 3 && fine; k++)
+                    {
+                        float a = (a0 + turn + 120f * k) * Mathf.Deg2Rad;
+                        Vector2 p = q + V(Mathf.Cos(a), Mathf.Sin(a)) * tall * 0.5f;
+                        tryA[k] = new Vector3(p.x, SampleArr(h, p.x, p.y), p.y);
+                        fine = WireAboveGround(guyTop, tryA[k], h, 0f, 0.85f, 3f) && ClearOfRoute(guyTop, tryA[k], WireThick / 2);
+                    }
+                    if (fine) { anchors = tryA; break; }
+                }
+                if (anchors == null) continue;
+
+                string name = $"Radio mast {made}";
+                Lattice(mb, foot, tall, 1.7f, 1.7f, 3, 6f, 0.5f, 0, 1, 20f);
+                mb.Box(top + Vector3.up * 1.5f, Quaternion.identity, new Vector3(1.2f, 3f, 1.2f), 0);
+                WireCollider(foot, top + Vector3.up * 3f, root, name, 5f);
+                HazardWires.Add((foot, top));
+                foreach (var an in anchors)
+                {
+                    mb.Box(an + Vector3.up * 0.5f, Quaternion.identity, new Vector3(2f, 1.6f, 2f), 1);
+                    Beam(wires, guyTop, an, 0.25f, 0);
+                    WireCollider(guyTop, an, root, $"{name} guy", WireThick);
+                    HazardWires.Add((guyTop, an));
+                }
+                MastFeet.Add(foot);
+                Debug.Log($"OODA: {name} at ({foot.x:F0}, {foot.y:F0}, {foot.z:F0}), {tall:F0} m tall, {foot.y - floor:F0} m over the valley floor.");
+                made++;
+            }
+            if (made > 0) MeshObject("Radio masts", SaveMesh(mb, "RadioMasts"), new[] { red, white }, root);   // solid by their box colliders
+            return made;
+        }
+
+        static float Rand(System.Random rnd, float a, float b) => a + (float)rnd.NextDouble() * (b - a);
+
+        static bool InLake(float x, float z) => Lakes.Any(l => { float ex = (x - l.c.x) / l.r.x, ez = (z - l.c.y) / l.r.y; return ex * ex + ez * ez < 1.3f; });
+
+        /// <summary>How far it is along the main valley's line from its south end to its point upTo (to its north end by default), metres on the map.</summary>
+        static float MainLength(int upTo = -1)
+        {
+            int last = upTo < 0 ? MainLine.Length - 1 : Mathf.Min(upTo, MainLine.Length - 1);
+            float total = 0;
+            for (int s = 0; s < last; s++) total += Vector2.Distance(MainLine[s], MainLine[s + 1]);
+            return total;
+        }
+
+        /// <summary>The point dist metres along the main valley's line from its south end, and the line's direction there.</summary>
+        static Vector2 AlongMain(float dist, out Vector2 dir)
+        {
+            for (int s = 0; s + 1 < MainLine.Length; s++)
+            {
+                float len = Vector2.Distance(MainLine[s], MainLine[s + 1]);
+                dir = (MainLine[s + 1] - MainLine[s]).normalized;
+                if (dist <= len || s + 2 == MainLine.Length) return Vector2.Lerp(MainLine[s], MainLine[s + 1], Mathf.Clamp01(dist / len));
+                dist -= len;
+            }
+            dir = V(0, 1);
+            return MainLine[0];
+        }
+
+        /// <summary>How far a point is from the escort route on the map, and the route's height at the nearest point.</summary>
+        static float RouteGap(Vector3 p, out float routeY)
+        {
+            float best = float.MaxValue;
+            routeY = 0;
+            var q = V(p.x, p.z);
+            for (int i = 0; i + 1 < EscortRoute.Length; i++)
+            {
+                Vector3 a = EscortRoute[i], b = EscortRoute[i + 1];
+                Vector2 a2 = V(a.x, a.z), b2 = V(b.x, b.z);
+                float u = Mathf.Clamp01(Vector2.Dot(q - a2, b2 - a2) / (b2 - a2).sqrMagnitude);
+                float d = Vector2.Distance(q, Vector2.Lerp(a2, b2, u));
+                if (d < best) { best = d; routeY = Mathf.Lerp(a.y, b.y, u); }
+            }
+            return best;
+        }
+
+        /// <summary>A straight piece of something radius metres thick is out of the bombers' way: nowhere within the corridor
+        /// (and a margin) of their route unless it is at least UnderRoute metres under it there.</summary>
+        static bool ClearOfRoute(Vector3 a, Vector3 b, float radius)
+        {
+            int n = Mathf.Max(1, Mathf.CeilToInt(Vector3.Distance(a, b) / 10f));
+            for (int k = 0; k <= n; k++)
+            {
+                Vector3 p = Vector3.Lerp(a, b, k / (float)n);
+                if (RouteGap(p, out float ry) < Corridor + radius + CorridorMargin && p.y + radius > ry - UnderRoute) return false;
+            }
+            return true;
+        }
+
+        /// <summary>A wire from a to b is at least clear metres over the ground between the fractions t0 and t1 of the way along it.</summary>
+        static bool WireAboveGround(Vector3 a, Vector3 b, float[,] h, float t0, float t1, float clear)
+        {
+            int n = Mathf.Max(2, Mathf.CeilToInt(Vector3.Distance(a, b) / 8f));
+            for (int k = 0; k <= n; k++)
+            {
+                float t = Mathf.Lerp(t0, t1, k / (float)n);
+                Vector3 p = Vector3.Lerp(a, b, t);
+                if (SampleArr(h, p.x, p.z) > p.y - clear) return false;
+            }
+            return true;
+        }
+
+        static float SegDist(Vector3 p, Vector3 a, Vector3 b)
+        {
+            Vector3 d = b - a;
+            float u = d.sqrMagnitude < 1e-6f ? 0 : Mathf.Clamp01(Vector3.Dot(p - a, d) / d.sqrMagnitude);
+            return Vector3.Distance(p, a + d * u);
+        }
+
+        /// <summary>A solid stand-in for a wire (or a lattice mast): a box thick metres square from a to b on the Obstacles layer, no mesh.</summary>
+        static void WireCollider(Vector3 a, Vector3 b, Transform parent, string name, float thick)
+        {
+            Vector3 d = b - a;
+            if (d.sqrMagnitude < 0.01f) return;
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            var up = Mathf.Abs(Vector3.Dot(d.normalized, Vector3.up)) > 0.95f ? Vector3.forward : Vector3.up;
+            go.transform.SetPositionAndRotation((a + b) / 2, Quaternion.LookRotation(d, up));
+            go.AddComponent<BoxCollider>().size = new Vector3(thick, thick, d.magnitude);
+            go.layer = ObstacleLayerIndex();
+            go.isStatic = true;
+        }
+
+        /// <summary>A lattice tower of beams: legs (3 or 4) from radius baseR at the foot to topR at the top, a ring and a
+        /// diagonal brace every step metres; with bandSub, it changes colour every bandM metres (a radio mast's red and white).</summary>
+        static void Lattice(MeshBuilder mb, Vector3 foot, float height, float baseR, float topR, int legs, float step, float thick, int sub, int bandSub = -1, float bandM = 0)
+        {
+            int levels = Mathf.Max(1, Mathf.CeilToInt(height / step));
+            float turn = legs == 4 ? Mathf.PI / 4 : Mathf.PI / 2;
+            Vector3 Corner(int k, int i)
+            {
+                float t = k / (float)levels, r = Mathf.Lerp(baseR, topR, t), a = turn + 2 * Mathf.PI * i / legs;
+                return foot + new Vector3(Mathf.Cos(a) * r, height * t, Mathf.Sin(a) * r);
+            }
+            for (int k = 0; k < levels; k++)
+            {
+                int s = bandSub >= 0 && bandM > 0 && Mathf.FloorToInt((k + 0.5f) * height / levels / bandM) % 2 == 1 ? bandSub : sub;
+                for (int i = 0; i < legs; i++)
+                {
+                    int j = (i + 1) % legs;
+                    Beam(mb, Corner(k, i), Corner(k + 1, i), thick, s);
+                    Beam(mb, Corner(k + 1, i), Corner(k + 1, j), thick * 0.6f, s);
+                    if (k % 2 == 0) Beam(mb, Corner(k, i), Corner(k + 1, j), thick * 0.45f, s);
+                    else Beam(mb, Corner(k, j), Corner(k + 1, i), thick * 0.45f, s);
+                }
+            }
+        }
+
         // ---------- meshes ----------
 
         static Mesh SaveMesh(MeshBuilder mb, string name)
@@ -1002,6 +1400,24 @@ namespace Ooda.EditorTools
                     float a0 = 2 * Mathf.PI * s / sides, a1 = 2 * Mathf.PI * (s + 1) / sides;
                     Tri(c, c + new Vector3(Mathf.Cos(a1) * radii.x, 0, Mathf.Sin(a1) * radii.y), c + new Vector3(Mathf.Cos(a0) * radii.x, 0, Mathf.Sin(a0) * radii.y), sub);
                 }
+            }
+
+            /// <summary>An ellipsoid with its long axis along local z (radii.z), segs round and rings from end to end.</summary>
+            public void Ellipsoid(Vector3 c, Quaternion r, Vector3 radii, int segs, int rings, int sub)
+            {
+                Vector3 P(int i, int j)
+                {
+                    float th = Mathf.PI * j / rings, ph = 2 * Mathf.PI * i / segs;
+                    return c + r * Vector3.Scale(radii, new Vector3(Mathf.Sin(th) * Mathf.Cos(ph), Mathf.Sin(th) * Mathf.Sin(ph), Mathf.Cos(th)));
+                }
+                for (int j = 0; j < rings; j++)
+                    for (int i = 0; i < segs; i++)
+                    {
+                        Vector3 a = P(i, j), b = P(i + 1, j), cc = P(i + 1, j + 1), d = P(i, j + 1);
+                        if (j == 0) Tri(a, d, cc, sub);                 // a and b are the same point, the +z end
+                        else if (j == rings - 1) Tri(a, cc, b, sub);    // cc and d are the -z end
+                        else Quad(a, b, cc, d, sub);
+                    }
             }
 
             public Mesh ToMesh(string name)

@@ -124,6 +124,47 @@ namespace Ooda.Turn.Core
             return battle;
         }
 
+        /// <summary>
+        /// Valley Run: the player and one P-51 wingman low in the main valley, belowRouteFt under the escort route
+        /// (about 250 m over the floor, among the cable-car ropes and the barrage balloons' tethers), startAlongM up the
+        /// route and heading up it, chasing two Bf 109s gapM further up the valley at the route's height, heading the same
+        /// way. Flak guns sit at flakSites if given. Order: 0 the player, 1 the lead Bf 109, 2 the wingman, 3 the other
+        /// Bf 109. Win when both 109s are down. route is in feet, like Escort's.
+        /// </summary>
+        public static Battle ValleyRun(Vec3d[] route, Vec3d[] flakSites = null, double startAlongM = 4400, double gapM = 1800,
+                                       double belowRouteFt = 165, double kias = 280)
+        {
+            Vec3d start = PointAlong(route, startAlongM / 0.3048, out Vec3d dir);
+            Vec3d right = new Vec3d(dir.y, -dir.x, 0);
+            double heading = Math.Atan2(dir.y, dir.x);
+            Vec3d ahead = PointAlong(route, (startAlongM + gapM) / 0.3048, out Vec3d edir);
+            Vec3d eright = new Vec3d(edir.y, -edir.x, 0);
+            double ehead = Math.Atan2(edir.y, edir.x);
+            FlightModel Make(AircraftNumbers n, Vec3d pos, double ias, double hdg, double thr) =>
+                new FlightModel(n, PointMass.Make(pos, Atmosphere.IasToTasKt(ias, pos.z), hdg)) { throttle = thr };
+
+            Vec3d me = start + new Vec3d(0, 0, -belowRouteFt);
+            Vec3d wing = me + right * 250 - dir * 400 + new Vec3d(0, 0, 60);              // on your right, a little back and up
+            Vec3d lead = ahead + eright * -120 + new Vec3d(0, 0, -100);
+            Vec3d second = ahead + eright * 200 - edir * 450 + new Vec3d(0, 0, 50);
+            var battle = new Battle(
+                Make(AircraftNumbers.P51D(), me, kias, heading, 0.9), CombatNumbers.P51D(),
+                Make(AircraftNumbers.Bf109G(), lead, kias - 10, ehead, 0.85), CombatNumbers.Bf109G());
+            battle.Add(Make(AircraftNumbers.P51D(), wing, kias, heading, 0.9), CombatNumbers.P51D(), 0);
+            battle.Add(Make(AircraftNumbers.Bf109G(), second, kias - 10, ehead, 0.85), CombatNumbers.Bf109G(), 1);
+            if (flakSites != null)
+            {
+                battle.flak = new FlakSite[flakSites.Length];
+                for (int k = 0; k < flakSites.Length; k++)
+                {
+                    var g = new FlakSite { pos = flakSites[k] };
+                    g.phase = g.burstSec + g.pauseSec - 0.05 - 0.37 * k % (g.burstSec + g.pauseSec - 0.1);
+                    battle.flak[k] = g;
+                }
+            }
+            return battle;
+        }
+
         /// <summary>Three gun positions on each bomber (the ones flying routes), after any flak guns, staggered so they don't all fire at once.</summary>
         public static void AddGunners(Battle battle, int perBomber = 3)
         {
