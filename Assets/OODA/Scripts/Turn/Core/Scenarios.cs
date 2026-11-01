@@ -50,6 +50,7 @@ namespace Ooda.Turn.Core
             var battle = new Battle(mustang, CombatNumbers.P51D(), foe, CombatNumbers.Bf109G());
             var r = new Route { kias = bomberKias, points = route, next = 1 };
             battle.Add(bomber, CombatNumbers.B17G(), 0, r);
+            AddGunners(battle);
             return battle;
         }
     
@@ -118,7 +119,26 @@ namespace Ooda.Turn.Core
                     battle.flak[k] = g;
                 }
             }
+            AddGunners(battle);
             return battle;
+        }
+
+        /// <summary>Three gun positions on each bomber (the ones flying routes), after any flak guns, staggered so they don't all fire at once.</summary>
+        public static void AddGunners(Battle battle, int perBomber = 3)
+        {
+            var list = new System.Collections.Generic.List<FlakSite>(battle.flak);
+            for (int i = 0; i < battle.Count; i++)
+            {
+                if (battle.routes[i] == null) continue;
+                for (int k = 0; k < perBomber; k++)
+                {
+                    var g = FlakSite.B17Gunner(i, battle.side[i]);
+                    g.pos = battle.planes[i].state.pos; g.vel = battle.planes[i].state.vel;
+                    g.phase = (g.burstSec + g.pauseSec) * (k + 0.5) / perBomber;
+                    list.Add(g);
+                }
+            }
+            battle.flak = list.ToArray();
         }
 
         static Vec3d Flat(Vec3d d) => new Vec3d(d.x, d.y, 0).Normalized;

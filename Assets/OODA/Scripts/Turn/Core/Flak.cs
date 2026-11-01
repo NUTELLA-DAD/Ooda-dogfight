@@ -4,7 +4,7 @@ using Ooda.Flight.Core;
 namespace Ooda.Turn.Core
 {
     /// <summary>
-    /// A light anti-aircraft gun on the ground (a quad 20 mm): it fires bursts of tracer at the nearest aircraft
+    /// A light anti-aircraft gun on the ground (a quad 20 mm), or a bomber's gunner (see B17Gunner): it fires bursts of tracer at the nearest aircraft
     /// of the other side it can see within range, leading it the way a gunner would, with an aiming error that
     /// stays the same through a burst (so a steady target gets walked, a jinking one gets missed). Rounds are
     /// ordinary packets that fall and slow. Feet, x east, y north, z up. Numbers are estimates to tune by feel.
@@ -13,6 +13,9 @@ namespace Ooda.Turn.Core
     {
         public Vec3d pos;
         public int side = 1;
+        /// <summary>The aircraft carrying this gun (a bomber's turret), or -1 for a gun on the ground. A carried gun moves with it.</summary>
+        public int carrier = -1;
+        public Vec3d vel;                  // the carrier's velocity (zero on the ground): the rounds start with it
         public double rangeFt = 6500;      // slant range it opens fire at
         public double muzzleFps = 2900;
         public double packetSec = 0.05;
@@ -33,10 +36,20 @@ namespace Ooda.Turn.Core
 
         public FlakSite Copy() => (FlakSite)MemberwiseClone();
 
+        /// <summary>
+        /// One of a B-17's gun positions (top turret, ball turret, tail, waist): twin .50s firing bursts at fighters closing in.
+        /// They shoot from a moving, bumping bomber, so they are less steady than the flak. Numbers are estimates to tune by feel.
+        /// </summary>
+        public static FlakSite B17Gunner(int carrier, int side) => new FlakSite
+        {
+            carrier = carrier, side = side, rangeFt = 3000, muzzleFps = 2900, packetSec = 0.05, burstSec = 1.2, pauseSec = 1.3,
+            damage = 0.35, hitRadiusFt = 10, spreadMil = 4, aimErrorMil = 12, dragPerSec = 0.3, lifeSec = 2.0, bomberReluctance = 100,
+        };
+
         /// <summary>The direction to fire now to meet the target's straight-line path (lead and drop), with this burst's error.</summary>
         public Vec3d Aim(FlightModel m)
         {
-            Vec3d rel = m.state.pos - pos, v = m.state.vel;
+            Vec3d rel = m.state.pos - pos, v = m.state.vel - vel;
             double t = rel.Length / muzzleFps;
             for (int k = 0; k < 4; k++)
             {

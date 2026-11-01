@@ -119,6 +119,7 @@ namespace Ooda.Turn
 
         bool dragArrow, dragLook, dragBurst, dragMoves;
         Rect movesRect;
+        bool showMoves;            // the Advanced timeline panel is open (T)
         float markT;               // the moment on the moves slider being edited, s into the turn
         Vector2 lastPointer;
         float guiScale = 1;
@@ -500,19 +501,23 @@ namespace Ooda.Turn
             if (stickPitch) move.y = -move.y;   // back on the stick (S, down) brings the nose, and the arrow, up
             // The timeline: [ and ] (or the d-pad) move the slider; Q/E bank and Z/C rudder at the slider's moment.
             // Once there are points, W/S pull, Shift/Ctrl throttle and Space WEP also set them at the slider's moment.
-            float scrub = 0;
-            if (kb != null) { if (kb.leftBracketKey.isPressed) scrub -= 1; if (kb.rightBracketKey.isPressed) scrub += 1; }
-            if (pad != null) { if (pad.dpad.left.isPressed) scrub -= 1; if (pad.dpad.right.isPressed) scrub += 1; }
-            if (scrub != 0) markT = Mathf.Clamp(markT + scrub * dt * 1.5f, 0, turnSec);
-            if (Pressed(Key.Comma)) JumpPoint(-1);
-            if (Pressed(Key.Period)) JumpPoint(1);
+            if (Pressed(Key.T)) showMoves = !showMoves;
             float bank = 0;
-            if (kb != null) { if (kb.qKey.isPressed) bank -= 1; if (kb.eKey.isPressed) bank += 1; }
-            if (pad != null && pad.leftStickButton.isPressed) bank += pad.leftStick.ReadValue().x;   // stick click + sideways banks
-            if (bank != 0) NudgeBank(bank * 90f * dt);
-            float rud = 0;
-            if (kb != null) { if (kb.zKey.isPressed) rud -= 1; if (kb.cKey.isPressed) rud += 1; }
-            if (rud != 0) NudgeRudder(rud * 1.5f * dt);
+            if (showMoves)
+            {
+                float scrub = 0;
+                if (kb != null) { if (kb.leftBracketKey.isPressed) scrub -= 1; if (kb.rightBracketKey.isPressed) scrub += 1; }
+                if (pad != null) { if (pad.dpad.left.isPressed) scrub -= 1; if (pad.dpad.right.isPressed) scrub += 1; }
+                if (scrub != 0) markT = Mathf.Clamp(markT + scrub * dt * 1.5f, 0, turnSec);
+                if (Pressed(Key.Comma)) JumpPoint(-1);
+                if (Pressed(Key.Period)) JumpPoint(1);
+                if (kb != null) { if (kb.qKey.isPressed) bank -= 1; if (kb.eKey.isPressed) bank += 1; }
+                if (pad != null && pad.leftStickButton.isPressed) bank += pad.leftStick.ReadValue().x;   // stick click + sideways banks
+                if (bank != 0) NudgeBank(bank * 90f * dt);
+                float rud = 0;
+                if (kb != null) { if (kb.zKey.isPressed) rud -= 1; if (kb.cKey.isPressed) rud += 1; }
+                if (rud != 0) NudgeRudder(rud * 1.5f * dt);
+            }
             if (plan.HasMarks)
             {
                 if (Mathf.Abs(move.x) > 0.1f && bank == 0) NudgeBank(move.x * 90f * dt);
@@ -791,7 +796,9 @@ namespace Ooda.Turn
             }
         }
 
-        Color TracerColor(int owner) => owner == 0 ? myTracer : owner < 0 ? flakTracer : battle.side[owner] == 0 ? wingTracer : theirTracer;
+        Color TracerColor(int owner) => owner == 0 ? myTracer
+            : owner < 0 ? (-1 - owner < battle.flak.Length && battle.flak[-1 - owner].carrier >= 0 ? wingTracer : flakTracer)   // a B-17 gunner's, or the flak's
+            : battle.side[owner] == 0 ? wingTracer : theirTracer;
 
         /// <summary>A path through frames up to an index, with a small wings-and-fin mark at its end.</summary>
         void DrawPath(AircraftFrame[] frames, int upTo, Color color, bool endMark)
@@ -1096,7 +1103,12 @@ namespace Ooda.Turn
         void PlanningPanel(float sw, float sh)
         {
             float pw = Mathf.Min(640, sw - 40), px = (sw - pw) / 2, py = sh - 150;
-            MovesPanel(px, py - 196, pw);
+            if (showMoves || plan.HasMarks) MovesPanel(px, py - 196, pw);
+            else movesRect = Rect.zero;
+            string adv = showMoves ? "Advanced: timeline (T)  \u25BE" : plan.HasMarks ? "Advanced: timeline in use (T)  \u25B8" : "Advanced: timeline (T)  \u25B8";
+            Rect advRect = new Rect(px + pw - 230, (showMoves || plan.HasMarks) ? py - 236 : py - 40, 230, 24);
+            guiRects.Add(advRect);
+            if (GUI.Button(advRect, adv)) showMoves = !showMoves;
             Rect panel = new Rect(px - 10, py - 10, pw + 20, 150);
             GUI.Box(panel, GUIContent.none);
             guiRects.Add(panel);

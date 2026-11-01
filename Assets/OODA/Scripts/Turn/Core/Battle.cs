@@ -268,6 +268,11 @@ namespace Ooda.Turn.Core
         void FireFlak(int f, TurnResult res, Dictionary<Bullet, Trace> traceOf, int k)
         {
             var g = flak[f];
+            if (g.carrier >= 0)
+            {
+                if (g.carrier >= Count || Out(g.carrier)) return;   // the gunner went down with the bomber
+                g.pos = planes[g.carrier].state.pos; g.vel = planes[g.carrier].state.vel;
+            }
             double cycle = g.burstSec + g.pauseSec;
             g.phase += StepSec;
             if (g.phase >= cycle) { g.phase -= cycle; g.target = PickFlakTarget(g); g.fireClock = 0; g.errA = rng.Gauss() * g.aimErrorMil / 1000; g.errB = rng.Gauss() * g.aimErrorMil / 1000; }
@@ -283,11 +288,11 @@ namespace Ooda.Turn.Core
                     double s = g.spreadMil / 1000;
                     dir = (dir + new Vec3d(rng.Gauss() * s, rng.Gauss() * s, rng.Gauss() * s)).Normalized;
                 }
-                Vec3d vel = dir * g.muzzleFps;
+                Vec3d vel = dir * g.muzzleFps + g.vel;
                 var b = new Bullet
                 {
                     owner = -1 - f, side = g.side, damage = g.damage, hitRadiusFt = g.hitRadiusFt, dragPerSec = g.dragPerSec, lifeSec = g.lifeSec,
-                    pos = g.pos + dir * 6 + vel * late, vel = vel, age = late, fireTime = time + StepSec - late,
+                    pos = g.pos + dir * (g.carrier >= 0 ? 40 : 6) + vel * late, vel = vel, age = late, fireTime = time + StepSec - late,
                 };
                 bullets.Add(b);
                 if (traceOf != null) StartTrace(res, traceOf, b, k);
@@ -373,12 +378,19 @@ namespace Ooda.Turn.Core
                 if (b.owner >= 0 && !map.ContainsKey(b.owner)) continue;
                 var bc = b.Copy(); if (b.owner >= 0) bc.owner = map[b.owner]; c.bullets.Add(bc);
             }
-            c.flak = new FlakSite[flak.Length];
-            for (int k = 0; k < flak.Length; k++)
+            var kept = new List<FlakSite>();
+            foreach (var g0 in flak)
             {
-                c.flak[k] = flak[k].Copy();
-                c.flak[k].target = flak[k].target >= 0 && map.TryGetValue(flak[k].target, out int t) ? t : -1;
+                var g = g0.Copy();
+                if (g.carrier >= 0)
+                {
+                    if (!map.TryGetValue(g.carrier, out int cj)) continue;   // its bomber is left out: so is the gunner
+                    g.carrier = cj; g.pos = planes[g0.carrier].state.pos; g.vel = planes[g0.carrier].state.vel;
+                }
+                g.target = g0.target >= 0 && map.TryGetValue(g0.target, out int t) ? t : -1;
+                kept.Add(g);
             }
+            c.flak = kept.ToArray();
             return c;
         }
 

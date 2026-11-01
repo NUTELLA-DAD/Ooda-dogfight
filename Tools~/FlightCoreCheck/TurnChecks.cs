@@ -207,6 +207,26 @@ static class TurnChecks
             Check(hits > 0 && hits < shots / 2, "flak hits a steady bomber sometimes, not every round");
         }
 
+        // B-17 gunners: a Bf 109 closing straight in on a lone B-17's tail gets shot at and hit; nobody on the bomber's side is hit
+        {
+            Vec3d bp = new Vec3d(0, 0, 12000);
+            var bomber = new FlightModel(AircraftNumbers.B17G(), PointMass.Make(bp, Atmosphere.IasToTasKt(150, 12000), Math.PI / 2)) { throttle = 0.8 };
+            Vec3d fp = bp + new Vec3d(0, -4000, 300);
+            var foe = new FlightModel(AircraftNumbers.Bf109G(), PointMass.Make(fp, Atmosphere.IasToTasKt(280, 12000), Math.PI / 2)) { throttle = 1 };
+            var gb = new Battle(bomber, CombatNumbers.B17G(), foe, CombatNumbers.Bf109G());
+            gb.routes[0] = new Route { kias = 150, points = new[] { bp, bp + new Vec3d(0, 60000, 0) }, next = 1 };
+            Scenarios.AddGunners(gb);
+            int onFoe = 0, onOwn = 0, packets = 0;
+            for (int t = 0; t < 3 && !gb.Out(1); t++)
+            {
+                var r = gb.Resolve(new TurnPlan?[] { null, new TurnPlan { aim = (gb.planes[0].state.pos - gb.planes[1].state.pos).Normalized, throttle = 1 } }, 3);
+                onFoe += r.hits.Count(h => h.shooter < 0 && h.target == 1); onOwn += r.hits.Count(h => h.shooter < 0 && h.target == 0);
+                packets += r.traces.Count(tr => tr.owner < 0 && tr.startFrame > 0);
+            }
+            Console.WriteLine($"  B-17 gunners at a Bf 109 closing on the tail: {packets} packets, {onFoe} hits on it, {onOwn} on the bomber; 109 hp {gb.health[1]:F1}");
+            Check(onFoe > 0 && onOwn == 0, "the B-17's gunners hit a fighter closing on its tail, and never their own bomber");
+        }
+
         // The squadron battle in a twisting valley like the alpine map's: 8 v 8, 3 bombers, flak
         {
             const double F = 3.28084;
