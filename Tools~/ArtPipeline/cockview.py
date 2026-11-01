@@ -36,6 +36,13 @@ for name in os.environ.get('VIEWS','abc'):
     if name=='d':
         eye=[o for o in sc.objects if o.name=='CockpitCamera'][0].matrix_world.translation
         co.location=eye+mathutils.Vector((0,0.25,0.1)); co.rotation_euler=(math.radians(58),0,math.radians(180)); cam.lens=22
+    elif name=='e':   # what the game's cockpit camera sees: from the eye, straight ahead, 70 degrees tall
+        cc=[o for o in sc.objects if o.name=='CockpitCamera'][0].matrix_world
+        co.location=cc.translation; co.rotation_euler=(math.radians(90),0,math.radians(180)); cam.sensor_fit='VERTICAL'; cam.angle=math.radians(70)
+        for o in sc.objects:
+            if o.type=='MESH' and o.parent and o.parent.type=='ARMATURE': o.hide_render=True
+    elif name=='f':   # outside, high on the left like the game's pilot shot
+        co.location=ctr+mathutils.Vector((3.0,1.5,1.6)); co.rotation_euler=(ctr+mathutils.Vector((0,0,0.2))-co.location).to_track_quat('-Z','Y').to_euler(); cam.lens=35
     else:
         d,dist=V[name]; d=mathutils.Vector(d).normalized(); co.location=ctr+d*dist; co.rotation_euler=(-d).to_track_quat('-Z','Y').to_euler(); cam.lens=35
     sc.render.filepath=f'{out}_{name}.png'; bpy.ops.render.render(write_still=True)

@@ -22,11 +22,11 @@ CFG = {
     # a: half width of the opening, y0/y1: its front and back, zcut: skin above this inside the opening goes,
     # floor: the tub floor; mount/scale/lift: where the cartoon pilot sits (as the Unity builders seat him)
     'P51': dict(body='P51_Body', box='P51_Cockpit', canopy='P51_Canopy', a=0.51, y0=-1.80, y1=0.82, zcut=0.30, floor=0.08,
-                mount=(0, -0.55, -0.08), scale=1.55, lift=0.05, interior='p51_green', seat='seat_p51', grip='pistol'),
+                mount=(0, -0.55, -0.08), scale=1.55, lift=-0.33, interior='p51_green', seat='seat_p51', grip='pistol'),
     'Spitfire': dict(body='Spit_Body', box='Spit_Cockpit', canopy='Spit_Canopy', a=0.45, y0=-1.72, y1=0.12, zcut=0.22, floor=-0.30,
-                     mount=(0, -0.62, 0.072), scale=1.35, lift=-0.34, interior='spit_grey', seat='seat_spit', grip='spade'),
+                     mount=(0, -0.62, 0.072), scale=1.35, lift=-0.57, interior='spit_grey', seat='seat_spit', grip='spade'),
     'Bf109': dict(body='Bf109_Body', box='Bf109_Cockpit', canopy='Bf109_Canopy', a=0.41, y0=-1.20, y1=0.36, zcut=0.32, floor=-0.25,
-                  mount=(0, -0.28, 0.052), scale=1.55, lift=-0.25, interior='bf109_grey', seat='seat_bf', grip='pistol'),
+                  mount=(0, -0.28, 0.052), scale=1.55, lift=-0.55, interior='bf109_grey', seat='seat_bf', grip='pistol'),
 }
 C = CFG[PLANE]
 bpy.ops.wm.open_mainfile(filepath=SRC)
@@ -124,6 +124,12 @@ def half_width_at(y):
     u = min(abs(y - YC) / B, 0.999)
     return A * (1 - u ** 4) ** 0.25
 
+# the pilot sits down in the tub, shoulders just over the sill; the cockpit camera goes to his eyes
+cc = bpy.data.objects.get('CockpitCamera')
+if cc is not None:
+    w = cc.matrix_world.copy(); w.translation.z = rig(0, 0, 0.69).z; cc.matrix_world = w
+sill = (rim_at(MOUNT.y, 1) + rim_at(MOUNT.y, -1)) / 2
+print(f'{PLANE}: sill at the seat z {sill:.2f}; pilot shoulders z {rig(0, 0, 0.59).z:.2f}, hips z {rig(0, 0, 0.41).z:.2f}, eye z {rig(0, 0, 0.69).z:.2f}, floor {C["floor"]:.2f}')
 # ---------------- 3. building helpers ----------------
 def new_obj(name, parent=None):
     me = bpy.data.meshes.new(name); ob = bpy.data.objects.new(name, me)

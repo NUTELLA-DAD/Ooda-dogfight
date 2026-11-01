@@ -30,7 +30,7 @@ namespace Ooda.EditorTools
         const string ScenePath = Root + "/Scenes/TurnBattle.unity";
 
         // Cartoon size, no glass: the wolf nearly overfills the cockpit with his forearms on the rails (0.82 fitted under the canopy).
-        static readonly TestWorldBuilder.Seat WolfSeat = new TestWorldBuilder.Seat { scale = 1.35f, lift = -0.34f, back = 0f, railHalfWidth = 0.37f, railHeight = 0.42f, railForward = 0.22f };
+        static readonly TestWorldBuilder.Seat WolfSeat = new TestWorldBuilder.Seat { scale = 1.35f, lift = -0.57f, back = 0f, railHalfWidth = 0.37f, railHeight = 0.42f, railForward = 0.22f };
         const float PlaneSmoothingAngle = 80f;
 
         [MenuItem("OODA/Build Turn Battle")]
@@ -125,7 +125,7 @@ namespace Ooda.EditorTools
         const string P51TurnPrefabPath = Root + "/Prefabs/P51Turn.prefab";
         const string FlakFbx = Art + "/Flak/Flak.fbx";
         // The 109's cockpit is narrow with high sills: a bigger wolf, raised a little, so his head and shoulders are out.
-        static readonly TestWorldBuilder.Seat Bf109Seat = new TestWorldBuilder.Seat { scale = 1.55f, lift = -0.25f, back = 0f, railHalfWidth = 0.36f, railHeight = 0.48f, railForward = 0.22f };
+        static readonly TestWorldBuilder.Seat Bf109Seat = new TestWorldBuilder.Seat { scale = 1.55f, lift = -0.55f, back = 0f, railHalfWidth = 0.36f, railHeight = 0.48f, railForward = 0.22f };
 
         static void ImportPlane(string fbx, string metallicSmoothness)
         {

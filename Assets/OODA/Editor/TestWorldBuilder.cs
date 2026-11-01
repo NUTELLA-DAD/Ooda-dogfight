@@ -319,7 +319,7 @@ namespace Ooda.EditorTools
         internal struct Seat { public float scale, lift, back, railHalfWidth, railHeight, railForward; }
 
         // Cartoon size, no glass: the tiger nearly overfills the cockpit with his forearms on the rails (1.2 fitted under the canopy).
-        static readonly Seat TigerSeat = new Seat { scale = 1.55f, lift = 0.05f, back = 0f, railHalfWidth = 0.45f, railHeight = 0.72f, railForward = 0.28f };
+        static readonly Seat TigerSeat = new Seat { scale = 1.55f, lift = -0.33f, back = 0f, railHalfWidth = 0.45f, railHeight = 0.72f, railForward = 0.28f };
 
         /// <summary>No glass: the canopy is hidden, so the pilot sits in the open.</summary>
         internal static void HideCanopy(GameObject model)
