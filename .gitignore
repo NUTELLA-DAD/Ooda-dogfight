@@ -38,3 +38,7 @@ Thumbs.db
 
 # OODA > Plane Shots renders
 Shots~/
+
+# The mountain source FBX (50 MB): OODA builds Mountain_Near.obj and Mountain_Far.obj from it, which are committed
+Assets/OODA/Art/Mountain/Mountain.fbx
+Assets/OODA/Art/Mountain/Mountain.fbx.meta

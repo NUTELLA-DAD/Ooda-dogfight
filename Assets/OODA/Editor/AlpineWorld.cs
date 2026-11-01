@@ -14,9 +14,9 @@ namespace Ooda.EditorTools
     /// over the long crossings, red steel trusses over the gorges. The island still drops to the sea at the edges.
     /// Units are metres, Unity x east and z north; heights are above the sea.
     /// </summary>
-    internal static class AlpineWorld
+    internal static partial class AlpineWorld
     {
-        public const float Size = 20000f, Base = -80f, Height = 4500f;
+        public const float Size = 20000f, Base = -80f, Height = 7000f;   // room for the mountain models over the noise peaks
         const int Res = 1025;                      // heightmap: about 20 m a sample
         const int SplatRes = 1024;
         const float Cell = Size / (Res - 1);
@@ -189,7 +189,9 @@ namespace Ooda.EditorTools
             float massif = Mathf.Lerp(0.7f, 1.15f, Mathf.PerlinNoise(x / 9000f + 41.1f, z / 9000f + 13.7f));
             // the noise runs about 0.2 to 0.95: spread it over valley-side hills to 4 km spires, without capping the tops flat
             float r = Mathf.InverseLerp(0.15f, 0.95f, Ridged(x, z));
-            return Mathf.Min(4400f, 500f + 3500f * massif * Mathf.Pow(r, 1.6f));
+            float y = Mathf.Min(4400f, 500f + 3500f * massif * Mathf.Pow(r, 1.6f));
+            // the noise peaks are squashed above 1.7 km: the mountain models are the big peaks, and stand well over them
+            return y < 1700f ? y : 1700f + (y - 1700f) * 0.3f;
         }
 
         // ---------- build ----------
@@ -227,6 +229,7 @@ namespace Ooda.EditorTools
             t.treeDistance = 7000;
             t.treeBillboardDistance = 7000;
             t.drawInstanced = true;
+            MakeMountains();
 
             var m = WorldMats(mats);
             MakeLakes(m);
@@ -256,6 +259,7 @@ namespace Ooda.EditorTools
 
             var dist = new float[Res, Res];
             var floor = new float[Res, Res];
+            var guard = new bool[Res, Res];         // in or beside a valley: the mountain models must stay under the ground here
             foreach (var v in Valleys)
             {
                 for (int j = 0; j < Res; j++) for (int i = 0; i < Res; i++) dist[j, i] = float.MaxValue;
@@ -286,6 +290,7 @@ namespace Ooda.EditorTools
                     for (int i = 0; i < Res; i++)
                     {
                         float d = dist[j, i];
+                        if (d < reach + ValleyGuard) guard[j, i] = true;
                         if (d >= reach + shoulder) continue;
                         if (v.minWall > 0)
                             h[j, i] = Mathf.Max(h[j, i], floor[j, i] + v.minWall * (0.8f + 0.7f * Ridged(X(i) * 1.7f + 900, X(j) * 1.7f)) * (1 - Step(reach, reach + shoulder, d)));   // not a flat terrace: crests along the rim
@@ -297,6 +302,8 @@ namespace Ooda.EditorTools
                         h[j, i] = Mathf.Min(h[j, i], carved);
                     }
             }
+
+            PlaceMountains(h, guard);
 
             foreach (var l in Lakes)
                 for (int j = 0; j < Res; j++)
@@ -414,7 +421,7 @@ namespace Ooda.EditorTools
                 if (y < 450 || y > 1800 || Slope(h, x, z) > 36) continue;
                 // in clumps: the same noise as the forest colour, a little wider
                 if (Mathf.PerlinNoise(x * 0.0012f + 7, z * 0.0012f + 3) < 0.38f) continue;
-                if (NearRail(rail, x, z, 25f)) continue;
+                if (NearRail(rail, x, z, 25f) || UnderMountain(x, z)) continue;
                 if (Lakes.Any(l => { float ex = (x - l.c.x) / l.r.x, ez = (z - l.c.y) / l.r.y; return ex * ex + ez * ez < 1.3f; })) continue;
                 float s = 0.8f + (float)rnd.NextDouble() * 0.7f;
                 trees.Add(new TreeInstance
@@ -1012,7 +1019,7 @@ namespace Ooda.EditorTools
                 var centre = new Vector3(q.x, y, q.y);
                 var foot = new Vector3(q.x, g, q.y);
                 if (BalloonCentres.Any(p => Vector2.Distance(V(p.x, p.z), q) < 550f)) continue;
-                if (NearRail(rail, q.x, q.y, 40f) || InLake(q.x, q.y)) continue;
+                if (NearRail(rail, q.x, q.y, 40f) || InLake(q.x, q.y) || UnderMountain(q.x, q.y)) continue;
                 if (HazardWires.Any(w => SegDist(centre, w.a, w.b) < 250f)) continue;    // clear of the cable cars
                 if (!ClearOfRoute(foot, centre + Vector3.up * BalloonRadius, BalloonRadius + 2f)) continue;
 
@@ -1057,7 +1064,7 @@ namespace Ooda.EditorTools
                 if (g - around < 12f) continue;   // a crest or the nose of a spur: higher than the ground round it
                 if (Slope(h, q.x, q.y) > 30f) continue;
                 if (MastFeet.Any(f => Vector2.Distance(V(f.x, f.z), q) < 1800f)) continue;
-                if (NearRail(rail, q.x, q.y, 80f) || MainDistance(q.x, q.y, out _) < 350f) continue;
+                if (NearRail(rail, q.x, q.y, 80f) || MainDistance(q.x, q.y, out _) < 350f || UnderMountain(q.x, q.y)) continue;
                 float tall = Rand(rnd, 120f, 200f);
                 Vector3 foot = new Vector3(q.x, g - 1f, q.y), top = foot + Vector3.up * tall, guyTop = foot + Vector3.up * (tall * 0.8f);
                 if (!ClearOfRoute(foot, top, 30f)) continue;
