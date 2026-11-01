@@ -84,10 +84,9 @@ namespace Ooda.Turn
         [Header("Drawing")]
         public float arrowLength = 150f;   // metres
         public Color shellColor = new Color(1f, 1f, 1f, 0.45f);
-        [Tooltip("The shaded reach area: straight ahead, at the white ring (the hardest clean turn), and at the overpull edge.")]
-        public Color reachCentre = new Color(1f, 1f, 1f, 0.05f);
-        public Color reachRing = new Color(1f, 0.92f, 0.9f, 0.22f);
-        public Color reachEdge = new Color(1f, 0.15f, 0.1f, 0.5f);
+        [Tooltip("The shaded overpull band: its colour at the white ring (the hardest clean turn) and at the overpull edge.")]
+        public Color reachRing = new Color(1f, 1f, 1f, 0.12f);
+        public Color reachEdge = new Color(1f, 0.15f, 0.1f, 0.3f);
         public Color arrowColor = new Color(1f, 0.85f, 0.1f, 1f);
         public Color ghostColor = new Color(0.2f, 0.9f, 1f, 0.9f);
         public Color projectionColor = new Color(1f, 0.3f, 0.25f, 0.8f);
@@ -879,25 +878,32 @@ namespace Ooda.Turn
             ShowAllLive();
             Vector3 c = PlayerPos;
 
-            // The reach area, shaded on the arrow's sphere: white straight ahead, still white at the ring (the hardest
-            // clean turn), then into red across the overpull band, where the stick goes past the stall line
-            const int spokes = 48;
-            float[] steps = { 0f, 0.25f, 0.5f, 0.75f, 1f, 1.33f, 1.67f, 2f };   // 0..1 inside the ring, 1..2 across the band
-            var reachPts = new List<Vector3>(steps.Length * spokes);
-            var reachCols = new List<Color>(steps.Length * spokes);
-            foreach (float st in steps)
+            // The reach: a clear middle out to a thin white ring (the hardest clean turn), then a band shaded from white
+            // into red out to the overpull edge, where the stick goes past the stall line. The band is a stack of rings
+            // wide enough to overlap, so it reads as one shaded area.
+            const int spokes = 48, bands = 9;
+            var ring = new List<Vector3>(spokes);
+            for (int k = 0; k < spokes; k++)
             {
-                Color col = st <= 1f ? Color.Lerp(reachCentre, reachRing, st) : Color.Lerp(reachRing, reachEdge, st - 1f);
+                double phi = 2 * Math.PI * k / spokes;
+                ring.Add(c + UnityFrame.Dir(env.Direction(phi, env.MaxAngle(phi))) * arrowLength);
+            }
+            lines.Strip(ring, 0.5f, shellColor, true);
+            double spread = 0;
+            for (int k = 0; k < spokes; k++) { double phi = 2 * Math.PI * k / spokes; spread += env.OuterAngle(phi) - env.MaxAngle(phi); }
+            float bandW = (float)(spread / spokes * arrowLength / bands * 1.25);   // metres per ring, a little overlap
+            for (int r = 0; r < bands; r++)
+            {
+                float u = (r + 0.5f) / bands;
+                var pts = new List<Vector3>(spokes);
                 for (int k = 0; k < spokes; k++)
                 {
                     double phi = 2 * Math.PI * k / spokes;
                     double inner = env.MaxAngle(phi), outerA = env.OuterAngle(phi);
-                    double theta = st <= 1f ? inner * st : inner + (outerA - inner) * (st - 1f);
-                    reachPts.Add(c + UnityFrame.Dir(env.Direction(phi, theta)) * arrowLength);
-                    reachCols.Add(col);
+                    pts.Add(c + UnityFrame.Dir(env.Direction(phi, inner + (outerA - inner) * u)) * arrowLength);
                 }
+                lines.StripMetres(pts, bandW, Color.Lerp(reachRing, reachEdge, u), true);
             }
-            lines.Grid(reachPts, reachCols, steps.Length, spokes, true);
             lines.Line(c, c + UnityFrame.Dir(env.fwd) * arrowLength, 0.3f, new Color(1, 1, 1, 0.3f));
 
             if (plan.HasMarks)

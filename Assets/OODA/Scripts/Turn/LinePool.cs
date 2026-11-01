@@ -35,6 +35,17 @@ namespace Ooda.Turn
             for (int i = usedFills; i < fills.Count; i++) if (fills[i].enabled) fills[i].enabled = false;
         }
 
+        /// <summary>A strip with a fixed width in metres (not scaled by sizeAt), for bands that must fill a gap.</summary>
+        public void StripMetres(IList<Vector3> pts, float widthM, Color color, bool loop = false)
+        {
+            if (pts.Count < 2) return;
+            var l = Next(widthM, color);
+            l.loop = loop;
+            l.positionCount = pts.Count;
+            for (int i = 0; i < pts.Count; i++) l.SetPosition(i, pts[i]);
+            l.startWidth = l.endWidth = widthM;
+        }
+
         // ---------- shaded areas: meshes with a colour at each corner, drawn both sides, see-through ----------
 
         readonly List<MeshRenderer> fills = new List<MeshRenderer>();
