@@ -84,6 +84,10 @@ namespace Ooda.Turn
         [Header("Drawing")]
         public float arrowLength = 150f;   // metres
         public Color shellColor = new Color(1f, 1f, 1f, 0.45f);
+        [Tooltip("The shaded reach area: straight ahead, at the white ring (the hardest clean turn), and at the overpull edge.")]
+        public Color reachCentre = new Color(1f, 1f, 1f, 0.05f);
+        public Color reachRing = new Color(1f, 0.92f, 0.9f, 0.22f);
+        public Color reachEdge = new Color(1f, 0.15f, 0.1f, 0.5f);
         public Color arrowColor = new Color(1f, 0.85f, 0.1f, 1f);
         public Color ghostColor = new Color(0.2f, 0.9f, 1f, 0.9f);
         public Color projectionColor = new Color(1f, 0.3f, 0.25f, 0.8f);
@@ -875,23 +879,25 @@ namespace Ooda.Turn
             ShowAllLive();
             Vector3 c = PlayerPos;
 
-            // The reach shell: its rim and four spokes, and where the nose is now
-            var rim = new List<Vector3>();
-            for (int k = 0; k < 48; k++)
+            // The reach area, shaded on the arrow's sphere: white straight ahead, still white at the ring (the hardest
+            // clean turn), then into red across the overpull band, where the stick goes past the stall line
+            const int spokes = 48;
+            float[] steps = { 0f, 0.25f, 0.5f, 0.75f, 1f, 1.33f, 1.67f, 2f };   // 0..1 inside the ring, 1..2 across the band
+            var reachPts = new List<Vector3>(steps.Length * spokes);
+            var reachCols = new List<Color>(steps.Length * spokes);
+            foreach (float st in steps)
             {
-                double phi = 2 * Math.PI * k / 48;
-                rim.Add(c + UnityFrame.Dir(env.Direction(phi, env.MaxAngle(phi))) * arrowLength);
+                Color col = st <= 1f ? Color.Lerp(reachCentre, reachRing, st) : Color.Lerp(reachRing, reachEdge, st - 1f);
+                for (int k = 0; k < spokes; k++)
+                {
+                    double phi = 2 * Math.PI * k / spokes;
+                    double inner = env.MaxAngle(phi), outerA = env.OuterAngle(phi);
+                    double theta = st <= 1f ? inner * st : inner + (outerA - inner) * (st - 1f);
+                    reachPts.Add(c + UnityFrame.Dir(env.Direction(phi, theta)) * arrowLength);
+                    reachCols.Add(col);
+                }
             }
-            lines.Strip(rim, 0.6f, shellColor, true);
-            for (int k = 0; k < 4; k++) lines.Line(c, rim[k * 12], 0.3f, shellColor * new Color(1, 1, 1, 0.5f));
-            // The overpull band's outer edge: past the ring the stick goes beyond the stall line
-            var outer = new List<Vector3>();
-            for (int k = 0; k < 48; k++)
-            {
-                double phi = 2 * Math.PI * k / 48;
-                outer.Add(c + UnityFrame.Dir(env.Direction(phi, env.OuterAngle(phi))) * arrowLength);
-            }
-            lines.Strip(outer, 0.35f, new Color(overpullColor.r, overpullColor.g, overpullColor.b, 0.35f), true);
+            lines.Grid(reachPts, reachCols, steps.Length, spokes, true);
             lines.Line(c, c + UnityFrame.Dir(env.fwd) * arrowLength, 0.3f, new Color(1, 1, 1, 0.3f));
 
             if (plan.HasMarks)
@@ -923,7 +929,8 @@ namespace Ooda.Turn
             if (preview == null) return;
             int end = preview.FrameCount - 1;
             bool badPath = previewDeparts || previewCrashes;
-            DrawPath(preview.frames[0], end, badPath ? overpullColor : ghostColor, holoMine == null);
+            DrawRibbon(preview.frames[0], end, badPath ? overpullColor : ghostColor);
+            DrawPath(preview.frames[0], end, badPath ? overpullColor : ghostColor, holoMine == null, false);
             for (int i = 1; i < battle.Count; i++)
             {
                 if (battle.Out(i)) continue;
@@ -986,13 +993,38 @@ namespace Ooda.Turn
             : owner < 0 ? (-1 - owner < battle.flak.Length && battle.flak[-1 - owner].carrier >= 0 ? wingTracer : flakTracer)   // a B-17 gunner's, or the flak's
             : battle.side[owner] == 0 ? wingTracer : theirTracer;
 
-        /// <summary>A path through frames up to an index, with a small wings-and-fin mark at its end.</summary>
-        void DrawPath(AircraftFrame[] frames, int upTo, Color color, bool endMark)
+        /// <summary>
+        /// A path as a shaded band the width of a wingspan or so, lying along the wings at each moment, so you see the
+        /// bank through the turn: faint where it starts, stronger towards where the turn leaves you.
+        /// </summary>
+        void DrawRibbon(AircraftFrame[] frames, int upTo, Color color)
         {
             var pts = new List<Vector3>();
-            for (int i = 0; i <= upTo; i += 3) pts.Add(UnityFrame.Pos(frames[i].pos));
-            pts.Add(UnityFrame.Pos(frames[upTo].pos));
-            lines.Strip(pts, 0.8f, new Color(color.r, color.g, color.b, color.a * 0.35f), false, color);
+            var side = new List<Vector3>();
+            void Add(int i)
+            {
+                var f = frames[i];
+                Vector3 fwd = UnityFrame.Dir(f.vel.Normalized), up = UnityFrame.Dir(f.up);
+                Vector3 right = Vector3.Cross(up, fwd);
+                if (right.sqrMagnitude < 1e-6f) right = Vector3.Cross(Vector3.up, fwd);
+                pts.Add(UnityFrame.Pos(f.pos));
+                side.Add(right);
+            }
+            for (int i = 0; i <= upTo; i += 2) Add(i);
+            if (upTo % 2 != 0) Add(upTo);
+            lines.Ribbon(pts, side, 6f, 6f, new Color(color.r, color.g, color.b, color.a * 0.12f), new Color(color.r, color.g, color.b, color.a * 0.5f));
+        }
+
+        /// <summary>A path through frames up to an index, with a small wings-and-fin mark at its end.</summary>
+        void DrawPath(AircraftFrame[] frames, int upTo, Color color, bool endMark, bool line = true)
+        {
+            if (line)
+            {
+                var pts = new List<Vector3>();
+                for (int i = 0; i <= upTo; i += 3) pts.Add(UnityFrame.Pos(frames[i].pos));
+                pts.Add(UnityFrame.Pos(frames[upTo].pos));
+                lines.Strip(pts, 0.8f, new Color(color.r, color.g, color.b, color.a * 0.35f), false, color);
+            }
             if (!endMark) return;
             var f = frames[upTo];
             Vector3 p = UnityFrame.Pos(f.pos), fwd = UnityFrame.Dir(f.vel.Normalized), up = UnityFrame.Dir(f.up);
