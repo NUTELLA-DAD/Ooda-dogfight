@@ -61,7 +61,7 @@ namespace Ooda.Turn.Core
         /// Order: 0 the player, 1 the enemy leader, then the bombers, then the wingmen, then the other enemies.
         /// </summary>
         public static Battle Squadron(Vec3d[] route, Vec3d[] flakSites = null, int fighters = 8, int bombers = 3,
-                                      double bomberKias = 135, double aheadM = 5000)
+                                      double bomberKias = 135, double aheadM = 8000)
         {
             Vec3d start = route[0];
             Vec3d dir = Flat(route[1] - start);
@@ -74,8 +74,11 @@ namespace Ooda.Turn.Core
             }
             Vec3d Around(Vec3d c, Vec3d d, Vec3d r, double lateral, double back, double up) => c + r * lateral - d * back + new Vec3d(0, 0, up);
 
-            // the escorts (P-51s): lateral, back, up from the lead bomber; the first is the player
-            var escort = new[] { (250.0, 900.0, 450.0), (-250, 900, 450), (300, 1700, 900), (-300, 1700, 900), (150, -1500, 600), (-150, -1500, 600), (350, 2500, 300), (-350, 2500, 300) };
+            // the escorts (P-51s), in close formation over the bombers: lateral, back, up (ft) from the lead bomber.
+            // Two finger-fours, wingtips about a span apart: yours on the right (you lead it), the other on the left, higher.
+            // They hold it until the Bf 109s arrive (Slot.BreakFt) or one of ours is hit, then break and fight.
+            var escort = new[] { (250.0, 450.0, 350.0), (190, 510, 350), (310, 510, 350), (370, 570, 350),
+                                 (-250, 650, 550), (-190, 710, 550), (-310, 710, 550), (-370, 770, 550) };
             // the enemy: along the route ahead, coming the other way
             Vec3d at = PointAlong(route, aheadM / 0.3048, out Vec3d edir);
             Vec3d eright = new Vec3d(-edir.y, edir.x, 0);   // their right, flying back down the route
@@ -83,9 +86,9 @@ namespace Ooda.Turn.Core
             var foe = new[] { (150.0, 0.0, 1500.0), (-150, 0, 1500), (450, 600, 1500), (-450, 600, 1500), (150, 1500, 2500), (-150, 1500, 2500), (450, 2100, 2500), (-450, 2100, 2500) };
 
             var battle = new Battle(
-                Make(AircraftNumbers.P51D(), Around(start, dir, right, escort[0].Item1, escort[0].Item2, escort[0].Item3), bomberKias + 10, heading, 0.6), CombatNumbers.P51D(),
+                Make(AircraftNumbers.P51D(), Around(start, dir, right, escort[0].Item1, escort[0].Item2, escort[0].Item3), bomberKias, heading, 0.6), CombatNumbers.P51D(),
                 Make(AircraftNumbers.Bf109G(), Around(at, -edir, eright, foe[0].Item1, foe[0].Item2, foe[0].Item3), 300, ehead, 1), CombatNumbers.Bf109G());
-            var vic = new[] { (0.0, 0.0), (-350, 300), (350, 300) };
+            var vic = new[] { (0.0, 0.0), (-220, 250), (220, 250) };   // a tight vic: the valley is narrow
             for (int b = 0; b < bombers; b++)
             {
                 var (lat, back) = vic[b % vic.Length];
@@ -96,7 +99,9 @@ namespace Ooda.Turn.Core
             for (int w = 1; w < fighters; w++)
             {
                 var e = escort[w % escort.Length];
-                battle.Add(Make(AircraftNumbers.P51D(), Around(start, dir, right, e.Item1, e.Item2 + 900 * (w / escort.Length), e.Item3), bomberKias + 10, heading, 0.6), CombatNumbers.P51D(), 0);
+                double back = e.Item2 + 900 * (w / escort.Length);
+                int k = battle.Add(Make(AircraftNumbers.P51D(), Around(start, dir, right, e.Item1, back, e.Item3), bomberKias, heading, 0.6), CombatNumbers.P51D(), 0);
+                if (bombers > 0) battle.slots[k] = new Slot { leader = 2, lateralFt = e.Item1, backFt = back, upFt = e.Item3 };
             }
             for (int w = 1; w < fighters; w++)
             {

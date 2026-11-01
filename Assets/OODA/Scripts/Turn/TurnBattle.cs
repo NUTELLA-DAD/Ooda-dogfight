@@ -49,6 +49,8 @@ namespace Ooda.Turn
         public float bomberKias = 160;
         [Tooltip("How far ahead along the route the Spitfire starts, metres.")]
         public float escortGapM = 5000;
+        [Tooltip("Squadron: how far up the valley the Bf 109s start, m (they meet the formation about turn 6-7 from 8 km)")]
+        public float squadronGapM = 8000;
         public Color bomberColor = new Color(0.4f, 1f, 0.45f, 0.7f);
 
         [Header("Squadron")]
@@ -207,7 +209,7 @@ namespace Ooda.Turn
             {
                 case Mission.Squadron:
                     var flak = flakSites == null ? new Vec3d[0] : flakSites.Where(f => f != null).Select(f => Ft(f.position)).ToArray();
-                    battle = Scenarios.Squadron(route, flak, squadronFighters, squadronBombers, bomberKias, escortGapM);
+                    battle = Scenarios.Squadron(route, flak, squadronFighters, squadronBombers, bomberKias, squadronGapM);
                     break;
                 case Mission.Escort: battle = Scenarios.Escort(route, bomberKias, escortGapM); break;
                 default: battle = Scenarios.HeadOn(UnityFrame.Pos(startCentre), startAltFt, startKias, startGapM); break;
@@ -304,10 +306,11 @@ namespace Ooda.Turn
             if (phase != Phase.Planning) return;
             var b = battle; var pilots = ais; float ts = turnSec; int n = battle.Count;
             thinkingFor = b;
+            b.CheckBreak();   // so the wingmen get their own plans the turn the formation breaks
             thinking = Task.Run(() =>
             {
                 var plans = new TurnPlan?[n];
-                Parallel.For(1, n, i => { if (pilots[i] != null && !b.Out(i)) plans[i] = pilots[i].Plan(b, ts); });
+                Parallel.For(1, n, i => { if (pilots[i] != null && !b.Out(i) && !b.InFormation(i)) plans[i] = pilots[i].Plan(b, ts); });
                 return plans;
             });
             phase = Phase.Thinking;

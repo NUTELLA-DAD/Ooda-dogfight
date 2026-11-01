@@ -30,6 +30,9 @@ namespace Ooda.Turn.Core
         public CombatNumbers[] combat = new CombatNumbers[0];
         public int[] side = new int[0];              // 0 the player's side, 1 the enemy's
         public Route[] routes = new Route[0];        // set for an aircraft that flies a route by itself
+        public Slot[] slots = new Slot[0];           // set for a wingman holding close formation until the formation breaks
+        /// <summary>The player's side has broken formation: an enemy fighter came within Slot.BreakFt, or one of ours was hit.</summary>
+        public bool formationBroken;
         public double[] health = new double[0];
         public double[] ammo = new double[0];        // seconds of trigger left
         public bool[] down = new bool[0];            // shot down or collided: out of the fight, falling
@@ -62,6 +65,7 @@ namespace Ooda.Turn.Core
             Array.Resize(ref combat, n + 1); combat[n] = c;
             Array.Resize(ref side, n + 1); side[n] = onSide;
             Array.Resize(ref routes, n + 1); routes[n] = route?.Copy();
+            Array.Resize(ref slots, n + 1);
             Array.Resize(ref health, n + 1); health[n] = c.health;
             Array.Resize(ref ammo, n + 1); ammo[n] = c.ammoSec;
             Array.Resize(ref down, n + 1);
@@ -98,6 +102,7 @@ namespace Ooda.Turn.Core
             c.planes = new FlightModel[Count];
             c.routes = new Route[Count];
             for (int i = 0; i < Count; i++) { c.planes[i] = planes[i].Clone(); c.routes[i] = routes[i]?.Copy(); }
+            c.slots = (Slot[])slots.Clone();   // slots never change, so they can be shared
             c.health = (double[])health.Clone(); c.ammo = (double[])ammo.Clone();
             c.down = (bool[])down.Clone(); c.crashed = (bool[])crashed.Clone();
             c.fireClock = (double[])fireClock.Clone();
@@ -128,8 +133,11 @@ namespace Ooda.Turn.Core
         {
             int n = Count;
             var plans = new TurnPlan[n];
+            CheckBreak();
             for (int i = 0; i < n; i++)
-                plans[i] = routes[i] != null ? routes[i].Plan(planes[i]) : i < given.Length && given[i].HasValue ? given[i].Value : TurnPlan.Holding();
+                plans[i] = routes[i] != null ? routes[i].Plan(planes[i])
+                         : InFormation(i) ? slots[i].Plan(this, i, turnSec)
+                         : i < given.Length && given[i].HasValue ? given[i].Value : TurnPlan.Holding();
             int steps = (int)Math.Round(turnSec / StepSec);
             var res = new TurnResult { startTime = time, dt = StepSec, frames = new AircraftFrame[n][] };
             var traceOf = record ? new Dictionary<Bullet, Trace>() : null;
@@ -317,6 +325,29 @@ namespace Ooda.Turn.Core
         /// A smaller battle with only some of the aircraft (by index, in that order), for the AI to try plans in
         /// quickly. Rounds fired by the others are left out; the flak and the ground stay.
         /// </summary>
+        /// <summary>True while aircraft i holds its formation slot (and so plans for itself, like a route).</summary>
+        public bool InFormation(int i) => !formationBroken && i < slots.Length && slots[i] != null && !Out(i) && !Out(slots[i].leader);
+
+        /// <summary>
+        /// Break formation once an enemy fighter is within Slot.BreakFt of any of ours, or one of ours has been hit.
+        /// It stays broken for the rest of the fight.
+        /// </summary>
+        public void CheckBreak()
+        {
+            if (formationBroken) return;
+            bool any = false;
+            for (int i = 0; i < slots.Length; i++) any |= slots[i] != null;
+            if (!any) return;
+            for (int i = 0; i < Count && !formationBroken; i++)
+            {
+                if (side[i] != 0 || Out(i)) continue;
+                if (health[i] < combat[i].health) { formationBroken = true; break; }
+                for (int j = 0; j < Count; j++)
+                    if (side[j] != 0 && !Out(j) && routes[j] == null && (planes[j].state.pos - planes[i].state.pos).Length < Slot.BreakFt)
+                    { formationBroken = true; break; }
+            }
+        }
+
         public Battle Subset(int[] keep)
         {
             var c = (Battle)MemberwiseClone();
@@ -329,6 +360,12 @@ namespace Ooda.Turn.Core
                 int i = keep[j]; map[i] = j;
                 c.planes[j] = planes[i].Clone(); c.combat[j] = combat[i]; c.side[j] = side[i]; c.routes[j] = routes[i]?.Copy();
                 c.health[j] = health[i]; c.ammo[j] = ammo[i]; c.down[j] = down[i]; c.crashed[j] = crashed[i]; c.fireClock[j] = fireClock[i];
+            }
+            c.slots = new Slot[n];
+            for (int j = 0; j < n; j++)
+            {
+                var sl = keep[j] < slots.Length ? slots[keep[j]] : null;
+                if (sl != null && map.TryGetValue(sl.leader, out int lj)) { var s2 = sl.Copy(); s2.leader = lj; c.slots[j] = s2; }
             }
             c.bullets = new List<Bullet>();
             foreach (var b in bullets)

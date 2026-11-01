@@ -77,13 +77,13 @@ namespace Ooda.EditorTools
         {
             int s = new[] { 3, 4, 6, 7, 8, 9, 10, 12 }[i];   // the narrow valley's legs, skipping the one gorge one cuts across, and one more
             Vector2 a = MainLine[s], b = MainLine[s + 1], mid = Vector2.Lerp(a, b, 0.55f);
-            Vector2 side = V(b.y - a.y, a.x - b.x).normalized * (i % 2 == 0 ? 70f : -70f);
+            Vector2 side = V(b.y - a.y, a.x - b.x).normalized * (i % 2 == 0 ? 35f : -35f);
             Vector2 p = mid + side;
             return new Vector3(p.x, MainFloorAt(p.y), p.y);
         }).ToArray();
 
         /// <summary>
-        /// The least clearance along the route, every 25 m and 120 m either side (the bombers fly a vic about 150 m wide):
+        /// The least clearance along the route, every 25 m and 150 m either side (the squadrons fly up to 130 m off the line):
         /// over the ground and anything on the Obstacles layer below, and under anything on it above (counted as negative).
         /// </summary>
         public static float CheckEscortRoute(Terrain terrain)
@@ -100,7 +100,7 @@ namespace Ooda.EditorTools
                 for (int k = 0; k <= n; k++)
                 {
                     Vector3 p = Vector3.Lerp(a, b, k / (float)n);
-                    foreach (float side in new[] { -120f, -60f, 0f, 60f, 120f })
+                    foreach (float side in new[] { -150f, -100f, -50f, 0f, 50f, 100f, 150f })
                     {
                         Vector3 q = p + Vector3.Cross(Vector3.up, (b - a).normalized) * side;
                         float g = terrain.SampleHeight(q) + terrain.transform.position.y;
@@ -129,14 +129,15 @@ namespace Ooda.EditorTools
         static readonly Valley[] Valleys =
         {
             // The main valley's narrow twisting part, first: its walls are raised, and the valleys after it cut through them.
-            new Valley { pts = MainLine.Skip(2).ToArray(), floor = MainLine.Skip(2).Select(p => MainFloorAt(p.y)).ToArray(), halfFloor = 100, wall = 800, minWall = 950 },
-            // The basin at its foot: the lower lake and the village.
-            new Valley { pts = new[] { V(0, -10600), V(0, -7800), V(0, -6100) }, floor = new[] { 360f, 372f, 380f }, halfFloor = 450, wall = 1500 },
+            new Valley { pts = MainLine.Skip(2).ToArray(), floor = MainLine.Skip(2).Select(p => MainFloorAt(p.y)).ToArray(), halfFloor = 70, wall = 550, minWall = 950 },
+            // The basin at its foot: the lower lake and the village, on a floor about 320 m wide. Only the main valley
+            // raises its walls: one that crossed it would fill it in.
+            new Valley { pts = new[] { V(0, -10600), V(0, -7800), V(0, -6100) }, floor = new[] { 360f, 372f, 380f }, halfFloor = 160, wall = 700 },
             // The rail valley, winding east-west across the north.
             new Valley { pts = Enumerable.Range(0, 15).Select(i => { float x = -10600 + i * 1514f; return V(x, 2600 + 1300 * Mathf.Sin(x / 2600f)); }).ToArray(),
-                         floor = Enumerable.Range(0, 15).Select(i => 950f + 60 * Mathf.Sin(i * 0.7f)).ToArray(), halfFloor = 300, wall = 1300 },
+                         floor = Enumerable.Range(0, 15).Select(i => 950f + 60 * Mathf.Sin(i * 0.7f)).ToArray(), halfFloor = 120, wall = 650 },
             // A side valley from the south-west.
-            new Valley { pts = new[] { V(-10600, -7000), V(-4000, -3500), V(-2500, 1500) }, floor = new[] { 400f, 700f, 900f }, halfFloor = 350, wall = 1400 },
+            new Valley { pts = new[] { V(-10600, -7000), V(-4000, -3500), V(-2500, 1500) }, floor = new[] { 400f, 700f, 900f }, halfFloor = 140, wall = 700 },
             // Gorge one: a winding slot canyon east-west, cut right across the main valley's floor.
             new Valley { pts = Enumerable.Range(0, 43).Select(i => { float x = -10600 + i * 505f; return V(x, -2600 + 500 * Mathf.Sin(x / 1700f)); }).ToArray(),
                          floor = Enumerable.Repeat(280f, 43).ToArray(), halfFloor = 90, wall = 450, gorge = true },
@@ -148,8 +149,8 @@ namespace Ooda.EditorTools
         struct Lake { public Vector2 c, r; public float level; }
         static readonly Lake[] Lakes =
         {
-            new Lake { c = V(0, -8400), r = V(800, 1300), level = 372 },
-            new Lake { c = V(-6400, 3150), r = V(650, 380), level = 955 },
+            new Lake { c = V(0, -8500), r = V(200, 1000), level = 372 },     // long and thin down the basin floor
+            new Lake { c = V(-6400, 3150), r = V(500, 140), level = 955 },
         };
 
         // The railway's line and its rail height (x, rail top, z): it keeps a gentle grade and lets the ground decide
@@ -781,10 +782,10 @@ namespace Ooda.EditorTools
             var mb = new MeshBuilder(3);          // 0 plaster, 1 wood, 2 roof
             var rnd = new System.Random(5);
             var placed = new List<Vector2>();
-            for (int tries = 0; tries < 400 && placed.Count < 24; tries++)
+            for (int tries = 0; tries < 400 && placed.Count < 18; tries++)
             {
-                var p = new Vector2(-300 + (float)rnd.NextDouble() * 600, -6850 + (float)rnd.NextDouble() * 500);
-                if (placed.Any(q => Vector2.Distance(p, q) < 32)) continue;
+                var p = new Vector2(-110 + (float)rnd.NextDouble() * 220, -7350 + (float)rnd.NextDouble() * 1150);
+                if (placed.Any(q => Vector2.Distance(p, q) < 28)) continue;
                 if (Slope(h, p.x, p.y) > 8) continue;
                 placed.Add(p);
                 float y = SampleArr(h, p.x, p.y);
@@ -805,7 +806,7 @@ namespace Ooda.EditorTools
             }
             // the church
             {
-                Vector3 c = new Vector3(250, SampleArr(h, 250, -6500), -6500);
+                Vector3 c = new Vector3(70, SampleArr(h, 70, -6700), -6700);
                 mb.Box(c + new Vector3(0, 6, 0), Quaternion.identity, new Vector3(12, 12, 22), 0);
                 mb.Box(c + new Vector3(0, 13, -16), Quaternion.identity, new Vector3(6, 26, 6), 0);
                 mb.Cone(c + new Vector3(0, 26, -16), 4.6f, 12f, 4, 2);

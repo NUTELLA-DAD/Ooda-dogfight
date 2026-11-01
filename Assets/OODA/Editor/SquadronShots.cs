@@ -41,6 +41,9 @@ namespace Ooda.EditorTools
 
             Report(tb, "turn 0");
             Save(cam, rt, dir, "squad_turn0");
+            Formation(tb, "turn 0");
+            FormationShot(tb, cam, camScripts, rt, dir, "squad_formation0", all);
+            bool wasBroken = false;
 
             bool flakShot = false, metShot = false;
             var thinkMs = new System.Collections.Generic.List<long>();
@@ -88,6 +91,14 @@ namespace Ooda.EditorTools
                     }
                 }
                 Frames(all, 3);
+                bool broken = Formation(tb, $"after turn {turn}");
+                if (broken && !wasBroken)
+                {
+                    Debug.Log($"OODA squadron: the formation broke in turn {turn}.");
+                    Save(cam, rt, dir, "squad_break");
+                    FormationShot(tb, cam, camScripts, rt, dir, "squad_break_formation", all);
+                }
+                wasBroken = broken;
                 float closest = Closest(tb);
                 Report(tb, $"after turn {turn} (thinking {thinkMs[thinkMs.Count - 1]} ms, {last.FrameCount} frames, {last.hits.Count} hits, {last.traces.Count(tr => tr.owner < 0)} flak packets), nearest 109 to a bomber {closest:F0} m");
                 if (!metShot && (turn >= 6 && closest < 1500f || turn == 10))
@@ -200,6 +211,46 @@ namespace Ooda.EditorTools
             Debug.Log($"OODA timeline: {((TurnPlan)planField.GetValue(tb)).marks.Length} marks; arrow tip {(tip.gameObject.activeSelf ? "SHOWN" : "hidden")}.");
             Save(cam, rt, Path.GetFullPath("Shots~"), "timeline_ghost");
             cam.targetTexture = null;
+        }
+
+        /// <summary>Logs whether the formation holds, each slotted wingman's distance from its slot, and who has crashed; returns broken.</summary>
+        static bool Formation(TurnBattle tb, string when)
+        {
+            var battle = (Battle)typeof(TurnBattle).GetField("battle", Any).GetValue(tb);
+            var gaps = new System.Collections.Generic.List<string>();
+            for (int i = 0; i < battle.slots.Length && i < battle.Count; i++)
+            {
+                var s = battle.slots[i];
+                if (s == null) continue;
+                var l = battle.planes[s.leader];
+                double gap = (battle.planes[i].state.pos - s.Where(l.state.pos, l.state.vel)).Length * 0.3048;
+                gaps.Add($"{i}:{gap:F0}{(battle.Out(i) ? " OUT" : "")}");
+            }
+            var crashed = Enumerable.Range(0, battle.Count).Where(i => battle.crashed[i]).Select(i => $"{i} (side {battle.side[i]})").ToList();
+            Debug.Log($"OODA formation {when}: {(battle.formationBroken ? "BROKEN" : "holding")}; slot gaps m {string.Join(" ", gaps)}; crashed: {(crashed.Count == 0 ? "none" : string.Join(", ", crashed))}.");
+            return battle.formationBroken;
+        }
+
+        /// <summary>From behind and above the lead bomber, far enough back to frame both finger-fours and the vic.</summary>
+        static void FormationShot(TurnBattle tb, Camera cam, MonoBehaviour[] camScripts, RenderTexture rt, string dir, string name, MonoBehaviour[] all)
+        {
+            var battle = (Battle)typeof(TurnBattle).GetField("battle", Any).GetValue(tb);
+            int lead = battle.slots.Where(s => s != null).Select(s => s.leader).DefaultIfEmpty(2).First();
+            var l = battle.planes[lead];
+            Vector3 p = UnityFrame.Pos(l.state.pos), v = UnityFrame.Dir(l.state.vel);
+            Vector3 fwd = new Vector3(v.x, 0, v.z).normalized;
+            foreach (var c in camScripts) c.enabled = false;
+            float near = cam.nearClipPlane, fov = cam.fieldOfView;
+            cam.nearClipPlane = 1f;
+            cam.fieldOfView = 50f;
+            cam.transform.position = p - fwd * 800f + Vector3.up * 330f;
+            cam.transform.LookAt(p - fwd * 120f + Vector3.up * 70f);
+            Frames(all.Where(b => b != null && b.gameObject != cam.gameObject).ToArray(), 1);   // lines sized for this camera
+            Save(cam, rt, dir, name);
+            cam.nearClipPlane = near;
+            cam.fieldOfView = fov;
+            foreach (var c in camScripts) c.enabled = true;
+            Frames(all, 1);
         }
 
         static float Closest(TurnBattle tb)
