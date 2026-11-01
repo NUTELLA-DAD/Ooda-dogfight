@@ -45,7 +45,8 @@ namespace Ooda.EditorTools
             FormationShot(tb, cam, camScripts, rt, dir, "squad_formation0", all);
             bool wasBroken = false;
 
-            bool flakShot = false, metShot = false;
+            bool flakShot = false, metShot = false, missileShot = false, gunnerShot = false, ghostShot = false;
+            int gunnerHits = 0, gunnerPackets = 0, missilesFired = 0, missileHits = 0;
             var thinkMs = new System.Collections.Generic.List<long>();
             for (int turn = 1; turn <= 14 && Phase(tb) != "Over"; turn++)
             {
@@ -65,6 +66,21 @@ namespace Ooda.EditorTools
                     typeof(TurnBattle).GetField("playT", Any).SetValue(tb, t);
                     Call(tb, "Playback");
                     Frames(all, 1);
+                    {
+                        // the first missile smoke trail and the first bomber gunners' tracers, from beside them
+                        int fr = Mathf.Clamp(Mathf.FloorToInt(t / (float)last.dt), 0, last.FrameCount - 1);
+                        var b0 = (Battle)typeof(TurnBattle).GetField("battle", Any).GetValue(tb);
+                        if (!missileShot)
+                        {
+                            var mt = last.traces.FirstOrDefault(tr => tr.missile && tr.At(fr).HasValue && tr.At(fr - 25).HasValue);
+                            if (mt != null) { EventShot(cam, camScripts, rt, dir, "squad_missile", UnityFrame.Pos(mt.At(fr - 25).Value), UnityFrame.Pos(mt.At(fr).Value), all); missileShot = true; Debug.Log($"OODA squadron: missile from {mt.owner} in flight in turn {turn}."); }
+                        }
+                        if (!gunnerShot)
+                        {
+                            var gt = last.traces.FirstOrDefault(tr => tr.owner < 0 && -1 - tr.owner < b0.flak.Length && b0.flak[-1 - tr.owner].carrier >= 0 && tr.At(fr).HasValue && tr.At(fr - 8).HasValue);
+                            if (gt != null) { EventShot(cam, camScripts, rt, dir, "squad_gunners", UnityFrame.Pos(last.frames[b0.flak[-1 - gt.owner].carrier][fr].pos), UnityFrame.Pos(gt.At(fr).Value), all); gunnerShot = true; Debug.Log($"OODA squadron: B-17 gunner {-1 - gt.owner} (on {b0.flak[-1 - gt.owner].carrier}) firing in turn {turn}."); }
+                        }
+                    }
                     if (!flakShot)
                     {
                         int frame = Mathf.Clamp(Mathf.FloorToInt(t / (float)last.dt), 0, last.FrameCount - 1);
@@ -91,7 +107,16 @@ namespace Ooda.EditorTools
                     }
                 }
                 Frames(all, 3);
+                {
+                    var bt = (Battle)typeof(TurnBattle).GetField("battle", Any).GetValue(tb);
+                    bool Gunner(int shooter) => shooter < 0 && -1 - shooter < bt.flak.Length && bt.flak[-1 - shooter].carrier >= 0;
+                    int gp = last.traces.Count(tr => Gunner(tr.owner)), gh = last.hits.Count(h => Gunner(h.shooter) && bt.side[h.target] == 1);
+                    int mf = last.traces.Count(tr => tr.missile), mh = last.hits.Count(h => h.damage >= 5);
+                    gunnerPackets += gp; gunnerHits += gh; missilesFired += mf; missileHits += mh;
+                    Debug.Log($"OODA weapons turn {turn}: gunner packets {gp}, gunner hits on 109s {gh}; missiles launched {mf}, missile hits {mh} ({string.Join(", ", last.hits.Where(h => h.damage >= 5).Select(h => $"{h.shooter}->{h.target}"))}); missiles left side 0 {Enumerable.Range(0, bt.Count).Where(i => bt.side[i] == 0).Sum(i => bt.missiles[i])}, side 1 {Enumerable.Range(0, bt.Count).Where(i => bt.side[i] == 1).Sum(i => bt.missiles[i])}.");
+                }
                 bool broken = Formation(tb, $"after turn {turn}");
+                if (broken && !ghostShot && Phase(tb) == "Planning") { Save(cam, rt, dir, "squad_ghosts"); ghostShot = true; }
                 if (broken && !wasBroken)
                 {
                     Debug.Log($"OODA squadron: the formation broke in turn {turn}.");
@@ -108,6 +133,7 @@ namespace Ooda.EditorTools
                 }
             }
             if (!metShot) Save(cam, rt, dir, "squad_meet");
+            Debug.Log($"OODA weapons total: gunner packets {gunnerPackets}, gunner hits on 109s {gunnerHits}; missiles launched {missilesFired}, missile hits {missileHits}.");
             Debug.Log($"OODA squadron: pilots thinking took {string.Join(", ", thinkMs)} ms per turn (mean {thinkMs.Average():F0} ms) on this machine, {System.Environment.ProcessorCount} logical cores.");
 
             // a Bf 109 and its wolf, close
@@ -211,6 +237,29 @@ namespace Ooda.EditorTools
             Debug.Log($"OODA timeline: {((TurnPlan)planField.GetValue(tb)).marks.Length} marks; arrow tip {(tip.gameObject.activeSelf ? "SHOWN" : "hidden")}.");
             Save(cam, rt, Path.GetFullPath("Shots~"), "timeline_ghost");
             cam.targetTexture = null;
+        }
+
+        /// <summary>A shot from beside a moving line (a missile's smoke, a burst of tracers): side-on to it, looking at where it is now.</summary>
+        static void EventShot(Camera cam, MonoBehaviour[] camScripts, RenderTexture rt, string dir, string name, Vector3 from, Vector3 now, MonoBehaviour[] all)
+        {
+            Vector3 along = (now - from).normalized;
+            Vector3 side = Vector3.Cross(along, Vector3.up).normalized;
+            if (side.sqrMagnitude < 0.01f) side = Vector3.right;
+            foreach (var c in camScripts) c.enabled = false;
+            float near = cam.nearClipPlane, fov = cam.fieldOfView;
+            cam.nearClipPlane = 0.5f;
+            cam.fieldOfView = 50f;
+            float span = Mathf.Max(80f, Vector3.Distance(from, now));
+            cam.transform.position = (from + now) / 2 + side * span * 0.9f + Vector3.up * span * 0.25f;
+            var terrain = Object.FindFirstObjectByType<Terrain>();
+            float g = terrain.SampleHeight(cam.transform.position) + terrain.transform.position.y + 10f;
+            if (cam.transform.position.y < g) cam.transform.position = new Vector3(cam.transform.position.x, g, cam.transform.position.z);
+            cam.transform.LookAt((from + now) / 2);
+            Frames(all.Where(b => b != null && b.gameObject != cam.gameObject).ToArray(), 1);   // lines sized for this camera
+            Save(cam, rt, dir, name);
+            cam.nearClipPlane = near;
+            cam.fieldOfView = fov;
+            foreach (var c in camScripts) c.enabled = true;
         }
 
         /// <summary>Logs whether the formation holds, each slotted wingman's distance from its slot, and who has crashed; returns broken.</summary>
