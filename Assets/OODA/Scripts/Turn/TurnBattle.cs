@@ -1239,7 +1239,7 @@ namespace Ooda.Turn
                     "Past the ring, up to the red ring, you overpull: stall, maybe spin.\n" +
                     "Blue: your path. Red: the enemy if they keep doing what they're doing.\n" +
                     (Bombing ? "Green: the bombers' course. Keep the Bf 109s off them; flak fires orange.\n" : "") +
-                    "Orange: your rounds. They arc and take time: lead the target.\n" +
+                    "Your rounds: red hits, yellow just misses, orange misses. Lead the target.\n" +
                     "Drag on the timeline to fire; F fires where hits are predicted.\n\n" +
                     "Keys: WASD arrow (S pulls up, like the stick), Shift/Ctrl throttle,\n" +
                     "Space WEP, B bursts, G missile, T advanced timeline, " +
