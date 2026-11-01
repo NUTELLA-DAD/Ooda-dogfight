@@ -85,8 +85,8 @@ namespace Ooda.Turn
         public float arrowLength = 150f;   // metres
         public Color shellColor = new Color(1f, 1f, 1f, 0.45f);
         [Tooltip("The shaded overpull band: its colour at the white ring (the hardest clean turn) and at the overpull edge.")]
-        public Color reachRing = new Color(1f, 1f, 1f, 0.12f);
-        public Color reachEdge = new Color(1f, 0.15f, 0.1f, 0.3f);
+        public Color reachRing = new Color(1f, 1f, 1f, 0.07f);
+        public Color reachEdge = new Color(1f, 0.15f, 0.1f, 0.2f);
         public Color arrowColor = new Color(1f, 0.85f, 0.1f, 1f);
         public Color ghostColor = new Color(0.2f, 0.9f, 1f, 0.9f);
         public Color projectionColor = new Color(1f, 0.3f, 0.25f, 0.8f);
@@ -881,7 +881,7 @@ namespace Ooda.Turn
             // The reach: a clear middle out to a thin white ring (the hardest clean turn), then a band shaded from white
             // into red out to the overpull edge, where the stick goes past the stall line. The band is a stack of rings
             // wide enough to overlap, so it reads as one shaded area.
-            const int spokes = 48, bands = 9;
+            const int spokes = 48, bands = 16;
             var ring = new List<Vector3>(spokes);
             for (int k = 0; k < spokes; k++)
             {
@@ -891,7 +891,7 @@ namespace Ooda.Turn
             lines.Strip(ring, 0.5f, shellColor, true);
             double spread = 0;
             for (int k = 0; k < spokes; k++) { double phi = 2 * Math.PI * k / spokes; spread += env.OuterAngle(phi) - env.MaxAngle(phi); }
-            float bandW = (float)(spread / spokes * arrowLength / bands * 1.25);   // metres per ring, a little overlap
+            float bandW = (float)(spread / spokes * arrowLength / bands * 1.6);   // metres per ring, overlapping so it reads smooth
             for (int r = 0; r < bands; r++)
             {
                 float u = (r + 0.5f) / bands;
