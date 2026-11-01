@@ -50,6 +50,8 @@ namespace Ooda.Turn.Core
         public Func<double, double, double> groundFt = (x, y) => 0;
         /// <summary>Solid things above the ground (bridges, tunnel mouths, buildings): true if the segment from a to b (feet) hits one.</summary>
         public Func<Vec3d, Vec3d, bool> obstacleHit;
+        /// <summary>The air hazards as plain shapes (thread-safe), for AI pilots planning where obstacleHit can't be used. May be null.</summary>
+        public WireSet wires;
         /// <summary>Guns on the ground.</summary>
         public FlakSite[] flak = new FlakSite[0];
 

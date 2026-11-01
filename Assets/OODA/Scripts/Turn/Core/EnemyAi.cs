@@ -49,7 +49,7 @@ namespace Ooda.Turn.Core
             int them = Target(battle);
             if (them < 0) return TurnPlan.Straight(m);
             var sub = battle.Subset(Nearby(battle, them));   // me is 0 in it, the target 1
-            if (ignoreObstacles) sub.obstacleHit = null;
+            if (ignoreObstacles) sub.obstacleHit = sub.wires == null ? null : (Func<Vec3d, Vec3d, bool>)sub.wires.Hit;   // the air hazards' plain shapes, not the colliders
             // only the flak that could reach it this turn
             var near = new List<FlakSite>();
             foreach (var g in sub.flak) if ((g.pos - m.state.pos).Length < g.rangeFt + 3000) near.Add(g);

@@ -203,6 +203,20 @@ namespace Ooda.Turn
                                   d.size.x / (res - 1) * Atmosphere.FtPerM, d.size.z / (res - 1) * Atmosphere.FtPerM);
         }
 
+        /// <summary>The air hazards as plain shapes in feet, for the AI pilots, who plan off the main thread and can't use the colliders.
+        /// A wide margin round each one, so they keep well clear.</summary>
+        WireSet MakeWires()
+        {
+            var hm = FindFirstObjectByType<HazardMarkers>();
+            if (hm == null) return null;
+            var w = new WireSet();
+            const double wireFt = 30;   // about 9 m: the 4 m collider and room to spare
+            for (int k = 0; k < hm.WireCount; k++) w.Add(UnityFrame.Pos(hm.wireStarts[k]), UnityFrame.Pos(hm.wireEnds[k]), wireFt);
+            if (hm.balloons != null)
+                foreach (var c in hm.balloons) { var p = UnityFrame.Pos(c); w.Add(p, p, (hm.balloonRadius + 8f) * Atmosphere.FtPerM); }
+            return w.Count > 0 ? w : null;
+        }
+
         int obstacleMask = -2;
 
         /// <summary>A straight line between two points (feet) through anything on the Obstacles layer: bridges, tunnel mouths, buildings.</summary>
@@ -245,6 +259,7 @@ namespace Ooda.Turn
             }
             if (grid != null) battle.groundFt = grid.At; else battle.groundFt = GroundFt;
             battle.obstacleHit = ObstacleHit;
+            battle.wires = MakeWires();
 
             // a view for each aircraft: the scene's player, enemy and bomber first, prefabs for the rest
             int n = battle.Count;
