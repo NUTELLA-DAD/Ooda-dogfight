@@ -63,24 +63,7 @@ namespace Ooda.EditorTools
             plane.importTangents = ModelImporterTangents.CalculateMikk;
             plane.SaveAndReimport();
 
-            var pilot = (ModelImporter)AssetImporter.GetAtPath(WolfFbx);
-            pilot.materialImportMode = ModelImporterMaterialImportMode.None;
-            pilot.animationType = ModelImporterAnimationType.Human;
-            pilot.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
-            pilot.importAnimation = true;
-            var clips = pilot.defaultClipAnimations;
-            foreach (var c in clips)
-            {
-                c.name = "Seated";
-                c.loopTime = true;
-                c.lockRootRotation = c.lockRootHeightY = c.lockRootPositionXZ = true;
-                c.keepOriginalOrientation = c.keepOriginalPositionY = c.keepOriginalPositionXZ = true;
-            }
-            pilot.clipAnimations = clips;
-            pilot.SaveAndReimport();
-            var avatar = AssetDatabase.LoadAllAssetsAtPath(WolfFbx).OfType<Avatar>().FirstOrDefault();
-            if (avatar != null && avatar.isValid && avatar.isHuman) Debug.Log("OODA: WolfPilot avatar is valid (Humanoid).");
-            else Debug.LogError($"OODA: WolfPilot avatar is not a valid humanoid (found: {avatar != null}, valid: {avatar?.isValid}, human: {avatar?.isHuman}).");
+            TestWorldBuilder.ImportPilot(WolfFbx, "WolfPilot");
 
             foreach (var t in new[] { Art + "/Spitfire/Spit_MetallicSmoothness.png", Art + "/WolfPilot/Wolf_MetallicSmoothness.png" })
             {
@@ -90,19 +73,7 @@ namespace Ooda.EditorTools
             }
         }
 
-        static RuntimeAnimatorController MakeSeatedAnimator(string fbx, string name)
-        {
-            string path = $"{Gen}/{name}.controller";
-            AssetDatabase.DeleteAsset(path);
-            var ctrl = AnimatorController.CreateAnimatorControllerAtPath(path);
-            var clip = AssetDatabase.LoadAllAssetsAtPath(fbx).OfType<AnimationClip>().FirstOrDefault(c => !c.name.StartsWith("__preview"));
-            var layers = ctrl.layers;
-            layers[0].iKPass = true;
-            ctrl.layers = layers;
-            ctrl.layers[0].stateMachine.AddState("Seated").motion = clip;
-            if (clip == null) Debug.LogWarning($"OODA: no Seated clip found in {fbx}.");
-            return ctrl;
-        }
+        static RuntimeAnimatorController MakeSeatedAnimator(string fbx, string name) => TestWorldBuilder.MakePilotController(fbx, name);
 
         static GameObject MakeSpitfirePrefab(TestWorldBuilder.Mats mats, Material body, Material pilotMat, RuntimeAnimatorController pilotCtrl) =>
             MakeWolfFighter("Spitfire", SpitFbx, "Spit_Propeller", SpitPrefabPath, WolfSeat, mats, body, pilotMat, pilotCtrl);
@@ -117,7 +88,8 @@ namespace Ooda.EditorTools
             model.transform.SetParent(root.transform, false);
             foreach (var r in model.GetComponentsInChildren<Renderer>())
             {
-                Material m = r.name.Contains("Canopy") ? mats.canopy : r.name.Contains("Cockpit") ? mats.cockpit : body;
+                Material m = r.name.StartsWith("Pit_") ? TestWorldBuilder.CockpitMat() : r.name.Contains("Canopy") ? mats.canopy : r.name.Contains("Cockpit") ? mats.cockpit : body;
+                if (r.name.StartsWith("Pit_")) r.shadowCastingMode = ShadowCastingMode.Off;
                 r.sharedMaterials = Enumerable.Repeat(m, r.sharedMaterials.Length).ToArray();
                 if (r.name.Contains("Canopy")) r.shadowCastingMode = ShadowCastingMode.Off;
             }
@@ -139,6 +111,7 @@ namespace Ooda.EditorTools
             anim.applyRootMotion = false;
             anim.cullingMode = AnimatorCullingMode.AlwaysAnimate;
             pilot.AddComponent<PilotHeadLook>();
+            TestWorldBuilder.AddPilotControls(pilot);
 
             var saved = PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
             Object.DestroyImmediate(root);
@@ -203,7 +176,10 @@ namespace Ooda.EditorTools
             imp.animationType = ModelImporterAnimationType.None;
             imp.importAnimation = false;
             imp.SaveAndReimport();
-            var mat = TestWorldBuilder.Mat("Flak", new Color(0.24f, 0.28f, 0.22f), 0.25f, 0.2f);
+            // painted and shaded now (field grey, gunmetal barrels, black tyres); the map's smoothness and metal do the rest
+            var ms = (TextureImporter)AssetImporter.GetAtPath(Art + "/Flak/Flak_MetallicSmoothness.png");
+            if (ms != null && ms.sRGBTexture) { ms.sRGBTexture = false; ms.SaveAndReimport(); }
+            var mat = TestWorldBuilder.Textured("Flak", Art + "/Flak/Flak_BaseColor.png", Art + "/Flak/Flak_MetallicSmoothness.png");
             var model = AssetDatabase.LoadAssetAtPath<GameObject>(FlakFbx);
             int layer = AlpineWorld.ObstacleLayerIndex();
             var route = AlpineWorld.EscortRoute;

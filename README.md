@@ -34,6 +34,14 @@ The valley has obstacles in the air as well as the rock: 10 to 16 grey barrage b
 
 The turn engine is plain C# in `Assets/OODA/Scripts/Turn/Core/`: the autopilot that flies the arrow (`AutoPilot.cs`), the reach ring (`Envelope.cs`), guns and hits (`Combat.cs`, `Battle.cs`), the AI (`EnemyAi.cs`) and the start (`Scenarios.cs`). Damage is simple hit points for now; each hit already records where it struck, for hit locations later. The Spitfire IX's numbers and both aircraft's gun numbers are estimates from public figures, to tune by feel.
 
+## Cockpits, pilots and the art pass
+
+**Cockpits.** The P-51, Spitfire and Bf 109 each have a cartoon cockpit in their FBX, under an empty called `Pit`: a painted tub with ribs, a padded leather coaming round a clean-cut opening, an instrument panel (airspeed, horizon, altimeter, climb, compass, RPM and small gauges), glare shield and gunsight, seat and armour plate, rudder pedals, a throttle quadrant with a trim wheel, a switch box, and the control stick (a spade grip in the Spitfire). Everything named `Pit_` uses one atlas, `Art/Cockpit/Cockpit_Atlas.png`. The stick, the throttle lever, the four needles and the horizon move.
+
+**Pilots.** The tiger and the wolf share one rig and the same clips: **Fly** (the base loop: right paw on the stick, left on the throttle), **Instruments** (reaches to the panel, taps a gauge, twists a knob), **ShakeFist**, **CheckSix** (looks back over each shoulder), **Cheer** (fist pumps) and **Flinch**. `PilotControls` (on each pilot) keeps the paws on the stick and throttle with hand IK, leans the stick with the G and the roll, moves the throttle with the engine, drives the needles and the horizon, and plays the gestures: a fist at an enemy the pilot is watching once it is within 450 m, the instruments or a check of six now and then, and in the turn battle a flinch when hit, a fist when his rounds hit and a cheer for a kill. Call `Play(PilotControls.Gesture.X)` for others. Run **Build Test World** and **Build Turn Battle** again to get all of this.
+
+**The art pass.** Every texture was cleaned (edge-preserving smoothing that keeps the ink lines, seams filled so mipmaps don't pull in dark edges) and is now 4096 px; the P-51's and B-17's ragged invasion stripes are repainted straight from each texel's place on the wing; the cloud is repainted white with a soft grey-blue belly and its pock-marks smoothed; the flak gun is unwrapped and painted. The fighters' meshes lost the torn shards round the cockpit and the dents in their flat skin. The scripts that did it are in `Tools~/ArtPipeline` (Blender 5.2's `bpy` module, run headless); they were run from a scratch folder, so the paths at their tops need pointing at your copies of the `.blend` files.
+
 ## First run
 
 1. Install **Unity 6** (any 6000.x) with Unity Hub.

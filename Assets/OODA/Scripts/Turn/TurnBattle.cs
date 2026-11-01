@@ -1099,7 +1099,7 @@ namespace Ooda.Turn
             {
                 double ht = h.time - t0;
                 if (ht <= playT) hp[h.target] -= h.damage;
-                if (ht > prevPlayT && ht <= playT) Flash(UnityFrame.Pos(h.pos));
+                if (ht > prevPlayT && ht <= playT) { Flash(UnityFrame.Pos(h.pos)); PilotsReact(h, hp[h.target] <= 0); }
             }
             UpdateSmoke(hp, last.frames.Select(fr => fr[now].down).ToArray());
 
@@ -1113,6 +1113,14 @@ namespace Ooda.Turn
         }
 
         bool newTurn;
+
+        /// <summary>The pilots react to a hit as it lands: the one hit flinches, the shooter cheers a kill or shakes his fist.</summary>
+        void PilotsReact(HitEvent h, bool killed)
+        {
+            PilotControls Pilot(int k) => k >= 0 && k < views.Length && views[k] != null ? views[k].GetComponentInChildren<PilotControls>() : null;
+            Pilot(h.target)?.Play(PilotControls.Gesture.Flinch);
+            Pilot(h.shooter)?.Play(killed ? PilotControls.Gesture.Cheer : PilotControls.Gesture.ShakeFist);
+        }
 
         void DrawLastPaths(int upTo)
         {
