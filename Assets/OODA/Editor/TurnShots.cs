@@ -32,6 +32,7 @@ namespace Ooda.EditorTools
             cam.targetTexture = rt;
             foreach (var a in Object.FindObjectsByType<Animator>(FindObjectsSortMode.None)) { a.Rebind(); for (int i = 0; i < 4; i++) a.Update(0.1f); }
             Save(cam, rt, dir, "turn_planning");
+            SaveWithGauge(cam, rt, dir, "turn_gauge_level");
             LogWarning();
 
             // The holographic ghosts up close, where the plan ends.
@@ -55,10 +56,24 @@ namespace Ooda.EditorTools
                 const BindingFlags f = BindingFlags.Instance | BindingFlags.NonPublic;
                 var env = (Ooda.Turn.Core.Envelope)typeof(Ooda.Turn.TurnBattle).GetField("env", f).GetValue(tb);
                 var plan = (Ooda.Turn.Core.TurnPlan)typeof(Ooda.Turn.TurnBattle).GetField("plan", f).GetValue(tb);
+                var planField = typeof(Ooda.Turn.TurnBattle).GetField("plan", f);
                 typeof(Ooda.Turn.TurnBattle).GetMethod("SetAim", f).Invoke(tb, new object[] { plan.aim + env.up * 3.0 });
+                var pl = (Ooda.Turn.Core.TurnPlan)planField.GetValue(tb);
+                pl.throttle = 1;
+                planField.SetValue(tb, pl);
                 Redraw(behaviours, cam, true);
                 Save(cam, rt, dir, "turn_overpull");
+                SaveWithGauge(cam, rt, dir, "turn_gauge_overpull");
                 LogWarning();
+
+                // inside the ring, up and to the right: the stick back and right, no red, the throttle back
+                double phi = System.Math.PI / 4;
+                typeof(Ooda.Turn.TurnBattle).GetMethod("SetAim", f).Invoke(tb, new object[] { env.Direction(phi, env.MaxAngle(phi) * 0.6) });
+                pl = (Ooda.Turn.Core.TurnPlan)planField.GetValue(tb);
+                pl.throttle = 0.3;
+                planField.SetValue(tb, pl);
+                Redraw(behaviours, cam, true);
+                SaveWithGauge(cam, rt, dir, "turn_gauge_back_right");
             }
 
             // Close-up of the Spitfire and its pilot, from its right and a little ahead.
@@ -112,6 +127,51 @@ namespace Ooda.EditorTools
             if (m == null || m.GetParameters().Length != 0) return;
             try { m.Invoke(b, null); }
             catch (TargetInvocationException e) { Debug.LogWarning($"OODA shots: {b.GetType().Name}.{method} threw {e.InnerException?.GetType().Name}: {e.InnerException?.Message}"); }
+        }
+
+        /// <summary>The planning view with the corner stick and throttle laid over it where OnGUI puts them (a camera render has
+        /// no OnGUI): the gauge snapped to what the battle last asked, its skinned parts baked, as batch renders do not skin.</summary>
+        static void SaveWithGauge(Camera cam, RenderTexture rt, string dir, string name)
+        {
+            var gauge = Object.FindFirstObjectByType<Ooda.UI.StickThrottleGauge>();
+            cam.Render();
+            RenderTexture.active = rt;
+            var tex = new Texture2D(rt.width, rt.height, TextureFormat.RGB24, false);
+            tex.ReadPixels(new Rect(0, 0, rt.width, rt.height), 0, 0);
+            RenderTexture.active = null;
+            if (gauge != null)
+            {
+                if (gauge.StickTexture == null) Call(gauge, "Awake");   // made after the scene's scripts were woken
+                gauge.Snap();
+                var baked = StickThrottleBuilder.Bake(gauge.gameObject);
+                // the same layout as TurnBattle.DrawGauge, in pixels
+                float scale = Mathf.Clamp(rt.height / 900f, 1f, 2.5f), sw = rt.width / scale, sh = rt.height / scale;
+                float pw = Mathf.Min(640, sw - 40), h = Mathf.Min(240f, Mathf.Min(((sw - pw) / 2 - 20) / 0.9f, sh * 0.32f)), w = h * 0.9f;
+                Over(tex, gauge.ThrottleTexture, gauge.transform.Find("Throttle").GetComponentInChildren<Camera>(), 10 * scale, 8 * scale, w * scale, h * scale);
+                Over(tex, gauge.StickTexture, gauge.transform.Find("Stick").GetComponentInChildren<Camera>(), (sw - w - 10) * scale, 8 * scale, w * scale, h * scale);
+                foreach (var b in baked) Object.DestroyImmediate(b);
+            }
+            else Debug.LogWarning("OODA shots: no stick and throttle gauge in the battle.");
+            File.WriteAllBytes(Path.Combine(dir, name + ".png"), tex.EncodeToPNG());
+            Object.DestroyImmediate(tex);
+        }
+
+        /// <summary>Render a gauge camera and blend its texture into the shot, x and y from the bottom left.</summary>
+        static void Over(Texture2D shot, RenderTexture rt, Camera cam, float x, float y, float w, float h)
+        {
+            cam.Render();
+            RenderTexture.active = rt;
+            var g = new Texture2D(rt.width, rt.height, TextureFormat.RGBA32, false);
+            g.ReadPixels(new Rect(0, 0, rt.width, rt.height), 0, 0);
+            RenderTexture.active = null;
+            for (int j = 0; j < (int)h; j++)
+                for (int i = 0; i < (int)w; i++)
+                {
+                    Color c = g.GetPixelBilinear((i + 0.5f) / w, (j + 0.5f) / h);
+                    int px = (int)x + i, py = (int)y + j;
+                    shot.SetPixel(px, py, Color.Lerp(shot.GetPixel(px, py), new Color(c.r, c.g, c.b), c.a));
+                }
+            Object.DestroyImmediate(g);
         }
 
         static void Save(Camera cam, RenderTexture rt, string dir, string name)

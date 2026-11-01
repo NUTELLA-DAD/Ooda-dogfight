@@ -46,3 +46,7 @@ Assets/OODA/Art/Foothill/Foothill.fbx
 Assets/OODA/Art/Foothill/Foothill.fbx.meta
 Assets/OODA/Art/Tree/*.fbx
 Assets/OODA/Art/Tree/*.fbx.meta
+
+# The stick and throttle source FBX (40 MB each): OODA builds the gauge meshes from them, which are committed
+Assets/OODA/Art/Controls/*.fbx
+Assets/OODA/Art/Controls/*.fbx.meta
