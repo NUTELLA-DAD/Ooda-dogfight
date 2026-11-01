@@ -101,6 +101,8 @@ namespace Ooda.Turn
         public Color nearTracer = new Color(1f, 0.95f, 0.2f, 0.95f);
         [Tooltip("How strong the always-on gun line (where a burst would go) is drawn, when no burst is set.")]
         [Range(0, 1)] public float gunLineAlpha = 0.25f;
+        [Tooltip("Draw the gun line when no burst is set. Off: only a burst you set shows its rounds (the hit band on the bar still shows when to fire).")]
+        public bool showGunLine = false;
 
         enum Phase { Planning, Thinking, Playing, Over }
 
@@ -944,7 +946,7 @@ namespace Ooda.Turn
                 DrawPreviewTrace(tr, OutcomeColor(tr, TracerColor(tr.owner)), tr.hit ? 0.5f : 0.35f, tr.hit ? 0.5f : 0.1f);
             }
             // The gun line: where a burst would go, faint, until a burst is set
-            if (gunPreview != null && plan.burstEnd == plan.burstStart)
+            if (showGunLine && gunPreview != null && plan.burstEnd == plan.burstStart)
                 foreach (var tr in gunPreview.traces)
                 {
                     if (tr.owner != 0 || tr.missile) continue;
