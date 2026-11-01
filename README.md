@@ -26,9 +26,13 @@ Build it with **OODA > Build Turn Battle** (after Build Test World), open `Asset
 | Camera (player, Spitfire, both, cockpit) | View button | V | Right stick press |
 | Enemy projection on or off | Projection button | P | Y |
 
-### The mountains
+### The mountains, foothills, trees and clouds
 
-The big peaks are copies of the snowy mountain model (`Art/Mountain`): 42 of them in three sizes (roughly 2.5 to 11 km across, up to about 4 km high), each turned, stretched a little each way, some mirrored, and overlapping into massifs. `AlpineMountains.cs` places them from a fixed seed between the valleys and raises the terrain to just under each one, so the ground check, the AI, the clouds and the trees all treat them as ground. Nothing of a mountain may stand above the ground within 150 m of a valley's walls, 350 m of the railway or round the basin, so the main valley, the Valley Run, the gorges and the rail valley fly as before; the noise peaks are squashed above 1.7 km so the models stand over them. The 50 MB source FBX isn't committed: `Mountain_Near.obj` (52k triangles) and `Mountain_Far.obj` (6k) are made from it with Unity's mesh LOD generator the first time the world is built, if they are missing.
+The main valley is no longer a deep slot: north of the basin it is a broad, low pass, and the bombers weave up it between mountains standing right beside it. The big peaks are copies of the snowy mountain model (`Art/Mountain`): about 50 of them, 13 lining the pass and the rest in three sizes (roughly 2.5 to 11 km across, up to about 4 km high), each turned, stretched a little each way, some mirrored, and overlapping into massifs. Copies of the grass hill model (`Art/Foothill`) are the foothills on the low ground. `AlpineMountains.cs` places them from a fixed seed and raises the terrain to just under each one, so the ground check, the AI, the clouds and the trees all treat them as ground. Nothing of a model may stand above the ground within 450 m of the pass's line, 150 m past the other valleys' walls, 350 m of the railway or round the basin, so the escort route, the Valley Run, the gorges and the rail valley stay clear; the noise peaks are squashed above 1.7 km so the models stand over them.
+
+The trees are the round leafy tree (low down) and the tall tree (higher up), 10,000 of them. The clouds are banks of three to seven copies of the cloud model, each stretched and turned its own way, most in a soft haze (`Art/Cloud/Haze.shader`: two shells that fade at their edges and as you fly in).
+
+The source FBXs (50 to 100 MB each) aren't committed: near and far OBJs of each are made from them with Unity's mesh LOD generator the first time the world is built, if they are missing, and those are committed.
 
 ### Things to fly round, and the Valley Run
 

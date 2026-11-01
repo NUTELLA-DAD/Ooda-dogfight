@@ -42,3 +42,7 @@ Shots~/
 # The mountain source FBX (50 MB): OODA builds Mountain_Near.obj and Mountain_Far.obj from it, which are committed
 Assets/OODA/Art/Mountain/Mountain.fbx
 Assets/OODA/Art/Mountain/Mountain.fbx.meta
+Assets/OODA/Art/Foothill/Foothill.fbx
+Assets/OODA/Art/Foothill/Foothill.fbx.meta
+Assets/OODA/Art/Tree/*.fbx
+Assets/OODA/Art/Tree/*.fbx.meta
