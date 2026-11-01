@@ -14,18 +14,18 @@ namespace Ooda.EditorTools
     /// over the long crossings, red steel trusses over the gorges. The island still drops to the sea at the edges.
     /// Units are metres, Unity x east and z north; heights are above the sea.
     /// </summary>
-    internal static class AlpineWorld
+    internal static partial class AlpineWorld
     {
-        public const float Size = 20000f, Base = -80f, Height = 4500f;
+        public const float Size = 20000f, Base = -80f, Height = 7000f;   // room for the mountain models over the noise peaks
         const int Res = 1025;                      // heightmap: about 20 m a sample
         const int SplatRes = 1024;
         const float Cell = Size / (Res - 1);
         const string Dir = "Assets/OODA/Generated/Alpine";
 
         // ---------- the main valley ----------
-        // Straight north across the basin at the south end (the lower lake and the village), then narrow and twisting:
-        // a floor about 200 m wide between walls of 950 m and more, turning 25 degrees left or right every 1.5 km so you
-        // can't see far up it. The escort route flies its centreline.
+        // Straight north across the basin at the south end (the lower lake and the village), then a low, open pass that
+        // turns 25 degrees left or right every 1.5 km, weaving between the mountain models either side of it. The escort
+        // route flies its centreline.
 
         const float MainLeg = 1500f;
         static readonly float[] MainTurns = { 25, 0, -25, 0, -25, 0, 25, 0, 25, 0 };   // headings, degrees east of north
@@ -124,12 +124,14 @@ namespace Ooda.EditorTools
         {
             public Vector2[] pts; public float[] floor; public float halfFloor, wall; public bool gorge;
             public float minWall;   // raise the land beside the valley to at least this over its floor first, so its walls are tall
+            public float guard;     // how far from its line the mountain models must stay under the ground; 0: ValleyGuard past its walls
         }
 
         static readonly Valley[] Valleys =
         {
-            // The main valley's narrow twisting part, first: its walls are raised, and the valleys after it cut through them.
-            new Valley { pts = MainLine.Skip(2).ToArray(), floor = MainLine.Skip(2).Select(p => MainFloorAt(p.y)).ToArray(), halfFloor = 70, wall = 550, minWall = 950 },
+            // The main valley's twisting part: a broad, gentle pass. Only its middle 450 m either side is kept clear of the
+            // mountain models, so they crowd in beside it and the bombers weave between them.
+            new Valley { pts = MainLine.Skip(2).ToArray(), floor = MainLine.Skip(2).Select(p => MainFloorAt(p.y)).ToArray(), halfFloor = 300, wall = 900, guard = 450 },
             // The basin at its foot: the lower lake and the village, on a floor about 320 m wide. Only the main valley
             // raises its walls: one that crossed it would fill it in.
             new Valley { pts = new[] { V(0, -10600), V(0, -7800), V(0, -6100) }, floor = new[] { 360f, 372f, 380f }, halfFloor = 160, wall = 700 },
@@ -189,7 +191,9 @@ namespace Ooda.EditorTools
             float massif = Mathf.Lerp(0.7f, 1.15f, Mathf.PerlinNoise(x / 9000f + 41.1f, z / 9000f + 13.7f));
             // the noise runs about 0.2 to 0.95: spread it over valley-side hills to 4 km spires, without capping the tops flat
             float r = Mathf.InverseLerp(0.15f, 0.95f, Ridged(x, z));
-            return Mathf.Min(4400f, 500f + 3500f * massif * Mathf.Pow(r, 1.6f));
+            float y = Mathf.Min(4400f, 500f + 3500f * massif * Mathf.Pow(r, 1.6f));
+            // the noise peaks are squashed above 1.7 km: the mountain models are the big peaks, and stand well over them
+            return y < 1700f ? y : 1700f + (y - 1700f) * 0.3f;
         }
 
         // ---------- build ----------
@@ -227,6 +231,7 @@ namespace Ooda.EditorTools
             t.treeDistance = 7000;
             t.treeBillboardDistance = 7000;
             t.drawInstanced = true;
+            MakeMountains();
 
             var m = WorldMats(mats);
             MakeLakes(m);
@@ -256,6 +261,7 @@ namespace Ooda.EditorTools
 
             var dist = new float[Res, Res];
             var floor = new float[Res, Res];
+            var guard = new bool[Res, Res];         // in or beside a valley: the mountain models must stay under the ground here
             foreach (var v in Valleys)
             {
                 for (int j = 0; j < Res; j++) for (int i = 0; i < Res; i++) dist[j, i] = float.MaxValue;
@@ -286,6 +292,7 @@ namespace Ooda.EditorTools
                     for (int i = 0; i < Res; i++)
                     {
                         float d = dist[j, i];
+                        if (d < (v.guard > 0 ? v.guard : reach + ValleyGuard)) guard[j, i] = true;
                         if (d >= reach + shoulder) continue;
                         if (v.minWall > 0)
                             h[j, i] = Mathf.Max(h[j, i], floor[j, i] + v.minWall * (0.8f + 0.7f * Ridged(X(i) * 1.7f + 900, X(j) * 1.7f)) * (1 - Step(reach, reach + shoulder, d)));   // not a flat terrace: crests along the rim
@@ -297,6 +304,8 @@ namespace Ooda.EditorTools
                         h[j, i] = Mathf.Min(h[j, i], carved);
                     }
             }
+
+            PlaceMountains(h, guard);
 
             foreach (var l in Lakes)
                 for (int j = 0; j < Res; j++)
@@ -385,47 +394,34 @@ namespace Ooda.EditorTools
             return Mathf.Atan(Mathf.Sqrt(gx * gx + gz * gz)) * Mathf.Rad2Deg;
         }
 
-        // ---------- pines ----------
+        // ---------- trees ----------
 
         static void Plant(TerrainData data, float[,] h, List<Vector3> rail, State[] states)
         {
-            var mb = new MeshBuilder(2);
-            mb.Box(new Vector3(0, 2f, 0), Quaternion.identity, new Vector3(0.8f, 4f, 0.8f), 0);
-            mb.Cone(new Vector3(0, 3f, 0), 3.6f, 7f, 8, 1);
-            mb.Cone(new Vector3(0, 7f, 0), 2.9f, 6.5f, 8, 1);
-            mb.Cone(new Vector3(0, 11f, 0), 2.1f, 6f, 8, 1);
-            var mesh = SaveMesh(mb, "Pine");
-            var trunk = TestWorldBuilder.Mat("Alpine_Trunk", new Color(0.36f, 0.23f, 0.13f), 0.1f);
-            var needles = TestWorldBuilder.Mat("Alpine_Pine", new Color(0.10f, 0.32f, 0.17f), 0.1f);
-            var go = new GameObject("Pine");
-            go.AddComponent<MeshFilter>().sharedMesh = mesh;
-            go.AddComponent<MeshRenderer>().sharedMaterials = new[] { trunk, needles };
-            string prefabPath = $"{Dir}/Pine.prefab";
-            var prefab = PrefabUtility.SaveAsPrefabAsset(go, prefabPath);
-            Object.DestroyImmediate(go);
-
-            data.treePrototypes = new[] { new TreePrototype { prefab = prefab } };
+            // the round leafy tree low down, the tall one above it and pines highest, mixed where they meet
+            data.treePrototypes = new[] { TreePrefab(RoundTree), TreePrefab(TallTree), TreePrefab(PineTree) }.Select(p => new TreePrototype { prefab = p }).ToArray();
             var rnd = new System.Random(23);
             var trees = new List<TreeInstance>();
-            for (int tries = 0; tries < 160000 && trees.Count < 14000; tries++)
+            for (int tries = 0; tries < 160000 && trees.Count < 10000; tries++)
             {
                 float x = ((float)rnd.NextDouble() - 0.5f) * Size * 0.92f, z = ((float)rnd.NextDouble() - 0.5f) * Size * 0.92f;
                 float y = SampleArr(h, x, z);
-                if (y < 450 || y > 1800 || Slope(h, x, z) > 36) continue;
+                if (y < 450 || y > 2100 || Slope(h, x, z) > 36) continue;
                 // in clumps: the same noise as the forest colour, a little wider
                 if (Mathf.PerlinNoise(x * 0.0012f + 7, z * 0.0012f + 3) < 0.38f) continue;
-                if (NearRail(rail, x, z, 25f)) continue;
+                if (NearRail(rail, x, z, 25f) || UnderMountain(x, z)) continue;
                 if (Lakes.Any(l => { float ex = (x - l.c.x) / l.r.x, ez = (z - l.c.y) / l.r.y; return ex * ex + ez * ez < 1.3f; })) continue;
-                float s = 0.8f + (float)rnd.NextDouble() * 0.7f;
+                float s = 0.75f + (float)rnd.NextDouble() * 0.7f;
                 trees.Add(new TreeInstance
                 {
                     position = new Vector3((x + Size / 2) / Size, 0, (z + Size / 2) / Size),
                     widthScale = s, heightScale = s * (0.9f + (float)rnd.NextDouble() * 0.3f),
-                    rotation = (float)rnd.NextDouble() * Mathf.PI * 2, color = Color.white, lightmapColor = Color.white, prototypeIndex = 0,
+                    rotation = (float)rnd.NextDouble() * Mathf.PI * 2, color = Color.white, lightmapColor = Color.white,
+                    prototypeIndex = rnd.NextDouble() < Mathf.InverseLerp(1100f, 1500f, y) ? 2 : rnd.NextDouble() < Mathf.InverseLerp(650f, 1050f, y) ? 1 : 0,
                 });
             }
             data.SetTreeInstances(trees.ToArray(), true);
-            Debug.Log($"OODA: planted {trees.Count} pines.");
+            Debug.Log($"OODA: planted {trees.Count} trees ({trees.Count(t => t.prototypeIndex == 0)} round, {trees.Count(t => t.prototypeIndex == 1)} tall, {trees.Count(t => t.prototypeIndex == 2)} pines).");
         }
 
         static bool NearRail(List<Vector3> rail, float x, float z, float r)
@@ -1012,7 +1008,7 @@ namespace Ooda.EditorTools
                 var centre = new Vector3(q.x, y, q.y);
                 var foot = new Vector3(q.x, g, q.y);
                 if (BalloonCentres.Any(p => Vector2.Distance(V(p.x, p.z), q) < 550f)) continue;
-                if (NearRail(rail, q.x, q.y, 40f) || InLake(q.x, q.y)) continue;
+                if (NearRail(rail, q.x, q.y, 40f) || InLake(q.x, q.y) || UnderMountain(q.x, q.y)) continue;
                 if (HazardWires.Any(w => SegDist(centre, w.a, w.b) < 250f)) continue;    // clear of the cable cars
                 if (!ClearOfRoute(foot, centre + Vector3.up * BalloonRadius, BalloonRadius + 2f)) continue;
 
@@ -1057,7 +1053,7 @@ namespace Ooda.EditorTools
                 if (g - around < 12f) continue;   // a crest or the nose of a spur: higher than the ground round it
                 if (Slope(h, q.x, q.y) > 30f) continue;
                 if (MastFeet.Any(f => Vector2.Distance(V(f.x, f.z), q) < 1800f)) continue;
-                if (NearRail(rail, q.x, q.y, 80f) || MainDistance(q.x, q.y, out _) < 350f) continue;
+                if (NearRail(rail, q.x, q.y, 80f) || MainDistance(q.x, q.y, out _) < 350f || UnderMountain(q.x, q.y)) continue;
                 float tall = Rand(rnd, 120f, 200f);
                 Vector3 foot = new Vector3(q.x, g - 1f, q.y), top = foot + Vector3.up * tall, guyTop = foot + Vector3.up * (tall * 0.8f);
                 if (!ClearOfRoute(foot, top, 30f)) continue;
@@ -1268,7 +1264,11 @@ namespace Ooda.EditorTools
 
         const string CloudFbx = "Assets/OODA/Art/Cloud/Cloud.fbx";
 
-        /// <summary>The stylized cloud model scattered in three layers among the peaks, with some low ones lying in the valleys.</summary>
+        /// <summary>
+        /// Cloud banks in three layers among the peaks, and some low ones over the low ground. Each bank is three to seven
+        /// copies of the cloud model, each stretched, turned and tipped its own way and bunched together, so no two banks
+        /// have the same shape; most have a haze round them, a few large soft billboards that thin out at their edges.
+        /// </summary>
         public static void MakeClouds(Terrain terrain)
         {
             var imp = (ModelImporter)AssetImporter.GetAtPath(CloudFbx);
@@ -1280,6 +1280,7 @@ namespace Ooda.EditorTools
             if (ms.sRGBTexture) { ms.sRGBTexture = false; ms.SaveAndReimport(); }
             var mat = TestWorldBuilder.Textured("Cloud3D", "Assets/OODA/Art/Cloud/Cloud_BaseColor.png", "Assets/OODA/Art/Cloud/Cloud_MetallicSmoothness.png");
             mat.SetFloat("_Metallic", 0f);         // vapour, not metal: the map's smoothness still shapes the highlights
+            var haze = HazeMaterial();
             var model = AssetDatabase.LoadAssetAtPath<GameObject>(CloudFbx);
             // the model is meant to be 100 m long: measure what the import gives and make up the difference
             var probe = (GameObject)PrefabUtility.InstantiatePrefab(model);
@@ -1293,51 +1294,128 @@ namespace Ooda.EditorTools
             var rnd = new System.Random(7);
             float R(float a, float b) => a + (float)rnd.NextDouble() * (b - a);
             float Ground(float x, float z) => terrain.SampleHeight(new Vector3(x, 0, z)) + terrain.transform.position.y;
-            int made = 0, low = 0;
-            void Place(Vector3 at, float scale)
+            int banks = 0, pieces = 0, hazy = 0, low = 0;
+
+            // clear of the rock under the whole bank: its middle and eight points round its edge
+            bool Clear(Vector3 at, float radius, float margin)
             {
-                var c = (GameObject)PrefabUtility.InstantiatePrefab(model);
-                c.name = $"Cloud {made++}";
-                c.transform.SetParent(parent, false);
-                c.transform.SetPositionAndRotation(at, Quaternion.Euler(0, R(0, 360), 0));
-                c.transform.localScale = Vector3.one * scale * fit;
-                foreach (var r in c.GetComponentsInChildren<Renderer>())
+                if (Ground(at.x, at.z) > at.y - margin) return false;
+                for (int k = 0; k < 8; k++)
                 {
-                    r.sharedMaterials = Enumerable.Repeat(mat, r.sharedMaterials.Length).ToArray();
-                    r.shadowCastingMode = ShadowCastingMode.Off;
+                    float a = k * Mathf.PI / 4;
+                    if (Ground(at.x + Mathf.Cos(a) * radius, at.z + Mathf.Sin(a) * radius) > at.y - margin) return false;
                 }
-            }
-            // clear of the rock under the whole cloud, not only its middle (the model is 100 m long at scale 1)
-            bool Clear(Vector3 at, float scale, float margin)
-            {
-                float reach = 55f * scale;
-                foreach (var d in new[] { Vector2.zero, V(reach, 0), V(-reach, 0), V(0, reach), V(0, -reach) })
-                    if (Ground(at.x + d.x, at.z + d.y) > at.y - margin) return false;
                 return true;
             }
-            var bands = new[] { (2400f, 3000f, 45), (3200f, 3800f, 45), (4200f, 4800f, 30) };
-            foreach (var (lo, hi, count) in bands)
-                for (int n = 0, tries = 0; n < count && tries < 3000; tries++)
+
+            void Bank(Vector3 at, float piece, int count, float spread, bool withHaze)
+            {
+                var bank = new GameObject($"Cloud bank {banks++}").transform;
+                bank.SetParent(parent, false);
+                bank.SetPositionAndRotation(at, Quaternion.Euler(0, R(0, 360), 0));
+                for (int k = 0; k < count; k++)
                 {
-                    float scale = R(0.6f, 2.5f);
+                    // spread along the bank more than across it, the middle ones bigger and higher
+                    float u = count == 1 ? 0 : k / (count - 1f) * 2 - 1;
+                    var off = new Vector3(R(-0.35f, 0.35f) * spread, (1 - Mathf.Abs(u)) * piece * R(0.05f, 0.25f), u * spread + R(-0.15f, 0.15f) * spread);
+                    float size = piece / 100f * fit * R(0.6f, 1.15f) * (1.2f - 0.4f * Mathf.Abs(u));
+                    var c = (GameObject)PrefabUtility.InstantiatePrefab(model);
+                    c.name = $"Cloud {pieces++}";
+                    c.transform.SetParent(bank, false);
+                    c.transform.localPosition = off;
+                    c.transform.localRotation = Quaternion.Euler(R(-6, 6), R(0, 360), R(-6, 6));
+                    c.transform.localScale = new Vector3(size * R(0.8f, 1.7f), size * R(0.75f, 1.25f), size * R(0.8f, 1.4f));
+                    foreach (var r in c.GetComponentsInChildren<Renderer>())
+                    {
+                        r.sharedMaterials = Enumerable.Repeat(mat, r.sharedMaterials.Length).ToArray();
+                        r.shadowCastingMode = ShadowCastingMode.Off;
+                    }
+                }
+                if (withHaze) { Haze(bank, haze, piece, spread, rnd); hazy++; }
+            }
+
+            var bands = new[] { (2600f, 3300f, 24), (3500f, 4200f, 22), (4600f, 5400f, 16) };
+            foreach (var (lo, hi, count) in bands)
+                for (int n = 0, tries = 0; n < count && tries < 4000; tries++)
+                {
+                    float piece = R(140f, 380f);
+                    int parts = rnd.Next(3, 8);
+                    float spread = piece * R(0.35f, 0.6f) * parts / 3f;
                     var at = new Vector3(R(-15000, 15000), R(lo, hi), R(-15000, 15000));
-                    if (!Clear(at, scale, 120f)) continue;
-                    Place(at, scale);
+                    if (!Clear(at, spread + piece, 150f)) continue;
+                    Bank(at, piece, parts, spread, rnd.NextDouble() < 0.75);
                     n++;
                 }
-            // low cloud in the valleys: a few hundred metres over the floor, where the ground is low
-            for (int tries = 0; low < 25 && tries < 6000; tries++)
+            // low cloud over the low ground: a few hundred metres up, smaller banks
+            for (int tries = 0; low < 16 && tries < 6000; tries++)
             {
                 float x = R(-8500, 8500), z = R(-8500, 8500);
                 float g = Ground(x, z);
-                if (g < 250 || g > 1000) continue;
-                float scale = R(0.6f, 1.6f);
-                var at = new Vector3(x, g + R(150, 450), z);
-                if (!Clear(at, scale, 60f)) continue;
-                Place(at, scale);
+                if (g < 250 || g > 1100) continue;
+                float piece = R(70f, 180f);
+                int parts = rnd.Next(2, 5);
+                float spread = piece * R(0.35f, 0.55f) * parts / 3f;
+                var at = new Vector3(x, g + R(180, 450), z);
+                if (!Clear(at, spread + piece, 70f)) continue;
+                Bank(at, piece, parts, spread, rnd.NextDouble() < 0.6);
                 low++;
             }
-            Debug.Log($"OODA: {made} clouds, {low} of them low in the valleys.");
+            Debug.Log($"OODA: {banks} cloud banks of {pieces} clouds, {hazy} with haze, {low} of them low.");
+        }
+
+        /// <summary>A haze round a cloud bank: two soft shells round it (see Haze.shader), the outer one larger and fainter.</summary>
+        static void Haze(Transform bank, Material haze, float piece, float spread, System.Random rnd)
+        {
+            var sphere = Resources.GetBuiltinResource<Mesh>("New-Sphere.fbx");
+            float across = Mathf.Max(spread, piece) * 1.5f + piece, tall = piece * 1.1f;
+            foreach (var (grow, name) in new[] { (1f, "Haze"), (1.45f, "Haze outer") })
+            {
+                var go = new GameObject(name);
+                go.transform.SetParent(bank, false);
+                go.transform.localPosition = Vector3.up * piece * 0.15f;
+                go.transform.localScale = new Vector3(across * 0.8f, tall, across * 1.2f) * grow;
+                go.AddComponent<MeshFilter>().sharedMesh = sphere;
+                var r = go.AddComponent<MeshRenderer>();
+                r.sharedMaterial = haze;
+                r.shadowCastingMode = ShadowCastingMode.Off;
+                r.receiveShadows = false;
+                if (grow > 1) r.sharedMaterial = HazeOuter ??= MakeHazeOuter(haze);
+            }
+        }
+
+        static Material HazeOuter;
+        static Material MakeHazeOuter(Material inner)
+        {
+            var m = MatFrom(inner, "Assets/OODA/Generated/HazeOuter.mat");
+            m.SetColor("_Color", new Color(0.96f, 0.97f, 1f, 0.12f));
+            m.SetFloat("_Power", 4f);
+            return m;
+        }
+
+        static Material MatFrom(Material src, string path)
+        {
+            var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (m == null) { m = new Material(src); AssetDatabase.CreateAsset(m, path); }
+            m.shader = src.shader;
+            EditorUtility.SetDirty(m);
+            return m;
+        }
+
+        /// <summary>The haze's material, on OODA/Haze.</summary>
+        static Material HazeMaterial()
+        {
+            HazeOuter = null;
+            var shader = AssetDatabase.LoadAssetAtPath<Shader>("Assets/OODA/Art/Cloud/Haze.shader");
+            const string path = "Assets/OODA/Generated/Haze.mat";
+            var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (m == null) { m = new Material(shader); AssetDatabase.CreateAsset(m, path); }
+            m.shader = shader;
+            m.SetColor("_Color", new Color(0.98f, 0.98f, 1f, 0.28f));
+            m.SetFloat("_Power", 2.5f);
+            m.SetFloat("_NearFade", 300f);
+            m.renderQueue = (int)RenderQueue.Transparent;
+            EditorUtility.SetDirty(m);
+            return m;
         }
 
         /// <summary>Boxes, cones and discs with flat normals, gathered into one mesh with a submesh per material.</summary>
