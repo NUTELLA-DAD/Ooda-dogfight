@@ -65,10 +65,14 @@ namespace Ooda.Turn
         Battle DogfightBattle()
         {
             dogStart = botStart ?? (Scenarios.Start)startDice.Next(4);
-            return Scenarios.Dogfight(dogStart, UnityFrame.Pos(startCentre), startAltFt, startKias, startGapM);
+            return Scenarios.Dogfight(dogStart, UnityFrame.Pos(startCentre), startAltFt, startKias, startGapM, dogOurs, dogTheirs);
         }
 
-        string DogfightNotice => $"Dogfight: you and the Bf 109, {Scenarios.Name(dogStart)}.";
+        /// <summary>The sides: your planes and the enemy's, 1 to 4 each (from the title screen, or -dogfightsides N M).</summary>
+        int dogOurs = 1, dogTheirs = 1;
+
+        string DogfightNotice => dogOurs == 1 && dogTheirs == 1 ? $"Dogfight: you and the Bf 109, {Scenarios.Name(dogStart)}."
+            : $"Dogfight {dogOurs} v {dogTheirs}, {Scenarios.Name(dogStart)}. Tab: your next plane, N: next target.";
 
         // ---------- reading the enemy ----------
 
@@ -189,6 +193,7 @@ namespace Ooda.Turn
             p[0] = mine;
             if (read != null)
                 for (int i = 1; i < p.Length && i < read.pred.Length; i++) if (read.pred[i] != null) p[i] = read.pred[i].plans[0];
+            ApplyManual(p);   // the planes of yours you have planned fly your plans
             return p;
         }
 
@@ -412,6 +417,8 @@ namespace Ooda.Turn
             if (s >= 0 && s + 1 < args.Length && Enum.TryParse(args[s + 1], true, out Scenarios.Start st)) botStart = st;
             s = Array.IndexOf(args, "-dogfightshots");
             if (s >= 0 && s + 1 < args.Length) { botShots = args[s + 1]; Directory.CreateDirectory(botShots); }
+            s = Array.IndexOf(args, "-dogfightsides");
+            if (s >= 0 && s + 2 < args.Length && int.TryParse(args[s + 1], out int o) && int.TryParse(args[s + 2], out int t)) { dogOurs = o; dogTheirs = t; }
         }
 
         void BotUpdate()

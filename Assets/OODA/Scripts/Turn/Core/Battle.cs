@@ -106,6 +106,40 @@ namespace Ooda.Turn.Core
                 return (!enemyLeft && strike == null) || (anyRoute && !routeFlying);   // a strike goes on to the factory even with the sky clear
             }
         }
+        /// <summary>
+        /// Trade two aircraft's places in every list, so aircraft b becomes index a and the other way round (the rounds,
+        /// missiles, gunners and formation slots are renumbered with them). For the player taking over a wingman: Swap(0, k).
+        /// Each aircraft keeps what it carries (its route, its formation slot, its place on the strike's runway or patrol),
+        /// so swapping back restores everything. Any side, any role.
+        /// </summary>
+        public void Swap(int a, int b)
+        {
+            if (a == b || a < 0 || b < 0 || a >= Count || b >= Count) return;
+            void S<T>(T[] arr) { var t = arr[a]; arr[a] = arr[b]; arr[b] = t; }
+            int Map(int i) => i == a ? b : i == b ? a : i;
+            S(planes); S(combat); S(side); S(routes); S(slots); S(health); S(ammo); S(missiles); S(down); S(crashed); S(hitObstacle); S(fireClock);
+            for (int i = 0; i < slots.Length; i++)
+                if (slots[i] != null) { var c = slots[i].Copy(); c.leader = Map(c.leader); slots[i] = c; }
+            if (playerSlot != null) { var c = playerSlot.Copy(); c.leader = Map(c.leader); playerSlot = c; }
+            foreach (var bl in bullets)
+            {
+                if (bl.owner >= 0) bl.owner = Map(bl.owner);
+                if (bl is Missile ms && ms.target >= 0) ms.target = Map(ms.target);
+            }
+            foreach (var g in flak)
+            {
+                if (g.carrier >= 0) g.carrier = Map(g.carrier);
+                if (g.target >= 0) g.target = Map(g.target);
+            }
+            if (strike != null)
+            {
+                S(strike.patrols); S(strike.held); S(strike.struck); S(strike.struckAt);
+                var sc = new int[strike.scramble.Length];   // a new array: clones share the old one
+                for (int k = 0; k < sc.Length; k++) sc[k] = Map(strike.scramble[k]);
+                strike.scramble = sc;
+            }
+        }
+
         /// <summary>Out of the fight: down, crashed, or (in the strike) still waiting on the runway.</summary>
         public bool Out(int i) => down[i] || crashed[i] || strike != null && strike.Held(i);
 
@@ -284,6 +318,7 @@ namespace Ooda.Turn.Core
             {
                 time = time, pos = m.state.pos, vel = m.state.vel, up = m.state.up,
                 alphaDeg = m.AlphaDeg, g = m.g, throttle = m.throttle, firing = firing, stalled = m.stalled, departed = m.Departed, down = down[i],
+                rocket = m.RocketBurning, brake = m.brakeOut,
             };
         }
 

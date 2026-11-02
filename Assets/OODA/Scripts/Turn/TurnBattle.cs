@@ -80,6 +80,8 @@ namespace Ooda.Turn
         public bool showHelp = true;
         [Tooltip("Draw the reach shell's rings round the arrow (a dev view, F1). Off: the stick shaker in the corner tells how hard you pull.")]
         public bool showReachRings = false;
+        [Tooltip("Show the OVERPULL, SPINNING, STALL and DEPARTED warnings (a dev view, F3). Off: the stick shaker and the ghost path tell you.")]
+        public bool showStallWarnings = false;
         [Tooltip("S, the down arrow or the stick pulled back moves the arrow up, as the stick pulls the nose up.")]
         public bool stickPitch = true;
 
@@ -167,6 +169,8 @@ namespace Ooda.Turn
         void Start()
         {
             if (Ooda.UI.TitleScreen.ChosenMission is int chosen) mission = (Mission)chosen;   // picked on the title screen
+            dogOurs = Mathf.Clamp(Ooda.UI.TitleScreen.ChosenOurs, 1, Scenarios.MaxSide);
+            dogTheirs = Mathf.Clamp(Ooda.UI.TitleScreen.ChosenTheirs, 1, Scenarios.MaxSide);
             BotSetUp();
             lines = new LinePool(transform, "Lines") { sizeAt = W };
             tipMat = new Material(Shader.Find("Sprites/Default")) { color = arrowColor };
@@ -254,6 +258,8 @@ namespace Ooda.Turn
         {
             thinking = null; thinkingFor = null;
             reading = null; readingFor = null; read = null;
+            pinnedFocus = -1;
+            RestoreHome();
             foreach (var g in spawned) if (g != null) Destroy(g);
             spawned.Clear();
             var route = HasRoute ? escortRoute.Select(Ft).ToArray() : null;
@@ -311,6 +317,7 @@ namespace Ooda.Turn
 
             // an AI pilot for everyone but the player and the bombers
             ais = new EnemyAi[n];
+            ais[0] = new EnemyAi { me = 0, rng = new Lcg(71), ignoreObstacles = true, role = EnemyAi.Role.Fighter };   // flies your lead while you fly another
             for (int i = 1; i < n; i++)
             {
                 if (battle.routes[i] != null) continue;
@@ -323,6 +330,7 @@ namespace Ooda.Turn
             }
             healthBefore = (double[])battle.health.Clone();
             shownHp = (double[])battle.health.Clone();
+            ListFlight();
             plan = new TurnPlan { throttle = battle.planes[0].throttle };
             last = null;
             outcome = null;
@@ -338,6 +346,7 @@ namespace Ooda.Turn
         void BeginPlanning()
         {
             phase = Phase.Planning;
+            FlightTurnStarts();
             var m = battle.planes[0];
             env = Envelope.Compute(m, turnSec);
             plan.aim = m.Forward;
@@ -346,6 +355,7 @@ namespace Ooda.Turn
             plan.wep = false;
             plan.marks = null;
             plan.missile = false;
+            plan.rocket = plan.brake = false;
             markT = 0;
             burstPreset = 0;
             dirty = true;
@@ -374,6 +384,8 @@ namespace Ooda.Turn
                 if (r < bestR) { bestR = r; best = i; }
             }
             focus = best >= 0 ? best : 1;
+            if (pinnedFocus >= 0 && pinnedFocus < battle.Count && !battle.Out(pinnedFocus) && battle.side[pinnedFocus] != battle.side[0]) focus = pinnedFocus;
+            else pinnedFocus = -1;
             var t = views.Length > focus && views[focus] != null ? views[focus].transform : enemy.transform;
             if (view != null) view.enemy = t;
             if (playerPilot != null) playerPilot.target = t;
@@ -383,14 +395,14 @@ namespace Ooda.Turn
         void Commit()
         {
             if (phase != Phase.Planning) return;
-            var b = battle; var pilots = ais; float ts = turnSec; int n = battle.Count; var rd = reading;
+            var b = battle; var pilots = ais; float ts = turnSec; int n = battle.Count; var rd = reading; var mine = ManualMask();
             thinkingFor = b;
             b.CheckBreak();   // so the wingmen get their own plans the turn the formation breaks
             thinking = Task.Run(() =>
             {
                 try { rd?.Wait(); } catch (AggregateException) { }   // the reading scores the same tries the pilots pick from: let it finish first
                 var plans = new TurnPlan?[n];
-                Parallel.For(1, n, i => { if (pilots[i] != null && !b.Out(i) && !b.InFormation(i) && (b.strike == null || !b.strike.OnPatrol(i))) plans[i] = pilots[i].Plan(b, ts); });
+                Parallel.For(1, n, i => { if (pilots[i] != null && !mine[i] && !b.Out(i) && !b.InFormation(i) && (b.strike == null || !b.strike.OnPatrol(i))) plans[i] = pilots[i].Plan(b, ts); });
                 return plans;
             });
             phase = Phase.Thinking;
@@ -406,12 +418,14 @@ namespace Ooda.Turn
             if (task.IsFaulted) { Debug.LogException(task.Exception); plans = new TurnPlan?[battle.Count]; }
             else plans = task.Result;
             plans[0] = plan;
+            ApplyManual(plans);
             healthBefore = (double[])battle.health.Clone();
             lastOverpull = plan.overpull;
             last = battle.Resolve(plans, turnSec, true);
             TurnFlown(plans, onLead);
-            phaseAfterPlayback = battle.Over ? Phase.Over : Phase.Planning;
-            if (battle.Over) { outcome = Outcome(); FightOver(); }
+            bool over = FightIsOver();
+            phaseAfterPlayback = over ? Phase.Over : Phase.Planning;
+            if (over) { outcome = Outcome(); FightOver(); }
             newTurn = true;
             StartPlayback();
         }
@@ -467,6 +481,16 @@ namespace Ooda.Turn
                 if (me) return (battle.crashed[0] ? "You crashed." : "You were shot down.") + " Mission failed." + downed;
                 return "Both Bf 109s down. You win!" + (crashedFoes > 0 ? $" {crashedFoes} of them flew into the valley." : "");
             }
+            if (battle.Count > 2)
+            {
+                int foes = 0, foesDown = 0, ours = 0, oursDown = 0;
+                for (int i = 0; i < battle.Count; i++)
+                    if (battle.side[i] != battle.side[0]) { foes++; if (battle.Out(i)) foesDown++; } else { ours++; if (battle.Out(i)) oursDown++; }
+                string tally = $" {foesDown} of {foes} Bf 109{(foes > 1 ? "s" : "")} down, {oursDown} of {ours} P-51{(ours > 1 ? "s" : "")} lost.";
+                if (foesDown == foes && oursDown == ours) return "Everyone went down. A draw." + tally;
+                if (foesDown == foes) return "The sky is clear. You win!" + tally;
+                return (ours > 1 ? "Your whole flight is down." : battle.crashed[0] ? "You flew into the ground." : "You were shot down.") + tally;
+            }
             bool them = battle.down[1];
             if (me && them) return "Both aircraft went down. A draw.";
             if (them) return battle.crashed[1] ? "The Bf 109 flew into the ground. You win!" : "Bf 109 shot down. You win!";
@@ -505,7 +529,7 @@ namespace Ooda.Turn
             else if (phase == Phase.Planning || phase == Phase.Thinking) DrawPlanning();
             else DrawLastPaths(last != null ? last.FrameCount - 1 : 0);
             lines.End();
-            tip.gameObject.SetActive((phase == Phase.Planning || phase == Phase.Thinking) && !plan.HasMarks);
+            tip.gameObject.SetActive((phase == Phase.Planning || phase == Phase.Thinking) && !plan.HasMarks && ArrowShown);
             if (phase != Phase.Planning && phase != Phase.Thinking)
             {
                 foreach (var h in holos) if (h != null) h.SetActive(false);
@@ -550,10 +574,11 @@ namespace Ooda.Turn
         /// <summary>The throttle bottom left and the stick bottom right, as big as the room beside the planning panel allows.</summary>
         void DrawGauge(float sw, float sh)
         {
+            stickRect = Rect.zero;
             if (gauge == null || !gauge.Visible || gauge.StickTexture == null) return;
             float pw = Mathf.Min(640, sw - 40);
             float h = Mathf.Min(240f, ((sw - pw) / 2 - 20) / 0.9f, sh * 0.32f);
-            if (h < 90) return;   // no room beside the panel
+            if (h < 90) return;   // no room beside the panel: the arrow comes back
             float w = h * 0.9f, y = sh - h - 8;
             Rect left = new Rect(10, y, w, h), right = new Rect(sw - w - 10, y, w, h);
             float sk = gauge.Shake;   // the shaker jiggles the stick's picture a little too
@@ -564,8 +589,10 @@ namespace Ooda.Turn
             GUI.Label(new Rect(left.x, y - 18, w, 20), gaugeWep ? $"Throttle {gaugeThrottle * 100:F0}%  WEP" : $"Throttle {gaugeThrottle * 100:F0}%", cap);
             if (gaugeOver > 0) cap.normal.textColor = overpullColor;
             if (gaugeOver <= 0 && sk > 0) cap.normal.textColor = Color.Lerp(cap.normal.textColor, overpullColor, sk);
-            GUI.Label(new Rect(right.x, y - 18, w, 20), gaugeOver > 0 ? "Stick: overpull" : sk > 0 ? "Stick: shaker" : "Stick", cap);
+            bool steer = phase == Phase.Planning && !plan.HasMarks;
+            GUI.Label(new Rect(right.x - 20, y - 18, w + 40, 20), gaugeOver > 0 ? "Stick: overpull" : sk > 0 ? "Stick: shaker" : steer ? "Stick: drag to steer" : "Stick", cap);
             guiRects.Add(left); guiRects.Add(right);
+            stickRect = right;
         }
 
         /// <summary>
@@ -650,6 +677,8 @@ namespace Ooda.Turn
             if (Pressed(Key.H)) showHelp = !showHelp;
             if (Pressed(Key.M)) SwitchMission();
             if (Pressed(Key.O)) SwitchOoda();
+            if (Pressed(Key.F3)) { showStallWarnings = !showStallWarnings; Notice(showStallWarnings ? "Dev: stall and spin warnings on (F3)" : "Dev: stall and spin warnings off (F3)"); }
+            if (Pressed(Key.F2)) { showArrow = !showArrow; Notice(showArrow ? "Dev: arrow on (F2)" : "Dev: arrow off (F2): drag the corner stick"); }
             if (Pressed(Key.F1)) { showReachRings = !showReachRings; Notice(showReachRings ? "Dev: reach rings on (F1)" : "Dev: reach rings off (F1)"); }
             if (Pressed(Key.Backspace) || (pad != null && pad.startButton.wasPressedThisFrame)) Restart();
             if (Pressed(Key.R) || (pad != null && pad.buttonEast.wasPressedThisFrame)) { if (phase == Phase.Over && Dogfighting) Restart(); else Replay(); }   // a new one on one once it is over
@@ -687,18 +716,20 @@ namespace Ooda.Turn
                 {
                     if (phase == Phase.Planning && burstRect.Contains(gui)) { dragBurst = true; SetBurstFromBar(gui.x, true); }
                     else if (phase == Phase.Planning && movesRect.Contains(gui)) { dragMoves = true; SetMarkTime(gui.x); }
+                    else if (PressStick(gui)) { }
                     else if (guiRects.Any(r => r.Contains(gui))) { }
-                    else if (phase == Phase.Planning && !plan.HasMarks && NearTip(pos)) dragArrow = true;
+                    else if (phase == Phase.Planning && !plan.HasMarks && ArrowShown && NearTip(pos)) dragArrow = true;
                     else dragLook = true;
                 }
                 else if (pointer.press.isPressed)
                 {
                     if (dragArrow) DragArrow(pos);
+                    else if (dragStick) DragStick(gui);
                     else if (dragBurst) SetBurstFromBar(gui.x, false);
                     else if (dragMoves) SetMarkTime(gui.x);
                     else if (dragLook && view != null && (mouse == null || !mouse.rightButton.isPressed)) view.Orbit((pos - lastPointer) * 0.25f);
                 }
-                if (pointer.press.wasReleasedThisFrame) { dragArrow = dragLook = dragMoves = false; if (dragBurst) { dragBurst = false; TidyBurst(); } }
+                if (pointer.press.wasReleasedThisFrame) { dragArrow = dragLook = dragMoves = dragStick = false; if (dragBurst) { dragBurst = false; TidyBurst(); } }
                 lastPointer = pos;
             }
 
@@ -774,10 +805,11 @@ namespace Ooda.Turn
             }
             if (Pressed(Key.F) || (pad != null && pad.rightShoulder.wasPressedThisFrame)) FireAtPredicted();
             if (Pressed(Key.G)) ArmMissile(!plan.missile);
+            ExtrasInput(kb, pad);
 
             if (dirty) RunPreview();
             // the what-if-it-breaks check, once the plan has settled (not while dragging or every frame)
-            if (confidencePending && !dirty && !dragArrow && !dragBurst && Time.unscaledTime >= confidenceAt) RunConfidence();
+            if (confidencePending && !dirty && !dragArrow && !dragStick && !dragBurst && Time.unscaledTime >= confidenceAt) RunConfidence();
         }
 
         // ---------- planning ----------
@@ -1052,7 +1084,8 @@ namespace Ooda.Turn
             }
 
         Arrow:
-            lines.Line(c, c + UnityFrame.Dir(env.fwd) * arrowLength, 0.3f, new Color(1, 1, 1, 0.3f));
+            DrawTargetBracket();
+            if (ArrowShown) lines.Line(c, c + UnityFrame.Dir(env.fwd) * arrowLength, 0.3f, new Color(1, 1, 1, 0.3f));
 
             if (plan.HasMarks)
             {
@@ -1070,7 +1103,8 @@ namespace Ooda.Turn
                 goto Paths;
             }
 
-            // The arrow
+            // The arrow (a dev view now: the corner stick steers)
+            if (!ArrowShown) goto Paths;
             Vector3 t = TipPos;
             Color arrow = Color.Lerp(arrowColor, overpullColor, plan.overpull > 0 ? 0.5f + 0.5f * (float)plan.overpull : 0f);
             if (previewDeparts) arrow = Color.Lerp(overpullColor, Color.white, 0.4f * (0.5f + 0.5f * Mathf.Sin(Time.time * 10f)));
@@ -1269,6 +1303,7 @@ namespace Ooda.Turn
             }
 
             DrawLastPaths(now);
+            DrawExtras(now);
             foreach (var tr in last.traces)
             {
                 var p1 = tr.At(now);
@@ -1374,14 +1409,15 @@ namespace Ooda.Turn
             // What is on screen now (during playback, not the end of the turn)
             var me = player.Model;
             var them = views.Length > focus && views[focus] != null ? views[focus].Model : battle.planes[focus];
-            string themName = battle.planes[focus].numbers.name.Replace(" G-6", "").Replace("D Mustang", "");
+            string themName = EnemyName(focus);
 
             // Left: the player's aircraft
             Rect panel = new Rect(10, 10, 300, 170);
             guiRects.Add(panel);
             GUI.Box(panel, GUIContent.none);
-            GUI.Label(new Rect(20, 14, 290, 26), $"P-51D   Turn {battle.turn + (phase == Phase.Planning ? 1 : 0)}", title);
-            GUI.Label(new Rect(20, 42, 290, 22), $"{me.Kias:F0} KIAS   {me.AltFt:F0} ft   {me.g:F1} G", label);
+            GUI.Label(new Rect(20, 14, 290, 26), $"{(flight.Count > 1 ? FlightName(0) : "P-51D")}   Turn {battle.turn + (phase == Phase.Planning ? 1 : 0)}", title);
+            string extra = me.RocketBurning ? "   ROCKET" : me.brakeOut ? "   BRAKE" : "";
+            GUI.Label(new Rect(20, 42, 290, 22), $"{me.Kias:F0} KIAS   {me.AltFt:F0} ft   {me.g:F1} G{extra}", label);
             Bar(new Rect(20, 68, 270, 14), shownHp[0] / battle.combat[0].health, new Color(0.3f, 0.9f, 0.3f), "Airframe");
             Bar(new Rect(20, 88, 270, 14), battle.ammo[0] / battle.combat[0].ammoSec, new Color(0.9f, 0.75f, 0.2f), $"Ammo {battle.ammo[0]:F1} s   Missiles {battle.missiles[0]}");
             Vec3d los = them.state.pos - me.state.pos;
@@ -1443,13 +1479,15 @@ namespace Ooda.Turn
             if (GUI.Button(new Rect(bx, by, 180, 30), showHelp ? "Hide help  (H)" : "Help  (H)")) showHelp = !showHelp;
 
             DrawGauge(sw, sh);
+            RosterGUI(sw);
             if (planning) PlanningPanel(sw, sh);
             DogfightGUI(sw, sh);
             if (phase == Phase.Playing) GUI.Label(new Rect(0, sh - 60, sw, 30), $"Turn playing  {playT:F1} / {turnSec:F0} s   (hold Tab to speed up)", new GUIStyle(label) { alignment = TextAnchor.MiddleCenter });
             var warn = new GUIStyle(big) { fontSize = 26 };
             warn.normal.textColor = overpullColor;
-            if (planning && warning != null) GUI.Label(new Rect(0, sh - 460, sw, 40), warning, warn);
-            if (phase == Phase.Playing && last != null)
+            bool wingWarning = warning != null && (warning.StartsWith("OVERPULL") || warning.StartsWith("SPINNING"));
+            if (planning && warning != null && (!wingWarning || showStallWarnings)) GUI.Label(new Rect(0, sh - 460, sw, 40), warning, warn);
+            if (phase == Phase.Playing && last != null && showStallWarnings)
             {
                 int now = Mathf.Min(last.FrameCount - 1, Mathf.RoundToInt(playT / (float)last.dt));
                 var f = last.frames[0][now];
@@ -1467,12 +1505,12 @@ namespace Ooda.Turn
             if (showHelp)
             {
                 float hy = helpTop;
-                Rect help = new Rect(10, hy, 440, 280);
+                Rect help = new Rect(10, hy, 440, 300);
                 GUI.Box(help, GUIContent.none);
                 guiRects.Add(help);
-                GUI.Label(new Rect(20, hy + 6, 425, 270),
+                GUI.Label(new Rect(20, hy + 6, 425, 290),
                     $"Plan where your nose points when the {turnSec:0.#} s turn ends. O: OODA, short turns.\n" +
-                    "Drag the yellow tip. The corner stick shakes near your hardest turn;\n" +
+                    "Drag the corner stick to steer (down pulls). It shakes near your hardest turn;\n" +
                     "harder means overpull: stall, maybe spin. F1: reach rings.\n" +
                     "Blue: your path. Red: where the enemy may go, the bright one likeliest.\n" +
                     "Orange ring on its path: hit it there. Steer your tracers onto it, F.\n" +
@@ -1480,11 +1518,13 @@ namespace Ooda.Turn
                     "Your rounds: red hits, yellow just misses, orange misses. Lead the target.\n" +
                     "Drag on the timeline to fire; F fires where hits are predicted.\n\n" +
                     "Keys: WASD arrow (S pulls up, like the stick), Shift/Ctrl throttle,\n" +
-                    "Space WEP, B bursts, G missile, T advanced timeline, " +
+                    "Space WEP, 1 rocket, 2 speed brake, Tab your next plane, N next target,\n" +
+                    "B bursts, G missile, T timeline, " +
                     "Enter fly, R replay, P projection, V view, X straight, M mission, H help.\n" +
-                    "Right-drag or drag away from the tip to look; wheel zooms.\n" +
+                    "Drag the view or right-drag to look; wheel zooms. F2: the old arrow.\n" +
                     "Pad: left stick arrow, triggers throttle, A fly, X bursts,\n" +
-                    "RB fire at predicted hits, Y projection, B replay, right stick look.", small);
+                    "RB fire at predicted hits, Y projection, B replay, right stick look,\n" +
+                    "d-pad right rocket, left speed brake, View button your next plane.", small);
             }
         }
 
@@ -1503,9 +1543,11 @@ namespace Ooda.Turn
 
             // Throttle and WEP
             GUI.Label(new Rect(px, py, 110, 22), plan.HasMarks ? $"Start {plan.throttle * 100:F0}%" : $"Throttle {plan.throttle * 100:F0}%", label);
-            float thr = GUI.HorizontalSlider(new Rect(px + 120, py + 6, pw - 260, 20), (float)plan.throttle, 0f, 1f);
+            float sliderW = Mathf.Max(80, pw - 520);
+            float thr = GUI.HorizontalSlider(new Rect(px + 112, py + 6, sliderW, 20), (float)plan.throttle, 0f, 1f);
             if (Math.Abs(thr - plan.throttle) > 1e-4) { plan.throttle = thr; dirty = true; }
-            bool wep = GUI.Toggle(new Rect(px + pw - 130, py, 130, 22), plan.wep, " WEP (Space)");
+            ExtrasRow(px + 122 + sliderW, py - 1, pw - 122 - sliderW - 124);
+            bool wep = GUI.Toggle(new Rect(px + pw - 118, py, 118, 22), plan.wep, " WEP (Space)");
             if (wep != plan.wep) { plan.wep = wep; dirty = true; }
 
             // The burst timeline

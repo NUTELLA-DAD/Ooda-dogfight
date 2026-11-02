@@ -95,6 +95,9 @@ namespace Ooda.Turn.Core
 
         struct Try { public TurnPlan plan; public double score; }
 
+        /// <summary>Drop the tries kept from the last look (after the battle's aircraft have been renumbered, as by Battle.Swap).</summary>
+        public void Forget() { lock (this) { cachedTries = null; cachedFor = cachedSub = null; } }
+
         // the last tries, kept so Plan and Predict on the same battle at the same moment score them only once
         List<Try> cachedTries; Battle cachedFor, cachedSub; double cachedTime = double.NaN, cachedTurnSec; int cachedThem;
 
@@ -144,6 +147,7 @@ namespace Ooda.Turn.Core
         TurnPlan Finish(Battle battle, Battle sub, int them, TurnPlan best, double turnSec)
         {
             var m = battle.planes[me];
+            Extras(sub, ref best, turnSec);
             PlanBurst(sub, ref best, turnSec);
             // a missile at the target whenever it might come into the seeker's cone this turn (it launches only once locked)
             if (battle.missiles[me] > 0 && battle.routes[me] == null)
@@ -250,6 +254,33 @@ namespace Ooda.Turn.Core
             if (ahead < safeClearFt) score -= (safeClearFt - ahead) / 150;
             if (mine.Departed) score -= 3;
             return score + shotBonus;
+        }
+
+        /// <summary>How much better (in score) the rocket must leave it before it spends it, and the same for the speed brake.</summary>
+        public double rocketMargin = 0.25, brakeMargin = 0.15;
+
+        /// <summary>
+        /// The rocket and the speed brake: the chosen arrow flown again with the rocket lit (if it is ready), and with the
+        /// throttle chopped and the brake out (to make an attacker overshoot, or not to overshoot its own target); either
+        /// kept when it leaves it clearly better placed. Slow and with the rocket ready, it lights it unless that is worse.
+        /// </summary>
+        void Extras(Battle sub, ref TurnPlan plan, double turnSec)
+        {
+            var m = sub.planes[0];
+            if (m.Departed || sub.routes[0] != null) return;
+            double baseScore = Score(sub, plan, turnSec);
+            if (m.RocketReady)
+            {
+                var r = plan; r.rocket = true;
+                double s = Score(sub, r, turnSec);
+                if (s > baseScore + (m.Kias < 200 ? 0 : rocketMargin)) { plan = r; baseScore = s; }
+            }
+            if (sub.planes[0].numbers.brakeG > 0 && !plan.rocket)
+            {
+                var b = plan; b.brake = true; b.throttle = 0; b.wep = false;
+                double s = Score(sub, b, turnSec);
+                if (s > baseScore + brakeMargin) plan = b;
+            }
         }
 
         /// <summary>Fire across the part of the turn whose rounds would hit the projected target, if any.</summary>

@@ -31,25 +31,47 @@ namespace Ooda.Turn.Core
                                             : s == Start.Offensive ? "you on their tail" : "them on your tail";
 
         /// <summary>
-        /// A one on one at 300 KIAS heading north, by how it begins: head-on 3 km apart; neutral, side by side 1,500 ft
-        /// apart; offensive, the Mustang 3,000 ft behind the Bf 109 and a little to one side; defensive, the other way round.
+        /// A dogfight at 300 KIAS by how it begins: head-on 3 km apart; neutral, side by side 1,500 ft apart, both heading
+        /// north; offensive, the Mustang 3,000 ft behind the Bf 109 and a little to one side; defensive, the other way round.
+        /// ours and theirs (1 to 4 each) are the aircraft on each side: you and your P-51 wingmen, and the Bf 109s, each
+        /// side flying a finger-four on its leader (side by side, an echelon away from the other side instead).
+        /// Order: 0 you, 1 their leader, then your wingmen, then their others.
         /// </summary>
-        public static Battle Dogfight(Start s, Vec3d centre, double altFt = 5000, double kias = 300, double gapM = 3000)
+        public static Battle Dogfight(Start s, Vec3d centre, double altFt = 5000, double kias = 300, double gapM = 3000, int ours = 1, int theirs = 1)
         {
-            if (s == Start.HeadOn) return HeadOn(centre, altFt, kias, gapM);
+            ours = Math.Max(1, Math.Min(MaxSide, ours));
+            theirs = Math.Max(1, Math.Min(MaxSide, theirs));
             double ktas = Atmosphere.IasToTasKt(kias, altFt);
+            double half = gapM / 0.3048 / 2;
             Vec3d me, foe;
+            double myHdg = Math.PI / 2, foeHdg = Math.PI / 2;
             switch (s)
             {
+                case Start.HeadOn: me = new Vec3d(centre.x - 150, centre.y - half, altFt); foe = new Vec3d(centre.x + 150, centre.y + half, altFt); foeHdg = -Math.PI / 2; break;
                 case Start.Neutral: me = new Vec3d(centre.x - 750, centre.y, altFt); foe = new Vec3d(centre.x + 750, centre.y, altFt); break;
                 case Start.Offensive: me = new Vec3d(centre.x - 120, centre.y - 1500, altFt); foe = new Vec3d(centre.x + 120, centre.y + 1500, altFt + 100); break;
                 default: me = new Vec3d(centre.x + 120, centre.y + 1500, altFt + 100); foe = new Vec3d(centre.x - 120, centre.y - 1500, altFt); break;
             }
-            var mustang = new FlightModel(AircraftNumbers.P51D(), PointMass.Make(me, ktas, Math.PI / 2));
-            var bf = new FlightModel(AircraftNumbers.Bf109G(), PointMass.Make(foe, ktas, Math.PI / 2));
-            mustang.throttle = bf.throttle = 1;
-            return new Battle(mustang, CombatNumbers.P51D(), bf, CombatNumbers.Bf109G());
+            FlightModel Make(AircraftNumbers n, Vec3d pos, double hdg) => new FlightModel(n, PointMass.Make(pos, ktas, hdg)) { throttle = 1 };
+            // the k-th aircraft's place on its leader: lateral (right positive), back, up, ft
+            bool echelon = s == Start.Neutral;
+            Vec3d Place(Vec3d lead, double hdg, int k, double away)
+            {
+                Vec3d dir = new Vec3d(Math.Cos(hdg), Math.Sin(hdg), 0), right = new Vec3d(dir.y, -dir.x, 0);
+                var (lat, back, up) = echelon ? (500.0 * k * away, 300.0 * k, 50.0 * k) : FingerFour[k];
+                return lead + right * lat - dir * back + new Vec3d(0, 0, up);
+            }
+            var battle = new Battle(Make(AircraftNumbers.P51D(), me, myHdg), CombatNumbers.P51D(), Make(AircraftNumbers.Bf109G(), foe, foeHdg), CombatNumbers.Bf109G());
+            for (int k = 1; k < ours; k++) battle.Add(Make(AircraftNumbers.P51D(), Place(me, myHdg, k, -1), myHdg), CombatNumbers.P51D(), 0);
+            for (int k = 1; k < theirs; k++) battle.Add(Make(AircraftNumbers.Bf109G(), Place(foe, foeHdg, k, 1), foeHdg), CombatNumbers.Bf109G(), 1);
+            return battle;
         }
+
+        /// <summary>The most aircraft on each side of a dogfight.</summary>
+        public const int MaxSide = 4;
+
+        /// <summary>A finger-four on its leader: lateral (right positive), back, up, ft. Wide, so the AI has room to fight.</summary>
+        static readonly (double lat, double back, double up)[] FingerFour = { (0, 0, 0), (-450, 350, 60), (450, 350, -60), (900, 700, -120) };
 
         /// <summary>
         /// Escort: a B-17 flying its route (waypoints in feet; the first is where it starts) at about 135 KIAS,

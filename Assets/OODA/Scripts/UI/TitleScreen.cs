@@ -20,6 +20,8 @@ namespace Ooda.UI
     {
         /// <summary>The mission picked here (TurnBattle.Mission's order: Squadron, Escort, Dogfight, ValleyRun, TownStrike), for the battle to read.</summary>
         public static int? ChosenMission;
+        /// <summary>The dogfight's sides picked here: your planes and the enemy's, 1 to 4 each.</summary>
+        public static int ChosenOurs = 1, ChosenTheirs = 1;
 
         public GameObject fighterPrefab, bomberPrefab;
         [Tooltip("The route the formation flies (metres, x east, y height, z north): the escort route up the valley.")]
@@ -37,7 +39,7 @@ namespace Ooda.UI
         {
             "8 P-51s and 3 B-17s against 8 Bf 109s and the flak",
             "you and one B-17 against a Bf 109",
-            "you against a Bf 109, head-on",
+            "dogfight",
             "you and a wingman low in the valley after two Bf 109s, among the wires and balloons",
             "plan a hidden path to the factory in the town, past the radar and the patrol",
         };
@@ -146,8 +148,16 @@ namespace Ooda.UI
             var pad = Gamepad.current;
             if ((kb != null && (kb.leftArrowKey.wasPressedThisFrame || kb.aKey.wasPressedThisFrame)) || (pad != null && pad.dpad.left.wasPressedThisFrame)) pick = (pick + Missions.Length - 1) % Missions.Length;
             if ((kb != null && (kb.rightArrowKey.wasPressedThisFrame || kb.dKey.wasPressedThisFrame)) || (pad != null && pad.dpad.right.wasPressedThisFrame)) pick = (pick + 1) % Missions.Length;
+            if (pick == 2)
+            {
+                // the dogfight's sides: up and down yours, page up and down (or the bumpers) theirs
+                if ((kb != null && (kb.upArrowKey.wasPressedThisFrame || kb.wKey.wasPressedThisFrame)) || (pad != null && pad.dpad.up.wasPressedThisFrame)) ChosenOurs = Mathf.Min(4, ChosenOurs + 1);
+                if ((kb != null && (kb.downArrowKey.wasPressedThisFrame || kb.sKey.wasPressedThisFrame)) || (pad != null && pad.dpad.down.wasPressedThisFrame)) ChosenOurs = Mathf.Max(1, ChosenOurs - 1);
+                if ((kb != null && kb.pageUpKey.wasPressedThisFrame) || (pad != null && pad.rightShoulder.wasPressedThisFrame)) ChosenTheirs = Mathf.Min(4, ChosenTheirs + 1);
+                if ((kb != null && kb.pageDownKey.wasPressedThisFrame) || (pad != null && pad.leftShoulder.wasPressedThisFrame)) ChosenTheirs = Mathf.Max(1, ChosenTheirs - 1);
+            }
             if ((kb != null && (kb.enterKey.wasPressedThisFrame || kb.numpadEnterKey.wasPressedThisFrame || kb.spaceKey.wasPressedThisFrame)) || (pad != null && (pad.buttonSouth.wasPressedThisFrame || pad.startButton.wasPressedThisFrame))) Play();
-            if (kb != null && kb.qKey.wasPressedThisFrame) { pick = 2; Play(); }   // Quick 1v1
+            if (kb != null && kb.qKey.wasPressedThisFrame) { pick = 2; ChosenOurs = ChosenTheirs = 1; Play(); }   // Quick 1v1
         }
 
         // ---------- the cinematic camera ----------
@@ -252,9 +262,33 @@ namespace Ooda.UI
             float x = (sw - total) / 2, y = sh - 230;
             for (int i = 0; i < Missions.Length; i++)
                 if (GUI.Button(new Rect(x + i * (bw + gap), y, bw, 48), (i == pick ? "▶ " : "") + Missions[i], i == pick ? picked : button)) pick = i;
-            Shadowed(new Rect(0, y + 56, sw, 30), MissionNotes[pick], note);
+            string what = pick != 2 ? MissionNotes[pick]
+                : ChosenOurs == 1 && ChosenTheirs == 1 ? "you against a Bf 109"
+                : $"your {ChosenOurs} P-51{(ChosenOurs > 1 ? "s" : "")} against {ChosenTheirs} Bf 109{(ChosenTheirs > 1 ? "s" : "")}: you fly every one of yours";
+            Shadowed(new Rect(0, y + 56, sw, 30), what, note);
+            if (pick == 2) SidePicker(sw, y - 112);
             if (GUI.Button(new Rect((sw - 260) / 2, y + 96, 260, 60), "Play", picked)) Play();
-            Shadowed(new Rect(0, y + 162, sw, 26), "Enter, Space or pad A to play  ·  ← → or the d-pad to pick a mission  ·  Q quick 1v1", hint);
+            Shadowed(new Rect(0, y + 162, sw, 26), pick == 2
+                ? "Enter to play  ·  ↑ ↓ your planes  ·  Page Up / Down the enemy's  ·  Q quick 1v1"
+                : "Enter, Space or pad A to play  ·  ← → or the d-pad to pick a mission  ·  Q quick 1v1", hint);
+        }
+
+        /// <summary>The dogfight's two rows: how many planes on your side, how many on theirs.</summary>
+        void SidePicker(float sw, float y)
+        {
+            float bw = 56, gap = 10, lw = 170, total = lw + 4 * bw + 3 * gap;
+            float x = (sw - total) / 2;
+            for (int row = 0; row < 2; row++)
+            {
+                float ry = y + row * 52;
+                Shadowed(new Rect(x, ry + 8, lw, 34), row == 0 ? "Your P-51s" : "Bf 109s", note);
+                for (int k = 1; k <= 4; k++)
+                {
+                    bool on = (row == 0 ? ChosenOurs : ChosenTheirs) == k;
+                    if (GUI.Button(new Rect(x + lw + (k - 1) * (bw + gap), ry, bw, 44), k.ToString(), on ? picked : button))
+                    { if (row == 0) ChosenOurs = k; else ChosenTheirs = k; }
+                }
+            }
         }
 
         static void Shadowed(Rect r, string text, GUIStyle style)

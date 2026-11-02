@@ -10,6 +10,8 @@ namespace Ooda.Flight.Core
         public double yaw;      // + right pedal
         public double throttle; // 0..1
         public bool wep;        // war emergency power
+        public bool rocket;     // light the rocket (if it is ready; it then burns for its time whatever the stick says)
+        public bool brake;      // the speed brake out
     }
 
     /// <summary>Controlled flight, a departure that is still building, or a developed spin.</summary>
@@ -44,6 +46,13 @@ namespace Ooda.Flight.Core
         public double throttle = 1;     // the engine's, eased toward the lever
         public bool stalled;            // the stick asks for more than the wing gives
         public double excess;           // (thrust - drag) / weight
+        public double rocketBurnSec;    // seconds of rocket burn left
+        public double rocketCoolSec;    // seconds until the rocket can be lit again (counts from lighting it)
+        public bool brakeOut;           // the speed brake was out last step
+
+        /// <summary>The rocket can be lit now.</summary>
+        public bool RocketReady => rocketCoolSec <= 0 && rocketBurnSec <= 0 && numbers.rocketG > 0;
+        public bool RocketBurning => rocketBurnSec > 0;
 
         public Departure departure = Departure.None;
         public int spinDir = 1;         // +1 spinning right, -1 left
@@ -175,9 +184,21 @@ namespace Ooda.Flight.Core
             throttle += Math.Max(-dt * 0.8, Math.Min(dt * 0.8, lever - throttle));
             double power = throttle * (c.wep && lever > 0.95 ? n.wepFactor : 1);
             double side = Math.Abs(sideG);
+
+            // The rocket: lit when asked and ready, it burns for its time and then needs its cool-down before the next
+            rocketCoolSec = Math.Max(0, rocketCoolSec - dt);
+            if (c.rocket && RocketReady) { rocketBurnSec = n.rocketSec; rocketCoolSec = n.rocketCooldownSec; }
+            double boost = 0;
+            if (rocketBurnSec > 0) { boost = n.rocketG * Math.Min(1, rocketBurnSec / dt); rocketBurnSec = Math.Max(0, rocketBurnSec - dt); }
+            // The speed brake: drag that grows with dynamic pressure, brakeG at 300 KIAS
+            brakeOut = c.brake;
+            double brakeK = c.brake ? n.brakeG / (300.0 * 300.0) : 0;
             PointMass.ExcessFn excessFn = (vKt, altFt, gg) =>
-                power * n.ThrustPerWeight(vKt, altFt) - n.DragPerWeight(Atmosphere.TasToIasKt(vKt, altFt), gg)
-                - n.sideslipDragPerG * side - extraDrag;
+            {
+                double ias = Atmosphere.TasToIasKt(vKt, altFt);
+                return power * n.ThrustPerWeight(vKt, altFt) + boost - n.DragPerWeight(ias, gg)
+                    - brakeK * ias * ias - n.sideslipDragPerG * side - extraDrag;
+            };
             excess = excessFn(ktas, AltFt, g);
 
             state = PointMass.StepBody(state, g, sideG, dt, excessFn);

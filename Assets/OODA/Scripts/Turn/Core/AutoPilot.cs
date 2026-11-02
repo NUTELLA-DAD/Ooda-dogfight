@@ -12,6 +12,10 @@ namespace Ooda.Turn.Core
         public Vec3d aim;          // unit, world frame: the flight path wanted at the end of the turn
         public double throttle;    // 0..1
         public bool wep;           // war emergency power (with the throttle full)
+        /// <summary>Light the rocket at the start of the turn (if it is ready): a few seconds of hard shove, then a long cool-down.</summary>
+        public bool rocket;
+        /// <summary>The speed brake out all turn.</summary>
+        public bool brake;
         public double burstStart, burstEnd;
         /// <summary>Fire one missile this turn, the first moment a target is inside the lock cone and range (missileTarget, or the nearest).</summary>
         public bool missile;
@@ -34,11 +38,17 @@ namespace Ooda.Turn.Core
         public FlightControls ControlsFor(FlightModel m, double t)
         {
             if (hold) return AutoPilot.Hold(m);
-            if (!HasMarks) return AutoPilot.Controls(m, aim, throttle, wep, overpull);
-            var s = StateAt(t);
-            var c = s.bankDeg == null ? AutoPilot.HoldBankAndPull(m, s.g, s.throttle, s.wep)
+            FlightControls c;
+            if (!HasMarks) c = AutoPilot.Controls(m, aim, throttle, wep, overpull);
+            else
+            {
+                var s = StateAt(t);
+                c = s.bankDeg == null ? AutoPilot.HoldBankAndPull(m, s.g, s.throttle, s.wep)
                                       : AutoPilot.BankAndPull(m, s.bankDeg.Value, s.g, s.throttle, s.wep);
-            if (!m.Departed) c.yaw = s.rudder;
+                if (!m.Departed) c.yaw = s.rudder;
+            }
+            c.rocket = rocket && t < 0.1;   // lit at the start of the turn, or not this turn
+            c.brake = brake;
             return c;
         }
 
