@@ -51,7 +51,12 @@ namespace Ooda.Turn
             {
                 Vector2 mp = mouse.position.ReadValue();
                 var gui = new Vector2(mp.x / guiScale, (Screen.height - mp.y) / guiScale);
-                if (burstRect.Contains(gui)) hoverUntil = Time.unscaledTime + 0.6f;
+                if (burstRect.Contains(gui))
+                {
+                    hoverUntil = Time.unscaledTime + 0.6f;
+                    sightT = Mathf.Clamp01((gui.x - burstRect.x) / burstRect.width) * (float)turnSec;
+                    sightAuto = false;
+                }
             }
             if (!SightViewOn) return;
             var me = gunPreview.frames[0][FunnelFrame()];
@@ -62,7 +67,7 @@ namespace Ooda.Turn
             // look exactly as they would from the seat: the HUD's funnel ahead of your ghost. The wheel sets how far back.
             Vector3 g = UnityFrame.Dir(gun), u = UnityFrame.Dir(up);
             float back = Mathf.Clamp(view.distance, 25f, 70f);
-            view.sightPos = UnityFrame.Pos(me.pos) - g * back + u * (back * 0.12f);
+            view.sightPos = UnityFrame.Pos(me.pos) - g * back + u * (back * 0.3f);   // high enough that the ghost sits low, clear of the funnel
             view.sightRot = Quaternion.LookRotation(g, u);
             view.sightPose = true;
         }
@@ -162,7 +167,7 @@ namespace Ooda.Turn
                     left.Add(UnityFrame.Pos(s.at - right * half) + shift);
                     rightEdge.Add(UnityFrame.Pos(s.at + right * half) + shift);
                 }
-                float wide = SightViewOn ? 1.6f : 1.4f;
+                float wide = SightViewOn ? 2.4f : 1.4f;
                 lines.Strip(left, wide, col, false, new Color(col.r, col.g, col.b, col.a * 0.6f));
                 lines.Strip(rightEdge, wide, col, false, new Color(col.r, col.g, col.b, col.a * 0.6f));
                 // rungs across it every 500 ft (from your seat only the 1,000 ft ones, so they don't read as one bar)

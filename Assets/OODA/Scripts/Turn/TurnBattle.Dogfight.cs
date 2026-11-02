@@ -285,7 +285,7 @@ namespace Ooda.Turn
             if (read != null)
             {
                 int j = read.target;
-                if (read.spread != null && showProjection && j >= 0 && j < battle.Count && !battle.Out(j) && preview != null)
+                if (read.spread != null && showProjection && !SightViewOn && j >= 0 && j < battle.Count && !battle.Out(j) && preview != null)
                 {
                     var pr = read.pred[j];
                     tag.normal.textColor = projectionColor;
