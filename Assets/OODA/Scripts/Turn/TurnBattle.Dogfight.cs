@@ -14,21 +14,20 @@ namespace Ooda.Turn
     /// Reading the enemy, and the one on one as a loop to learn and tune it on. While the player plans, the AI pilots'
     /// own tries are scored off the main thread (the same ones they pick from when the turn is flown), so the preview
     /// flies each enemy on its likeliest plan rather than "if they hold", and the enemy in focus shows a spread of up
-    /// to four ghosts, the likeliest bright, each with its chance. The lead pipper on the reach shell is where to put
-    /// the arrow tip so a burst through the turn puts the most rounds on the bright ghost. After each turn a line says
-    /// how far the enemy ended from the bright ghost. The one on one begins one of four ways at random, and every
+    /// to four ghosts, the likeliest bright, each with its chance. When some arrow can hit the bright ghost, a lead
+    /// reticle sits on its path where the rounds would meet it, and your tracers round that moment show how close you are.
+    /// After each turn a line says how far the enemy ended from the bright ghost. The one on one begins one of four ways at random, and every
     /// fight is logged to DogfightLog.txt beside the game (Logs/ in the editor). -dogfightbot N flies N fights by
-    /// itself (the arrow on the pipper when it has hits, else an AI pilot's plan), logs them and quits.
+    /// itself (the arrow the lead was found with when it has hits, else an AI pilot's plan), logs them and quits.
     /// </summary>
     public partial class TurnBattle
     {
         [Header("Dogfight: the ghost spread and the lead")]
         public Color leadColor = new Color(1f, 0.55f, 0.1f, 0.95f);
         public Color leadOnColor = new Color(0.3f, 1f, 0.35f, 1f);
+        public Color leadLinedColor = new Color(1f, 0.95f, 0.25f, 1f);
         [Tooltip("The most of the enemy's likely endings to show, the likeliest bright.")]
         public int spreadCount = 4;
-        [Tooltip("How close (degrees) the arrow tip must be to the pipper to count as on it.")]
-        public float leadOnDeg = 2f;
 
         /// <summary>What the pilots might do this turn, and where the player's guns can reach the likeliest, worked out off the main thread.</summary>
         class Reading
@@ -40,6 +39,8 @@ namespace Ooda.Turn
             public Vec3d? lead;                  // the arrow for the most hits on the bright ghost, firing all turn
             public int leadHits;
             public double leadMissFt = double.PositiveInfinity;   // with no hits, how close the nearest round passes
+            public Vec3d leadPoint;              // with hits: where on the bright ghost's path they land (the middle one), ft
+            public double leadFire;              // and when the rounds that land there are fired, s into the turn
         }
 
         Task<Reading> reading;
@@ -129,7 +130,7 @@ namespace Ooda.Turn
 
             // the lead: try arrows across the reach shell, firing all turn at the bright ghost, then look closer round the best
             if (b.ammo[0] <= 0 || b.Out(0)) return r;
-            double Score(double phi, double frac, out Vec3d aim, out int hits, out double miss)
+            double Score(double phi, double frac, out Vec3d aim, out int hits, out double miss, out Vec3d point, out double fire)
             {
                 frac = Math.Max(0, Math.Min(1, frac));
                 aim = frac <= 0 ? e.fwd : e.Direction(phi, e.MaxAngle(phi) * frac);
@@ -141,7 +142,10 @@ namespace Ooda.Turn
                 var plans = (TurnPlan?[])others.Clone();
                 plans[0] = p;
                 var res = s.Resolve(plans, ts, true);
-                hits = res.hits.Count(h => h.shooter == 0 && h.target == target);
+                var on = res.hits.Where(h => h.shooter == 0 && h.target == target).OrderBy(h => h.fireTime).ToList();
+                hits = on.Count;
+                point = hits > 0 ? on[hits / 2].pos : default;
+                fire = hits > 0 ? on[hits / 2].fireTime - res.startTime : 0;
                 miss = double.PositiveInfinity;
                 foreach (var tr in res.traces)
                     if (tr.owner == 0 && !tr.missile && tr.closestTarget == target) miss = Math.Min(miss, tr.closestFt);
@@ -152,14 +156,14 @@ namespace Ooda.Turn
             const int spokes = 16;
             foreach (var frac in new[] { 0.2, 0.4, 0.6, 0.8, 1.0 })
                 for (int k = 0; k < spokes; k++) tries.Add((2 * Math.PI * k / spokes, frac));
-            (double score, double phi, double frac, Vec3d aim, int hits, double miss) best = (double.NegativeInfinity, 0, 0, e.fwd, 0, double.PositiveInfinity);
+            (double score, double phi, double frac, Vec3d aim, int hits, double miss, Vec3d point, double fire) best = (double.NegativeInfinity, 0, 0, e.fwd, 0, double.PositiveInfinity, default, 0);
             object gate = new object();
             void Run(List<(double phi, double frac)> list)
             {
                 Parallel.ForEach(list, t =>
                 {
-                    double sc = Score(t.phi, t.frac, out var aim, out int hits, out double miss);
-                    lock (gate) if (sc > best.score) best = (sc, t.phi, t.frac, aim, hits, miss);
+                    double sc = Score(t.phi, t.frac, out var aim, out int hits, out double miss, out var point, out double fire);
+                    lock (gate) if (sc > best.score) best = (sc, t.phi, t.frac, aim, hits, miss, point, fire);
                 });
             }
             Run(tries);
@@ -174,7 +178,7 @@ namespace Ooda.Turn
                 dPhi /= 2; dFrac /= 2;
             }
             if (double.IsNegativeInfinity(best.score)) return r;
-            r.lead = best.aim; r.leadHits = best.hits; r.leadMissFt = best.miss;
+            r.lead = best.aim; r.leadHits = best.hits; r.leadMissFt = best.miss; r.leadPoint = best.point; r.leadFire = best.fire;
             return r;
         }
 
@@ -207,11 +211,17 @@ namespace Ooda.Turn
             return all > 0 ? Mathf.RoundToInt((float)(100 * hit / all)) : -1;
         }
 
-        bool OnLead => read?.lead != null && Envelope.Angle(plan.aim, read.lead.Value) * 180 / Math.PI < leadOnDeg && !plan.HasMarks;
+        /// <summary>The reticle shows only when some arrow can hit the bright ghost this turn.</summary>
+        bool LeadShown => read != null && read.leadHits > 0 && read.target >= 0 && read.target < battle.Count && !battle.Out(read.target);
+        /// <summary>The guns line up: firing all turn on the planned path, rounds hit the bright ghost.</summary>
+        bool LinedUp => LeadShown && gunPreview != null && gunPreview.hits.Any(h => h.shooter == 0 && h.target == read.target);
+        /// <summary>The planned burst itself hits the bright ghost.</summary>
+        bool LeadHit => LeadShown && read.target < burstHits.Length && burstHits[read.target];
+        bool OnLead => LinedUp;
 
         // ---------- drawing it ----------
 
-        /// <summary>The fainter ghosts (the target's other likely plans) and the lead pipper, while planning.</summary>
+        /// <summary>The fainter ghosts (the target's other likely plans), and the lead reticle on the bright ghost's path with your tracers near it.</summary>
         void DrawSpreadAndLead()
         {
             HideSpread();
@@ -231,20 +241,29 @@ namespace Ooda.Turn
                     ShowHolo(spreadHolos[k - 1], fr[end], true, hc);
                 }
             }
-            if (read.lead == null || plan.HasMarks || phase != Phase.Planning) return;
-            // the pipper: a ring and four ticks on the reach shell, facing the camera
-            Vector3 p = PlayerPos + UnityFrame.Dir(read.lead.Value) * arrowLength;
+            if (!LeadShown || phase != Phase.Planning) return;
+            // the reticle: a ring and four ticks where on its path the rounds can meet it, facing the camera
+            Vector3 p = UnityFrame.Pos(read.leadPoint);
             Vector3 right = view != null ? view.Cam.transform.right : Vector3.right, up = view != null ? view.Cam.transform.up : Vector3.up;
-            float rad = W(p) * 14f;
-            var c = OnLead ? leadOnColor : leadColor;
-            if (read.leadHits == 0) c.a *= 0.45f;
-            var ring = new List<Vector3>(20);
-            for (int k = 0; k < 20; k++) { float a = 2 * Mathf.PI * k / 20; ring.Add(p + (right * Mathf.Cos(a) + up * Mathf.Sin(a)) * rad); }
-            lines.Strip(ring, 0.6f, c, true);
-            foreach (var d in new[] { right, -right, up, -up }) lines.Line(p + d * rad, p + d * rad * 1.7f, 0.6f, c);
-            lines.Line(p - right * rad * 0.15f, p + right * rad * 0.15f, 0.6f, c);
+            float rad = Mathf.Max(4f, W(p) * 16f);
+            var c = LeadHit ? leadOnColor : LinedUp ? leadLinedColor : leadColor;
+            var ring = new List<Vector3>(24);
+            for (int k = 0; k < 24; k++) { float a = 2 * Mathf.PI * k / 24; ring.Add(p + (right * Mathf.Cos(a) + up * Mathf.Sin(a)) * rad); }
+            lines.Strip(ring, 0.7f, c, true);
+            foreach (var d in new[] { right, -right, up, -up }) lines.Line(p + d * rad, p + d * rad * 1.8f, 0.7f, c);
+            // your tracers round the moment the lead fires (or the first moment yours connect), until a burst is set
+            if (plan.burstEnd != plan.burstStart || gunPreview == null) return;
+            double at = read.leadFire;
+            var first = gunPreview.hits.Where(h => h.shooter == 0 && h.target == j).Select(h => h.fireTime - gunPreview.startTime).DefaultIfEmpty(-1).Min();
+            if (first >= 0) at = first;
+            foreach (var tr in gunPreview.traces)
+            {
+                if (tr.owner != 0 || tr.missile || Math.Abs(tr.startFrame * gunPreview.dt - at) > 0.4) continue;
+                var col = OutcomeColor(tr, myTracer);
+                col.a *= 0.6f;
+                DrawPreviewTrace(tr, col, 0.35f, col.a * 0.3f);
+            }
         }
-
         Vector2? GuiPoint(Vector3 world)
         {
             if (view == null || view.Cam == null) return null;
@@ -253,7 +272,7 @@ namespace Ooda.Turn
             return new Vector2(s.x, Screen.height - s.y) / guiScale;
         }
 
-        /// <summary>The chance beside each ghost, the pipper's label, and last turn's ghost miss.</summary>
+        /// <summary>The chance beside each ghost, the reticle's label, and last turn's ghost miss.</summary>
         void DogfightGUI(float sw, float sh)
         {
             if (phase != Phase.Planning && phase != Phase.Thinking) return;
@@ -273,12 +292,12 @@ namespace Ooda.Turn
                         if (g != null) Shadow(new Rect(g.Value.x + 14, g.Value.y - 22, 80, 20), $"{pr.chance[k] * 100:F0}%", tag);
                     }
                 }
-                if (read.lead != null && !plan.HasMarks && phase == Phase.Planning)
+                if (LeadShown && phase == Phase.Planning)
                 {
-                    var g = GuiPoint(PlayerPos + UnityFrame.Dir(read.lead.Value) * arrowLength);
-                    tag.normal.textColor = OnLead ? leadOnColor : leadColor;
-                    string text = OnLead ? "ON LEAD: F to fire" : read.leadHits > 0 ? $"LEAD  {read.leadHits} hits" : $"LEAD  misses by {read.leadMissFt:F0} ft";
-                    if (g != null) Shadow(new Rect(g.Value.x + 18, g.Value.y + 4, 200, 20), text, tag);
+                    var g = GuiPoint(UnityFrame.Pos(read.leadPoint));
+                    tag.normal.textColor = LeadHit ? leadOnColor : LinedUp ? leadLinedColor : leadColor;
+                    string text = LeadHit ? "HIT" : LinedUp ? "LINED UP: F to fire" : "LEAD: steer your tracers here";
+                    if (g != null) Shadow(new Rect(g.Value.x + 22, g.Value.y + 4, 240, 20), text, tag);
                 }
             }
             // last turn's ghost miss, just above the planning panel

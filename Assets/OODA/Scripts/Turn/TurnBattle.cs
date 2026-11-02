@@ -926,7 +926,7 @@ namespace Ooda.Turn
             if (preview == null) return;
             if (dirty || gunPreview == null) RunPreview();
             var times = gunPreview.hits.Where(h => h.shooter == 0).Select(h => h.fireTime - gunPreview.startTime).ToList();
-            if (times.Count == 0) { Notice("No hits predicted on this path against the bright ghost. Try the lead pipper."); plan.burstStart = plan.burstEnd = 0; }
+            if (times.Count == 0) { Notice("No hits predicted on this path against the bright ghost. Steer your tracers onto the lead ring."); plan.burstStart = plan.burstEnd = 0; }
             else { plan.burstStart = Math.Max(0, times.Min() - 0.15); plan.burstEnd = Math.Min(turnSec, times.Max() + 0.15); }
             dirty = true;
             RunPreview();
@@ -1472,10 +1472,10 @@ namespace Ooda.Turn
                 guiRects.Add(help);
                 GUI.Label(new Rect(20, hy + 6, 425, 270),
                     $"Plan where your nose points when the {turnSec:0.#} s turn ends. O: OODA, short turns.\n" +
-                    "Drag the yellow tip. The corner stick shakes as you near your hardest turn,\n" +
-                    "harder past it (overpull: stall, maybe spin). F1 shows the reach rings.\n" +
-                    "Blue: your path. Red: where the enemy will likely be, the bright one likeliest.\n" +
-                    "Orange ring: the lead. Put the tip on it and F fires on the hits.\n" +
+                    "Drag the yellow tip. The corner stick shakes near your hardest turn;\n" +
+                    "harder means overpull: stall, maybe spin. F1: reach rings.\n" +
+                    "Blue: your path. Red: where the enemy may go, the bright one likeliest.\n" +
+                    "Orange ring on its path: hit it there. Steer your tracers onto it, F.\n" +
                     (Bombing ? "Green: the bombers' course. Keep the Bf 109s off them; flak fires orange.\n" : "") +
                     "Your rounds: red hits, yellow just misses, orange misses. Lead the target.\n" +
                     "Drag on the timeline to fire; F fires where hits are predicted.\n\n" +
