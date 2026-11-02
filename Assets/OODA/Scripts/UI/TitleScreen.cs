@@ -57,6 +57,7 @@ namespace Ooda.UI
         {
             if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-strikeshots") >= 0) { pick = 4; Play(); return; }   // the Town Strike self-test (see TurnBattle.StrikeShots)
             var args = System.Environment.GetCommandLineArgs();
+            if (System.Array.IndexOf(args, "-squadshots") >= 0) { pick = 0; Play(); return; }   // the squad controls' self-test (see TurnBattle.SquadShots)
             if (System.Array.IndexOf(args, "-dogfight") >= 0 || System.Array.IndexOf(args, "-dogfightbot") >= 0) { pick = 2; Play(); return; }   // straight into the one on one (the bot flies it, see TurnBattle.Bot)
             if (cam == null) cam = Camera.main;
             if (terrain == null) terrain = Terrain.activeTerrain;

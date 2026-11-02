@@ -30,11 +30,11 @@ namespace Ooda.Turn.Core
         public CombatNumbers[] combat = new CombatNumbers[0];
         public int[] side = new int[0];              // 0 the player's side, 1 the enemy's
         public Route[] routes = new Route[0];        // set for an aircraft that flies a route by itself
-        public Slot[] slots = new Slot[0];           // set for a wingman holding close formation until the formation breaks
-        /// <summary>The player's side has broken formation: an enemy fighter came within Slot.BreakFt, or one of ours was hit.</summary>
-        public bool formationBroken;
-        /// <summary>The player's own place in the formation (never flown for them): straying from it breaks the formation.</summary>
-        public Slot playerSlot;
+        /// <summary>The flights (see Formations.Organise); flightOf and number place each aircraft in one, -1 and 0 for none.</summary>
+        public List<FlightGroup> flights = new List<FlightGroup>();
+        public int[] flightOf = new int[0];
+        public int[] number = new int[0];             // 1 the lead to 4
+        public Order[] orders = new Order[0];         // what each one does when nobody plans its turn
         public double[] health = new double[0];
         public double[] ammo = new double[0];        // seconds of trigger left
         public int[] missiles = new int[0];          // missiles left
@@ -73,7 +73,9 @@ namespace Ooda.Turn.Core
             Array.Resize(ref combat, n + 1); combat[n] = c;
             Array.Resize(ref side, n + 1); side[n] = onSide;
             Array.Resize(ref routes, n + 1); routes[n] = route?.Copy();
-            Array.Resize(ref slots, n + 1);
+            Array.Resize(ref flightOf, n + 1); flightOf[n] = -1;
+            Array.Resize(ref number, n + 1);
+            Array.Resize(ref orders, n + 1); orders[n] = Order.AutoFight;
             Array.Resize(ref health, n + 1); health[n] = c.health;
             Array.Resize(ref ammo, n + 1); ammo[n] = c.ammoSec;
             Array.Resize(ref missiles, n + 1); missiles[n] = c.missiles;
@@ -89,11 +91,13 @@ namespace Ooda.Turn.Core
         /// The fight is over when the player is out, or the enemy has no aircraft left, or there are aircraft
         /// flying routes (the bombers) and none of them is still flying one: all down, or the ones left are through.
         /// </summary>
-        public bool Over
+        public bool Over => OverWith(Out(0));
+
+        /// <summary>Over, with playerOut saying whether the player counts as out (not when they can carry on in another of theirs).</summary>
+        public bool OverWith(bool playerOut)
         {
-            get
             {
-                if (Out(0)) return true;
+                if (playerOut) return true;
                 bool enemyLeft = false, anyRoute = false, routeFlying = false;
                 for (int i = 0; i < Count; i++)
                 {
@@ -117,10 +121,7 @@ namespace Ooda.Turn.Core
             if (a == b || a < 0 || b < 0 || a >= Count || b >= Count) return;
             void S<T>(T[] arr) { var t = arr[a]; arr[a] = arr[b]; arr[b] = t; }
             int Map(int i) => i == a ? b : i == b ? a : i;
-            S(planes); S(combat); S(side); S(routes); S(slots); S(health); S(ammo); S(missiles); S(down); S(crashed); S(hitObstacle); S(fireClock);
-            for (int i = 0; i < slots.Length; i++)
-                if (slots[i] != null) { var c = slots[i].Copy(); c.leader = Map(c.leader); slots[i] = c; }
-            if (playerSlot != null) { var c = playerSlot.Copy(); c.leader = Map(c.leader); playerSlot = c; }
+            S(planes); S(combat); S(side); S(routes); S(flightOf); S(number); S(orders); S(health); S(ammo); S(missiles); S(down); S(crashed); S(hitObstacle); S(fireClock);
             foreach (var bl in bullets)
             {
                 if (bl.owner >= 0) bl.owner = Map(bl.owner);
@@ -149,7 +150,8 @@ namespace Ooda.Turn.Core
             c.planes = new FlightModel[Count];
             c.routes = new Route[Count];
             for (int i = 0; i < Count; i++) { c.planes[i] = planes[i].Clone(); c.routes[i] = routes[i]?.Copy(); }
-            c.slots = (Slot[])slots.Clone();   // slots never change, so they can be shared
+            c.flightOf = (int[])flightOf.Clone(); c.number = (int[])number.Clone(); c.orders = (Order[])orders.Clone();
+            c.flights = flights.ConvertAll(f => f.Copy());
             c.health = (double[])health.Clone(); c.ammo = (double[])ammo.Clone(); c.missiles = (int[])missiles.Clone();
             c.down = (bool[])down.Clone(); c.crashed = (bool[])crashed.Clone(); c.hitObstacle = (bool[])hitObstacle.Clone();
             c.fireClock = (double[])fireClock.Clone();
@@ -181,12 +183,15 @@ namespace Ooda.Turn.Core
         {
             int n = Count;
             var plans = new TurnPlan[n];
-            CheckBreak();
             for (int i = 0; i < n; i++)
-                plans[i] = routes[i] != null ? routes[i].Plan(planes[i])
-                         : strike != null && strike.OnPatrol(i) ? strike.patrols[i].Plan(planes[i])
-                         : InFormation(i) ? slots[i].Plan(this, i, turnSec)
-                         : i < given.Length && given[i].HasValue ? given[i].Value : TurnPlan.Holding();
+            {
+                var slot = InFormation(i) ? FormationSlot(i) : null;
+                bool mine = i < given.Length && given[i].HasValue;
+                plans[i] = strike != null && strike.OnPatrol(i) ? strike.patrols[i].Plan(planes[i])
+                         : slot != null ? slot.Plan(this, i, turnSec)
+                         : routes[i] != null && !(orders[i] == Order.YouControl && mine) ? routes[i].Plan(planes[i])
+                         : mine ? given[i].Value : TurnPlan.Holding();
+            }
             int steps = (int)Math.Round(turnSec / StepSec);
             var launched = new bool[n];
             var res = new TurnResult { startTime = time, dt = StepSec, frames = new AircraftFrame[n][] };
@@ -438,32 +443,41 @@ namespace Ooda.Turn.Core
         /// A smaller battle with only some of the aircraft (by index, in that order), for the AI to try plans in
         /// quickly. Rounds fired by the others are left out; the flak and the ground stay.
         /// </summary>
-        /// <summary>True while aircraft i holds its formation slot (and so plans for itself, like a route).</summary>
-        public bool InFormation(int i) => !formationBroken && i < slots.Length && slots[i] != null && !Out(i) && !Out(slots[i].leader);
+        /// <summary>
+        /// True while aircraft i flies its formation spot this turn (and so plans for itself, like a route): its order is
+        /// Rejoin and it has a spot to fly to. A wingman that has fallen behind is still in it, closing up.
+        /// </summary>
+        public bool InFormation(int i) => i >= 0 && i < Count && orders[i] == Order.Rejoin && !Out(i) && FormationSlot(i) != null;
+
+        /// <summary>The flight's lead: the lowest number still flying, or -1.</summary>
+        public int Leader(int f)
+        {
+            int best = -1;
+            for (int i = 0; i < Count; i++)
+                if (flightOf[i] == f && !Out(i) && (best < 0 || number[i] < number[best])) best = i;
+            return best;
+        }
 
         /// <summary>
-        /// Break formation once an enemy fighter is within Slot.BreakFt of any of ours, or one of ours has been hit.
-        /// It stays broken for the rest of the fight.
+        /// Where aircraft i belongs in its flight: its number's spot on the lead, or for the lead its station on the flight it
+        /// escorts. Null when it has none (no flight, or a lead with nothing to escort).
         /// </summary>
-        public void CheckBreak()
+        public Slot FormationSlot(int i)
         {
-            if (formationBroken) return;
-            bool any = false;
-            for (int i = 0; i < slots.Length; i++) any |= slots[i] != null;
-            if (!any) return;
-            if (playerSlot != null && !Out(0) && !Out(playerSlot.leader))
+            int f = i < flightOf.Length ? flightOf[i] : -1;
+            if (f < 0 || f >= flights.Count) return null;
+            var fl = flights[f];
+            int lead = Leader(f);
+            if (lead < 0) return null;
+            if (lead != i)
             {
-                var l = planes[playerSlot.leader];
-                if ((playerSlot.Where(l.state.pos, l.state.vel) - planes[0].state.pos).Length > Slot.LeadStrayFt) { formationBroken = true; return; }
+                Vec3d s = Formations.SpotFt(fl, number[i], number[lead]);
+                return new Slot { leader = lead, lateralFt = s.x, backFt = s.y, upFt = s.z };
             }
-            for (int i = 0; i < Count && !formationBroken; i++)
-            {
-                if (side[i] != 0 || Out(i)) continue;
-                if (health[i] < combat[i].health) { formationBroken = true; break; }
-                for (int j = 0; j < Count; j++)
-                    if (side[j] != 0 && !Out(j) && routes[j] == null && (planes[j].state.pos - planes[i].state.pos).Length < Slot.BreakFt)
-                    { formationBroken = true; break; }
-            }
+            if (fl.stationOn < 0) return null;
+            int on = Leader(fl.stationOn);
+            if (on < 0 || on == i) return null;
+            return new Slot { leader = on, lateralFt = fl.stationLat, backFt = fl.stationBack, upFt = fl.stationUp };
         }
 
         public Battle Subset(int[] keep)
@@ -479,12 +493,9 @@ namespace Ooda.Turn.Core
                 c.planes[j] = planes[i].Clone(); c.combat[j] = combat[i]; c.side[j] = side[i]; c.routes[j] = routes[i]?.Copy();
                 c.health[j] = health[i]; c.ammo[j] = ammo[i]; c.missiles[j] = missiles[i]; c.down[j] = down[i]; c.crashed[j] = crashed[i]; c.hitObstacle[j] = hitObstacle[i]; c.fireClock[j] = fireClock[i];
             }
-            c.slots = new Slot[n];
-            for (int j = 0; j < n; j++)
-            {
-                var sl = keep[j] < slots.Length ? slots[keep[j]] : null;
-                if (sl != null && map.TryGetValue(sl.leader, out int lj)) { var s2 = sl.Copy(); s2.leader = lj; c.slots[j] = s2; }
-            }
+            c.flightOf = new int[n]; c.number = new int[n]; c.orders = new Order[n];
+            for (int j = 0; j < n; j++) { c.flightOf[j] = flightOf[keep[j]]; c.number[j] = number[keep[j]]; c.orders[j] = orders[keep[j]]; }
+            c.flights = flights.ConvertAll(f => f.Copy());
             c.bullets = new List<Bullet>();
             foreach (var b in bullets)
             {

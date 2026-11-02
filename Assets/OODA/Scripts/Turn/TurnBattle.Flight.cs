@@ -47,17 +47,17 @@ namespace Ooda.Turn
             flight.Clear();
         }
 
-        /// <summary>After the views are laid out: who is in your flight.</summary>
+        /// <summary>After the views are laid out: every plane on your side, the fighters' flights first (your lead first), then the bombers.</summary>
         void ListFlight()
         {
             flight.Clear();
-            for (int i = 0; i < battle.Count; i++)   // the wingmen still in formation count: you can fly them once it breaks
-                if (battle.side[i] == SideOf0 && battle.routes[i] == null) flight.Add(battle.planes[i]);
+            var mine = Enumerable.Range(0, battle.Count).Where(i => battle.side[i] == SideOf0)
+                .OrderBy(i => battle.routes[i] != null).ThenBy(i => i == 0 ? -1 : battle.flightOf[i]).ThenBy(i => battle.number[i]).ThenBy(i => i);
+            foreach (int i in mine) flight.Add(battle.planes[i]);
         }
 
-        /// <summary>One of your fighters you can take the stick of: on your side, not a bomber on its route, not held in formation.</summary>
-        bool Flyable(int i) => i >= 0 && i < battle.Count && battle.side[i] == SideOf0 && battle.routes[i] == null && !battle.InFormation(i)
-                              && (battle.strike == null || !battle.strike.Held(i));
+        /// <summary>One of yours you can take the stick of: on your side and not waiting on a runway. Bombers and wingmen in formation too.</summary>
+        bool Flyable(int i) => i >= 0 && i < battle.Count && battle.side[i] == SideOf0 && (battle.strike == null || !battle.strike.Held(i));
 
         /// <summary>Your side (aircraft 0's, whichever plane that is now).</summary>
         int SideOf0 => battle.side[0];
@@ -69,9 +69,17 @@ namespace Ooda.Turn
 
         string FlightName(int i)
         {
-            int no = FlightNo(battle.planes[i]);
             string kind = battle.planes[i].numbers.name.Replace("D Mustang", "").Replace(" G-6", "");
-            return no == 1 ? $"{kind} #1 (lead)" : no > 0 ? $"{kind} #{no}" : kind;
+            int f = battle.flightOf[i];
+            if (f < 0 || f >= battle.flights.Count) return kind;
+            return $"{CallSign(i)} ({kind}{(battle.Leader(f) == i ? ", lead" : "")})";
+        }
+
+        /// <summary>Its flight and number: Blue 2, Bombers 1.</summary>
+        string CallSign(int i)
+        {
+            int f = battle.flightOf[i];
+            return f < 0 || f >= battle.flights.Count ? battle.planes[i].numbers.name : $"{battle.flights[f].name} {battle.number[i]}";
         }
 
         // ---------- swapping the plane you fly ----------
@@ -135,7 +143,12 @@ namespace Ooda.Turn
         {
             if (k <= 0 || !CanFly(k)) return;
             if (keepPlan && !battle.Out(0)) manual[battle.planes[0]] = plan;
-            TurnPlan? suggestion = read != null && k < read.pred.Length && read.pred[k] != null ? read.pred[k].plans[0] : (TurnPlan?)null;
+            unplannedAsk = null;
+            // what it would do by itself: hold its spot, fly its route, or what its AI pilot is likely to do
+            var slot = battle.InFormation(k) ? battle.FormationSlot(k) : null;
+            TurnPlan? suggestion = slot != null ? slot.Plan(battle, k, turnSec)
+                : battle.routes[k] != null && battle.orders[k] != Order.YouControl ? battle.routes[k].Plan(battle.planes[k])
+                : read != null && k < read.pred.Length && read.pred[k] != null ? read.pred[k].plans[0] : (TurnPlan?)null;
             SwapAll(0, k);
             var m = battle.planes[0];
             env = Envelope.Compute(m, turnSec);
@@ -151,6 +164,7 @@ namespace Ooda.Turn
                 plan.overpull = env.Overpull(plan.aim);
                 manual[m] = plan;
             }
+            untouched = plan;
             markT = 0;
             burstPreset = 0;
             dirty = true;
@@ -169,7 +183,7 @@ namespace Ooda.Turn
             int at = mine.IndexOf(0);
             int next = mine[((at + dir) % mine.Count + mine.Count) % mine.Count];
             TakeControl(next);
-            Notice($"Flying {FlightName(0)}: {mine.Count} planes, Tab for the next. One you don't visit flies itself.");
+            Notice($"Now on {FlightName(0)}: {Formations.Name(battle.orders[0])}. Steer it to take it over; Tab for the next.");
         }
 
         /// <summary>
@@ -201,27 +215,176 @@ namespace Ooda.Turn
         /// <summary>The fight is over, counting a plane of yours still flying as you carrying on.</summary>
         bool FightIsOver()
         {
-            if (!battle.Over) return false;
-            if (!battle.Out(0) || !CanTakeOver() || Bombing) return true;   // the bomber missions keep their own ending for now
-            // you are down but one of yours flies: over only if the enemy is gone too (or the bombers are all done)
-            bool enemyLeft = false;
-            for (int i = 0; i < battle.Count; i++) if (battle.side[i] != SideOf0 && !battle.Out(i)) enemyLeft = true;
-            return !enemyLeft;
+            // you are down but one of yours flies: carry on in it unless the fight is over anyway
+            return battle.OverWith(battle.Out(0) && !CanTakeOver());
         }
 
-        /// <summary>The plans you made, for everyone but aircraft 0 (whose plan is the one in hand).</summary>
+        /// <summary>The plans you made, for everyone but aircraft 0 (whose plan is the one in hand). Only planes under your control take them.</summary>
         void ApplyManual(TurnPlan?[] plans)
         {
             for (int i = 1; i < plans.Length && i < battle.Count; i++)
-                if (!battle.Out(i) && manual.TryGetValue(battle.planes[i], out var p)) plans[i] = p;
+                if (!battle.Out(i) && battle.orders[i] == Order.YouControl && manual.TryGetValue(battle.planes[i], out var p)) plans[i] = p;
         }
 
         /// <summary>By aircraft: you planned it this turn, so its AI pilot need not.</summary>
         bool[] ManualMask()
         {
             var mask = new bool[battle.Count];
-            for (int i = 1; i < mask.Length; i++) mask[i] = manual.ContainsKey(battle.planes[i]);
+            for (int i = 1; i < mask.Length; i++) mask[i] = battle.orders[i] == Order.YouControl && manual.ContainsKey(battle.planes[i]);
             return mask;
+        }
+
+        // ---------- orders and formations ----------
+
+        /// <summary>The plan as it was handed to you on this plane (its formation, route or AI plan): steering away from it takes the plane over.</summary>
+        TurnPlan untouched;
+        /// <summary>Planes under your control that you have not planned this turn, while Fly asks about them.</summary>
+        List<int> unplannedAsk;
+
+        static bool SamePlan(TurnPlan a, TurnPlan b) =>
+            (a.aim - b.aim).Length < 1e-9 && System.Math.Abs(a.throttle - b.throttle) < 1e-6 && a.wep == b.wep && a.rocket == b.rocket && a.brake == b.brake
+            && a.burstStart == b.burstStart && a.burstEnd == b.burstEnd && a.missile == b.missile && a.hold == b.hold && a.marks == b.marks;
+
+        /// <summary>At the start of each turn's planning: a plane in formation shows its formation plan, so the stick shows what it will do.</summary>
+        void OrdersTurnStarts()
+        {
+            unplannedAsk = null;
+            var slot = battle.InFormation(0) ? battle.FormationSlot(0) : null;
+            if (slot != null)
+            {
+                plan = slot.Plan(battle, 0, turnSec);
+                plan.aim = env.Clamp(plan.aim, true);
+                plan.overpull = env.Overpull(plan.aim);
+            }
+            untouched = plan;
+        }
+
+        /// <summary>Every frame: steering the plane you are on (anything but your own control) takes it over.</summary>
+        void WatchOrders()
+        {
+            if (phase != Phase.Planning || battle == null || battle.Out(0) || battle.side[0] != SideOf0) return;
+            if (battle.orders[0] == Order.YouControl || SamePlan(plan, untouched)) return;
+            SetOrder(Order.YouControl, false);
+            if (flight.Count > 1) Notice($"{CallSign(0)} is yours now: it flies your plans until you give it Rejoin or Auto Fight.");
+        }
+
+        /// <summary>The order for the plane you are on. Rejoin and Auto Fight hand it back to its spot or its AI pilot this turn.</summary>
+        void SetOrder(Order o, bool resetPlan = true)
+        {
+            battle.orders[0] = o;
+            unplannedAsk = null;
+            if (!resetPlan) return;
+            manual.Remove(battle.planes[0]);
+            var slot = battle.InFormation(0) ? battle.FormationSlot(0) : null;
+            TurnPlan? p = slot != null ? slot.Plan(battle, 0, turnSec)
+                : o != Order.YouControl && battle.routes[0] != null ? battle.routes[0].Plan(battle.planes[0])
+                : o == Order.AutoFight && ais[0] != null ? ais[0].Plan(battle, turnSec) : (TurnPlan?)null;
+            if (p.HasValue)
+            {
+                plan = p.Value;
+                plan.hold = false;
+                plan.marks = null;
+                plan.aim = env.Clamp(plan.aim, true);
+                plan.overpull = env.Overpull(plan.aim);
+            }
+            untouched = plan;
+            dirty = true;
+        }
+
+        /// <summary>The formation for the flight the plane you are on leads.</summary>
+        void SetFormation(Formation shape)
+        {
+            int f = battle.flightOf[0];
+            if (f < 0 || f >= battle.flights.Count) return;
+            battle.flights[f].shape = shape;
+            if (battle.InFormation(0)) SetOrder(Order.Rejoin);   // a lead holding station: its plan may have moved with it
+            dirty = true;
+            Notice($"{battle.flights[f].name} flight: {Formations.Name(shape)}.");
+        }
+
+        /// <summary>
+        /// Before a turn is flown: planes under your control you haven't planned this turn are listed, and Fly waits for you
+        /// to choose (Auto Fly Them, or go and plan them). Pressing Fly again while asked flies them on autopilot.
+        /// </summary>
+        bool AskAboutUnplanned()
+        {
+            if (unplannedAsk != null) { unplannedAsk = null; return false; }
+            var list = new List<int>();
+            for (int i = 1; i < battle.Count; i++)
+                if (battle.side[i] == SideOf0 && !battle.Out(i) && battle.orders[i] == Order.YouControl && !manual.ContainsKey(battle.planes[i])) list.Add(i);
+            if (list.Count == 0) return false;
+            unplannedAsk = list;
+            return true;
+        }
+
+        void UnplannedGUI(float sw, float sh)
+        {
+            if (unplannedAsk == null || phase != Phase.Planning) return;
+            var names = string.Join(", ", unplannedAsk.Where(i => i < battle.Count).Select(CallSign));
+            var r = new Rect(sw / 2 - 230, sh * 0.32f, 460, 120);
+            guiRects.Add(r);
+            GUI.Box(r, GUIContent.none);
+            GUI.Box(r, GUIContent.none);   // twice: darker, over the busy sky
+            GUI.Label(new Rect(r.x + 14, r.y + 10, r.width - 28, 50), $"No plan this turn for {names}.", new GUIStyle(label) { wordWrap = true, alignment = TextAnchor.UpperCenter });
+            if (GUI.Button(new Rect(r.x + 20, r.y + 70, 200, 36), "Auto Fly Them  (Space)")) Commit();
+            if (GUI.Button(new Rect(r.x + 240, r.y + 70, 200, 36), "Plan Them"))
+            {
+                int first = unplannedAsk.Count > 0 ? unplannedAsk[0] : -1;
+                unplannedAsk = null;
+                if (first > 0) { TakeControl(first); Notice($"Now on {FlightName(0)}."); }
+            }
+        }
+
+        /// <summary>Under the roster: the plane you're on's order, and the formation buttons when it leads a flight.</summary>
+        void OrdersGUI(float sw)
+        {
+            if (phase != Phase.Planning || flight.Count < 2 || battle.Out(0)) return;
+            int f = battle.flightOf[0];
+            bool leads = f >= 0 && f < battle.flights.Count && battle.Leader(f) == 0;
+            int inFlight = 0;
+            for (int i = 0; i < battle.Count; i++) if (f >= 0 && battle.flightOf[i] == f && !battle.Out(i)) inFlight++;
+            var orders = new[] { Order.Rejoin, Order.AutoFight, Order.YouControl };
+            float bw = 104, gap = 4, y = 74;
+            float total = orders.Length * bw + (orders.Length - 1) * gap;
+            float x = (sw - total) / 2;
+            guiRects.Add(new Rect(x - 6, y - 4, total + 12, 38));
+            var on = new GUIStyle(GUI.skin.button) { fontSize = 12, fontStyle = FontStyle.Bold };
+            on.normal.textColor = on.hover.textColor = new Color(1f, 0.85f, 0.2f);
+            var off = new GUIStyle(GUI.skin.button) { fontSize = 12 };
+            foreach (var o in orders)
+            {
+                if (GUI.Button(new Rect(x, y, bw, 30), Formations.Name(o), battle.orders[0] == o ? on : off) && battle.orders[0] != o)
+                {
+                    SetOrder(o);
+                    Notice($"{CallSign(0)}: {Formations.Name(o)}.");
+                }
+                x += bw + gap;
+            }
+            if (!leads || inFlight < 2) return;
+            // the formation buttons on a row of their own: the flight you lead
+            y += 36;
+            total = Formations.All.Length * bw + (Formations.All.Length - 1) * gap;
+            x = (sw - total) / 2;
+            guiRects.Add(new Rect(x - 6, y - 4, total + 12, 38));
+            foreach (var shape in Formations.All)
+            {
+                if (GUI.Button(new Rect(x, y, bw, 30), Formations.Name(shape), battle.flights[f].shape == shape ? on : off)) SetFormation(shape);
+                x += bw + gap;
+            }
+        }
+
+        /// <summary>A plane's state for the roster.</summary>
+        string RosterState(int i)
+        {
+            if (i < 0 || battle.Out(i)) return "down";
+            string on = i == 0 ? "on it: " : "";
+            if (battle.orders[i] == Order.YouControl) return i == 0 ? "on it: yours" : manual.ContainsKey(battle.planes[i]) ? "planned" : "yours, no plan";
+            if (battle.orders[i] == Order.AutoFight) return on + (battle.routes[i] != null ? "route" : "auto fight");
+            var slot = battle.FormationSlot(i);
+            if (slot == null) return on + (battle.routes[i] != null ? "route" : "auto fight");
+            var l = battle.planes[slot.leader];
+            bool far = (slot.Where(l.state.pos, l.state.vel) - battle.planes[i].state.pos).Length > Slot.RejoinFt;
+            return on + (far ? "rejoining" : "formation");
         }
 
         // ---------- the roster ----------
@@ -230,8 +393,11 @@ namespace Ooda.Turn
         void RosterGUI(float sw)
         {
             if (flight.Count < 2) return;
-            float bw = 132, gap = 6, total = flight.Count * bw + (flight.Count - 1) * gap;
-            float x = (sw - total) / 2, y = 10;
+            // between the panels in the top corners (yours on the left, the buttons on the right)
+            float left = 320, right = sw - 200, gap = 4;
+            float bw = Mathf.Clamp((right - left - (flight.Count - 1) * gap) / flight.Count, 70, 132);
+            float total = flight.Count * bw + (flight.Count - 1) * gap;
+            float x = Mathf.Max(left, (left + right - total) / 2), y = 10;
             var r = new Rect(x - 6, y - 4, total + 12, 52);
             guiRects.Add(r);
             for (int k = 0; k < flight.Count; k++)
@@ -239,11 +405,10 @@ namespace Ooda.Turn
                 var m = flight[k];
                 int i = System.Array.IndexOf(battle.planes, m);
                 bool down = i < 0 || battle.Out(i);
-                string state = down ? "down" : i == 0 ? "flying" : manual.ContainsKey(m) ? "planned" : "auto";
-                var st = new GUIStyle(GUI.skin.button) { fontSize = 13, fontStyle = i == 0 ? FontStyle.Bold : FontStyle.Normal };
+                var st = new GUIStyle(GUI.skin.button) { fontSize = bw < 90 ? 11 : 12, fontStyle = i == 0 ? FontStyle.Bold : FontStyle.Normal };
                 if (i == 0) st.normal.textColor = st.hover.textColor = new Color(1f, 0.85f, 0.2f);
                 GUI.enabled = !down && i != 0 && phase == Phase.Planning;
-                if (GUI.Button(new Rect(x + k * (bw + gap), y, bw, 40), $"#{k + 1}{(k == 0 ? " lead" : "")}\n{state}", st))
+                if (GUI.Button(new Rect(x + k * (bw + gap), y, bw, 40), $"{(i >= 0 ? CallSign(i) : "")}\n{RosterState(i)}", st))
                 {
                     TakeControl(i);
                     Notice($"Flying {FlightName(0)}.");
@@ -251,7 +416,7 @@ namespace Ooda.Turn
                 GUI.enabled = true;
             }
             if (phase == Phase.Planning)
-                GUI.Label(new Rect(x, y + 42, total, 20), "Tab: your next plane", new GUIStyle(small) { alignment = TextAnchor.UpperCenter });
+                GUI.Label(new Rect(x, y + 42, total, 20), "Tab: your next plane. Steer one to take it over.", new GUIStyle(small) { alignment = TextAnchor.UpperCenter });
         }
     }
 }

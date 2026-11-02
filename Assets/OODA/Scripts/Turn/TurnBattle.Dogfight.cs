@@ -84,7 +84,6 @@ namespace Ooda.Turn
         {
             read = null;
             var b = battle; var pilots = ais; double ts = turnSec; int target = focus; var mine = plan; var e = env; int most = Mathf.Max(1, spreadCount);
-            b.CheckBreak();   // as the turn will, so the wingmen who break plan for themselves here too
             readingFor = b;
             reading = Task.Run(() => Read(b, pilots, ts, target, mine, e, most));
         }

@@ -5,14 +5,12 @@ namespace Ooda.Turn.Core
 {
     /// <summary>
     /// A wingman's place in close formation: lateralFt to the right of, backFt behind and upFt above the leader,
-    /// in the leader's heading frame (level). Held until the formation breaks (see Battle.CheckBreak).
+    /// in the leader's heading frame (level). See Battle.FormationSlot.
     /// </summary>
     public class Slot
     {
-        /// <summary>An enemy fighter this close to any of ours breaks the formation: about 3 NM, so there is time to turn in.</summary>
-        public const double BreakFt = 18000;
-        /// <summary>The player leading off from their own place in the formation by this much breaks it too: the flight follows its lead.</summary>
-        public const double LeadStrayFt = 1500;
+        /// <summary>Further than this from the slot, a wingman is rejoining: it turns harder and opens the throttle to catch up.</summary>
+        public const double RejoinFt = 1500;
 
         public int leader;
         public double lateralFt, backFt, upFt;
@@ -45,17 +43,21 @@ namespace Ooda.Turn.Core
             Vec3d want = l.state.vel + gap * (1.0 / closeSec);
             double wantSpeed = want.Length, speed = Math.Max(1, m.state.vel.Length);
             Vec3d aim = want.Normalized;
-            // no more than a gentle 25 degrees of turn a turn, and not steeply up or down
-            double max = 25 * Math.PI / 180, ang = Envelope.Angle(m.Forward, aim);
+            // no more than a gentle 25 degrees of turn a turn (60 when rejoining from far off), and not steeply up or down
+            bool far = gap.Length > RejoinFt;
+            double max = (far ? 60 : 25) * Math.PI / 180, ang = Envelope.Angle(m.Forward, aim);
             if (ang > max)
             {
                 Vec3d side = (aim - m.Forward * Vec3d.Dot(aim, m.Forward)).Normalized;
                 aim = (m.Forward * Math.Cos(max) + side * Math.Sin(max)).Normalized;
             }
-            double climb = Math.Max(-0.15, Math.Min(0.15, aim.z));
+            // rejoining from below, climb only as steeply as the speed allows: a slow wingman would fall further behind
+            double steep = far ? Math.Max(0.02, Math.Min(0.3, (m.Kias - l.Kias - 30) / 300)) : 0.15;
+            double climb = Math.Max(-steep, Math.Min(steep, aim.z));
             double h = Math.Sqrt(Math.Max(1e-9, aim.x * aim.x + aim.y * aim.y));
             aim = new Vec3d(aim.x / h * Math.Sqrt(1 - climb * climb), aim.y / h * Math.Sqrt(1 - climb * climb), climb);
-            double throttle = Math.Max(0.1, Math.Min(1, 0.55 + (wantSpeed - speed) / speed * 6));
+            double throttle = far && Vec3d.Dot(gap, m.Forward) > 0 ? 1 : Math.Max(0.1, Math.Min(1, 0.55 + (wantSpeed - speed) / speed * 6));
+            if (gap.z > 150) throttle = Math.Max(throttle, 0.8);   // the slot is above: the climb needs the power
             return new TurnPlan { aim = aim, throttle = throttle };
         }
     }

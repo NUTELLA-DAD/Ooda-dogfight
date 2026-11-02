@@ -358,6 +358,7 @@ namespace Ooda.Turn
             plan.rocket = plan.brake = false;
             markT = 0;
             burstPreset = 0;
+            OrdersTurnStarts();
             dirty = true;
             ShowAllLive();
             UpdateSmoke(battle.health, battle.down);
@@ -395,14 +396,15 @@ namespace Ooda.Turn
         void Commit()
         {
             if (phase != Phase.Planning) return;
+            if (AskAboutUnplanned()) return;
             var b = battle; var pilots = ais; float ts = turnSec; int n = battle.Count; var rd = reading; var mine = ManualMask();
+            mine[0] = battle.orders[0] != Order.AutoFight;   // the plane you are on flies your plan, unless you've told it to fight by itself
             thinkingFor = b;
-            b.CheckBreak();   // so the wingmen get their own plans the turn the formation breaks
             thinking = Task.Run(() =>
             {
                 try { rd?.Wait(); } catch (AggregateException) { }   // the reading scores the same tries the pilots pick from: let it finish first
                 var plans = new TurnPlan?[n];
-                Parallel.For(1, n, i => { if (pilots[i] != null && !mine[i] && !b.Out(i) && !b.InFormation(i) && (b.strike == null || !b.strike.OnPatrol(i))) plans[i] = pilots[i].Plan(b, ts); });
+                Parallel.For(0, n, i => { if (pilots[i] != null && !mine[i] && !b.Out(i) && !b.InFormation(i) && (b.strike == null || !b.strike.OnPatrol(i))) plans[i] = pilots[i].Plan(b, ts); });
                 return plans;
             });
             phase = Phase.Thinking;
@@ -417,7 +419,7 @@ namespace Ooda.Turn
             TurnPlan?[] plans;
             if (task.IsFaulted) { Debug.LogException(task.Exception); plans = new TurnPlan?[battle.Count]; }
             else plans = task.Result;
-            plans[0] = plan;
+            if (battle.orders[0] != Order.AutoFight || !plans[0].HasValue) plans[0] = plan;
             ApplyManual(plans);
             healthBefore = (double[])battle.health.Clone();
             lastOverpull = plan.overpull;
@@ -523,6 +525,8 @@ namespace Ooda.Turn
             if (reading != null && reading.IsCompleted) FinishReading();
             if (thinking != null && thinking.IsCompleted) FinishCommit();
             HandleInput();
+            WatchOrders();
+            SquadShotsCheck();
             BotUpdate();
             lines.Begin();
             if (phase == Phase.Playing) Playback();
@@ -1480,6 +1484,8 @@ namespace Ooda.Turn
 
             DrawGauge(sw, sh);
             RosterGUI(sw);
+            OrdersGUI(sw);
+            UnplannedGUI(sw, sh);
             if (planning) PlanningPanel(sw, sh);
             DogfightGUI(sw, sh);
             if (phase == Phase.Playing) GUI.Label(new Rect(0, sh - 60, sw, 30), $"Turn playing  {playT:F1} / {turnSec:F0} s   (hold Tab to speed up)", new GUIStyle(label) { alignment = TextAnchor.MiddleCenter });
