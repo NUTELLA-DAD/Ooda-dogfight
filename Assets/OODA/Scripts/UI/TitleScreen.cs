@@ -236,15 +236,18 @@ namespace Ooda.UI
 
         void OnGUI()
         {
+            BriefingStyle.Use();
             if (title == null)
             {
-                title = new GUIStyle(GUI.skin.label) { fontSize = 120, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-                title.normal.textColor = Color.white;
-                sub = new GUIStyle(title) { fontSize = 26, fontStyle = FontStyle.Italic };
+                title = BriefingStyle.Heading(GUI.skin.label, 120);
+                title.alignment = TextAnchor.MiddleCenter;
+                sub = new GUIStyle(GUI.skin.label) { fontSize = 26, alignment = TextAnchor.MiddleCenter };
+                sub.normal.textColor = BriefingStyle.BrightGreen;
                 button = new GUIStyle(GUI.skin.button) { fontSize = 24 };
                 picked = new GUIStyle(button) { fontStyle = FontStyle.Bold };
-                picked.normal.textColor = picked.hover.textColor = new Color(1f, 0.85f, 0.2f);
-                note = new GUIStyle(sub) { fontSize = 20, fontStyle = FontStyle.Normal };
+                picked.normal.textColor = picked.hover.textColor = BriefingStyle.Amber;
+                note = new GUIStyle(sub) { fontSize = 20 };
+                note.normal.textColor = BriefingStyle.Green;
                 hint = new GUIStyle(note) { fontSize = 16 };
                 black = new Texture2D(1, 1);
                 black.SetPixel(0, 0, Color.black);

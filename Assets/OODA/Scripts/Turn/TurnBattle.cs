@@ -1396,6 +1396,7 @@ namespace Ooda.Turn
         void OnGUI()
         {
             if (battle == null) return;
+            Ooda.UI.BriefingStyle.Use();
             guiScale = Mathf.Clamp(Screen.height / 900f, 1f, 2.5f);
             GUI.matrix = Matrix4x4.Scale(Vector3.one * guiScale);
             float sw = Screen.width / guiScale, sh = Screen.height / guiScale;
@@ -1405,6 +1406,7 @@ namespace Ooda.Turn
                 label.normal.textColor = new Color(0.85f, 1f, 0.85f);
                 big = new GUIStyle(label) { fontSize = 34, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
                 big.normal.textColor = new Color(1f, 0.9f, 0.4f);
+                big.font = Ooda.UI.BriefingStyle.Stencil;
                 small = new GUIStyle(label) { fontSize = 13 };
                 title = new GUIStyle(label) { fontSize = 20, fontStyle = FontStyle.Bold };
             }
