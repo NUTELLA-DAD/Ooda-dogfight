@@ -32,7 +32,7 @@ namespace Ooda.Turn
         public float funnelMinFt = 150f;
         public Color sightColor = new Color(0.45f, 1f, 0.45f, 0.95f);
 
-        float sightT;              // the moment the funnel shows, s into the turn
+        float sightT;              // the moment picked on the burst bar: when you fire, s into the turn (the funnel shows when those rounds arrive)
         float hoverUntil;          // the mouse was over the burst bar until about now (unscaled time)
 
         void NextSightMode() => sightMode = (SightMode)(((int)sightMode + 1) % 3);
@@ -97,7 +97,37 @@ namespace Ooda.Turn
         }
 
         /// <summary>The frame of the gun preview at the funnel's moment.</summary>
-        int FunnelFrame() => gunPreview == null ? 0 : Mathf.Clamp(Mathf.RoundToInt(sightT / (float)gunPreview.dt), 0, gunPreview.FrameCount - 1);
+        int FunnelFrame()
+        {
+            if (gunPreview == null) return 0;
+            var gp = gunPreview;
+            int f0 = Mathf.Clamp(Mathf.RoundToInt(sightT / (float)gp.dt), 0, gp.FrameCount - 1);
+            int j = FunnelTarget();
+            if (j < 0 || j >= gp.frames.Length) return f0;
+            // the burst bar is in firing time (its red band is when rounds fired connect), so the funnel shows the moment
+            // the round fired at sightT gets out to the target's range (or strikes it): then the two always agree
+            Trace best = null; int bestD = int.MaxValue;
+            foreach (var tr in gp.traces)
+            {
+                if (tr.owner != 0 || tr.missile || tr.startFrame == 0) continue;
+                int d = Math.Abs(tr.startFrame - f0);
+                if (d < bestD) { bestD = d; best = tr; }
+            }
+            if (best == null || bestD > 5) return f0;
+            int last = best.startFrame;
+            for (int f = best.startFrame; f < gp.FrameCount; f++)
+            {
+                var p = best.At(f);
+                if (p == null) break;   // spent, or it hit something: it ends there
+                last = f;
+                Vec3d me = gp.frames[0][f].pos;
+                if ((p.Value - me).Length >= (gp.frames[j][f].pos - me).Length) break;
+            }
+            return last;
+        }
+
+        /// <summary>The funnel's moment, s into the turn: when the rounds fired at the picked moment arrive.</summary>
+        float ArriveT => FunnelFrame() * (float)(gunPreview?.dt ?? 0);
 
         /// <summary>Your gun line and wing line at a frame: the axis the rounds leave along, and across it.</summary>
         static void GunAxes(AircraftFrame me, out Vec3d gun, out Vec3d up, out Vec3d right)
@@ -114,9 +144,10 @@ namespace Ooda.Turn
         {
             fired = -1;
             if (gunPreview == null || j < 0) return false;
-            double now = sightT + gunPreview.startTime;
+            // by firing time, just as the burst bar's red band is drawn, so ON TARGET and the band always agree
+            double at = sightT + gunPreview.startTime;
             foreach (var h in gunPreview.hits)
-                if (h.shooter == 0 && h.target == j && Math.Abs(h.time - now) < 0.08) { fired = h.fireTime - gunPreview.startTime; return true; }
+                if (h.shooter == 0 && h.target == j && Math.Abs(h.fireTime - at) <= 0.06) { fired = h.fireTime - gunPreview.startTime; return true; }
             return false;
         }
 
@@ -132,7 +163,7 @@ namespace Ooda.Turn
                 // where your rounds first meet the target, else the middle of the turn
                 double first = double.PositiveInfinity;
                 foreach (var h in gp.hits)
-                    if (h.shooter == 0 && (h.target == j || j < 0)) first = Math.Min(first, h.time - gp.startTime);
+                    if (h.shooter == 0 && (h.target == j || j < 0)) first = Math.Min(first, h.fireTime - gp.startTime);
                 sightT = (float)(double.IsInfinity(first) ? turnSec / 2 : first);
             }
             if (!sv) return;   // only lined up: from the overview chase it is just a long green trail
@@ -288,7 +319,7 @@ namespace Ooda.Turn
                 Fill(new Rect(cx - 1, cy - 14, 2, 10), sightColor); Fill(new Rect(cx - 1, cy + 4, 2, 10), sightColor);
                 var hud = new GUIStyle(label) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold };
                 hud.normal.textColor = sightColor;
-                Shadow(new Rect(0, sh * 0.12f, sw, 24), $"FUNNEL  {sightT:F2} s   fit their wings across it", hud);
+                Shadow(new Rect(0, sh * 0.12f, sw, 24), $"FIRE {sightT:F2} s  >  THERE {ArriveT:F2} s   fit their wings across the funnel", hud);
             }
 
             // the label by the target's outline (or by yours when there is no target)
@@ -298,7 +329,7 @@ namespace Ooda.Turn
             var tag = new GUIStyle(small) { fontStyle = FontStyle.Bold };
             tag.normal.textColor = sightColor;
             bool hitNow = FunnelHit(j, out double fired);
-            string text = $"FUNNEL {sightT:F2} s";
+            string text = $"fired {sightT:F2} s";
             Vec3d at = me.pos;
             if (j >= 0 && j < gunPreview.frames.Length && !battle.Out(j) && !gunPreview.frames[j][f].down)
             {
@@ -306,7 +337,7 @@ namespace Ooda.Turn
                 double range = (them.pos - me.pos).Length;
                 at = them.pos;
                 if (hitNow) { tag.normal.textColor = hitTracer; text = $"ON TARGET {range:F0} ft  (fired {fired:F2} s)"; }
-                else text = $"{sightT:F2} s  {range:F0} ft";
+                else text = $"{range:F0} ft";
             }
             if (!SightViewOn) return;   // the funnel and its labels show only lined up
             Vector3 shift = view != null ? view.sightPos - UnityFrame.Pos(me.pos) : Vector3.zero;
