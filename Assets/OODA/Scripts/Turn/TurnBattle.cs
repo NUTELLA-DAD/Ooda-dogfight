@@ -256,6 +256,7 @@ namespace Ooda.Turn
 
         public void Restart()
         {
+            StopReplayQuietly();
             thinking = null; thinkingFor = null;
             reading = null; readingFor = null; read = null;
             pinnedFocus = -1;
@@ -337,6 +338,7 @@ namespace Ooda.Turn
             foreach (var f in flashes) Destroy(f.t.gameObject);
             flashes.Clear();
             FightStarted();
+            TapeStarts();
             BeginPlanning();
             if (view != null) view.BehindPlayer();
             StrikeRestarted();
@@ -424,6 +426,7 @@ namespace Ooda.Turn
             healthBefore = (double[])battle.health.Clone();
             lastOverpull = plan.overpull;
             last = battle.Resolve(plans, turnSec, true);
+            RecordTurn();
             TurnFlown(plans, onLead);
             bool over = FightIsOver();
             phaseAfterPlayback = over ? Phase.Over : Phase.Planning;
@@ -521,6 +524,8 @@ namespace Ooda.Turn
 
         void Update()
         {
+            if (MenuUpdate()) return;   // Esc: the menu is open and the battle waits
+            if (replaying) { ReplayUpdate(); return; }
             if (briefing) { UpdateBriefing(); return; }
             if (reading != null && reading.IsCompleted) FinishReading();
             if (thinking != null && thinking.IsCompleted) FinishCommit();
@@ -679,6 +684,7 @@ namespace Ooda.Turn
 
             bool Pressed(Key k) => kb != null && kb[k].wasPressedThisFrame;
             if (Pressed(Key.H)) showHelp = !showHelp;
+            if (Pressed(Key.W) && CanWatchReplay) { StartReplay(); return; }
             if (Pressed(Key.M)) SwitchMission();
             if (Pressed(Key.O)) SwitchOoda();
             if (Pressed(Key.F3)) { showStallWarnings = !showStallWarnings; Notice(showStallWarnings ? "Dev: stall and spin warnings on (F3)" : "Dev: stall and spin warnings off (F3)"); }
@@ -1400,6 +1406,14 @@ namespace Ooda.Turn
             guiScale = Mathf.Clamp(Screen.height / 900f, 1f, 2.5f);
             GUI.matrix = Matrix4x4.Scale(Vector3.one * guiScale);
             float sw = Screen.width / guiScale, sh = Screen.height / guiScale;
+            // under the menu the screen is drawn but takes no clicks or keys
+            var ev = Event.current.type;
+            if (!menuOpen || ev == EventType.Repaint || ev == EventType.Layout) BattleGUI(sw, sh);
+            if (menuOpen) MenuGUI(sw, sh);
+        }
+
+        void BattleGUI(float sw, float sh)
+        {
             if (label == null)
             {
                 label = new GUIStyle(GUI.skin.label) { fontSize = 16 };
@@ -1411,6 +1425,7 @@ namespace Ooda.Turn
                 title = new GUIStyle(label) { fontSize = 20, fontStyle = FontStyle.Bold };
             }
             guiRects.Clear();
+            if (replaying) { ReplayGUI(sw, sh); return; }
             if (briefing) { BriefingGUI(sw, sh); return; }
             // What is on screen now (during playback, not the end of the turn)
             var me = player.Model;
@@ -1459,7 +1474,7 @@ namespace Ooda.Turn
 
             // Right: buttons
             float bx = sw - 190, by = 10;
-            Rect buttons = new Rect(bx - 10, 0, 200, 380);
+            Rect buttons = new Rect(bx - 10, 0, 200, 416);
             guiRects.Add(buttons);
             bool planning = phase == Phase.Planning;
             GUI.enabled = planning;
@@ -1483,6 +1498,8 @@ namespace Ooda.Turn
             if (GUI.Button(new Rect(bx, by, 180, 30), ooda ? $"OODA: {turnSec:0.#} s turns  (O)" : "OODA  (O)", oodaStyle)) SwitchOoda();
             by += 36;
             if (GUI.Button(new Rect(bx, by, 180, 30), showHelp ? "Hide help  (H)" : "Help  (H)")) showHelp = !showHelp;
+            by += 36;
+            if (GUI.Button(new Rect(bx, by, 180, 30), "Menu  (Esc)")) OpenMenu(true);
 
             DrawGauge(sw, sh);
             RosterGUI(sw);
@@ -1505,7 +1522,10 @@ namespace Ooda.Turn
             if (phase == Phase.Over && outcome != null)
             {
                 GUI.Label(new Rect(0, sh * 0.3f, sw, 50), outcome, big);
-                GUI.Label(new Rect(0, sh * 0.3f + 50, sw, 30), (Dogfighting ? "R or Backspace for a new fight, or the Replay button to watch it again." : "Restart for another go, or Replay to watch it again."), new GUIStyle(label) { alignment = TextAnchor.MiddleCenter });
+                GUI.Label(new Rect(0, sh * 0.3f + 50, sw, 30), tape.Count > 0 ? "Watch the whole fight again from any camera, fly it again, or go back to the main menu." : "Fly it again, or go back to the main menu.", new GUIStyle(label) { alignment = TextAnchor.MiddleCenter });
+                bool was = GUI.enabled;
+                EndButtons(sw, sh * 0.3f + 92);
+                GUI.enabled = was;
             }
             if (notice != null && Time.time < noticeUntil)
                 GUI.Label(new Rect(0, sh * 0.22f, sw, 30), notice, new GUIStyle(label) { alignment = TextAnchor.MiddleCenter, fontSize = 18 });

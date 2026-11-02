@@ -167,14 +167,16 @@ namespace Ooda.Turn
         }
 
         /// <summary>During playback: a flame behind each aircraft whose rocket is burning, and the brake panels out to its sides.</summary>
-        void DrawExtras(int now)
+        void DrawExtras(int now) => DrawExtras(views, last, now);
+
+        void DrawExtras(IList<TurnAircraftView> vs, TurnResult r, int now)
         {
-            for (int k = 0; k < views.Length && k < last.frames.Length; k++)
+            for (int k = 0; k < vs.Count && k < r.frames.Length; k++)
             {
-                if (views[k] == null) continue;
-                var f = last.frames[k][Mathf.Min(now, last.FrameCount - 1)];
+                if (vs[k] == null || r.frames[k] == null) continue;
+                var f = r.frames[k][Mathf.Min(now, r.frames[k].Length - 1)];
                 if (f.down || (!f.rocket && !f.brake)) continue;
-                var t = views[k].transform;
+                var t = vs[k].transform;
                 Vector3 fwd = UnityFrame.Dir(f.vel.Normalized), up = UnityFrame.Dir(f.up), right = Vector3.Cross(up, fwd);
                 Vector3 tail = t.position - fwd * 5f;
                 if (f.rocket)

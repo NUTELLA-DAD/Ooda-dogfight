@@ -56,6 +56,12 @@ Until they are seen, 4 Bf 109s fly the loop and the other 4 wait on the runway. 
 
 The turn engine is plain C# in `Assets/OODA/Scripts/Turn/Core/`: the autopilot that flies the arrow (`AutoPilot.cs`), the reach ring (`Envelope.cs`), guns and hits (`Combat.cs`, `Battle.cs`), the AI (`EnemyAi.cs`) and the start (`Scenarios.cs`). Damage is simple hit points for now; each hit already records where it struck, for hit locations later. The Spitfire IX's numbers and both aircraft's gun numbers are estimates from public figures, to tune by feel.
 
+### The menu and the replay
+
+**Esc** (or the **Menu** button under Help) pauses the battle and opens the menu: Resume, Restart mission, Main menu (back to the title screen) and Quit game. When the fight is over the end screen has **Watch replay** (W), **Fly again** and **Main menu**.
+
+**The replay** flies the whole fight again, turn after turn, with the tracers, the hits, the smoke and the pilots' gestures. Every turn is kept as it is flown, by aircraft in their starting order (`TurnBattle.Replay.cs`), so it follows each plane even after you Tab between yours. Any camera on any aircraft: **V** (or the View button) steps through chase, target, both and cockpit, **C** jumps in and out of the cockpit, **Tab** follows the next plane (Shift+Tab back, the pad's bumpers). **Space** pauses, the left and right arrows step a turn, up and down change the speed (a quarter to four times), the bar along the bottom jumps anywhere in the fight, and **Backspace** (pad B) leaves the replay. Drag or right-drag to look round, the wheel zooms.
+
 ### The briefing look
 
 Every screen's text, the title, the planning panels, the buttons, the HUD and the end screens, is green monospaced type (Share Tech Mono) on dark olive panels with a thin green rim, and the big headings are stencil (Stardos Stencil). It all comes from one skin, `UI/BriefingStyle.cs`: each OnGUI calls `BriefingStyle.Use()` first, and any GUIStyle made from `GUI.skin` after that takes the look. The fonts are under `Resources/Fonts` with their SIL Open Font Licenses.
