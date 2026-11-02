@@ -27,7 +27,7 @@ namespace Ooda.Turn
         [Tooltip("The funnel runs out to this range, ft.")]
         public float funnelMaxFt = 3000f;
         public Color sightColor = new Color(0.45f, 1f, 0.45f, 0.95f);
-        public Color sightGlass = new Color(0.05f, 0.09f, 0.04f, 0.82f);
+        public Color sightGlass = new Color(0.05f, 0.09f, 0.04f, 0.96f);
 
         float sightT;              // the moment the glass shows, s into the turn
         bool sightAuto = true;     // until the player moves it, the glass sits where the rounds first connect
@@ -86,8 +86,8 @@ namespace Ooda.Turn
             // the lead ring's toggle is always there, even with the glass hidden
             guiRects.Add(toggle);
             var btn = new GUIStyle(GUI.skin.button) { fontSize = 13 };
-            if (GUI.Button(new Rect(toggle.x, toggle.y, size / 2 - 3, toggle.height), showLeadRing ? "Lead ring: on (L)" : "Lead ring: off (L)", btn)) showLeadRing = !showLeadRing;
-            if (GUI.Button(new Rect(toggle.x + size / 2 + 3, toggle.y, size / 2 - 3, toggle.height), showSight ? "Gunsight: on (K)" : "Gunsight: off (K)", btn)) showSight = !showSight;
+            if (GUI.Button(new Rect(toggle.x, toggle.y, size / 2 - 3, toggle.height), showLeadRing ? "Ring: on (L)" : "Ring: off (L)", btn)) showLeadRing = !showLeadRing;
+            if (GUI.Button(new Rect(toggle.x + size / 2 + 3, toggle.y, size / 2 - 3, toggle.height), showSight ? "Sight: on (K)" : "Sight: off (K)", btn)) showSight = !showSight;
             // the moment on the burst bar
             if (showSight && burstRect.width > 0)
             {
@@ -102,16 +102,14 @@ namespace Ooda.Turn
             hs.normal.textColor = sightColor;
             GUI.Label(head, $"GUNSIGHT  {sightT:F2} s   ([ ] or hover the bar)", hs);
 
-            GUI.BeginGroup(glass);
-            DrawGlass(size, j, hs);
-            GUI.EndGroup();
+            DrawGlass(glass.x, glass.y, size, j, hs);
         }
 
-        /// <summary>The glass's contents, in its own coordinates (0 to size).</summary>
-        void DrawGlass(float size, int j, GUIStyle hs)
+        /// <summary>The glass's contents, in the glass at (ox, oy), size across.</summary>
+        void DrawGlass(float ox, float oy, float size, int j, GUIStyle hs)
         {
             var gp = gunPreview;
-            float cx = size / 2, cy = size / 2, rad = size / 2 - 6;
+            float cx = ox + size / 2, cy = oy + size / 2, rad = size / 2 - 6;
             float pxPerMil = rad / Mathf.Max(20f, sightFieldMil);
             int f = Mathf.Clamp(Mathf.RoundToInt(sightT / (float)gp.dt), 0, gp.FrameCount - 1);
             var me = gp.frames[0][f];
@@ -241,7 +239,7 @@ namespace Ooda.Turn
             }
             var st = new GUIStyle(hs) { alignment = TextAnchor.LowerCenter, fontStyle = FontStyle.Normal };
             if (status.StartsWith("ON TARGET")) { st.normal.textColor = hitTracer; st.fontStyle = FontStyle.Bold; }
-            GUI.Label(new Rect(0, size - 26, size, 22), status, st);
+            GUI.Label(new Rect(ox, oy + size - 26, size, 22), status, st);
         }
 
         /// <summary>A straight line on the screen, w wide, in the current GUI coordinates.</summary>
@@ -252,7 +250,9 @@ namespace Ooda.Turn
             float len = d.magnitude;
             if (len < 0.01f) return;
             var old = GUI.matrix;
-            GUIUtility.RotateAroundPivot(Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg, a);
+            // turn about a in GUI coordinates, inside the screen's scale (GUIUtility.RotateAroundPivot puts the pivot in the wrong place under a scaled GUI.matrix)
+            var pivot = new Vector3(a.x, a.y, 0);
+            GUI.matrix = old * Matrix4x4.TRS(pivot, Quaternion.Euler(0, 0, Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg), Vector3.one) * Matrix4x4.TRS(-pivot, Quaternion.identity, Vector3.one);
             Fill(new Rect(a.x, a.y - w / 2, len, w), c);
             GUI.matrix = old;
         }
