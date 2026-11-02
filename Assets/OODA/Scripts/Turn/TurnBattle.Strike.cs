@@ -486,7 +486,7 @@ namespace Ooda.Turn
 
             // the panel on the right
             float px = mapRect.xMax + 20, pw = sw - px - 20, y = 24;
-            var head = new GUIStyle(title) { fontSize = 22, wordWrap = true };
+            var head = Ooda.UI.BriefingStyle.Heading(title, 24); head.wordWrap = true;
             var text = new GUIStyle(label) { wordWrap = true, fontSize = 15 };
             GUI.Label(new Rect(px, y, pw, 30), "Town Strike: plan the raid", head); y += 36;
             GUI.Label(new Rect(px, y, pw, 120),
