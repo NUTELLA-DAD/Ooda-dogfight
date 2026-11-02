@@ -23,6 +23,15 @@ namespace Ooda.Flight.Core
             return .297;
         }
 
+        /// <summary>The speed of sound at altFt, knots, standard day; constant above 11 km.</summary>
+        public static double SoundKt(double altFt)
+        {
+            double h = Math.Min(Math.Max(altFt * MPerFt, 0), 11000);
+            return 661.47 * Math.Sqrt((288.15 - .0065 * h) / 288.15);
+        }
+
+        public static double Mach(double ktas, double altFt) => ktas / SoundKt(altFt);
+
         public static double IasToTasKt(double kias, double altFt) => kias / Math.Sqrt(DensityRatio(altFt));
         public static double TasToIasKt(double ktas, double altFt) => ktas * Math.Sqrt(DensityRatio(altFt));
     }

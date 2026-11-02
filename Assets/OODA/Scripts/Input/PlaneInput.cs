@@ -18,6 +18,8 @@ namespace Ooda.Flight
         public float throttleRate = 0.6f;
         [Range(0, 1)] public float startThrottle = 0.85f;
         public float mouseLookSensitivity = 0.15f;
+        [Tooltip("The jet's afterburner: the WEP button lights it (and pushes the throttle to the stop) and puts it out, instead of being held; pulling the throttle back puts it out too.")]
+        public bool wepToggles;
 
         public float Pitch { get; private set; }
         public float Roll { get; private set; }
@@ -97,7 +99,12 @@ namespace Ooda.Flight
             Roll = Shape(roll.ReadValue<float>());
             Yaw = Mathf.Clamp(yaw.ReadValue<float>(), -1, 1);
             Throttle = Mathf.Clamp01(Throttle + (throttleUp.ReadValue<float>() - throttleDown.ReadValue<float>()) * throttleRate * Time.unscaledDeltaTime);
-            Wep = wep.IsPressed();
+            if (!wepToggles) Wep = wep.IsPressed();
+            else
+            {
+                if (wep.WasPressedThisFrame()) { Wep = !Wep; if (Wep) Throttle = 1; }
+                if (Throttle < 0.95f) Wep = false;
+            }
             LookRate = lookStick.ReadValue<Vector2>() * 180f;
             LookDelta = lookMouse.ReadValue<Vector2>() * mouseLookSensitivity;
             LookHeld = lookHold.IsPressed();
