@@ -19,8 +19,8 @@ namespace Ooda.Turn
     /// </summary>
     public partial class TurnBattle
     {
-        [Header("The gun funnel")]
         public enum SightMode { Off, Hover, Always }
+        [Header("The gun funnel")]
         [Tooltip("The gun funnel while planning (K steps through): off; in the world, with the gunsight view while the mouse is over the burst bar; or the gunsight view all the time.")]
         public SightMode sightMode = SightMode.Hover;
         bool showSight => sightMode != SightMode.Off;
