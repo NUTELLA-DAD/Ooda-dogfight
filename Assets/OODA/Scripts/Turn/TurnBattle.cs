@@ -29,7 +29,7 @@ namespace Ooda.Turn
     /// X burst presets, right bumper fire at predicted hits, Y projection, B replay, right stick look,
     /// left bumper straight ahead, right stick press camera, Start restart.
     /// </summary>
-    public class TurnBattle : MonoBehaviour
+    public partial class TurnBattle : MonoBehaviour
     {
         public TurnAircraftView player, enemy;
         public TurnCamera view;
@@ -38,7 +38,7 @@ namespace Ooda.Turn
         [Tooltip("The bomber for the escort mission (hidden in the dogfight).")]
         public TurnAircraftView bomber;
 
-        public enum Mission { Squadron, Escort, Dogfight, ValleyRun }
+        public enum Mission { Squadron, Escort, Dogfight, ValleyRun, TownStrike }
         [Header("Mission")]
         public Mission mission = Mission.Squadron;
         [Tooltip("The bomber's route, metres (Unity x east, y height, z north); the first point is where it starts.")]
@@ -239,7 +239,8 @@ namespace Ooda.Turn
         bool CanEscort => bomber != null && HasRoute;
         bool CanSquadron => CanEscort && wingmanPrefab != null && enemyPrefab != null && bomberPrefab != null;
         bool CanValleyRun => HasRoute && wingmanPrefab != null && enemyPrefab != null;
-        Mission Playing => mission == Mission.ValleyRun ? (CanValleyRun ? Mission.ValleyRun : Mission.Dogfight)
+        Mission Playing => mission == Mission.TownStrike ? (CanStrike ? Mission.TownStrike : CanSquadron ? Mission.Squadron : Mission.Dogfight)
+                         : mission == Mission.ValleyRun ? (CanValleyRun ? Mission.ValleyRun : Mission.Dogfight)
                          : mission == Mission.Squadron && CanSquadron ? Mission.Squadron : mission != Mission.Dogfight && CanEscort ? Mission.Escort : Mission.Dogfight;
 
         static Vec3d Ft(Vector3 unityM) => new Vec3d(unityM.x * Atmosphere.FtPerM, unityM.z * Atmosphere.FtPerM, unityM.y * Atmosphere.FtPerM);
@@ -257,6 +258,7 @@ namespace Ooda.Turn
                     battle = Scenarios.Squadron(route, flak, squadronFighters, squadronBombers, bomberKias, squadronGapM);
                     break;
                 case Mission.Escort: battle = Scenarios.Escort(route, bomberKias, escortGapM); break;
+                case Mission.TownStrike: battle = StrikeBattle(); break;
                 case Mission.ValleyRun:
                 {
                     var guns = flakSites == null ? new Vec3d[0] : flakSites.Where(f => f != null).Select(f => Ft(f.position)).ToArray();
@@ -322,6 +324,7 @@ namespace Ooda.Turn
             flashes.Clear();
             BeginPlanning();
             if (view != null) view.BehindPlayer();
+            StrikeRestarted();
         }
 
         void BeginPlanning()
@@ -377,7 +380,7 @@ namespace Ooda.Turn
             thinking = Task.Run(() =>
             {
                 var plans = new TurnPlan?[n];
-                Parallel.For(1, n, i => { if (pilots[i] != null && !b.Out(i) && !b.InFormation(i)) plans[i] = pilots[i].Plan(b, ts); });
+                Parallel.For(1, n, i => { if (pilots[i] != null && !b.Out(i) && !b.InFormation(i) && (b.strike == null || !b.strike.OnPatrol(i))) plans[i] = pilots[i].Plan(b, ts); });
                 return plans;
             });
             phase = Phase.Thinking;
@@ -426,6 +429,7 @@ namespace Ooda.Turn
 
         string Outcome()
         {
+            if (battle.strike != null) return StrikeOutcome();
             bool me = battle.down[0];
             int bombers = 0, through = 0, enemies = 0;
             for (int i = 0; i < battle.Count; i++)
@@ -468,6 +472,7 @@ namespace Ooda.Turn
             }
             Restart();
             Notice(Playing == Mission.Squadron ? "Squadron: 8 P-51s and 3 B-17s against 8 Bf 109s and the flak. Get the bombers through."
+                 : Playing == Mission.TownStrike ? "Town Strike: plan a hidden path to the factory, then get the bombers there."
                  : Playing == Mission.Escort ? "Escort: keep the Bf 109 off the B-17."
                  : Playing == Mission.ValleyRun ? "Valley Run: you and your wingman low in the valley after two Bf 109s. Mind the wires and the balloons."
                  : "Dogfight: you and the Bf 109, head-on.");
@@ -477,6 +482,7 @@ namespace Ooda.Turn
 
         void Update()
         {
+            if (briefing) { UpdateBriefing(); return; }
             if (thinking != null && thinking.IsCompleted) FinishCommit();
             HandleInput();
             lines.Begin();
@@ -491,6 +497,7 @@ namespace Ooda.Turn
                 if (holoTheirs != null) holoTheirs.SetActive(false);
             }
             FadeFlashes();
+            FadeBooms();
             if (playerPilot != null && view != null) playerPilot.hideHead = view.focus == TurnCamera.Focus.Cockpit;
             UpdateGauge();
         }
@@ -1244,6 +1251,7 @@ namespace Ooda.Turn
                 if (ht > prevPlayT && ht <= playT) { Flash(UnityFrame.Pos(h.pos)); PilotsReact(h, hp[h.target] <= 0); }
             }
             UpdateSmoke(hp, last.frames.Select(fr => fr[now].down).ToArray());
+            StrikePlayback(t0 + prevPlayT, t0 + playT);
 
             if (playT >= turnSec - 1e-4f)
             {
@@ -1324,6 +1332,7 @@ namespace Ooda.Turn
                 title = new GUIStyle(label) { fontSize = 20, fontStyle = FontStyle.Bold };
             }
             guiRects.Clear();
+            if (briefing) { BriefingGUI(sw, sh); return; }
             // What is on screen now (during playback, not the end of the turn)
             var me = player.Model;
             var them = views.Length > focus && views[focus] != null ? views[focus].Model : battle.planes[focus];
@@ -1366,6 +1375,7 @@ namespace Ooda.Turn
                 helpTop = 184 + bh + 6;
             }
             else helpTop = 190;
+            StrikePanel(sw);
 
             // Right: buttons
             float bx = sw - 190, by = 10;

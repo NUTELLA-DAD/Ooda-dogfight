@@ -54,6 +54,8 @@ namespace Ooda.Turn.Core
         public WireSet wires;
         /// <summary>Guns on the ground.</summary>
         public FlakSite[] flak = new FlakSite[0];
+        /// <summary>The town strike's look-out, patrol, runway and target, or null in the other missions.</summary>
+        public Strike strike;
 
         double[] fireClock = new double[0];
 
@@ -79,6 +81,7 @@ namespace Ooda.Turn.Core
             Array.Resize(ref crashed, n + 1);
             Array.Resize(ref hitObstacle, n + 1);
             Array.Resize(ref fireClock, n + 1);
+            strike?.Size(n + 1);
             return n;
         }
 
@@ -94,15 +97,17 @@ namespace Ooda.Turn.Core
                 bool enemyLeft = false, anyRoute = false, routeFlying = false;
                 for (int i = 0; i < Count; i++)
                 {
-                    if (side[i] != side[0] && !Out(i)) enemyLeft = true;
+                    if (side[i] != side[0] && (!Out(i) || strike != null && strike.Held(i))) enemyLeft = true;
                     if (routes[i] == null) continue;
                     anyRoute = true;
-                    if (!Out(i) && !routes[i].Done) routeFlying = true;
+                    // a strike's bombers are through once they have dropped on the factory
+                    if (!Out(i) && !routes[i].Done && (strike == null || !strike.struck[i])) routeFlying = true;
                 }
-                return !enemyLeft || (anyRoute && !routeFlying);
+                return (!enemyLeft && strike == null) || (anyRoute && !routeFlying);   // a strike goes on to the factory even with the sky clear
             }
         }
-        public bool Out(int i) => down[i] || crashed[i];
+        /// <summary>Out of the fight: down, crashed, or (in the strike) still waiting on the runway.</summary>
+        public bool Out(int i) => down[i] || crashed[i] || strike != null && strike.Held(i);
 
         public Battle Clone()
         {
@@ -118,6 +123,7 @@ namespace Ooda.Turn.Core
             for (int k = 0; k < flak.Length; k++) c.flak[k] = flak[k].Copy();
             c.bullets = new List<Bullet>(bullets.Count);
             foreach (var b in bullets) c.bullets.Add(b.Copy());
+            c.strike = strike?.Copy();
             return c;
         }
 
@@ -144,6 +150,7 @@ namespace Ooda.Turn.Core
             CheckBreak();
             for (int i = 0; i < n; i++)
                 plans[i] = routes[i] != null ? routes[i].Plan(planes[i])
+                         : strike != null && strike.OnPatrol(i) ? strike.patrols[i].Plan(planes[i])
                          : InFormation(i) ? slots[i].Plan(this, i, turnSec)
                          : i < given.Length && given[i].HasValue ? given[i].Value : TurnPlan.Holding();
             int steps = (int)Math.Round(turnSec / StepSec);
@@ -166,7 +173,7 @@ namespace Ooda.Turn.Core
                 // Aircraft
                 for (int i = 0; i < n; i++)
                 {
-                    if (crashed[i]) continue;
+                    if (crashed[i] || strike != null && strike.Held(i)) continue;
                     var m = planes[i];
                     FlightControls c = down[i]
                         ? new FlightControls { pitch = -0.1, roll = 0.25 * (i % 2 == 0 ? 1 : -1), throttle = 0 }
@@ -177,6 +184,7 @@ namespace Ooda.Turn.Core
                 }
 
                 for (int i = 0; i < n; i++) routes[i]?.Advance(planes[i]);
+                if (strike != null) for (int i = 0; i < n; i++) if (strike.OnPatrol(i)) strike.patrols[i].Advance(planes[i]);
 
                 // Guns: a packet each packetSec of trigger while there is ammunition
                 for (int i = 0; i < n; i++)
@@ -231,7 +239,7 @@ namespace Ooda.Turn.Core
                     }
                     for (int target = 0; target < n && b.alive; target++)
                     {
-                        if (side[target] == b.side || crashed[target]) continue;
+                        if (side[target] == b.side || crashed[target] || strike != null && strike.Held(target)) continue;
                         Vec3d r0 = p0b - before[target], r1 = b.pos - planes[target].state.pos;
                         double reach = b.hitRadiusFt + combat[target].sizeFt;
                         if (bt != null)
@@ -257,10 +265,11 @@ namespace Ooda.Turn.Core
                 // Mid-air collision: both go down
                 for (int i = 0; i < n; i++)
                     for (int j = i + 1; j < n; j++)
-                        if (!crashed[i] && !crashed[j] && Passes(before[i] - before[j], planes[i].state.pos - planes[j].state.pos, CollisionFt + combat[i].sizeFt + combat[j].sizeFt))
+                        if (!crashed[i] && !crashed[j] && (strike == null || !strike.Held(i) && !strike.Held(j)) && Passes(before[i] - before[j], planes[i].state.pos - planes[j].state.pos, CollisionFt + combat[i].sizeFt + combat[j].sizeFt))
                             down[i] = down[j] = true;
 
                 time += StepSec;
+                strike?.Step(this);
                 if (record) for (int i = 0; i < n; i++) res.frames[i][k] = Frame(i, firing[i]);
                 onStep?.Invoke(this, k);
             }
@@ -465,6 +474,7 @@ namespace Ooda.Turn.Core
                 kept.Add(g);
             }
             c.flak = kept.ToArray();
+            c.strike = null;   // the AI's quick tries leave out the look-out and the runway (the ones waiting are left out of them anyway)
             return c;
         }
 

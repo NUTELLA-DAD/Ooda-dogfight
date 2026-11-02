@@ -165,6 +165,69 @@ namespace Ooda.Turn.Core
             return battle;
         }
 
+        /// <summary>
+        /// Town Strike: the Squadron's formation (3 B-17s, you and 7 P-51s) flying route, the path planned on the map,
+        /// from the coast to the factory and on past it. Of the 8 Bf 109s, the first patrolFighters fly patrolLoop (a
+        /// ring round the town, in feet) in a finger-four, starting on the far side of it from route's start; the rest
+        /// wait on the runway (from runwayStart toward runwayEnd) until the strike's look-out sees you. Flak at flakSites.
+        /// </summary>
+        public static Battle TownStrike(Vec3d[] route, Vec3d factory, Vec3d[] radars, Vec3d[] patrolLoop, Vec3d runwayStart, Vec3d runwayEnd,
+                                        Vec3d[] flakSites = null, double bomberKias = 160, int patrolFighters = 4, double patrolKias = 260)
+        {
+            var battle = Squadron(route, flakSites, 8, 3, bomberKias, 8000);
+            for (int i = 0; i < battle.Count; i++)
+                if (battle.routes[i] != null) { battle.routes[i].maxClimbDeg = StrikeClimbDeg; battle.routes[i].maxDescentDeg = StrikeDescentDeg; }
+            Vec3d along = runwayEnd - runwayStart;
+            var s = new Strike
+            {
+                target = factory, radars = radars ?? new Vec3d[0], runwayStart = runwayStart, runwayDir = Flat(along),
+                runwayFt = Math.Sqrt(along.x * along.x + along.y * along.y),
+            };
+            s.Size(battle.Count);
+            battle.strike = s;
+
+            var foes = new System.Collections.Generic.List<int>();
+            for (int i = 0; i < battle.Count; i++) if (battle.side[i] != 0) foes.Add(i);
+
+            // the patrol: on the loop, starting at the point furthest from where the bombers come in, flying round it
+            int far = 0; double farD = -1;
+            for (int k = 0; k < patrolLoop.Length; k++)
+            {
+                double d = (patrolLoop[k] - route[0]).Length;
+                if (d > farD) { farD = d; far = k; }
+            }
+            var loop = new Vec3d[patrolLoop.Length];
+            for (int k = 0; k < loop.Length; k++) loop[k] = patrolLoop[(far + 1 + k) % loop.Length];
+            Vec3d at = patrolLoop[far];
+            Vec3d dir = Flat(loop[0] - at), right = new Vec3d(dir.y, -dir.x, 0);
+            var four = new[] { (0.0, 0.0, 0.0), (-300, 250, 30), (450, 300, -30), (750, 550, -60) };   // a finger-four: lateral, back, up (ft)
+            var scramble = new System.Collections.Generic.List<int>();
+            for (int f = 0; f < foes.Count; f++)
+            {
+                int i = foes[f];
+                var m = battle.planes[i];
+                if (f < patrolFighters)
+                {
+                    var (lat, back, up) = four[f % four.Length];
+                    Vec3d p = at + right * lat - dir * (back + 1200 * (f / four.Length)) + new Vec3d(0, 0, up);
+                    m.state = PointMass.Make(p, Atmosphere.IasToTasKt(patrolKias, p.z), Math.Atan2(dir.y, dir.x));
+                    m.throttle = 0.8;
+                    s.patrols[i] = new Route { points = Offset(loop, lat), kias = patrolKias, maxTurnDeg = 30, maxClimbDeg = 5, reachFt = 2500, loop = true };
+                }
+                else
+                {
+                    s.held[i] = true;
+                    s.Park(m, scramble.Count);
+                    scramble.Add(i);
+                }
+            }
+            s.scramble = scramble.ToArray();
+            return battle;
+        }
+
+        /// <summary>How steeply the strike's bombers climb (about what a B-17 holds at 160 KIAS) and come down toward the next point's height, degrees.</summary>
+        public const double StrikeClimbDeg = 3, StrikeDescentDeg = 6;
+
         /// <summary>Three gun positions on each bomber (the ones flying routes), after any flak guns, staggered so they don't all fire at once.</summary>
         public static void AddGunners(Battle battle, int perBomber = 3)
         {

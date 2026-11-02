@@ -16,7 +16,11 @@ namespace Ooda.Turn.Core
         public double reachFt = 1500;
         public double maxTurnDeg = 20;
         public double maxClimbDeg = 2.5;
+        /// <summary>How steeply it may come down, degrees; below 0, the same as maxClimbDeg.</summary>
+        public double maxDescentDeg = -1;
         public int next;
+        /// <summary>Go round again from the first point after the last (a patrol), so it is never done.</summary>
+        public bool loop;
 
         public bool Done => next >= points.Length;
         public Route Copy() => (Route)MemberwiseClone();   // the points are never changed, so they can be shared
@@ -30,6 +34,7 @@ namespace Ooda.Turn.Core
                 bool passed = to.x * m.state.vel.x + to.y * m.state.vel.y < 0;
                 if (flat < reachFt || (passed && flat < 4 * reachFt)) next++;
                 else break;
+                if (loop && Done) { next = 0; break; }
             }
         }
 
@@ -41,7 +46,7 @@ namespace Ooda.Turn.Core
 
             Vec3d to = points[next] - m.state.pos;
             double flat = Math.Max(1, Math.Sqrt(to.x * to.x + to.y * to.y));
-            double climb = Math.Max(-maxClimbDeg, Math.Min(maxClimbDeg, Math.Atan2(to.z, flat) * 180 / Math.PI)) * Math.PI / 180;
+            double climb = Math.Max(-(maxDescentDeg < 0 ? maxClimbDeg : maxDescentDeg), Math.Min(maxClimbDeg, Math.Atan2(to.z, flat) * 180 / Math.PI)) * Math.PI / 180;
             Vec3d want = Level(to, climb);
             // turn at most maxTurnDeg this turn, from the current path toward the waypoint
             double angle = Envelope.Angle(fwd, want), max = maxTurnDeg * Math.PI / 180;

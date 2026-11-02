@@ -237,6 +237,7 @@ namespace Ooda.EditorTools
             MakeLakes(m);
             BuildRailway(rail, states, original, m);
             MakeVillage(h, m);
+            MakeTown(h, m, rail);
             MakeFlakSites(h);
             MakeAirHazards(h, rail, m);
 
@@ -305,6 +306,7 @@ namespace Ooda.EditorTools
                     }
             }
 
+            CarveTown(h, guard);
             PlaceMountains(h, guard);
 
             foreach (var l in Lakes)
@@ -409,7 +411,7 @@ namespace Ooda.EditorTools
                 if (y < 450 || y > 2100 || Slope(h, x, z) > 36) continue;
                 // in clumps: the same noise as the forest colour, a little wider
                 if (Mathf.PerlinNoise(x * 0.0012f + 7, z * 0.0012f + 3) < 0.38f) continue;
-                if (NearRail(rail, x, z, 25f) || UnderMountain(x, z)) continue;
+                if (NearRail(rail, x, z, 25f) || InTown(x, z) || UnderMountain(x, z)) continue;
                 if (Lakes.Any(l => { float ex = (x - l.c.x) / l.r.x, ez = (z - l.c.y) / l.r.y; return ex * ex + ez * ez < 1.3f; })) continue;
                 float s = 0.75f + (float)rnd.NextDouble() * 0.7f;
                 trees.Add(new TreeInstance
@@ -892,6 +894,7 @@ namespace Ooda.EditorTools
                 if (made == 3) break;
                 Vector2 a2 = MainLine[s], b2 = MainLine[s + 1];
                 Vector2 c = Vector2.Lerp(a2, b2, Mathf.Clamp01(u0 + Rand(rnd, -0.06f, 0.06f)));
+                if (InTown(c.x, c.y)) continue;   // the runway's climb-out
                 Vector2 along = (b2 - a2).normalized, across = V(along.y, -along.x);
                 float floor = MainFloorAt(c.y);
                 RouteGap(new Vector3(c.x, 0, c.y), out float routeY);
@@ -1008,7 +1011,7 @@ namespace Ooda.EditorTools
                 var centre = new Vector3(q.x, y, q.y);
                 var foot = new Vector3(q.x, g, q.y);
                 if (BalloonCentres.Any(p => Vector2.Distance(V(p.x, p.z), q) < 550f)) continue;
-                if (NearRail(rail, q.x, q.y, 40f) || InLake(q.x, q.y) || UnderMountain(q.x, q.y)) continue;
+                if (NearRail(rail, q.x, q.y, 40f) || InLake(q.x, q.y) || InTown(q.x, q.y) || UnderMountain(q.x, q.y)) continue;
                 if (HazardWires.Any(w => SegDist(centre, w.a, w.b) < 250f)) continue;    // clear of the cable cars
                 if (!ClearOfRoute(foot, centre + Vector3.up * BalloonRadius, BalloonRadius + 2f)) continue;
 
@@ -1053,7 +1056,7 @@ namespace Ooda.EditorTools
                 if (g - around < 12f) continue;   // a crest or the nose of a spur: higher than the ground round it
                 if (Slope(h, q.x, q.y) > 30f) continue;
                 if (MastFeet.Any(f => Vector2.Distance(V(f.x, f.z), q) < 1800f)) continue;
-                if (NearRail(rail, q.x, q.y, 80f) || MainDistance(q.x, q.y, out _) < 350f || UnderMountain(q.x, q.y)) continue;
+                if (NearRail(rail, q.x, q.y, 80f) || MainDistance(q.x, q.y, out _) < 350f || InTown(q.x, q.y) || UnderMountain(q.x, q.y)) continue;
                 float tall = Rand(rnd, 120f, 200f);
                 Vector3 foot = new Vector3(q.x, g - 1f, q.y), top = foot + Vector3.up * tall, guyTop = foot + Vector3.up * (tall * 0.8f);
                 if (!ClearOfRoute(foot, top, 30f)) continue;

@@ -18,7 +18,7 @@ namespace Ooda.UI
     /// </summary>
     public class TitleScreen : MonoBehaviour
     {
-        /// <summary>The mission picked here (TurnBattle.Mission's order: Squadron, Escort, Dogfight, ValleyRun), for the battle to read.</summary>
+        /// <summary>The mission picked here (TurnBattle.Mission's order: Squadron, Escort, Dogfight, ValleyRun, TownStrike), for the battle to read.</summary>
         public static int? ChosenMission;
 
         public GameObject fighterPrefab, bomberPrefab;
@@ -32,13 +32,14 @@ namespace Ooda.UI
         [Tooltip("The squadron's spacing, scaled down for the camera: tighter than the battle flies it.")]
         public float formationScale = 0.65f;
 
-        static readonly string[] Missions = { "Squadron", "Escort", "Dogfight", "Valley Run" };
+        static readonly string[] Missions = { "Squadron", "Escort", "Dogfight", "Valley Run", "Town Strike" };
         static readonly string[] MissionNotes =
         {
             "8 P-51s and 3 B-17s against 8 Bf 109s and the flak",
             "you and one B-17 against a Bf 109",
             "you against a Bf 109, head-on",
             "you and a wingman low in the valley after two Bf 109s, among the wires and balloons",
+            "plan a hidden path to the factory in the town, past the radar and the patrol",
         };
         int pick;
 
@@ -52,6 +53,7 @@ namespace Ooda.UI
 
         void Start()
         {
+            if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-strikeshots") >= 0) { pick = 4; Play(); return; }   // the Town Strike self-test (see TurnBattle.StrikeShots)
             if (cam == null) cam = Camera.main;
             if (terrain == null) terrain = Terrain.activeTerrain;
             cam.farClipPlane = 30000f;
