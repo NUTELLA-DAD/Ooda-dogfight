@@ -44,7 +44,16 @@ namespace Ooda.Turn
         /// <summary>Every frame: put the camera in the ghost's seat while the gunsight view is up. From there the funnel looks like a HUD's.</summary>
         void SightCamera()
         {
-            if (view == null || !SightViewOn) return;
+            if (view == null) return;
+            // the mouse over the burst bar, read here too (not only in OnGUI's events) so resting on it holds the view
+            var mouse = Mouse.current;
+            if (mouse != null && burstRect.width > 0 && phase == Phase.Planning)
+            {
+                Vector2 mp = mouse.position.ReadValue();
+                var gui = new Vector2(mp.x / guiScale, (Screen.height - mp.y) / guiScale);
+                if (burstRect.Contains(gui)) hoverUntil = Time.unscaledTime + 0.6f;
+            }
+            if (!SightViewOn) return;
             var me = gunPreview.frames[0][FunnelFrame()];
             if (me.down) return;
             GunAxes(me, out var gun, out var up, out _);
@@ -145,20 +154,34 @@ namespace Ooda.Turn
                     left.Add(UnityFrame.Pos(s.at - right * half));
                     rightEdge.Add(UnityFrame.Pos(s.at + right * half));
                 }
-                float wide = SightViewOn ? 0.8f : 1.4f;
+                float wide = SightViewOn ? 1.6f : 1.4f;
                 lines.Strip(left, wide, col, false, new Color(col.r, col.g, col.b, col.a * 0.6f));
                 lines.Strip(rightEdge, wide, col, false, new Color(col.r, col.g, col.b, col.a * 0.6f));
-                // rungs across it every 500 ft, the first at the near end
-                lines.Line(left[0], rightEdge[0], 0.6f, col);
+                // rungs across it every 500 ft (from your seat only the 1,000 ft ones, so they don't read as one bar)
+                bool sv = SightViewOn;
+                if (!sv) lines.Line(left[0], rightEdge[0], 0.6f, col);
                 for (double tick = 500; tick < funnelMaxFt; tick += 500)
                 {
                     int k = stream.FindIndex(s => s.range >= tick);
                     if (k <= 0) continue;
+                    if (sv && tick % 1000 != 0) continue;
                     var rc = new Color(col.r, col.g, col.b, col.a * (tick % 1000 == 0 ? 0.8f : 0.4f));
                     lines.Line(left[k], rightEdge[k], 0.5f, rc);
                 }
-                // a faint line from your nose to where the stream starts
-                lines.Line(UnityFrame.Pos(me.pos + gun * 20), UnityFrame.Pos(stream[0].at), 0.4f, new Color(col.r, col.g, col.b, 0.4f));
+                // a faint line from your nose to where the stream starts (not from your own seat)
+                if (!sv) lines.Line(UnityFrame.Pos(me.pos + gun * 20), UnityFrame.Pos(stream[0].at), 0.4f, new Color(col.r, col.g, col.b, 0.4f));
+            }
+
+            // from your seat, a horizon line level with your eyes, so you know which way is up
+            if (SightViewOn && view != null)
+            {
+                Vector3 eye = view.sightPos, ahead = view.sightRot * Vector3.forward;
+                ahead.y = 0;
+                if (ahead.sqrMagnitude < 1e-4f) ahead = Vector3.forward;
+                ahead.Normalize();
+                Vector3 across = Vector3.Cross(Vector3.up, ahead), mid = eye + ahead * 8000f;
+                lines.Line(mid - across * 6000f, mid - across * 300f, 0.6f, new Color(sightColor.r, sightColor.g, sightColor.b, 0.6f));
+                lines.Line(mid + across * 300f, mid + across * 6000f, 0.6f, new Color(sightColor.r, sightColor.g, sightColor.b, 0.6f));
             }
 
             // you and the target at the moment, as outlines (not yours from your own seat)
@@ -189,7 +212,7 @@ namespace Ooda.Turn
             {
                 sightT = Mathf.Clamp01((ev.mousePosition.x - burstRect.x) / burstRect.width) * (float)turnSec;
                 sightAuto = false;
-                hoverUntil = Time.unscaledTime + 0.2f;
+                hoverUntil = Mathf.Max(hoverUntil, Time.unscaledTime + 0.6f);   // held a moment after leaving the bar
             }
 
             // the toggles, left above the throttle

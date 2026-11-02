@@ -1135,8 +1135,12 @@ namespace Ooda.Turn
             if (preview == null) return;
             int end = preview.FrameCount - 1;
             bool badPath = previewDeparts || previewCrashes;
-            DrawRibbon(preview.frames[0], end, badPath ? overpullColor : ghostColor);
-            DrawPath(preview.frames[0], end, badPath ? overpullColor : ghostColor, holoMine == null, false);
+            bool sightView = SightViewOn;   // from your ghost's seat: only the funnel, the others and the ground, nothing of your own in the way
+            if (!sightView)
+            {
+                DrawRibbon(preview.frames[0], end, badPath ? overpullColor : ghostColor);
+                DrawPath(preview.frames[0], end, badPath ? overpullColor : ghostColor, holoMine == null, false);
+            }
             for (int i = 1; i < battle.Count; i++)
             {
                 if (battle.Out(i)) continue;
@@ -1145,7 +1149,7 @@ namespace Ooda.Turn
                 else if (battle.side[i] != 0) { if (showProjection) DrawPath(preview.frames[i], end, projectionColor, noGhost); }
                 else DrawPath(preview.frames[i], end, wingmanColor, noGhost);
             }
-            ShowHolo(holoMine, preview.frames[0][end], true, badPath ? overpullColor : holoColor);
+            ShowHolo(holoMine, preview.frames[0][end], !sightView, badPath ? overpullColor : holoColor);
             for (int i = 1; i < holos.Length; i++)
             {
                 bool hitByMe = i < burstHits.Length && burstHits[i] && battle.side[i] != battle.side[0];
@@ -1154,6 +1158,7 @@ namespace Ooda.Turn
             }
             DrawSpreadAndLead();
             DrawFunnel();
+            if (!sightView)
             foreach (var tr in preview.traces)
             {
                 if (tr.owner != 0 && !showProjection) continue;
@@ -1161,7 +1166,7 @@ namespace Ooda.Turn
                 DrawPreviewTrace(tr, OutcomeColor(tr, TracerColor(tr.owner)), tr.hit ? 0.5f : 0.35f, tr.hit ? 0.5f : 0.1f);
             }
             // The gun line: where a burst would go, faint, until a burst is set
-            if (showGunLine && gunPreview != null && plan.burstEnd == plan.burstStart)
+            if (showGunLine && !sightView && gunPreview != null && plan.burstEnd == plan.burstStart)
                 foreach (var tr in gunPreview.traces)
                 {
                     if (tr.owner != 0 || tr.missile) continue;
