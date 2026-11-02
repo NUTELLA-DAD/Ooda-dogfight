@@ -56,6 +56,10 @@ Until they are seen, 4 Bf 109s fly the loop and the other 4 wait on the runway. 
 
 The turn engine is plain C# in `Assets/OODA/Scripts/Turn/Core/`: the autopilot that flies the arrow (`AutoPilot.cs`), the reach ring (`Envelope.cs`), guns and hits (`Combat.cs`, `Battle.cs`), the AI (`EnemyAi.cs`) and the start (`Scenarios.cs`). Damage is simple hit points for now; each hit already records where it struck, for hit locations later. The Spitfire IX's numbers and both aircraft's gun numbers are estimates from public figures, to tune by feel.
 
+### The briefing look
+
+Every screen's text, the title, the planning panels, the buttons, the HUD and the end screens, is green monospaced type (Share Tech Mono) on dark olive panels with a thin green rim, and the big headings are stencil (Stardos Stencil). It all comes from one skin, `UI/BriefingStyle.cs`: each OnGUI calls `BriefingStyle.Use()` first, and any GUIStyle made from `GUI.skin` after that takes the look. The fonts are under `Resources/Fonts` with their SIL Open Font Licenses.
+
 ## Cockpits, pilots and the art pass
 
 **Cockpits.** The P-51, Spitfire and Bf 109 each have a cartoon cockpit in their FBX, under an empty called `Pit`: a painted tub with ribs, a padded leather coaming round a clean-cut opening, an instrument panel (airspeed, horizon, altimeter, climb, compass, RPM and small gauges), glare shield and gunsight, seat and armour plate, rudder pedals, a throttle quadrant with a trim wheel, a switch box, and the control stick (a spade grip in the Spitfire). Everything named `Pit_` uses one atlas, `Art/Cockpit/Cockpit_Atlas.png`. The stick, the throttle lever, the four needles and the horizon move.
