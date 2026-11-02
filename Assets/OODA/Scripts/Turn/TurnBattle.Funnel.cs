@@ -135,6 +135,7 @@ namespace Ooda.Turn
                     if (h.shooter == 0 && (h.target == j || j < 0)) first = Math.Min(first, h.time - gp.startTime);
                 sightT = (float)(double.IsInfinity(first) ? turnSec / 2 : first);
             }
+            if (!sv) return;   // only lined up: from the overview chase it is just a long green trail
             int f = FunnelFrame();
             var me = gp.frames[0][f];
             if (me.down) return;
@@ -196,22 +197,53 @@ namespace Ooda.Turn
                 lines.Line(mid + across * 300f, mid + across * 6000f, 0.6f, new Color(sightColor.r, sightColor.g, sightColor.b, 0.6f));
             }
 
-            // you and the target at the moment, as outlines (not yours from your own seat)
-            if (!SightViewOn) Outline(me, 36, 16, sightColor, 0.7f);
-            if (j >= 0 && j < gp.frames.Length && !battle.Out(j) && !gp.frames[j][f].down)
-                Outline(gp.frames[j][f], SpanFt(j), battle.combat[j].sizeFt > 0 ? 37 : 16, hitNow ? hitTracer : new Color(1f, 0.45f, 0.35f, 0.95f), sv ? 1.3f : 0.9f, shift);
         }
 
-        /// <summary>A little line outline of an aircraft at a frame: fuselage, wings, tailplane and fin, at its true size.</summary>
-        void Outline(AircraftFrame a, double span, double len, Color c, float width, Vector3 shift = default)
+        /// <summary>
+        /// Lined up: the target's red ghost model where it is at the funnel's moment, moved by the same offset as the funnel
+        /// so its wings sit against the funnel just as they would from the seat; bright red when the rounds hit it then.
+        /// </summary>
+        void ShowFunnelTarget()
         {
-            Vec3d tf = a.vel.Normalized, tu = a.up, tr = Vec3d.Cross(tf, tu);
-            double half = span / 2;
-            Vec3d nose = a.pos + tf * len, tail = a.pos - tf * len, wing = a.pos + tf * (len * 0.15);
-            lines.Line(UnityFrame.Pos(nose) + shift, UnityFrame.Pos(tail) + shift, width, c);
-            lines.Line(UnityFrame.Pos(wing - tr * half) + shift, UnityFrame.Pos(wing + tr * half) + shift, width, c);
-            lines.Line(UnityFrame.Pos(tail - tr * (half * 0.35)) + shift, UnityFrame.Pos(tail + tr * (half * 0.35)) + shift, width, c);
-            lines.Line(UnityFrame.Pos(tail) + shift, UnityFrame.Pos(tail + tu * (half * 0.3)) + shift, width, c);
+            HideSpread();
+            if (!SightViewOn || view == null) return;
+            int j = FunnelTarget();
+            if (j < 1 || j >= holos.Length || holos[j] == null || battle.Out(j)) return;
+            int f = FunnelFrame();
+            var them = gunPreview.frames[j][f];
+            if (them.down) return;
+            var me = gunPreview.frames[0][f];
+            Vector3 shift = view.sightPos - UnityFrame.Pos(me.pos);
+            ShowHolo(holos[j], them, true, FunnelHit(j, out _) ? holoTargetHitColor : holoEnemyColor);
+            holos[j].transform.position += shift;
+            // its less likely moves, fainter by their chance, so you can line up on one of those instead
+            if (!showProjection || read == null || read.target != j || read.spread == null) return;
+            var pr = read.pred[j];
+            for (int k = 1; k < read.spread.Length && k - 1 < spreadHolos.Length; k++)
+            {
+                var alt = SpreadAt(k, f);
+                float rel = Mathf.Clamp01((float)(pr.chance[k] / Math.Max(1e-6, pr.chance[0])));
+                var hc = RoundsAt(alt.pos, f, j) ? holoTargetHitColor : holoEnemyColor;
+                hc.a *= 0.3f + 0.5f * rel;
+                ShowHolo(spreadHolos[k - 1], alt, true, hc);
+                spreadHolos[k - 1].transform.position += shift;
+            }
+        }
+
+        /// <summary>The target flying its k-th likely move, at frame f of the turn.</summary>
+        AircraftFrame SpreadAt(int k, int f) => read.spread[k][Mathf.Clamp(f, 0, read.spread[k].Length - 1)];
+
+        /// <summary>Is one of your rounds (the trigger held all turn) within hitting distance of this point at frame f?</summary>
+        bool RoundsAt(Vec3d p, int f, int j)
+        {
+            double reach = battle.combat[0].hitRadiusFt + battle.combat[j].sizeFt;
+            foreach (var tr in gunPreview.traces)
+            {
+                if (tr.owner != 0 || tr.missile) continue;
+                var q = tr.At(f);
+                if (q != null && (q.Value - p).Length <= reach) return true;
+            }
+            return false;
         }
 
         /// <summary>On the screen: the moment from the burst bar, its mark, the label by the target, and the K and L toggles.</summary>
@@ -276,8 +308,23 @@ namespace Ooda.Turn
                 if (hitNow) { tag.normal.textColor = hitTracer; text = $"ON TARGET {range:F0} ft  (fired {fired:F2} s)"; }
                 else text = $"{sightT:F2} s  {range:F0} ft";
             }
-            var g = GuiPoint(UnityFrame.Pos(at));
-            if (g != null) Shadow(new Rect(g.Value.x + 16, g.Value.y + 8, 320, 20), text, tag);
+            if (!SightViewOn) return;   // the funnel and its labels show only lined up
+            Vector3 shift = view != null ? view.sightPos - UnityFrame.Pos(me.pos) : Vector3.zero;
+            if (j >= 0 && read != null && read.target == j && read.pred != null && j < read.pred.Length && read.pred[j] != null) text += $"  {read.pred[j].chance[0] * 100:F0}%";
+            var g = GuiPoint(UnityFrame.Pos(at) + shift);
+            if (g != null) Shadow(new Rect(g.Value.x + 16, g.Value.y + 8, 360, 20), text, tag);
+            // the less likely moves: their chance, and ON TARGET when your rounds are at them then
+            if (j < 0 || !showProjection || read == null || read.target != j || read.spread == null) return;
+            var pr = read.pred[j];
+            for (int k = 1; k < read.spread.Length; k++)
+            {
+                var alt = SpreadAt(k, f);
+                bool on = RoundsAt(alt.pos, f, j);
+                var st = new GUIStyle(tag);
+                st.normal.textColor = on ? hitTracer : new Color(1f, 0.55f, 0.45f, 0.9f);
+                var ga = GuiPoint(UnityFrame.Pos(alt.pos) + shift);
+                if (ga != null) Shadow(new Rect(ga.Value.x + 16, ga.Value.y + 8, 240, 20), on ? $"ON TARGET  {pr.chance[k] * 100:F0}%" : $"{pr.chance[k] * 100:F0}%", st);
+            }
         }
     }
 }

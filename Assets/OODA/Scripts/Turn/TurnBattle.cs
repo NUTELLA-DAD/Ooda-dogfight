@@ -1154,10 +1154,11 @@ namespace Ooda.Turn
             for (int i = 1; i < holos.Length; i++)
             {
                 bool hitByMe = i < burstHits.Length && burstHits[i] && battle.side[i] != battle.side[0];
-                ShowHolo(holos[i], preview.frames[i][end], !battle.Out(i) && (battle.side[i] == 0 || showProjection) && !(sightView && battle.side[i] != battle.side[0]),   // lined up, the funnel's outline is the enemy
+                ShowHolo(holos[i], preview.frames[i][end], !battle.Out(i) && (battle.side[i] == 0 || showProjection) && !(sightView && battle.side[i] != battle.side[0]),   // lined up, only the funnel's target shows (ShowFunnelTarget)
                          battle.side[i] == 0 ? holoFriendColor : hitByMe ? holoTargetHitColor : holoEnemyColor);
             }
-            if (sightView) HideSpread(); else DrawSpreadAndLead();
+            if (sightView) ShowFunnelTarget();   // lined up: the target's likely moves as models at the funnel's moment
+            else DrawSpreadAndLead();
             DrawFunnel();
             if (!sightView)
             foreach (var tr in preview.traces)
