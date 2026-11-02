@@ -23,7 +23,34 @@ namespace Ooda.Turn.Core
             mustang.throttle = foe.throttle = 1;
             return new Battle(mustang, CombatNumbers.P51D(), foe, CombatNumbers.Bf109G());
         }
-    
+
+        /// <summary>The ways a one on one can begin.</summary>
+        public enum Start { HeadOn, Neutral, Offensive, Defensive }
+
+        public static string Name(Start s) => s == Start.HeadOn ? "head-on" : s == Start.Neutral ? "neutral, side by side"
+                                            : s == Start.Offensive ? "you on their tail" : "them on your tail";
+
+        /// <summary>
+        /// A one on one at 300 KIAS heading north, by how it begins: head-on 3 km apart; neutral, side by side 1,500 ft
+        /// apart; offensive, the Mustang 3,000 ft behind the Bf 109 and a little to one side; defensive, the other way round.
+        /// </summary>
+        public static Battle Dogfight(Start s, Vec3d centre, double altFt = 5000, double kias = 300, double gapM = 3000)
+        {
+            if (s == Start.HeadOn) return HeadOn(centre, altFt, kias, gapM);
+            double ktas = Atmosphere.IasToTasKt(kias, altFt);
+            Vec3d me, foe;
+            switch (s)
+            {
+                case Start.Neutral: me = new Vec3d(centre.x - 750, centre.y, altFt); foe = new Vec3d(centre.x + 750, centre.y, altFt); break;
+                case Start.Offensive: me = new Vec3d(centre.x - 120, centre.y - 1500, altFt); foe = new Vec3d(centre.x + 120, centre.y + 1500, altFt + 100); break;
+                default: me = new Vec3d(centre.x + 120, centre.y + 1500, altFt + 100); foe = new Vec3d(centre.x - 120, centre.y - 1500, altFt); break;
+            }
+            var mustang = new FlightModel(AircraftNumbers.P51D(), PointMass.Make(me, ktas, Math.PI / 2));
+            var bf = new FlightModel(AircraftNumbers.Bf109G(), PointMass.Make(foe, ktas, Math.PI / 2));
+            mustang.throttle = bf.throttle = 1;
+            return new Battle(mustang, CombatNumbers.P51D(), bf, CombatNumbers.Bf109G());
+        }
+
         /// <summary>
         /// Escort: a B-17 flying its route (waypoints in feet; the first is where it starts) at about 135 KIAS,
         /// the player's Mustang tucked in 600 ft above, 300 ft out to the right and 800 ft behind, and the

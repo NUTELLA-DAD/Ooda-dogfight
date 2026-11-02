@@ -54,6 +54,8 @@ namespace Ooda.UI
         void Start()
         {
             if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-strikeshots") >= 0) { pick = 4; Play(); return; }   // the Town Strike self-test (see TurnBattle.StrikeShots)
+            var args = System.Environment.GetCommandLineArgs();
+            if (System.Array.IndexOf(args, "-dogfight") >= 0 || System.Array.IndexOf(args, "-dogfightbot") >= 0) { pick = 2; Play(); return; }   // straight into the one on one (the bot flies it, see TurnBattle.Bot)
             if (cam == null) cam = Camera.main;
             if (terrain == null) terrain = Terrain.activeTerrain;
             cam.farClipPlane = 30000f;
@@ -144,6 +146,7 @@ namespace Ooda.UI
             if ((kb != null && (kb.leftArrowKey.wasPressedThisFrame || kb.aKey.wasPressedThisFrame)) || (pad != null && pad.dpad.left.wasPressedThisFrame)) pick = (pick + Missions.Length - 1) % Missions.Length;
             if ((kb != null && (kb.rightArrowKey.wasPressedThisFrame || kb.dKey.wasPressedThisFrame)) || (pad != null && pad.dpad.right.wasPressedThisFrame)) pick = (pick + 1) % Missions.Length;
             if ((kb != null && (kb.enterKey.wasPressedThisFrame || kb.numpadEnterKey.wasPressedThisFrame || kb.spaceKey.wasPressedThisFrame)) || (pad != null && (pad.buttonSouth.wasPressedThisFrame || pad.startButton.wasPressedThisFrame))) Play();
+            if (kb != null && kb.qKey.wasPressedThisFrame) { pick = 2; Play(); }   // Quick 1v1
         }
 
         // ---------- the cinematic camera ----------
@@ -250,7 +253,7 @@ namespace Ooda.UI
                 if (GUI.Button(new Rect(x + i * (bw + gap), y, bw, 48), (i == pick ? "▶ " : "") + Missions[i], i == pick ? picked : button)) pick = i;
             Shadowed(new Rect(0, y + 56, sw, 30), MissionNotes[pick], note);
             if (GUI.Button(new Rect((sw - 260) / 2, y + 96, 260, 60), "Play", picked)) Play();
-            Shadowed(new Rect(0, y + 162, sw, 26), "Enter, Space or pad A to play  ·  ← → or the d-pad to pick a mission", hint);
+            Shadowed(new Rect(0, y + 162, sw, 26), "Enter, Space or pad A to play  ·  ← → or the d-pad to pick a mission  ·  Q quick 1v1", hint);
         }
 
         static void Shadowed(Rect r, string text, GUIStyle style)

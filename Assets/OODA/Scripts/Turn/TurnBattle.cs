@@ -153,6 +153,7 @@ namespace Ooda.Turn
         bool[] burstHits = new bool[0];   // by aircraft: the player's planned burst hits it in the preview
         int confidenceTarget = -1;        // the enemy the planned burst hits most, for the what-if-it-breaks check
         int confidenceHits = -1, confidenceOf;   // hits in confidenceHits of confidenceOf tries; -1 not known (yet)
+        int confidencePct = -1;           // or the chance it hits across the enemy's likely plans, %; -1 not known
         bool confidencePending;
         float confidenceAt;
         GameObject holoMine, holoTheirs;
@@ -164,6 +165,7 @@ namespace Ooda.Turn
         void Start()
         {
             if (Ooda.UI.TitleScreen.ChosenMission is int chosen) mission = (Mission)chosen;   // picked on the title screen
+            BotSetUp();
             lines = new LinePool(transform, "Lines") { sizeAt = W };
             tipMat = new Material(Shader.Find("Sprites/Default")) { color = arrowColor };
             flashMat = new Material(Shader.Find("Sprites/Default")) { color = new Color(1f, 0.9f, 0.4f, 1f) };
@@ -183,6 +185,7 @@ namespace Ooda.Turn
             if (enemyPilot != null) enemyPilot.target = player.transform;
             holoMine = MakeHolo(player.gameObject, holoColor, "GhostP51");
             holoTheirs = MakeHolo(enemy.gameObject, holoEnemyColor, "GhostEnemy");
+            MakeSpreadHolos();
             Restart();
         }
 
@@ -248,6 +251,7 @@ namespace Ooda.Turn
         public void Restart()
         {
             thinking = null; thinkingFor = null;
+            reading = null; readingFor = null; read = null;
             foreach (var g in spawned) if (g != null) Destroy(g);
             spawned.Clear();
             var route = HasRoute ? escortRoute.Select(Ft).ToArray() : null;
@@ -265,7 +269,7 @@ namespace Ooda.Turn
                     battle = Scenarios.ValleyRun(route, guns);
                     break;
                 }
-                default: battle = Scenarios.HeadOn(UnityFrame.Pos(startCentre), startAltFt, startKias, startGapM); break;
+                default: battle = DogfightBattle(); break;
             }
             if (grid != null) battle.groundFt = grid.At; else battle.groundFt = GroundFt;
             battle.obstacleHit = ObstacleHit;
@@ -322,9 +326,11 @@ namespace Ooda.Turn
             outcome = null;
             foreach (var f in flashes) Destroy(f.t.gameObject);
             flashes.Clear();
+            FightStarted();
             BeginPlanning();
             if (view != null) view.BehindPlayer();
             StrikeRestarted();
+            if (Dogfighting) Notice(DogfightNotice);
         }
 
         void BeginPlanning()
@@ -344,6 +350,7 @@ namespace Ooda.Turn
             ShowAllLive();
             UpdateSmoke(battle.health, battle.down);
             FocusNearest();
+            StartReading();
         }
 
         void ShowAllLive()
@@ -374,11 +381,12 @@ namespace Ooda.Turn
         void Commit()
         {
             if (phase != Phase.Planning) return;
-            var b = battle; var pilots = ais; float ts = turnSec; int n = battle.Count;
+            var b = battle; var pilots = ais; float ts = turnSec; int n = battle.Count; var rd = reading;
             thinkingFor = b;
             b.CheckBreak();   // so the wingmen get their own plans the turn the formation breaks
             thinking = Task.Run(() =>
             {
+                try { rd?.Wait(); } catch (AggregateException) { }   // the reading scores the same tries the pilots pick from: let it finish first
                 var plans = new TurnPlan?[n];
                 Parallel.For(1, n, i => { if (pilots[i] != null && !b.Out(i) && !b.InFormation(i) && (b.strike == null || !b.strike.OnPatrol(i))) plans[i] = pilots[i].Plan(b, ts); });
                 return plans;
@@ -390,6 +398,8 @@ namespace Ooda.Turn
         {
             var task = thinking; thinking = null;
             if (thinkingFor != battle) return;   // restarted meanwhile
+            if (reading != null && reading.IsCompleted) FinishReading();
+            bool onLead = OnLead;
             TurnPlan?[] plans;
             if (task.IsFaulted) { Debug.LogException(task.Exception); plans = new TurnPlan?[battle.Count]; }
             else plans = task.Result;
@@ -397,8 +407,9 @@ namespace Ooda.Turn
             healthBefore = (double[])battle.health.Clone();
             lastOverpull = plan.overpull;
             last = battle.Resolve(plans, turnSec, true);
+            TurnFlown(plans, onLead);
             phaseAfterPlayback = battle.Over ? Phase.Over : Phase.Planning;
-            if (battle.Over) outcome = Outcome();
+            if (battle.Over) { outcome = Outcome(); FightOver(); }
             newTurn = true;
             StartPlayback();
         }
@@ -475,7 +486,7 @@ namespace Ooda.Turn
                  : Playing == Mission.TownStrike ? "Town Strike: plan a hidden path to the factory, then get the bombers there."
                  : Playing == Mission.Escort ? "Escort: keep the Bf 109 off the B-17."
                  : Playing == Mission.ValleyRun ? "Valley Run: you and your wingman low in the valley after two Bf 109s. Mind the wires and the balloons."
-                 : "Dogfight: you and the Bf 109, head-on.");
+                 : DogfightNotice);
         }
 
         // ---------- every frame ----------
@@ -483,8 +494,10 @@ namespace Ooda.Turn
         void Update()
         {
             if (briefing) { UpdateBriefing(); return; }
+            if (reading != null && reading.IsCompleted) FinishReading();
             if (thinking != null && thinking.IsCompleted) FinishCommit();
             HandleInput();
+            BotUpdate();
             lines.Begin();
             if (phase == Phase.Playing) Playback();
             else if (phase == Phase.Planning || phase == Phase.Thinking) DrawPlanning();
@@ -495,6 +508,7 @@ namespace Ooda.Turn
             {
                 foreach (var h in holos) if (h != null) h.SetActive(false);
                 if (holoTheirs != null) holoTheirs.SetActive(false);
+                HideSpread();
             }
             FadeFlashes();
             FadeBooms();
@@ -619,7 +633,7 @@ namespace Ooda.Turn
             if (Pressed(Key.M)) SwitchMission();
             if (Pressed(Key.O)) SwitchOoda();
             if (Pressed(Key.Backspace) || (pad != null && pad.startButton.wasPressedThisFrame)) Restart();
-            if (Pressed(Key.R) || (pad != null && pad.buttonEast.wasPressedThisFrame)) Replay();
+            if (Pressed(Key.R) || (pad != null && pad.buttonEast.wasPressedThisFrame)) { if (phase == Phase.Over && Dogfighting) Restart(); else Replay(); }   // a new one on one once it is over
             if (Pressed(Key.P) || (pad != null && pad.buttonNorth.wasPressedThisFrame)) showProjection = !showProjection;
             if ((Pressed(Key.V) || (pad != null && pad.rightStickButton.wasPressedThisFrame)) && view != null) view.NextFocus();
 
@@ -893,7 +907,7 @@ namespace Ooda.Turn
             if (preview == null) return;
             if (dirty || gunPreview == null) RunPreview();
             var times = gunPreview.hits.Where(h => h.shooter == 0).Select(h => h.fireTime - gunPreview.startTime).ToList();
-            if (times.Count == 0) { Notice("No hits predicted on this path if the enemy holds its turn."); plan.burstStart = plan.burstEnd = 0; }
+            if (times.Count == 0) { Notice("No hits predicted on this path against the bright ghost. Try the lead pipper."); plan.burstStart = plan.burstEnd = 0; }
             else { plan.burstStart = Math.Max(0, times.Min() - 0.15); plan.burstEnd = Math.Min(turnSec, times.Max() + 0.15); }
             dirty = true;
             RunPreview();
@@ -903,7 +917,7 @@ namespace Ooda.Turn
         {
             var sim = battle.Clone();
             sim.dispersion = false;
-            preview = sim.Resolve(new TurnPlan?[] { plan }, turnSec, true);
+            preview = sim.Resolve(WithLikeliest(plan), turnSec, true);
             dirty = false;
             previewDeparts = preview.frames[0].Any(f => f.departed);
             bool stalls = preview.frames[0].Any(f => f.stalled);
@@ -917,7 +931,7 @@ namespace Ooda.Turn
             else if ((plan.overpull > 0 || plan.HasMarks) && stalls) warning = "OVERPULL: the wing stalls, the turn mushes and bleeds speed";
             else warning = null;
 
-            // who the planned burst hits, if they hold
+            // who the planned burst hits, if they fly the bright ghost
             burstHits = new bool[battle.Count];
             var byTarget = new int[battle.Count];
             foreach (var h in preview.hits)
@@ -925,7 +939,7 @@ namespace Ooda.Turn
             confidenceTarget = -1;
             for (int i = 0; i < battle.Count; i++)
                 if (byTarget[i] > 0 && battle.side[i] != battle.side[0] && (confidenceTarget < 0 || byTarget[i] > byTarget[confidenceTarget])) confidenceTarget = i;
-            confidenceHits = -1; confidenceOf = 0;
+            confidenceHits = -1; confidenceOf = 0; confidencePct = -1;
             confidencePending = confidenceTarget >= 0 && battle.routes[confidenceTarget] == null && !battle.InFormation(confidenceTarget);
             confidenceAt = Time.unscaledTime + 0.25f;
 
@@ -935,7 +949,7 @@ namespace Ooda.Turn
             gsim.dispersion = false;
             for (int j = 0; j < gsim.Count; j++) if (gsim.side[j] != gsim.side[0]) gsim.health[j] = double.PositiveInfinity;
             gsim.bullets.Clear();
-            gunPreview = gsim.Resolve(new TurnPlan?[] { full }, turnSec, true);
+            gunPreview = gsim.Resolve(WithLikeliest(full), turnSec, true);
             // the hit window: when a round fired connects, short gaps merged
             hitWindows.Clear();
             var times = gunPreview.hits.Where(h => h.shooter == 0).Select(h => h.fireTime - gunPreview.startTime).OrderBy(x => x).ToList();
@@ -958,6 +972,8 @@ namespace Ooda.Turn
             confidencePending = false;
             int j = confidenceTarget;
             if (preview == null || j < 0 || j >= battle.Count || battle.Out(j)) return;
+            confidencePct = SpreadChance(j);
+            if (confidencePct >= 0) return;   // the spread says it better than the three breaks
             var m = battle.planes[j];
             Vec3d fwd = m.Forward;
             Vec3d right = new Vec3d(fwd.y, -fwd.x, 0);   // the horizontal right of its heading: a break is a level turn
@@ -969,11 +985,10 @@ namespace Ooda.Turn
                 (fwd * Math.Cos(theta) + right * Math.Sin(theta)).Normalized,   // break right
                 (fwd * Math.Cos(theta) + m.Up * Math.Sin(theta)).Normalized,    // pull up
             };
-            int hits = 1;   // holding, it is hit: that is why we are checking
+            int hits = 1;   // on the bright ghost it is hit: that is why we are checking
             foreach (var aim in aims)
             {
-                var plans = new TurnPlan?[battle.Count];
-                plans[0] = plan;
+                var plans = WithLikeliest(plan);
                 plans[j] = new TurnPlan { aim = aim, throttle = 1, wep = m.Kias < 220 };
                 var sim = battle.Clone();
                 sim.dispersion = false;
@@ -1063,6 +1078,7 @@ namespace Ooda.Turn
                 ShowHolo(holos[i], preview.frames[i][end], !battle.Out(i) && (battle.side[i] == 0 || showProjection),
                          battle.side[i] == 0 ? holoFriendColor : hitByMe ? holoTargetHitColor : holoEnemyColor);
             }
+            DrawSpreadAndLead();
             foreach (var tr in preview.traces)
             {
                 if (tr.owner != 0 && !showProjection) continue;
@@ -1406,6 +1422,7 @@ namespace Ooda.Turn
 
             DrawGauge(sw, sh);
             if (planning) PlanningPanel(sw, sh);
+            DogfightGUI(sw, sh);
             if (phase == Phase.Playing) GUI.Label(new Rect(0, sh - 60, sw, 30), $"Turn playing  {playT:F1} / {turnSec:F0} s   (hold Tab to speed up)", new GUIStyle(label) { alignment = TextAnchor.MiddleCenter });
             var warn = new GUIStyle(big) { fontSize = 26 };
             warn.normal.textColor = overpullColor;
@@ -1420,7 +1437,7 @@ namespace Ooda.Turn
             if (phase == Phase.Over && outcome != null)
             {
                 GUI.Label(new Rect(0, sh * 0.3f, sw, 50), outcome, big);
-                GUI.Label(new Rect(0, sh * 0.3f + 50, sw, 30), "Restart for another go, or Replay to watch it again.", new GUIStyle(label) { alignment = TextAnchor.MiddleCenter });
+                GUI.Label(new Rect(0, sh * 0.3f + 50, sw, 30), (Dogfighting ? "R or Backspace for a new fight, or the Replay button to watch it again." : "Restart for another go, or Replay to watch it again."), new GUIStyle(label) { alignment = TextAnchor.MiddleCenter });
             }
             if (notice != null && Time.time < noticeUntil)
                 GUI.Label(new Rect(0, sh * 0.22f, sw, 30), notice, new GUIStyle(label) { alignment = TextAnchor.MiddleCenter, fontSize = 18 });
@@ -1435,7 +1452,8 @@ namespace Ooda.Turn
                     $"Plan where your nose points when the {turnSec:0.#} s turn ends. O: OODA, short turns.\n" +
                     "Drag the yellow tip inside the white ring (how far you can turn).\n" +
                     "Past the ring, up to the red ring, you overpull: stall, maybe spin.\n" +
-                    "Blue: your path. Red: the enemy if they keep doing what they're doing.\n" +
+                    "Blue: your path. Red: where the enemy will likely be, the bright one likeliest.\n" +
+                    "Orange ring: the lead. Put the tip on it and F fires on the hits.\n" +
                     (Bombing ? "Green: the bombers' course. Keep the Bf 109s off them; flak fires orange.\n" : "") +
                     "Your rounds: red hits, yellow just misses, orange misses. Lead the target.\n" +
                     "Drag on the timeline to fire; F fires where hits are predicted.\n\n" +
@@ -1479,7 +1497,7 @@ namespace Ooda.Turn
                 double a = Math.Min(plan.burstStart, plan.burstEnd), b = Math.Max(plan.burstStart, plan.burstEnd);
                 Fill(new Rect(burstRect.x + (float)(a / turnSec) * pw, burstRect.y + 3, (float)((b - a) / turnSec) * pw, burstRect.height - 6), new Color(1f, 0.6f, 0.1f, 0.85f));
             }
-            // The hit window: when rounds fired would connect if they hold (from the gun line), over the whole bar
+            // The hit window: when rounds fired would connect on the bright ghost (from the gun line), over the whole bar
             foreach (var w in hitWindows)
                 Fill(new Rect(burstRect.x + (float)(w.a / turnSec) * pw, burstRect.y, Mathf.Max(2f, (float)((w.b - w.a) / turnSec) * pw), burstRect.height),
                      new Color(hitTracer.r, hitTracer.g, hitTracer.b, 0.35f));
@@ -1499,11 +1517,11 @@ namespace Ooda.Turn
             {
                 var hitStyle = new GUIStyle(label) { fontStyle = FontStyle.Bold };
                 hitStyle.normal.textColor = hitTracer;
-                string sure = confidenceHits >= 0 ? $"   (hits in {confidenceHits} of {confidenceOf})" : confidencePending ? "   (checking...)" : "";
+                string sure = confidencePct >= 0 ? $"   (chance {confidencePct}%)" : confidenceHits >= 0 ? $"   (hits in {confidenceHits} of {confidenceOf})" : confidencePending ? "   (checking...)" : "";
                 string hitBack = theirs > 0 ? $"   you get hit {theirs}" : "";
-                GUI.Label(new Rect(px, py + 104, pw - 140, 22), $"HITS: {predicted} if they hold{sure}{hitBack}", hitStyle);
+                GUI.Label(new Rect(px, py + 104, pw - 140, 22), $"HITS: {predicted} on the bright ghost{sure}{hitBack}", hitStyle);
             }
-            else GUI.Label(new Rect(px, py + 104, pw - 140, 22), $"Predicted if they hold: you hit {predicted}, you get hit {theirs}", label);
+            else GUI.Label(new Rect(px, py + 104, pw - 140, 22), $"On the bright ghost: you hit {predicted}, you get hit {theirs}", label);
             if (GUI.Button(new Rect(px + pw - 130, py + 102, 130, 26), "Fire at hits (F)")) FireAtPredicted();
 
             // The missile: armed, it leaves the first moment the seeker locks this turn
@@ -1515,7 +1533,7 @@ namespace Ooda.Turn
             else
             {
                 var mt = preview?.traces.FirstOrDefault(tr => tr.missile && tr.owner == 0);
-                mText = mt == null ? "Missile armed: no lock on this path, it stays on the rail" : mt.hit ? "Missile armed: it hits, if they hold" : "Missile armed: it launches, but misses if they hold";
+                mText = mt == null ? "Missile armed: no lock on this path, it stays on the rail" : mt.hit ? "Missile armed: it hits the bright ghost" : "Missile armed: it launches, but misses the bright ghost";
             }
             GUI.Label(new Rect(px, py + 134, pw - 140, 22), mText, label);
             GUI.enabled = left > 0;
