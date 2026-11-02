@@ -20,8 +20,10 @@ namespace Ooda.Turn
     public partial class TurnBattle
     {
         [Header("The gun funnel")]
-        [Tooltip("Show the gun funnel in the world while planning (K).")]
-        public bool showSight = true;
+        public enum SightMode { Off, Hover, Always }
+        [Tooltip("The gun funnel while planning (K steps through): off; in the world, with the gunsight view while the mouse is over the burst bar; or the gunsight view all the time.")]
+        public SightMode sightMode = SightMode.Hover;
+        bool showSight => sightMode != SightMode.Off;
         [Tooltip("Show the lead ring on the target's path while planning (L). The funnel replaces it.")]
         public bool showLeadRing = false;
         [Tooltip("The funnel runs out to this range, ft.")]
@@ -31,13 +33,32 @@ namespace Ooda.Turn
         public Color sightColor = new Color(0.45f, 1f, 0.45f, 0.95f);
 
         float sightT;              // the moment the funnel shows, s into the turn
+        float hoverUntil;          // the mouse was over the burst bar until about now (unscaled time)
+
+        void NextSightMode() => sightMode = (SightMode)(((int)sightMode + 1) % 3);
+
+        /// <summary>The gunsight view is up: the camera in your ghost's seat at the funnel's moment, looking down the guns.</summary>
+        bool SightViewOn => sightMode != SightMode.Off && phase == Phase.Planning && gunPreview != null && battle != null && !battle.Out(0)
+                            && (sightMode == SightMode.Always || Time.unscaledTime < hoverUntil);
+
+        /// <summary>Every frame: put the camera in the ghost's seat while the gunsight view is up. From there the funnel looks like a HUD's.</summary>
+        void SightCamera()
+        {
+            if (view == null || !SightViewOn) return;
+            var me = gunPreview.frames[0][FunnelFrame()];
+            if (me.down) return;
+            GunAxes(me, out var gun, out var up, out _);
+            view.sightPos = UnityFrame.Pos(me.pos + up * 3);
+            view.sightRot = Quaternion.LookRotation(UnityFrame.Dir(gun), UnityFrame.Dir(up));
+            view.sightPose = true;
+        }
         bool sightAuto = true;     // until the player moves it, it sits where the rounds first connect
 
         /// <summary>The funnel's keys: K the funnel, L the lead ring, [ and ] move its moment while the timeline is shut.</summary>
         void FunnelInput(Keyboard kb, float dt)
         {
             if (kb == null) return;
-            if (kb[Key.K].wasPressedThisFrame) showSight = !showSight;
+            if (kb[Key.K].wasPressedThisFrame) NextSightMode();
             if (kb[Key.L].wasPressedThisFrame) showLeadRing = !showLeadRing;
             if (showMoves) return;   // [ and ] are the timeline's slider then
             float scrub = 0;
@@ -124,8 +145,9 @@ namespace Ooda.Turn
                     left.Add(UnityFrame.Pos(s.at - right * half));
                     rightEdge.Add(UnityFrame.Pos(s.at + right * half));
                 }
-                lines.Strip(left, 0.8f, col, false, new Color(col.r, col.g, col.b, col.a * 0.35f));
-                lines.Strip(rightEdge, 0.8f, col, false, new Color(col.r, col.g, col.b, col.a * 0.35f));
+                float wide = SightViewOn ? 0.8f : 1.4f;
+                lines.Strip(left, wide, col, false, new Color(col.r, col.g, col.b, col.a * 0.6f));
+                lines.Strip(rightEdge, wide, col, false, new Color(col.r, col.g, col.b, col.a * 0.6f));
                 // rungs across it every 500 ft, the first at the near end
                 lines.Line(left[0], rightEdge[0], 0.6f, col);
                 for (double tick = 500; tick < funnelMaxFt; tick += 500)
@@ -139,8 +161,8 @@ namespace Ooda.Turn
                 lines.Line(UnityFrame.Pos(me.pos + gun * 20), UnityFrame.Pos(stream[0].at), 0.4f, new Color(col.r, col.g, col.b, 0.4f));
             }
 
-            // you and the target at the moment, as outlines
-            Outline(me, 36, 16, sightColor, 0.7f);
+            // you and the target at the moment, as outlines (not yours from your own seat)
+            if (!SightViewOn) Outline(me, 36, 16, sightColor, 0.7f);
             if (j >= 0 && j < gp.frames.Length && !battle.Out(j) && !gp.frames[j][f].down)
                 Outline(gp.frames[j][f], SpanFt(j), battle.combat[j].sizeFt > 0 ? 37 : 16, hitNow ? hitTracer : new Color(1f, 0.45f, 0.35f, 0.95f), 0.9f);
         }
@@ -167,6 +189,7 @@ namespace Ooda.Turn
             {
                 sightT = Mathf.Clamp01((ev.mousePosition.x - burstRect.x) / burstRect.width) * (float)turnSec;
                 sightAuto = false;
+                hoverUntil = Time.unscaledTime + 0.2f;
             }
 
             // the toggles, left above the throttle
@@ -179,7 +202,8 @@ namespace Ooda.Turn
             guiRects.Add(toggle);
             var btn = new GUIStyle(GUI.skin.button) { fontSize = 13 };
             if (GUI.Button(new Rect(toggle.x, toggle.y, bw / 2 - 3, toggle.height), showLeadRing ? "Ring: on (L)" : "Ring: off (L)", btn)) showLeadRing = !showLeadRing;
-            if (GUI.Button(new Rect(toggle.x + bw / 2 + 3, toggle.y, bw / 2 - 3, toggle.height), showSight ? "Funnel: on (K)" : "Funnel: off (K)", btn)) showSight = !showSight;
+            string sm = sightMode == SightMode.Off ? "Funnel: off (K)" : sightMode == SightMode.Hover ? "Funnel: hover (K)" : "Funnel: sight (K)";
+            if (GUI.Button(new Rect(toggle.x + bw / 2 + 3, toggle.y, bw / 2 - 3, toggle.height), sm, btn)) NextSightMode();
             if (!showSight) return;
 
             // the moment on the burst bar
@@ -187,6 +211,17 @@ namespace Ooda.Turn
             {
                 float mx = burstRect.x + sightT / (float)turnSec * burstRect.width;
                 Fill(new Rect(mx - 1, burstRect.y - 4, 2, burstRect.height + 8), sightColor);
+            }
+
+            // in the gunsight view: the gun cross in the middle (the camera looks down the guns) and what you are seeing
+            if (SightViewOn)
+            {
+                float cx = sw / 2, cy = sh / 2;
+                Fill(new Rect(cx - 14, cy - 1, 10, 2), sightColor); Fill(new Rect(cx + 4, cy - 1, 10, 2), sightColor);
+                Fill(new Rect(cx - 1, cy - 14, 2, 10), sightColor); Fill(new Rect(cx - 1, cy + 4, 2, 10), sightColor);
+                var hud = new GUIStyle(label) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold };
+                hud.normal.textColor = sightColor;
+                Shadow(new Rect(0, sh * 0.12f, sw, 24), $"GUNSIGHT  {sightT:F2} s   fit their wings across the funnel", hud);
             }
 
             // the label by the target's outline (or by yours when there is no target)

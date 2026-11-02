@@ -529,12 +529,14 @@ namespace Ooda.Turn
 
         void Update()
         {
+            if (view != null) view.sightPose = false;   // set again below while the gunsight view is up
             if (MenuUpdate()) return;   // Esc: the menu is open and the battle waits
             if (replaying) { ReplayUpdate(); return; }
             if (briefing) { UpdateBriefing(); return; }
             if (reading != null && reading.IsCompleted) FinishReading();
             if (thinking != null && thinking.IsCompleted) FinishCommit();
             HandleInput();
+            SightCamera();
             WatchOrders();
             SquadShotsCheck();
             BotUpdate();
