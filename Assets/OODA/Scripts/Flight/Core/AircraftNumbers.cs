@@ -47,6 +47,13 @@ namespace Ooda.Flight.Core
         public double dragA = 1.399e-6;
         public double dragB = 843.6;
 
+        // The game's extras (no WW2 fighter had either): a rocket that kicks for a few seconds, then has to wait,
+        // and a speed brake. Estimates to tune by feel.
+        public double rocketG = 1.3;              // the rocket's thrust / weight while it burns
+        public double rocketSec = 2.5;            // how long it burns
+        public double rocketCooldownSec = 30;     // from lighting it until it can be lit again (10 normal turns)
+        public double brakeG = 0.7;               // the speed brake's drag / weight at 300 KIAS (with the square of the speed)
+
         // Attitude for the picture only: angle of attack at zero lift and at the stall line
         public double alphaZeroLiftDeg = -1;
         public double alphaStallDeg = 16;
@@ -138,6 +145,7 @@ namespace Ooda.Flight.Core
         /// </summary>
         public static AircraftNumbers B17G() => new AircraftNumbers
         {
+            rocketG = 0, brakeG = 0,
             name = "B-17G Flying Fortress",
             maxG = 3, minG = -1, stallKias = 87, negStallKias = 120, vneKias = 235,
             rollPerKtasDps = 0.15, maxRollRateDps = 30, rollFullRateSec = 0.8,

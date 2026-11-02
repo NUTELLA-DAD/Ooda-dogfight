@@ -151,6 +151,7 @@ namespace Ooda.Turn.Core
         public Vec3d pos, vel, up;
         public double alphaDeg, g, throttle;
         public bool firing, stalled, departed, down;
+        public bool rocket, brake;   // the rocket burning, the speed brake out
     }
 
     /// <summary>One packet's path through a turn, for drawing tracers: a point for each frame from startFrame.</summary>

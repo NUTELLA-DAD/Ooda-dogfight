@@ -26,6 +26,8 @@ namespace Ooda.UI
         public float throttleIdleDeg = -28f, throttleFullDeg = 30f;
         [Tooltip("How fast the shown controls catch up (1/s).")]
         public float follow = 14f;
+        [Tooltip("The stick shaker at full: how far the stick jitters (degrees) and how fast (Hz).")]
+        public float shakeDeg = 2.5f, shakeHz = 22f;
 
         [Header("Look")]
         public Color overpullColor = new Color(1f, 0.15f, 0.1f, 1f);
@@ -43,6 +45,10 @@ namespace Ooda.UI
         Vector2 wantStick, shownStick;
         float wantOver, shownOver, wantThrottle, shownThrottle;
         bool wep, visible = true;
+        float shake;
+
+        /// <summary>The stick shaker, 0 still to 1 hardest: the wing near its limit. Read by the screen to jiggle the picture too.</summary>
+        public float Shake { get => shake; set => shake = Mathf.Clamp01(value); }
 
         /// <summary>The gauge from Resources, placed out of sight; null when it has not been built.</summary>
         public static StickThrottleGauge Create()
@@ -130,8 +136,11 @@ namespace Ooda.UI
         /// <summary>Back tips the top toward the camera (-z), right toward +x; more throttle swings the lever forward (+z).</summary>
         public void Pose()
         {
-            stickShaft.localRotation = Quaternion.AngleAxis(-shownStick.y * stickTravelDeg, Vector3.right)
-                                     * Quaternion.AngleAxis(-shownStick.x * stickTravelDeg, Vector3.forward) * shaftRest;
+            // the shaker: a fast buzz on top of where the stick sits, two out-of-step waves so it rattles rather than swings
+            float tm = Time.unscaledTime * shakeHz * 2 * Mathf.PI;
+            float jx = shake * shakeDeg * Mathf.Sin(tm * 1.13f), jy = shake * shakeDeg * Mathf.Sin(tm + 1.7f);
+            stickShaft.localRotation = Quaternion.AngleAxis(-shownStick.y * stickTravelDeg + jy, Vector3.right)
+                                     * Quaternion.AngleAxis(-shownStick.x * stickTravelDeg + jx, Vector3.forward) * shaftRest;
             throttleLever.localRotation = Quaternion.AngleAxis(Mathf.Lerp(throttleIdleDeg, throttleFullDeg, shownThrottle), Vector3.right) * leverRest;
             if (block == null) block = new MaterialPropertyBlock();
             // the grip (submesh 1) reddens through the overpull band; the lever's knob glows with WEP

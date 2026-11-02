@@ -23,7 +23,60 @@ namespace Ooda.Turn.Core
             mustang.throttle = foe.throttle = 1;
             return new Battle(mustang, CombatNumbers.P51D(), foe, CombatNumbers.Bf109G());
         }
-    
+
+        /// <summary>The ways a one on one can begin.</summary>
+        public enum Start { HeadOn, Neutral, Offensive, Defensive }
+
+        public static string Name(Start s) => s == Start.HeadOn ? "head-on" : s == Start.Neutral ? "neutral, side by side"
+                                            : s == Start.Offensive ? "you on their tail" : "them on your tail";
+
+        /// <summary>
+        /// A dogfight at 300 KIAS by how it begins: head-on 3 km apart; neutral, side by side 1,500 ft apart, both heading
+        /// north; offensive, the Mustang 3,000 ft behind the Bf 109 and a little to one side; defensive, the other way round.
+        /// ours and theirs (1 to 4 each) are the aircraft on each side: you and your P-51 wingmen, and the Bf 109s, each
+        /// side flying a finger-four on its leader (side by side, an echelon away from the other side instead).
+        /// Order: 0 you, 1 their leader, then your wingmen, then their others.
+        /// </summary>
+        public static Battle Dogfight(Start s, Vec3d centre, double altFt = 5000, double kias = 300, double gapM = 3000, int ours = 1, int theirs = 1)
+        {
+            ours = Math.Max(1, Math.Min(MaxSide, ours));
+            theirs = Math.Max(1, Math.Min(MaxSide, theirs));
+            double ktas = Atmosphere.IasToTasKt(kias, altFt);
+            double half = gapM / 0.3048 / 2;
+            Vec3d me, foe;
+            double myHdg = Math.PI / 2, foeHdg = Math.PI / 2;
+            switch (s)
+            {
+                case Start.HeadOn: me = new Vec3d(centre.x - 150, centre.y - half, altFt); foe = new Vec3d(centre.x + 150, centre.y + half, altFt); foeHdg = -Math.PI / 2; break;
+                case Start.Neutral: me = new Vec3d(centre.x - 750, centre.y, altFt); foe = new Vec3d(centre.x + 750, centre.y, altFt); break;
+                case Start.Offensive: me = new Vec3d(centre.x - 120, centre.y - 1500, altFt); foe = new Vec3d(centre.x + 120, centre.y + 1500, altFt + 100); break;
+                default: me = new Vec3d(centre.x + 120, centre.y + 1500, altFt + 100); foe = new Vec3d(centre.x - 120, centre.y - 1500, altFt); break;
+            }
+            FlightModel Make(AircraftNumbers n, Vec3d pos, double hdg) => new FlightModel(n, PointMass.Make(pos, ktas, hdg)) { throttle = 1 };
+            // the k-th aircraft's place on its leader: lateral (right positive), back, up, ft
+            bool echelon = s == Start.Neutral;
+            Vec3d Place(Vec3d lead, double hdg, int k, double away)
+            {
+                Vec3d dir = new Vec3d(Math.Cos(hdg), Math.Sin(hdg), 0), right = new Vec3d(dir.y, -dir.x, 0);
+                var (lat, back, up) = echelon ? (500.0 * k * away, 300.0 * k, 50.0 * k) : FingerFour[k];
+                return lead + right * lat - dir * back + new Vec3d(0, 0, up);
+            }
+            var battle = new Battle(Make(AircraftNumbers.P51D(), me, myHdg), CombatNumbers.P51D(), Make(AircraftNumbers.Bf109G(), foe, foeHdg), CombatNumbers.Bf109G());
+            for (int k = 1; k < ours; k++) battle.Add(Make(AircraftNumbers.P51D(), Place(me, myHdg, k, -1), myHdg), CombatNumbers.P51D(), 0);
+            for (int k = 1; k < theirs; k++) battle.Add(Make(AircraftNumbers.Bf109G(), Place(foe, foeHdg, k, 1), foeHdg), CombatNumbers.Bf109G(), 1);
+            Formations.Organise(battle, 0, WideUnit, BomberUnit);
+            return battle;
+        }
+
+        /// <summary>Formation spacing (lateral, back, up per unit of a shape, ft): close for escorting, wide for fighting, and the bombers'.</summary>
+        public static readonly Vec3d CloseUnit = new Vec3d(60, 60, 15), WideUnit = new Vec3d(450, 350, 60), BomberUnit = new Vec3d(220, 250, 60);
+
+        /// <summary>The most aircraft on each side of a dogfight.</summary>
+        public const int MaxSide = 4;
+
+        /// <summary>A finger-four on its leader: lateral (right positive), back, up, ft. Wide, so the AI has room to fight.</summary>
+        static readonly (double lat, double back, double up)[] FingerFour = { (0, 0, 0), (-450, 350, 60), (450, 350, -60), (900, 700, -120) };
+
         /// <summary>
         /// Escort: a B-17 flying its route (waypoints in feet; the first is where it starts) at about 135 KIAS,
         /// the player's Mustang tucked in 600 ft above, 300 ft out to the right and 800 ft behind, and the
@@ -51,6 +104,7 @@ namespace Ooda.Turn.Core
             var r = new Route { kias = bomberKias, points = route, next = 1 };
             battle.Add(bomber, CombatNumbers.B17G(), 0, r);
             AddGunners(battle);
+            Formations.Organise(battle, 0, CloseUnit, BomberUnit);
             return battle;
         }
     
@@ -77,7 +131,7 @@ namespace Ooda.Turn.Core
 
             // the escorts (P-51s), in close formation over the bombers: lateral, back, up (ft) from the lead bomber.
             // Two finger-fours, wingtips about a span apart: yours on the right (you lead it), the other on the left, higher.
-            // They hold it until the Bf 109s arrive (Slot.BreakFt) or one of ours is hit, then break and fight.
+            // Each four holds its station on the lead bomber until you send it off (Formations.Organise).
             var escort = new[] { (250.0, 450.0, 350.0), (190, 510, 350), (310, 510, 350), (370, 570, 350),
                                  (-250, 650, 550), (-190, 710, 550), (-310, 710, 550), (-370, 770, 550) };
             // the enemy: along the route ahead, coming the other way
@@ -89,7 +143,6 @@ namespace Ooda.Turn.Core
             var battle = new Battle(
                 Make(AircraftNumbers.P51D(), Around(start, dir, right, escort[0].Item1, escort[0].Item2, escort[0].Item3), bomberKias, heading, 0.6), CombatNumbers.P51D(),
                 Make(AircraftNumbers.Bf109G(), Around(at, -edir, eright, foe[0].Item1, foe[0].Item2, foe[0].Item3), 300, ehead, 1), CombatNumbers.Bf109G());
-            if (bombers > 0) battle.playerSlot = new Slot { leader = 2, lateralFt = escort[0].Item1, backFt = escort[0].Item2, upFt = escort[0].Item3 };
             var vic = new[] { (0.0, 0.0), (-220, 250), (220, 250) };   // a tight vic: the valley is narrow
             for (int b = 0; b < bombers; b++)
             {
@@ -102,8 +155,7 @@ namespace Ooda.Turn.Core
             {
                 var e = escort[w % escort.Length];
                 double back = e.Item2 + 900 * (w / escort.Length);
-                int k = battle.Add(Make(AircraftNumbers.P51D(), Around(start, dir, right, e.Item1, back, e.Item3), bomberKias, heading, 0.6), CombatNumbers.P51D(), 0);
-                if (bombers > 0) battle.slots[k] = new Slot { leader = 2, lateralFt = e.Item1, backFt = back, upFt = e.Item3 };
+                battle.Add(Make(AircraftNumbers.P51D(), Around(start, dir, right, e.Item1, back, e.Item3), bomberKias, heading, 0.6), CombatNumbers.P51D(), 0);
             }
             for (int w = 1; w < fighters; w++)
             {
@@ -121,6 +173,7 @@ namespace Ooda.Turn.Core
                 }
             }
             AddGunners(battle);
+            Formations.Organise(battle, 0, CloseUnit, BomberUnit);
             return battle;
         }
 
@@ -162,6 +215,7 @@ namespace Ooda.Turn.Core
                     battle.flak[k] = g;
                 }
             }
+            Formations.Organise(battle, 0, WideUnit, BomberUnit);
             return battle;
         }
 

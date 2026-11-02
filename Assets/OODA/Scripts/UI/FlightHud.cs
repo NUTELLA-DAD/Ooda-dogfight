@@ -19,6 +19,7 @@ namespace Ooda.UI
         void OnGUI()
         {
             if (aircraft == null || aircraft.Model == null) return;
+            BriefingStyle.Use();
             if (big == null)
             {
                 big = new GUIStyle(GUI.skin.label) { fontSize = 22, fontStyle = FontStyle.Bold };

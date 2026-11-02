@@ -267,24 +267,26 @@ namespace Ooda.EditorTools
         {
             var battle = (Battle)typeof(TurnBattle).GetField("battle", Any).GetValue(tb);
             var gaps = new System.Collections.Generic.List<string>();
-            for (int i = 0; i < battle.slots.Length && i < battle.Count; i++)
+            for (int i = 0; i < battle.Count; i++)
             {
-                var s = battle.slots[i];
+                var s = battle.FormationSlot(i);
                 if (s == null) continue;
                 var l = battle.planes[s.leader];
                 double gap = (battle.planes[i].state.pos - s.Where(l.state.pos, l.state.vel)).Length * 0.3048;
                 gaps.Add($"{i}:{gap:F0}{(battle.Out(i) ? " OUT" : "")}");
             }
             var crashed = Enumerable.Range(0, battle.Count).Where(i => battle.crashed[i]).Select(i => $"{i} (side {battle.side[i]})").ToList();
-            Debug.Log($"OODA formation {when}: {(battle.formationBroken ? "BROKEN" : "holding")}; slot gaps m {string.Join(" ", gaps)}; crashed: {(crashed.Count == 0 ? "none" : string.Join(", ", crashed))}.");
-            return battle.formationBroken;
+            int off = Enumerable.Range(0, battle.Count).Count(i => battle.side[i] == 0 && !battle.Out(i) && battle.orders[i] != Order.Rejoin);
+            Debug.Log($"OODA formation {when}: {(off > 0 ? $"{off} sent off" : "holding")}; slot gaps m {string.Join(" ", gaps)}; crashed: {(crashed.Count == 0 ? "none" : string.Join(", ", crashed))}.");
+            return off > 0;
         }
 
         /// <summary>From behind and above the lead bomber, far enough back to frame both finger-fours and the vic.</summary>
         static void FormationShot(TurnBattle tb, Camera cam, MonoBehaviour[] camScripts, RenderTexture rt, string dir, string name, MonoBehaviour[] all)
         {
             var battle = (Battle)typeof(TurnBattle).GetField("battle", Any).GetValue(tb);
-            int lead = battle.slots.Where(s => s != null).Select(s => s.leader).DefaultIfEmpty(2).First();
+            int bomber = Enumerable.Range(0, battle.Count).Where(i => battle.routes[i] != null).DefaultIfEmpty(-1).First();
+            int lead = bomber < 0 ? 2 : battle.Leader(battle.flightOf[bomber]) >= 0 ? battle.Leader(battle.flightOf[bomber]) : bomber;
             var l = battle.planes[lead];
             Vector3 p = UnityFrame.Pos(l.state.pos), v = UnityFrame.Dir(l.state.vel);
             Vector3 fwd = new Vector3(v.x, 0, v.z).normalized;

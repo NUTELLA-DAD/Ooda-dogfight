@@ -45,37 +45,109 @@ namespace Ooda.Turn.Core
 
         public TurnPlan Plan(Battle battle, double turnSec)
         {
-            var m = battle.planes[me];
-            int them = Target(battle);
-            if (them < 0) return TurnPlan.Straight(m);
-            var sub = battle.Subset(Nearby(battle, them));   // me is 0 in it, the target 1
-            if (ignoreObstacles) sub.obstacleHit = sub.wires == null ? null : (Func<Vec3d, Vec3d, bool>)sub.wires.Hit;   // the air hazards' plain shapes, not the colliders
-            // only the flak that could reach it this turn
-            var near = new List<FlakSite>();
-            foreach (var g in sub.flak) if ((g.pos - m.state.pos).Length < g.rangeFt + 3000) near.Add(g);
-            sub.flak = near.ToArray();
-            // and only the ground and gunners' rounds already in the air that could reach it
-            sub.bullets.RemoveAll(b => b.owner < 0 && (b.pos - m.state.pos).Length > 8000);
-            var env = Envelope.Compute(m, turnSec);
-            bool slow = m.Kias < 220;
-
-            TurnPlan best = TurnPlan.Straight(m);
-            double bestScore = double.NegativeInfinity;
-            foreach (var fraction in new[] { 0.0, 0.35, 0.7, 1.0 })
+            var tries = Tries(battle, turnSec, out var sub, out int them);
+            if (tries == null) return TurnPlan.Straight(battle.planes[me]);
+            int pick = 0; double bestScore = double.NegativeInfinity;
+            for (int k = 0; k < tries.Count; k++)
             {
-                int count = fraction == 0 ? 1 : 12;
-                for (int k = 0; k < count; k++)
-                {
-                    double phi = 2 * Math.PI * k / 12;
-                    var plan = new TurnPlan
-                    {
-                        aim = fraction == 0 ? m.Forward : env.Direction(phi, env.MaxAngle(phi) * fraction),
-                        throttle = 1, wep = slow,
-                    };
-                    double score = Score(sub, plan, turnSec) + sloppiness * rng.Gauss();
-                    if (score > bestScore) { bestScore = score; best = plan; }
-                }
+                double score = tries[k].score + sloppiness * rng.Gauss();
+                if (score > bestScore) { bestScore = score; pick = k; }
             }
+            return Finish(battle, sub, them, tries[pick].plan, turnSec);
+        }
+
+        /// <summary>
+        /// What this pilot might do this turn, for the player to see: the tries its (a little random) choice is likely
+        /// to land on, likeliest first, each with that chance and its burst planned. Plan made afterwards on the same
+        /// battle picks from these same tries, so the chances are the real ones.
+        /// </summary>
+        public Prediction Predict(Battle battle, double turnSec, int most = 4, double least = 0.04)
+        {
+            var tries = Tries(battle, turnSec, out var sub, out int them);
+            if (tries == null) return new Prediction { pilot = me, plans = new[] { TurnPlan.Straight(battle.planes[me]) }, chance = new[] { 1.0 } };
+            // the chance each try wins once the noise is added, by drawing it many times (its own dice, not the pilot's)
+            var wins = new int[tries.Count];
+            var dice = new Lcg(9001u + (uint)battle.turn * 31u + (uint)me);
+            const int draws = 600;
+            for (int d = 0; d < draws; d++)
+            {
+                int pick = 0; double bestScore = double.NegativeInfinity;
+                for (int k = 0; k < tries.Count; k++)
+                {
+                    double score = tries[k].score + sloppiness * dice.Gauss();
+                    if (score > bestScore) { bestScore = score; pick = k; }
+                }
+                wins[pick]++;
+            }
+            var order = new List<int>();
+            for (int k = 0; k < tries.Count; k++) if (wins[k] > 0) order.Add(k);
+            order.Sort((a, b) => wins[b].CompareTo(wins[a]));
+            var plans = new List<TurnPlan>(); var chance = new List<double>();
+            foreach (int k in order)
+            {
+                double c = (double)wins[k] / draws;
+                if (plans.Count >= most || plans.Count > 0 && c < least) break;
+                plans.Add(Finish(battle, sub, them, tries[k].plan, turnSec));
+                chance.Add(c);
+            }
+            return new Prediction { pilot = me, plans = plans.ToArray(), chance = chance.ToArray() };
+        }
+
+        struct Try { public TurnPlan plan; public double score; }
+
+        /// <summary>Drop the tries kept from the last look (after the battle's aircraft have been renumbered, as by Battle.Swap).</summary>
+        public void Forget() { lock (this) { cachedTries = null; cachedFor = cachedSub = null; } }
+
+        // the last tries, kept so Plan and Predict on the same battle at the same moment score them only once
+        List<Try> cachedTries; Battle cachedFor, cachedSub; double cachedTime = double.NaN, cachedTurnSec; int cachedThem;
+
+        /// <summary>A spread of arrows across its reach shell, each scored (without the noise). Null when it has no one to go for.</summary>
+        List<Try> Tries(Battle battle, double turnSec, out Battle sub, out int them)
+        {
+            lock (this)
+            {
+                if (cachedTries != null && ReferenceEquals(cachedFor, battle) && cachedTime == battle.time && cachedTurnSec == turnSec)
+                { sub = cachedSub; them = cachedThem; return cachedTries; }
+                var m = battle.planes[me];
+                them = Target(battle);
+                sub = null;
+                if (them < 0) return null;
+                sub = battle.Subset(Nearby(battle, them));   // me is 0 in it, the target 1
+                if (ignoreObstacles) sub.obstacleHit = sub.wires == null ? null : (Func<Vec3d, Vec3d, bool>)sub.wires.Hit;   // the air hazards' plain shapes, not the colliders
+                // only the flak that could reach it this turn
+                var near = new List<FlakSite>();
+                foreach (var g in sub.flak) if ((g.pos - m.state.pos).Length < g.rangeFt + 3000) near.Add(g);
+                sub.flak = near.ToArray();
+                // and only the ground and gunners' rounds already in the air that could reach it
+                sub.bullets.RemoveAll(b => b.owner < 0 && (b.pos - m.state.pos).Length > 8000);
+                var env = Envelope.Compute(m, turnSec);
+                bool slow = m.Kias < 220;
+
+                var tries = new List<Try>();
+                foreach (var fraction in new[] { 0.0, 0.35, 0.7, 1.0 })
+                {
+                    int count = fraction == 0 ? 1 : 12;
+                    for (int k = 0; k < count; k++)
+                    {
+                        double phi = 2 * Math.PI * k / 12;
+                        var plan = new TurnPlan
+                        {
+                            aim = fraction == 0 ? m.Forward : env.Direction(phi, env.MaxAngle(phi) * fraction),
+                            throttle = 1, wep = slow,
+                        };
+                        tries.Add(new Try { plan = plan, score = Score(sub, plan, turnSec) });
+                    }
+                }
+                cachedTries = tries; cachedFor = battle; cachedSub = sub; cachedTime = battle.time; cachedTurnSec = turnSec; cachedThem = them;
+                return tries;
+            }
+        }
+
+        /// <summary>The chosen arrow with its burst, and a missile when the target might come into the seeker's cone.</summary>
+        TurnPlan Finish(Battle battle, Battle sub, int them, TurnPlan best, double turnSec)
+        {
+            var m = battle.planes[me];
+            Extras(sub, ref best, turnSec);
             PlanBurst(sub, ref best, turnSec);
             // a missile at the target whenever it might come into the seeker's cone this turn (it launches only once locked)
             if (battle.missiles[me] > 0 && battle.routes[me] == null)
@@ -184,6 +256,33 @@ namespace Ooda.Turn.Core
             return score + shotBonus;
         }
 
+        /// <summary>How much better (in score) the rocket must leave it before it spends it, and the same for the speed brake.</summary>
+        public double rocketMargin = 0.25, brakeMargin = 0.15;
+
+        /// <summary>
+        /// The rocket and the speed brake: the chosen arrow flown again with the rocket lit (if it is ready), and with the
+        /// throttle chopped and the brake out (to make an attacker overshoot, or not to overshoot its own target); either
+        /// kept when it leaves it clearly better placed. Slow and with the rocket ready, it lights it unless that is worse.
+        /// </summary>
+        void Extras(Battle sub, ref TurnPlan plan, double turnSec)
+        {
+            var m = sub.planes[0];
+            if (m.Departed || sub.routes[0] != null) return;
+            double baseScore = Score(sub, plan, turnSec);
+            if (m.RocketReady)
+            {
+                var r = plan; r.rocket = true;
+                double s = Score(sub, r, turnSec);
+                if (s > baseScore + (m.Kias < 200 ? 0 : rocketMargin)) { plan = r; baseScore = s; }
+            }
+            if (sub.planes[0].numbers.brakeG > 0 && !plan.rocket)
+            {
+                var b = plan; b.brake = true; b.throttle = 0; b.wep = false;
+                double s = Score(sub, b, turnSec);
+                if (s > baseScore + brakeMargin) plan = b;
+            }
+        }
+
         /// <summary>Fire across the part of the turn whose rounds would hit the projected target, if any.</summary>
         void PlanBurst(Battle sub, ref TurnPlan plan, double turnSec)
         {
@@ -211,5 +310,13 @@ namespace Ooda.Turn.Core
             plan.burstStart = Math.Max(0, first - 0.15);
             plan.burstEnd = Math.Min(turnSec, last + 0.15);
         }
+    }
+
+    /// <summary>What an AI pilot might do this turn: its likeliest plans first, each with the chance it flies it.</summary>
+    public class Prediction
+    {
+        public int pilot;
+        public TurnPlan[] plans;
+        public double[] chance;
     }
 }

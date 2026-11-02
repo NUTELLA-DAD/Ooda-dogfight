@@ -115,12 +115,11 @@ namespace Ooda.EditorTools
             bool Flying() => Enumerable.Range(0, n).Any(i => b.routes[i] != null && !b.Out(i) && !s.struck[i] && !b.routes[i].Done);
             for (int turn = 0; turn < 90 && Flying(); turn++)   // on even if you go down: this checks the bombers
             {
-                b.CheckBreak();
                 var plans = new TurnPlan?[n];
                 for (int i = 0; i < n; i++)
                 {
-                    if (ais[i] == null || b.Out(i) || b.InFormation(i) || s.OnPatrol(i)) continue;
-                    plans[i] = i == 0 && !b.formationBroken && b.playerSlot != null ? b.playerSlot.Plan(b, 0, 3) : ais[i].Plan(b, 3);
+                    if (ais[i] == null || b.Out(i) || b.InFormation(i) || s.OnPatrol(i)) continue;   // the escorts hold formation, as with no orders
+                    plans[i] = ais[i].Plan(b, 3);
                 }
                 b.Resolve(plans, 3, false, (bb, k) =>
                 {
