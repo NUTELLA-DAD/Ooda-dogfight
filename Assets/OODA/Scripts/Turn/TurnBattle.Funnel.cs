@@ -56,12 +56,14 @@ namespace Ooda.Turn
             float side = (sw - pw) / 2 - 20;
             float gh = Mathf.Min(240f, side / 0.9f, sh * 0.32f);
             float bottom = gh >= 90 ? sh - gh - 8 - 24 : sh - 8;
-            float size = Mathf.Min(270f, side, bottom - (showHelp ? helpTop + 320 : helpTop) - 56);
-            if (size < 130) return;   // no room beside the panel
-            float y0 = bottom - size - 30;
+            // drawn over the help box if they meet (H hides the help); too little room and only the toggles show
+            float size = Mathf.Min(270f, side, bottom - helpTop - 56);
+            bool room = size >= 110;
+            if (!room) size = Mathf.Clamp(side, 200f, 260f);
+            float y0 = room ? bottom - size - 30 : bottom - 30;
             Rect head = new Rect(10, y0 - 22, size, 20);
             Rect glass = new Rect(10, y0, size, size);
-            Rect toggle = new Rect(10, y0 + size + 4, size, 24);
+            Rect toggle = room ? new Rect(10, y0 + size + 4, size, 24) : new Rect(10, bottom - 26, size, 24);
 
             // the moment: the mouse over the burst bar moves it
             var ev = Event.current;
@@ -92,7 +94,7 @@ namespace Ooda.Turn
                 float mx = burstRect.x + sightT / (float)turnSec * burstRect.width;
                 Fill(new Rect(mx - 1, burstRect.y - 4, 2, burstRect.height + 8), sightColor);
             }
-            if (!showSight) return;
+            if (!showSight || !room) return;
 
             guiRects.Add(glass); guiRects.Add(head);
             Fill(glass, sightGlass);

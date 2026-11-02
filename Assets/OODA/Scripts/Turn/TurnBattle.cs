@@ -1507,7 +1507,7 @@ namespace Ooda.Turn
             RosterGUI(sw);
             OrdersGUI(sw);
             UnplannedGUI(sw, sh);
-            if (planning) { PlanningPanel(sw, sh); SightGUI(sw, sh); }
+            if (planning) PlanningPanel(sw, sh);
             DogfightGUI(sw, sh);
             if (phase == Phase.Playing) GUI.Label(new Rect(0, sh - 60, sw, 30), $"Turn playing  {playT:F1} / {turnSec:F0} s   (hold Tab to speed up)", new GUIStyle(label) { alignment = TextAnchor.MiddleCenter });
             var warn = new GUIStyle(big) { fontSize = 26 };
@@ -1557,6 +1557,7 @@ namespace Ooda.Turn
                     "RB fire at predicted hits, Y projection, B replay, right stick look,\n" +
                     "d-pad right rocket, left speed brake, View button your next plane.", small);
             }
+            if (planning) SightGUI(sw, sh);   // after the help, so the glass sits on top of it
         }
 
         void PlanningPanel(float sw, float sh)
