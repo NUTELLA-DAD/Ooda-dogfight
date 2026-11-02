@@ -350,6 +350,10 @@ namespace Ooda.Turn
             phase = Phase.Planning;
             sightAuto = true;
             FlightTurnStarts();
+            // with only one fighter of yours, it is always yours to fly: it never flies itself on its AI pilot's plan
+            int fighters = 0;
+            for (int i = 0; i < battle.Count; i++) if (battle.side[i] == battle.side[0] && battle.routes[i] == null && !battle.Out(i)) fighters++;
+            if (fighters <= 1 && battle.orders[0] == Order.AutoFight) battle.orders[0] = Order.YouControl;
             var m = battle.planes[0];
             env = Envelope.Compute(m, turnSec);
             plan.aim = m.Forward;
@@ -1147,6 +1151,7 @@ namespace Ooda.Turn
                          battle.side[i] == 0 ? holoFriendColor : hitByMe ? holoTargetHitColor : holoEnemyColor);
             }
             DrawSpreadAndLead();
+            DrawFunnel();
             foreach (var tr in preview.traces)
             {
                 if (tr.owner != 0 && !showProjection) continue;
@@ -1543,8 +1548,8 @@ namespace Ooda.Turn
                     "Drag the corner stick to steer (down pulls). It shakes near your hardest turn;\n" +
                     "harder means overpull: stall, maybe spin. F1: reach rings.\n" +
                     "Blue: your path. Red: where the enemy may go, the bright one likeliest.\n" +
-                    "Gunsight (left): your rounds' funnel at the moment you hover on the burst bar.\n" +
-                    "Fire when the target's wings fill the funnel. K gunsight, L the old lead ring.\n" +
+                    "Green funnel: your rounds at the moment you hover on the burst bar.\n" +
+                    "Fire when the target's wings fit across it. K funnel, L the old lead ring.\n" +
                     (Bombing ? "Green: the bombers' course. Keep the Bf 109s off them; flak fires orange.\n" : "") +
                     "Your rounds: red hits, yellow just misses, orange misses. Lead the target.\n" +
                     "Drag on the timeline to fire; F fires where hits are predicted.\n\n" +

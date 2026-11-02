@@ -28,7 +28,9 @@ Build it with **OODA > Build Turn Battle** (after Build Test World), open `Asset
 
 ### The gun funnel
 
-While planning, a gunsight glass sits on the left above the throttle. It looks down your gun line from your ghost at one moment of the turn, and shows your rounds in the air then (as if the trigger were held all turn) as a funnel: two green lines a wingspan apart at each range, with ticks every 1,000 ft. It bends with your turn and narrows with range. The target's bright ghost is drawn in it at its true size and attitude; when its wings fill the funnel it is in range and on the line, and the glass says ON TARGET with when those rounds were fired. Hover over the burst bar to move the moment (a green mark shows it), or use [ and ] while the timeline is shut; each turn it starts where your rounds first connect. **K** hides the glass. The old lead ring on the target's path is now a toggle, **L**, off at first. It is all in `TurnBattle.Funnel.cs`.
+While planning, the gun funnel is drawn in the world at one moment of the turn: your rounds in the air then (as if the trigger were held all turn) as a green ribbon a wingspan wide along the stream off your ghost's nose, with rungs every 500 ft, a green outline of your aircraft where it is then, and the target's outline where the bright ghost is then. Seen from behind it narrows with range like a gunsight's funnel; when the target's wings fit across it the rounds fired around then hit, and it turns red with ON TARGET and when they were fired. Hover over the burst bar to move the moment (a green mark shows it), or use [ and ] while the timeline is shut; each turn it starts where your rounds first connect. **K** hides the funnel. The old lead ring on the target's path is now a toggle, **L**, off at first. It is all in `TurnBattle.Funnel.cs`.
+
+With only one fighter of yours, it is always yours to fly: it starts each turn on your control (straight ahead), never on its AI pilot's plan.
 
 ### Dogfight: up to 4 v 4, the side controls, the rocket and the speed brake
 
