@@ -44,7 +44,7 @@ namespace Ooda.EditorTools
                     if (r < 1.6f) guard[j, i] = true;
                     if (r >= 1.5f) continue;
                     float t = Mathf.SmoothStep(0, 1, Mathf.InverseLerp(1f, 1.5f, r));
-                    h[j, i] = Mathf.Min(h[j, i], Mathf.Lerp(floor, h[j, i], t));
+                    h[j, i] = Mathf.Lerp(floor, h[j, i], t);   // level both ways: low ground round it is raised to the floor too
                 }
         }
 

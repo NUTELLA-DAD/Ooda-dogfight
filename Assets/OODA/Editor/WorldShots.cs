@@ -8,7 +8,7 @@ namespace Ooda.EditorTools
 {
     /// <summary>
     /// OODA > World Shots: opens the test world and renders the Alps to PNGs in Shots~: an overview, the main valley
-    /// at fight height, a gorge, each bridge, the village and the view from the P-51's cockpit.
+    /// at fight height, each bridge, the village and the view from the P-51's cockpit.
     /// </summary>
     public static class WorldShots
     {
@@ -62,9 +62,6 @@ namespace Ooda.EditorTools
             float alt = AlpineWorld.FightAltFt * 0.3048f;
             Shot(cam, rt, dir, "world_valley", new Vector3(fight.x - 40, alt, fight.z - 1500), new Vector3(fight.x, alt - 120, fight.z + 2000));
             Shot(cam, rt, dir, "world_valley_back", new Vector3(fight.x + 40, alt, fight.z + 1500), new Vector3(fight.x, alt - 150, fight.z - 2500));
-            // into gorge one from the west, low between its walls
-            float gz(float x) => -2600 + 500 * Mathf.Sin(x / 1700f);
-            Shot(cam, rt, dir, "world_gorge", new Vector3(-7000, Ground(-7000, gz(-7000)) + 150, gz(-7000)), new Vector3(-6000, Ground(-6000, gz(-6000)) + 120, gz(-6000)));
 
             var marks = Object.FindObjectsByType<Transform>(FindObjectsSortMode.None).Where(t => t.name.StartsWith("Bridge ") && t.name.EndsWith(" centre")).OrderBy(t => t.name).ToList();
             foreach (var m in marks)

@@ -45,7 +45,7 @@ namespace Ooda.EditorTools
         }
 
         /// <summary>The main valley's floor at a point on its line: 360 m over the basin, rising to 880 m at the north end.</summary>
-        static float MainFloorAt(float z) => z < -6000 ? Mathf.Lerp(360f, 380f, Mathf.InverseLerp(-10600, -6000, z)) : Mathf.Lerp(380f, 880f, Mathf.InverseLerp(-6000, 8200, z));
+        static float MainFloorAt(float z) => z < -6000 ? Mathf.Lerp(360f, 380f, Mathf.InverseLerp(-10600, -6000, z)) : Mathf.Lerp(380f, 600f, Mathf.InverseLerp(-6000, 8200, z));
 
         /// <summary>How far a point is from the narrow part of the main valley's line, and the floor height there.</summary>
         static float MainDistance(float x, float z, out float floor)
@@ -137,22 +137,16 @@ namespace Ooda.EditorTools
             new Valley { pts = new[] { V(0, -10600), V(0, -7800), V(0, -6100) }, floor = new[] { 360f, 372f, 380f }, halfFloor = 160, wall = 700 },
             // The rail valley, winding east-west across the north.
             new Valley { pts = Enumerable.Range(0, 15).Select(i => { float x = -10600 + i * 1514f; return V(x, 2600 + 1300 * Mathf.Sin(x / 2600f)); }).ToArray(),
-                         floor = Enumerable.Range(0, 15).Select(i => 950f + 60 * Mathf.Sin(i * 0.7f)).ToArray(), halfFloor = 120, wall = 650 },
+                         floor = Enumerable.Range(0, 15).Select(i => 680f + 40 * Mathf.Sin(i * 0.7f)).ToArray(), halfFloor = 120, wall = 650 },
             // A side valley from the south-west.
-            new Valley { pts = new[] { V(-10600, -7000), V(-4000, -3500), V(-2500, 1500) }, floor = new[] { 400f, 700f, 900f }, halfFloor = 140, wall = 700 },
-            // Gorge one: a winding slot canyon east-west, cut right across the main valley's floor.
-            new Valley { pts = Enumerable.Range(0, 43).Select(i => { float x = -10600 + i * 505f; return V(x, -2600 + 500 * Mathf.Sin(x / 1700f)); }).ToArray(),
-                         floor = Enumerable.Repeat(280f, 43).ToArray(), halfFloor = 90, wall = 450, gorge = true },
-            // Gorge two: north-south in the east.
-            new Valley { pts = Enumerable.Range(0, 43).Select(i => { float z = -10600 + i * 505f; return V(5200 + 400 * Mathf.Sin(z / 1500f), z); }).ToArray(),
-                         floor = Enumerable.Repeat(350f, 43).ToArray(), halfFloor = 80, wall = 420, gorge = true },
+            new Valley { pts = new[] { V(-10600, -7000), V(-4000, -3500), V(-2500, 1500) }, floor = new[] { 400f, 560f, 680f }, halfFloor = 140, wall = 700 },
         };
 
         struct Lake { public Vector2 c, r; public float level; }
         static readonly Lake[] Lakes =
         {
             new Lake { c = V(0, -8500), r = V(200, 1000), level = 372 },     // long and thin down the basin floor
-            new Lake { c = V(-6400, 3150), r = V(500, 140), level = 955 },
+            new Lake { c = V(-6400, 3150), r = V(500, 140), level = 685 },
         };
 
         // The railway's line and its rail height (x, rail top, z): it keeps a gentle grade and lets the ground decide
@@ -191,9 +185,9 @@ namespace Ooda.EditorTools
             float massif = Mathf.Lerp(0.7f, 1.15f, Mathf.PerlinNoise(x / 9000f + 41.1f, z / 9000f + 13.7f));
             // the noise runs about 0.2 to 0.95: spread it over valley-side hills to 4 km spires, without capping the tops flat
             float r = Mathf.InverseLerp(0.15f, 0.95f, Ridged(x, z));
-            float y = Mathf.Min(4400f, 500f + 3500f * massif * Mathf.Pow(r, 1.6f));
-            // the noise peaks are squashed above 1.7 km: the mountain models are the big peaks, and stand well over them
-            return y < 1700f ? y : 1700f + (y - 1700f) * 0.3f;
+            float y = Mathf.Min(4400f, 250f + 2600f * massif * Mathf.Pow(r, 1.6f));
+            // the rolling ground is kept low and squashed above 1.2 km: the mountain models are the big peaks, and stand well over it
+            return y < 1200f ? y : 1200f + (y - 1200f) * 0.3f;
         }
 
         // ---------- build ----------
@@ -308,6 +302,18 @@ namespace Ooda.EditorTools
 
             CarveTown(h, guard);
             PlaceMountains(h, guard);
+
+            // a lake sits a little under its lowest shore, so the water never stands above the ground round it
+            for (int k = 0; k < Lakes.Length; k++)
+            {
+                float shore = float.MaxValue;
+                for (int a = 0; a < 64; a++)
+                {
+                    float t = a * Mathf.PI / 32;
+                    shore = Mathf.Min(shore, SampleArr(h, Lakes[k].c.x + Mathf.Cos(t) * Lakes[k].r.x * 1.15f, Lakes[k].c.y + Mathf.Sin(t) * Lakes[k].r.y * 1.15f));
+                }
+                Lakes[k].level = Mathf.Min(Lakes[k].level, shore - 3f);
+            }
 
             foreach (var l in Lakes)
                 for (int j = 0; j < Res; j++)
