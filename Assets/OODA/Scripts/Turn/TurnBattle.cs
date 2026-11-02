@@ -78,6 +78,8 @@ namespace Ooda.Turn
         public float playbackSpeed = 1f;
         public bool showProjection = true;
         public bool showHelp = true;
+        [Tooltip("Draw the reach shell's rings round the arrow (a dev view, F1). Off: the stick shaker in the corner tells how hard you pull.")]
+        public bool showReachRings = false;
         [Tooltip("S, the down arrow or the stick pulled back moves the arrow up, as the stick pulls the nose up.")]
         public bool stickPitch = true;
 
@@ -527,6 +529,19 @@ namespace Ooda.Turn
             GaugeInput(out var stick, out float over, out float throttle, out bool wep);
             gauge.Show(stick, over, throttle, wep);
             gaugeThrottle = throttle; gaugeWep = wep; gaugeOver = over;
+            gauge.Shake = ShakeFor(stick, over, (phase == Phase.Planning || phase == Phase.Thinking) && !plan.HasMarks);
+        }
+
+        /// <summary>
+        /// The stick shaker: still until the pull reaches 70% of the hardest clean turn, then buzzing harder up to the
+        /// ring, and harder again through the overpull band. With the arrow the pull is how far out the tip sits in any
+        /// direction; otherwise it is the stick's back travel.
+        /// </summary>
+        static float ShakeFor(Vector2 stick, float over, bool arrow)
+        {
+            const float ring = Ooda.UI.StickThrottleGauge.RingTravel;
+            float p = (arrow ? stick.magnitude : Mathf.Max(0, stick.y)) / ring;
+            return Mathf.Clamp01((p - 0.7f) / 0.3f) * 0.55f + Mathf.Clamp01(over) * 0.45f;
         }
 
         float gaugeThrottle, gaugeOver;
@@ -541,12 +556,15 @@ namespace Ooda.Turn
             if (h < 90) return;   // no room beside the panel
             float w = h * 0.9f, y = sh - h - 8;
             Rect left = new Rect(10, y, w, h), right = new Rect(sw - w - 10, y, w, h);
+            float sk = gauge.Shake;   // the shaker jiggles the stick's picture a little too
+            Rect shook = new Rect(right.x + sk * 3f * Mathf.Sin(Time.unscaledTime * 131f), right.y + sk * 3f * Mathf.Sin(Time.unscaledTime * 97f + 1f), w, h);
             GUI.DrawTexture(left, gauge.ThrottleTexture, ScaleMode.ScaleToFit, true);
-            GUI.DrawTexture(right, gauge.StickTexture, ScaleMode.ScaleToFit, true);
+            GUI.DrawTexture(shook, gauge.StickTexture, ScaleMode.ScaleToFit, true);
             var cap = new GUIStyle(small) { alignment = TextAnchor.UpperCenter };
             GUI.Label(new Rect(left.x, y - 18, w, 20), gaugeWep ? $"Throttle {gaugeThrottle * 100:F0}%  WEP" : $"Throttle {gaugeThrottle * 100:F0}%", cap);
             if (gaugeOver > 0) cap.normal.textColor = overpullColor;
-            GUI.Label(new Rect(right.x, y - 18, w, 20), gaugeOver > 0 ? "Stick: overpull" : "Stick", cap);
+            if (gaugeOver <= 0 && sk > 0) cap.normal.textColor = Color.Lerp(cap.normal.textColor, overpullColor, sk);
+            GUI.Label(new Rect(right.x, y - 18, w, 20), gaugeOver > 0 ? "Stick: overpull" : sk > 0 ? "Stick: shaker" : "Stick", cap);
             guiRects.Add(left); guiRects.Add(right);
         }
 
@@ -632,6 +650,7 @@ namespace Ooda.Turn
             if (Pressed(Key.H)) showHelp = !showHelp;
             if (Pressed(Key.M)) SwitchMission();
             if (Pressed(Key.O)) SwitchOoda();
+            if (Pressed(Key.F1)) { showReachRings = !showReachRings; Notice(showReachRings ? "Dev: reach rings on (F1)" : "Dev: reach rings off (F1)"); }
             if (Pressed(Key.Backspace) || (pad != null && pad.startButton.wasPressedThisFrame)) Restart();
             if (Pressed(Key.R) || (pad != null && pad.buttonEast.wasPressedThisFrame)) { if (phase == Phase.Over && Dogfighting) Restart(); else Replay(); }   // a new one on one once it is over
             if (Pressed(Key.P) || (pad != null && pad.buttonNorth.wasPressedThisFrame)) showProjection = !showProjection;
@@ -1008,6 +1027,7 @@ namespace Ooda.Turn
             // into red out to the overpull edge, where the stick goes past the stall line. The band is a stack of rings
             // wide enough to overlap, so it reads as one shaded area.
             const int spokes = 48, bands = 16;
+            if (!showReachRings) goto Arrow;   // a dev view now: the stick shaker tells how hard you pull
             var ring = new List<Vector3>(spokes);
             for (int k = 0; k < spokes; k++)
             {
@@ -1030,6 +1050,8 @@ namespace Ooda.Turn
                 }
                 lines.StripMetres(pts, bandW, Color.Lerp(reachRing, reachEdge, u), true);
             }
+
+        Arrow:
             lines.Line(c, c + UnityFrame.Dir(env.fwd) * arrowLength, 0.3f, new Color(1, 1, 1, 0.3f));
 
             if (plan.HasMarks)
@@ -1450,8 +1472,8 @@ namespace Ooda.Turn
                 guiRects.Add(help);
                 GUI.Label(new Rect(20, hy + 6, 425, 270),
                     $"Plan where your nose points when the {turnSec:0.#} s turn ends. O: OODA, short turns.\n" +
-                    "Drag the yellow tip inside the white ring (how far you can turn).\n" +
-                    "Past the ring, up to the red ring, you overpull: stall, maybe spin.\n" +
+                    "Drag the yellow tip. The corner stick shakes as you near your hardest turn,\n" +
+                    "harder past it (overpull: stall, maybe spin). F1 shows the reach rings.\n" +
                     "Blue: your path. Red: where the enemy will likely be, the bright one likeliest.\n" +
                     "Orange ring: the lead. Put the tip on it and F fires on the hits.\n" +
                     (Bombing ? "Green: the bombers' course. Keep the Bf 109s off them; flak fires orange.\n" : "") +
