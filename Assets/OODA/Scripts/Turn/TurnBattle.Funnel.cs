@@ -57,8 +57,13 @@ namespace Ooda.Turn
             var me = gunPreview.frames[0][FunnelFrame()];
             if (me.down) return;
             GunAxes(me, out var gun, out var up, out _);
-            view.sightPos = UnityFrame.Pos(me.pos + up * 3);
-            view.sightRot = Quaternion.LookRotation(UnityFrame.Dir(gun), UnityFrame.Dir(up));
+            // a chase camera straight behind your ghost on its gun line, a little above, rolled with its wings. The funnel
+            // and the target's outline are drawn shifted by the camera's offset from the ghost's seat, so from here they
+            // look exactly as they would from the seat: the HUD's funnel ahead of your ghost. The wheel sets how far back.
+            Vector3 g = UnityFrame.Dir(gun), u = UnityFrame.Dir(up);
+            float back = Mathf.Clamp(view.distance, 25f, 70f);
+            view.sightPos = UnityFrame.Pos(me.pos) - g * back + u * (back * 0.12f);
+            view.sightRot = Quaternion.LookRotation(g, u);
             view.sightPose = true;
         }
         bool sightAuto = true;     // until the player moves it, it sits where the rounds first connect
@@ -116,6 +121,7 @@ namespace Ooda.Turn
             if (!showSight || phase != Phase.Planning || gunPreview == null || battle.Out(0)) return;
             var gp = gunPreview;
             int j = FunnelTarget();
+            bool sv = SightViewOn;
             if (sightAuto)
             {
                 // where your rounds first meet the target, else the middle of the turn
@@ -128,6 +134,8 @@ namespace Ooda.Turn
             var me = gp.frames[0][f];
             if (me.down) return;
             GunAxes(me, out var gun, out var up, out var right);
+            // in the lined-up chase view, everything of the funnel moves with the camera off the seat (see SightCamera)
+            Vector3 shift = sv && view != null ? view.sightPos - UnityFrame.Pos(me.pos) : Vector3.zero;
 
             // the stream: every round of yours in the air at this moment, nearest first
             var stream = new List<(double range, Vec3d at)>();
@@ -137,7 +145,7 @@ namespace Ooda.Turn
                 var p = tr.At(f);
                 if (p == null) continue;
                 double r = Vec3d.Dot(p.Value - me.pos, gun);
-                if (r < funnelMinFt || r > funnelMaxFt) continue;
+                if (r < (sv ? Mathf.Max(funnelMinFt, 350f) : funnelMinFt) || r > funnelMaxFt) continue;   // lined up, it starts past your ghost
                 stream.Add((r, p.Value));
             }
             stream.Sort((x, y) => x.range.CompareTo(y.range));
@@ -151,14 +159,13 @@ namespace Ooda.Turn
                 var left = new List<Vector3>(stream.Count); var rightEdge = new List<Vector3>(stream.Count);
                 foreach (var s in stream)
                 {
-                    left.Add(UnityFrame.Pos(s.at - right * half));
-                    rightEdge.Add(UnityFrame.Pos(s.at + right * half));
+                    left.Add(UnityFrame.Pos(s.at - right * half) + shift);
+                    rightEdge.Add(UnityFrame.Pos(s.at + right * half) + shift);
                 }
                 float wide = SightViewOn ? 1.6f : 1.4f;
                 lines.Strip(left, wide, col, false, new Color(col.r, col.g, col.b, col.a * 0.6f));
                 lines.Strip(rightEdge, wide, col, false, new Color(col.r, col.g, col.b, col.a * 0.6f));
                 // rungs across it every 500 ft (from your seat only the 1,000 ft ones, so they don't read as one bar)
-                bool sv = SightViewOn;
                 if (!sv) lines.Line(left[0], rightEdge[0], 0.6f, col);
                 for (double tick = 500; tick < funnelMaxFt; tick += 500)
                 {
@@ -172,7 +179,7 @@ namespace Ooda.Turn
                 if (!sv) lines.Line(UnityFrame.Pos(me.pos + gun * 20), UnityFrame.Pos(stream[0].at), 0.4f, new Color(col.r, col.g, col.b, 0.4f));
             }
 
-            // from your seat, a horizon line level with your eyes, so you know which way is up
+            // lined up, a horizon line level with the camera, so you know which way is up
             if (SightViewOn && view != null)
             {
                 Vector3 eye = view.sightPos, ahead = view.sightRot * Vector3.forward;
@@ -187,19 +194,19 @@ namespace Ooda.Turn
             // you and the target at the moment, as outlines (not yours from your own seat)
             if (!SightViewOn) Outline(me, 36, 16, sightColor, 0.7f);
             if (j >= 0 && j < gp.frames.Length && !battle.Out(j) && !gp.frames[j][f].down)
-                Outline(gp.frames[j][f], SpanFt(j), battle.combat[j].sizeFt > 0 ? 37 : 16, hitNow ? hitTracer : new Color(1f, 0.45f, 0.35f, 0.95f), 0.9f);
+                Outline(gp.frames[j][f], SpanFt(j), battle.combat[j].sizeFt > 0 ? 37 : 16, hitNow ? hitTracer : new Color(1f, 0.45f, 0.35f, 0.95f), sv ? 1.3f : 0.9f, shift);
         }
 
         /// <summary>A little line outline of an aircraft at a frame: fuselage, wings, tailplane and fin, at its true size.</summary>
-        void Outline(AircraftFrame a, double span, double len, Color c, float width)
+        void Outline(AircraftFrame a, double span, double len, Color c, float width, Vector3 shift = default)
         {
             Vec3d tf = a.vel.Normalized, tu = a.up, tr = Vec3d.Cross(tf, tu);
             double half = span / 2;
             Vec3d nose = a.pos + tf * len, tail = a.pos - tf * len, wing = a.pos + tf * (len * 0.15);
-            lines.Line(UnityFrame.Pos(nose), UnityFrame.Pos(tail), width, c);
-            lines.Line(UnityFrame.Pos(wing - tr * half), UnityFrame.Pos(wing + tr * half), width, c);
-            lines.Line(UnityFrame.Pos(tail - tr * (half * 0.35)), UnityFrame.Pos(tail + tr * (half * 0.35)), width, c);
-            lines.Line(UnityFrame.Pos(tail), UnityFrame.Pos(tail + tu * (half * 0.3)), width, c);
+            lines.Line(UnityFrame.Pos(nose) + shift, UnityFrame.Pos(tail) + shift, width, c);
+            lines.Line(UnityFrame.Pos(wing - tr * half) + shift, UnityFrame.Pos(wing + tr * half) + shift, width, c);
+            lines.Line(UnityFrame.Pos(tail - tr * (half * 0.35)) + shift, UnityFrame.Pos(tail + tr * (half * 0.35)) + shift, width, c);
+            lines.Line(UnityFrame.Pos(tail) + shift, UnityFrame.Pos(tail + tu * (half * 0.3)) + shift, width, c);
         }
 
         /// <summary>On the screen: the moment from the burst bar, its mark, the label by the target, and the K and L toggles.</summary>
@@ -244,7 +251,7 @@ namespace Ooda.Turn
                 Fill(new Rect(cx - 1, cy - 14, 2, 10), sightColor); Fill(new Rect(cx - 1, cy + 4, 2, 10), sightColor);
                 var hud = new GUIStyle(label) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold };
                 hud.normal.textColor = sightColor;
-                Shadow(new Rect(0, sh * 0.12f, sw, 24), $"GUNSIGHT  {sightT:F2} s   fit their wings across the funnel", hud);
+                Shadow(new Rect(0, sh * 0.12f, sw, 24), $"FUNNEL  {sightT:F2} s   fit their wings across it", hud);
             }
 
             // the label by the target's outline (or by yours when there is no target)

@@ -21,7 +21,7 @@ namespace Ooda.Turn
         public bool sightPose;
         public Vector3 sightPos;
         public Quaternion sightRot = Quaternion.identity;
-        public float sightFov = 45f;
+        public float sightFov = 55f;
 
         Camera cam;
         Vector3 centre;
@@ -70,8 +70,9 @@ namespace Ooda.Turn
             if (sightPose)
             {
                 Cam.nearClipPlane = 0.3f;
-                Cam.fieldOfView = sightFov;
-                transform.SetPositionAndRotation(sightPos, sightRot);
+                Cam.fieldOfView = Mathf.Lerp(Cam.fieldOfView, sightFov, 1 - Mathf.Exp(-10f * Time.unscaledDeltaTime));
+                float k = 1 - Mathf.Exp(-12f * Time.unscaledDeltaTime);   // eases onto the gun line rather than jumping
+                transform.SetPositionAndRotation(Vector3.Lerp(transform.position, sightPos, k), Quaternion.Slerp(transform.rotation, sightRot, k));
                 return;
             }
             if (player == null) return;

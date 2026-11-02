@@ -1149,7 +1149,8 @@ namespace Ooda.Turn
                 else if (battle.side[i] != 0) { if (showProjection) DrawPath(preview.frames[i], end, projectionColor, noGhost); }
                 else DrawPath(preview.frames[i], end, wingmanColor, noGhost);
             }
-            ShowHolo(holoMine, preview.frames[0][end], !sightView, badPath ? overpullColor : holoColor);
+            // lined up behind it, your ghost shows where it is at the funnel's moment
+            ShowHolo(holoMine, preview.frames[0][sightView ? Mathf.Min(end, FunnelFrame()) : end], true, badPath ? overpullColor : holoColor);
             for (int i = 1; i < holos.Length; i++)
             {
                 bool hitByMe = i < burstHits.Length && burstHits[i] && battle.side[i] != battle.side[0];
