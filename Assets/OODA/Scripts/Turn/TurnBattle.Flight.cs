@@ -377,8 +377,8 @@ namespace Ooda.Turn
         string RosterState(int i)
         {
             if (i < 0 || battle.Out(i)) return "down";
-            string on = i == 0 ? "on it: " : "";
-            if (battle.orders[i] == Order.YouControl) return i == 0 ? "on it: yours" : manual.ContainsKey(battle.planes[i]) ? "planned" : "yours, no plan";
+            string on = i == 0 ? "> " : "";   // short: the roster's buttons are narrow
+            if (battle.orders[i] == Order.YouControl) return i == 0 ? "> yours" : manual.ContainsKey(battle.planes[i]) ? "planned" : "no plan";
             if (battle.orders[i] == Order.AutoFight) return on + (battle.routes[i] != null ? "route" : "auto fight");
             var slot = battle.FormationSlot(i);
             if (slot == null) return on + (battle.routes[i] != null ? "route" : "auto fight");
