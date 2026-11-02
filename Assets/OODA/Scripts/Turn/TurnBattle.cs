@@ -348,6 +348,7 @@ namespace Ooda.Turn
         void BeginPlanning()
         {
             phase = Phase.Planning;
+            sightAuto = true;
             FlightTurnStarts();
             var m = battle.planes[0];
             env = Envelope.Compute(m, turnSec);
@@ -816,6 +817,7 @@ namespace Ooda.Turn
             if (Pressed(Key.F) || (pad != null && pad.rightShoulder.wasPressedThisFrame)) FireAtPredicted();
             if (Pressed(Key.G)) ArmMissile(!plan.missile);
             ExtrasInput(kb, pad);
+            FunnelInput(kb, dt);
 
             if (dirty) RunPreview();
             // the what-if-it-breaks check, once the plan has settled (not while dragging or every frame)
@@ -968,7 +970,7 @@ namespace Ooda.Turn
             if (preview == null) return;
             if (dirty || gunPreview == null) RunPreview();
             var times = gunPreview.hits.Where(h => h.shooter == 0).Select(h => h.fireTime - gunPreview.startTime).ToList();
-            if (times.Count == 0) { Notice("No hits predicted on this path against the bright ghost. Steer your tracers onto the lead ring."); plan.burstStart = plan.burstEnd = 0; }
+            if (times.Count == 0) { Notice("No hits predicted on this path against the bright ghost. Steer until it sits in the gun funnel."); plan.burstStart = plan.burstEnd = 0; }
             else { plan.burstStart = Math.Max(0, times.Min() - 0.15); plan.burstEnd = Math.Min(turnSec, times.Max() + 0.15); }
             dirty = true;
             RunPreview();
@@ -1505,7 +1507,7 @@ namespace Ooda.Turn
             RosterGUI(sw);
             OrdersGUI(sw);
             UnplannedGUI(sw, sh);
-            if (planning) PlanningPanel(sw, sh);
+            if (planning) { PlanningPanel(sw, sh); SightGUI(sw, sh); }
             DogfightGUI(sw, sh);
             if (phase == Phase.Playing) GUI.Label(new Rect(0, sh - 60, sw, 30), $"Turn playing  {playT:F1} / {turnSec:F0} s   (hold Tab to speed up)", new GUIStyle(label) { alignment = TextAnchor.MiddleCenter });
             var warn = new GUIStyle(big) { fontSize = 26 };
@@ -1533,15 +1535,16 @@ namespace Ooda.Turn
             if (showHelp)
             {
                 float hy = helpTop;
-                Rect help = new Rect(10, hy, 440, 300);
+                Rect help = new Rect(10, hy, 440, 320);
                 GUI.Box(help, GUIContent.none);
                 guiRects.Add(help);
-                GUI.Label(new Rect(20, hy + 6, 425, 290),
+                GUI.Label(new Rect(20, hy + 6, 425, 310),
                     $"Plan where your nose points when the {turnSec:0.#} s turn ends. O: OODA, short turns.\n" +
                     "Drag the corner stick to steer (down pulls). It shakes near your hardest turn;\n" +
                     "harder means overpull: stall, maybe spin. F1: reach rings.\n" +
                     "Blue: your path. Red: where the enemy may go, the bright one likeliest.\n" +
-                    "Orange ring on its path: hit it there. Steer your tracers onto it, F.\n" +
+                    "Gunsight (left): your rounds' funnel at the moment you hover on the burst bar.\n" +
+                    "Fire when the target's wings fill the funnel. K gunsight, L the old lead ring.\n" +
                     (Bombing ? "Green: the bombers' course. Keep the Bf 109s off them; flak fires orange.\n" : "") +
                     "Your rounds: red hits, yellow just misses, orange misses. Lead the target.\n" +
                     "Drag on the timeline to fire; F fires where hits are predicted.\n\n" +

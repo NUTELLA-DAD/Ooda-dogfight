@@ -26,6 +26,10 @@ Build it with **OODA > Build Turn Battle** (after Build Test World), open `Asset
 | Camera (player, Spitfire, both, cockpit) | View button | V | Right stick press |
 | Enemy projection on or off | Projection button | P | Y |
 
+### The gun funnel
+
+While planning, a gunsight glass sits on the left above the throttle. It looks down your gun line from your ghost at one moment of the turn, and shows your rounds in the air then (as if the trigger were held all turn) as a funnel: two green lines a wingspan apart at each range, with ticks every 1,000 ft. It bends with your turn and narrows with range. The target's bright ghost is drawn in it at its true size and attitude; when its wings fill the funnel it is in range and on the line, and the glass says ON TARGET with when those rounds were fired. Hover over the burst bar to move the moment (a green mark shows it), or use [ and ] while the timeline is shut; each turn it starts where your rounds first connect. **K** hides the glass. The old lead ring on the target's path is now a toggle, **L**, off at first. It is all in `TurnBattle.Funnel.cs`.
+
 ### Dogfight: up to 4 v 4, the side controls, the rocket and the speed brake
 
 Pick **Dogfight** on the title screen and choose how many P-51s are yours and how many Bf 109s you face, 1 to 4 each (the buttons, or the up and down arrows for yours and Page Up and Page Down for theirs). You fly every one of yours: **Tab** (Shift+Tab back, the roster buttons along the top, or the pad's View button) moves you to your next plane, which becomes the one the stick, the ghost and the lead ring work on. A plane you visit in a turn flies the plan you leave it with, starting from what its AI pilot would do; one you never visit flies itself. Each turn starts back on your lead. When the plane you are in goes down you carry on in another; the fight is lost only when your whole flight is. **N** picks which enemy you are after (red brackets mark it). Under the hood, switching planes is `Battle.Swap(0, k)`: aircraft k becomes aircraft 0 everywhere, taking its route, slot and runway place with it (`TurnBattle.Flight.cs`).
