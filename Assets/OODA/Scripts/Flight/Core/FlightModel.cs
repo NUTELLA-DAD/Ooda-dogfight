@@ -66,6 +66,7 @@ namespace Ooda.Flight.Core
         public double Ktas => state.vel.Length * Atmosphere.FtpsToKt;
         public double AltFt => state.pos.z;
         public double Kias => Atmosphere.TasToIasKt(Ktas, AltFt);
+        public double Mach => Atmosphere.Mach(Ktas, AltFt);
         public Vec3d Forward => state.vel.Normalized;
         public Vec3d Up => state.up;
         public Vec3d Right => Vec3d.Cross(Forward, Up);
@@ -196,7 +197,7 @@ namespace Ooda.Flight.Core
             PointMass.ExcessFn excessFn = (vKt, altFt, gg) =>
             {
                 double ias = Atmosphere.TasToIasKt(vKt, altFt);
-                return power * n.ThrustPerWeight(vKt, altFt) + boost - n.DragPerWeight(ias, gg)
+                return power * n.ThrustPerWeight(vKt, altFt) + boost - n.DragPerWeight(ias, gg) - n.WaveDragPerWeight(vKt, altFt, ias)
                     - brakeK * ias * ias - n.sideslipDragPerG * side - extraDrag;
             };
             excess = excessFn(ktas, AltFt, g);

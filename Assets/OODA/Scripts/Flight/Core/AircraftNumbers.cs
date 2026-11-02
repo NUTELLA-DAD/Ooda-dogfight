@@ -47,6 +47,17 @@ namespace Ooda.Flight.Core
         public double dragA = 1.399e-6;
         public double dragB = 843.6;
 
+        // Jets only (zero for the propeller aircraft, which leaves them exactly as they were): the ram rise in thrust
+        // with Mach, thrust *= 1 + ramPerMach2 * M^2, and the transonic drag rise, the zero-lift drag multiplied by
+        // 1 + wave(M): nothing below waveMcrit, climbing smoothly to waveRise at waveMpeak, then easing off by
+        // waveFallPerMach of it per Mach above, never under waveFloor of it.
+        public double ramPerMach2 = 0;
+        public double waveRise = 0;
+        public double waveMcrit = 0.85;
+        public double waveMpeak = 1.08;
+        public double waveFallPerMach = 0.55;
+        public double waveFloor = 0.4;
+
         // The game's extras (no WW2 fighter had either): a rocket that kicks for a few seconds, then has to wait,
         // and a speed brake. Estimates to tune by feel.
         public double rocketG = 1.3;              // the rocket's thrust / weight while it burns
@@ -86,7 +97,21 @@ namespace Ooda.Flight.Core
         {
             double sigma = Math.Min(Atmosphere.DensityRatio(altFt), thrustFlatSigma);
             double t = thrustK * Math.Pow(sigma, thrustDensityExp) / (ktas + thrustV0Kt);
-            return Math.Min(t, maxStaticThrustPerWeight);
+            t = Math.Min(t, maxStaticThrustPerWeight);
+            if (ramPerMach2 > 0) { double m = Atmosphere.Mach(ktas, altFt); t *= 1 + ramPerMach2 * m * m; }
+            return t;
+        }
+
+        /// <summary>The transonic and supersonic drag rise / weight (zero unless waveRise is set): extra zero-lift drag with Mach.</summary>
+        public double WaveDragPerWeight(double ktas, double altFt, double kias)
+        {
+            if (waveRise <= 0) return 0;
+            double m = Atmosphere.Mach(ktas, altFt), f;
+            if (m <= waveMcrit) return 0;
+            if (m < waveMpeak) { double u = (m - waveMcrit) / (waveMpeak - waveMcrit); f = waveRise * u * u * (3 - 2 * u); }
+            else f = waveRise * Math.Max(waveFloor, 1 - waveFallPerMach * (m - waveMpeak));
+            double k = Math.Max(kias, 20);
+            return dragA * k * k * f;
         }
 
         /// <summary>Drag / weight, clean: zero-lift part with KIAS^2, induced part with G^2 / KIAS^2.</summary>
@@ -154,6 +179,29 @@ namespace Ooda.Flight.Core
             thrustK = 46.9, thrustV0Kt = 40, thrustDensityExp = 0.9, thrustFlatSigma = 0.448,
             maxStaticThrustPerWeight = 0.25, wepFactor = 1.0, dragA = 2.273e-6, dragB = 640.5,
             alphaStallDeg = 16,
+        };
+
+        /// <summary>
+        /// The F-4E Phantom II for the jet test (not in the WW2 missions), clean, light, about 41,000 lb. Seeded from public
+        /// figures (530 sq ft wing, aspect ratio 2.8, Cd0 about 0.021, two J79s at about 11,900 lbf dry and 17,800 lbf in
+        /// afterburner, +7.3 G, clean stall about 150 kt, about Mach 1.1 at sea level and Mach 2.2 high up), then made a
+        /// little livelier to fly. Jet thrust hardly falls with speed (the big thrustV0Kt), rises with ram and thins with
+        /// height; WEP is the afterburner (wepFactor). Estimates to tune by feel: it tops out near 630 kt dry and 705 kt
+        /// in afterburner at sea level, and reaches Mach 2 in about seven minutes of afterburner at 36,000 ft.
+        /// </summary>
+        public static AircraftNumbers Phantom() => new AircraftNumbers
+        {
+            name = "F-4 Phantom II",
+            maxG = 7.5, minG = -3, stallKias = 140, negStallKias = 175, vneKias = 750,
+            rollPerKtasDps = 0.55, maxRollRateDps = 200, rollFullRateSec = 0.35,
+            gOnsetGps = 8, gOnsetAccelGps2 = 32,
+            rudderSideG = 0.3, rudderFullKias = 250,
+            thrustK = 2200, thrustV0Kt = 4000, thrustDensityExp = 0.8, thrustFlatSigma = 1.0,
+            maxStaticThrustPerWeight = 99, wepFactor = 1.75, dragA = 9.2e-7, dragB = 3300,
+            ramPerMach2 = 0.35, waveRise = 1.5,
+            rocketG = 0, brakeG = 1.0,
+            alphaZeroLiftDeg = -1, alphaStallDeg = 20,
+            spinRateDps = 120, spinDragPerWeight = 0.6,
         };
 
         /// <summary>The OODA tool's T-6A set (core/t6a-turn-data.js T6A_FIT and T6A_LIMITS), kept to check the port.</summary>

@@ -29,6 +29,8 @@ namespace Ooda.UI
         public Camera cam;
         public Terrain terrain;
         public string battleScene = "TurnBattle";
+        [Tooltip("The jet test: the Phantom in free flight with an afterburner, on its own away from the WW2 missions (OODA > Build Jet Test).")]
+        public string jetScene = "JetTest";
         public float kias = 135;
         public float shotSec = 7f, fadeSec = 0.6f;
         [Tooltip("The squadron's spacing, scaled down for the camera: tighter than the battle flies it.")]
@@ -159,6 +161,7 @@ namespace Ooda.UI
             }
             if ((kb != null && (kb.enterKey.wasPressedThisFrame || kb.numpadEnterKey.wasPressedThisFrame || kb.spaceKey.wasPressedThisFrame)) || (pad != null && (pad.buttonSouth.wasPressedThisFrame || pad.startButton.wasPressedThisFrame))) Play();
             if (kb != null && kb.qKey.wasPressedThisFrame) { pick = 2; ChosenOurs = ChosenTheirs = 1; Play(); }   // Quick 1v1
+            if (kb != null && kb.jKey.wasPressedThisFrame) PlayJet();
         }
 
         // ---------- the cinematic camera ----------
@@ -231,6 +234,13 @@ namespace Ooda.UI
             SceneManager.LoadScene(battleScene);
         }
 
+        /// <summary>The jet test, if it has been built into the game.</summary>
+        public void PlayJet()
+        {
+            if (Application.CanStreamedLevelBeLoaded(jetScene)) SceneManager.LoadScene(jetScene);
+            else Debug.LogWarning("OODA: no jet test in the build: run OODA > Build Jet Test.");
+        }
+
         GUIStyle title, sub, button, picked, note, hint;
         Texture2D black;
 
@@ -271,6 +281,7 @@ namespace Ooda.UI
                 : $"your {ChosenOurs} P-51{(ChosenOurs > 1 ? "s" : "")} against {ChosenTheirs} Bf 109{(ChosenTheirs > 1 ? "s" : "")}: you fly every one of yours";
             Shadowed(new Rect(0, y + 56, sw, 30), what, note);
             if (pick == 2) SidePicker(sw, y - 112);
+            if (Application.CanStreamedLevelBeLoaded(jetScene) && GUI.Button(new Rect(sw - 236, sh - 72, 212, 48), "Jet Test (J)", button)) PlayJet();
             if (GUI.Button(new Rect((sw - 260) / 2, y + 96, 260, 60), "Play", picked)) Play();
             Shadowed(new Rect(0, y + 162, sw, 26), pick == 2
                 ? "Enter to play  ·  ↑ ↓ your planes  ·  Page Up / Down the enemy's  ·  Q quick 1v1"
