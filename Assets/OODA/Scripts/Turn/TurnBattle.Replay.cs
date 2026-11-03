@@ -113,8 +113,7 @@ namespace Ooda.Turn
             replayPaused = replayAtEnd = false;
             rTurn = 0; rT = rPrevT = 0;
             rSpeed = 2;
-            foreach (var f in flashes) Destroy(f.t.gameObject);
-            flashes.Clear();
+            Ooda.Fx.ToonFx.ClearAll();
             for (int s = 0; s < tapeViews.Count; s++) if (tapeViews[s] != null) tapeViews[s].SetSmoke(0);
             Follow(FirstFollow());
             if (view != null) view.BehindPlayer();
@@ -263,8 +262,6 @@ namespace Ooda.Turn
             if (holoTheirs != null) holoTheirs.SetActive(false);
             HideSpread();
             tip.gameObject.SetActive(false);
-            FadeFlashes();
-            FadeBooms();
             UpdateGauge();
         }
 
@@ -314,7 +311,7 @@ namespace Ooda.Turn
                 if (h.target >= 0 && h.target < hp.Length && ht <= rT) hp[h.target] -= h.damage;
                 if (ht > rPrevT && ht <= rT)
                 {
-                    Flash(UnityFrame.Pos(h.pos));
+                    Flash(UnityFrame.Pos(h.pos), h.target >= 0 && h.target < hp.Length && hp[h.target] <= 0 && hp[h.target] + h.damage > 0);
                     if (h.target >= 0 && h.target < hp.Length) TapeReact(h, hp[h.target] <= 0);
                 }
             }

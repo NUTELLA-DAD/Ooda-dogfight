@@ -130,8 +130,7 @@ namespace Ooda.Turn
         /// <summary>After a restart: the town strike goes back to the map, unless the restart was Fly this plan.</summary>
         void StrikeRestarted()
         {
-            foreach (var b in booms) if (b.t != null) Destroy(b.t.gameObject);
-            booms.Clear();
+            Ooda.Fx.ToonFx.ClearAll();
             briefing = Playing == Mission.TownStrike && !flyPlan;
             flyPlan = false;
             if (briefing) { planDirty = true; StartCover(); }
@@ -207,57 +206,21 @@ namespace Ooda.Turn
                 if (s.struck[i] && s.struckAt[i] > from && s.struckAt[i] <= to) Bombs(townFactory.position, i);
         }
 
-        readonly List<(Transform t, float born, float life, float size, bool smoke)> booms = new List<(Transform, float, float, float, bool)>();
-        Material boomMat, smokeMat;
-
-        /// <summary>A stick of bombs walking across the factory: bursts one after another, then smoke that stays.</summary>
+        /// <summary>A stick of bombs walking across the factory: toon blasts one after another, then smoke columns that stay.</summary>
         void Bombs(Vector3 at, int seed)
         {
-            if (boomMat == null)
-            {
-                boomMat = new Material(Shader.Find("Sprites/Default")) { color = new Color(1f, 0.6f, 0.2f, 0.9f) };
-                smokeMat = new Material(Shader.Find("Sprites/Default")) { color = new Color(0.12f, 0.11f, 0.1f, 0.75f) };
-            }
+            var fx = Ooda.Fx.ToonFx.Get();
+            float now = Ooda.Fx.ToonFx.Now;
             var rnd = new System.Random(seed * 31 + 7);
             for (int k = 0; k < 8; k++)
             {
                 Vector3 p = at + new Vector3((float)rnd.NextDouble() * 160 - 80, 4, -90 + k * 24 + (float)rnd.NextDouble() * 10);
-                booms.Add((Sphere(p, boomMat), Time.time + k * 0.18f, 1.1f, 30f + (float)rnd.NextDouble() * 15, false));
+                fx.Blast(p, 6f + (float)rnd.NextDouble() * 2.5f, ground: true, t0: now + k * 0.18f);
             }
             for (int k = 0; k < 3; k++)
             {
-                Vector3 p = at + new Vector3((float)rnd.NextDouble() * 120 - 60, 20, (float)rnd.NextDouble() * 120 - 60);
-                booms.Add((Sphere(p, smokeMat), Time.time + 0.8f + k * 0.3f, -1, 45f, true));
-            }
-        }
-
-        Transform Sphere(Vector3 p, Material m)
-        {
-            var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            Destroy(go.GetComponent<Collider>());
-            go.GetComponent<Renderer>().sharedMaterial = m;
-            go.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            go.transform.position = p;
-            go.transform.localScale = Vector3.zero;
-            return go.transform;
-        }
-
-        void FadeBooms()
-        {
-            for (int i = booms.Count - 1; i >= 0; i--)
-            {
-                var b = booms[i];
-                float age = Time.time - b.born;
-                if (age < 0) { b.t.localScale = Vector3.zero; continue; }
-                if (b.smoke)
-                {
-                    // a column that rises and swells, and stays
-                    b.t.localScale = new Vector3(b.size, b.size * 2.2f, b.size) * Mathf.Min(1.6f, 0.4f + age * 0.08f);
-                    b.t.position += Vector3.up * Time.deltaTime * 4f * Mathf.Max(0, 1 - age / 30f);
-                    continue;
-                }
-                if (age > b.life) { Destroy(b.t.gameObject); booms.RemoveAt(i); continue; }
-                b.t.localScale = Vector3.one * b.size * Mathf.Sin(Mathf.PI * age / b.life);
+                Vector3 p = at + new Vector3((float)rnd.NextDouble() * 120 - 60, 4, (float)rnd.NextDouble() * 120 - 60);
+                fx.SmokeColumn(p, 12f + (float)rnd.NextDouble() * 4f, -1f, now + 0.8f + k * 0.3f);
             }
         }
 

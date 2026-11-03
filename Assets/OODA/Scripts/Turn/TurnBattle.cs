@@ -136,8 +136,7 @@ namespace Ooda.Turn
         LinePool lines;
         Transform tip;
         Ooda.UI.StickThrottleGauge gauge;   // the stick and throttle in the bottom corners
-        readonly List<(Transform t, float born)> flashes = new List<(Transform, float)>();
-        Material flashMat, tipMat;
+        Material tipMat;
 
         bool dragArrow, dragLook, dragBurst, dragMoves;
         Rect movesRect;
@@ -177,7 +176,6 @@ namespace Ooda.Turn
             NetBotSetUp();
             lines = new LinePool(transform, "Lines") { sizeAt = W };
             tipMat = new Material(Shader.Find("Sprites/Default")) { color = arrowColor };
-            flashMat = new Material(Shader.Find("Sprites/Default")) { color = new Color(1f, 0.9f, 0.4f, 1f) };
             var t = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             Destroy(t.GetComponent<Collider>());
             t.name = "ArrowTip";
@@ -359,8 +357,7 @@ namespace Ooda.Turn
             plan = new TurnPlan { throttle = battle.planes[0].throttle };
             last = null;
             outcome = null;
-            foreach (var f in flashes) Destroy(f.t.gameObject);
-            flashes.Clear();
+            Ooda.Fx.ToonFx.ClearAll();
             FightStarted();
             TapeStarts();
             BeginPlanning();
@@ -617,8 +614,6 @@ namespace Ooda.Turn
                 if (holoTheirs != null) holoTheirs.SetActive(false);
                 HideSpread();
             }
-            FadeFlashes();
-            FadeBooms();
             if (playerPilot != null && view != null) playerPilot.hideHead = view.focus == TurnCamera.Focus.Cockpit;
             UpdateGauge();
         }
@@ -1412,7 +1407,7 @@ namespace Ooda.Turn
             {
                 double ht = h.time - t0;
                 if (ht <= playT) hp[h.target] -= h.damage;
-                if (ht > prevPlayT && ht <= playT) { Flash(UnityFrame.Pos(h.pos)); PilotsReact(h, hp[h.target] <= 0); }
+                if (ht > prevPlayT && ht <= playT) { Flash(UnityFrame.Pos(h.pos), hp[h.target] <= 0 && hp[h.target] + h.damage > 0); PilotsReact(h, hp[h.target] <= 0); }
             }
             UpdateSmoke(hp, last.frames.Select(fr => fr[now].down).ToArray());
             StrikePlayback(t0 + prevPlayT, t0 + playT);
@@ -1456,23 +1451,12 @@ namespace Ooda.Turn
                 if (views[i] != null) views[i].SetSmoke(down[i] ? 2 : hp[i] < battle.combat[i].health * 0.5 ? 1 : 0);
         }
 
-        void Flash(Vector3 at)
+        /// <summary>A hit lands: a toon star and sparks; the hit that kills blows the aircraft up.</summary>
+        void Flash(Vector3 at, bool kill = false)
         {
-            var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            Destroy(go.GetComponent<Collider>());
-            go.GetComponent<Renderer>().sharedMaterial = flashMat;
-            go.transform.position = at;
-            flashes.Add((go.transform, Time.time));
-        }
-
-        void FadeFlashes()
-        {
-            for (int i = flashes.Count - 1; i >= 0; i--)
-            {
-                float age = Time.time - flashes[i].born;
-                if (age > 0.35f) { Destroy(flashes[i].t.gameObject); flashes.RemoveAt(i); continue; }
-                flashes[i].t.localScale = Vector3.one * Mathf.Lerp(4f, 0.5f, age / 0.35f);
-            }
+            var fx = Ooda.Fx.ToonFx.Get();
+            if (kill) fx.Blast(at, 2.5f);
+            else fx.Hit(at);
         }
 
         // ---------- screen ----------

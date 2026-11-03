@@ -20,13 +20,16 @@ namespace Ooda.Turn
         [Tooltip("Where the smoke comes from (the engine); empty uses the aircraft's centre.")]
         public Transform smokePoint;
 
-        ParticleSystem smoke;
+        int smokeLevel, puffSeed;
+        Vector3 lastPuff;
+        float lastPuffT;
+        bool hasLastPuff, wasCrashed;
         Vector3 lastUp;
 
         public void Bind(FlightModel model)
         {
             Model = model.Clone();
-            Crashed = false;
+            Crashed = wasCrashed = false;
             SetSmoke(0);
             ShowLive(model);
         }
@@ -66,48 +69,47 @@ namespace Ooda.Turn
             t.SetPositionAndRotation(UnityFrame.Pos(pos), path * Quaternion.Euler(-(float)alphaDeg, 0, 0));
         }
 
-        /// <summary>0 none, 1 a thin trail (damaged), 2 thick black (going down).</summary>
+        /// <summary>0 none, 1 a thin grey trail (damaged), 2 thick black (going down).</summary>
         public void SetSmoke(int level)
         {
-            if (level == 0) { if (smoke != null) smoke.Stop(); return; }
-            if (smoke == null) smoke = MakeSmoke();
-            var main = smoke.main;
-            main.startSize = level == 2 ? 6f : 2.5f;
-            main.startColor = level == 2 ? new Color(0.12f, 0.12f, 0.12f, 0.85f) : new Color(0.55f, 0.55f, 0.55f, 0.5f);
-            var em = smoke.emission;
-            em.rateOverTime = level == 2 ? 60 : 20;
-            if (!smoke.isPlaying) smoke.Play();
+            if (level != 0 && smokeLevel == 0) hasLastPuff = false;   // (a new trail starts here, not back where an old one stopped)
+            smokeLevel = level;
         }
 
-        ParticleSystem MakeSmoke()
+        // The trail is toon puffs (Fx.ToonFx) laid down along the way the aircraft flew: one every so many metres, so
+        // it is unbroken at any speed, and a few a second when it hangs still (planning), so the smoke still rises.
+        void LateUpdate()
         {
-            var go = new GameObject("Smoke");
-            go.transform.SetParent(smokePoint != null ? smokePoint : transform, false);
-            var ps = go.AddComponent<ParticleSystem>();
-            var main = ps.main;
-            main.simulationSpace = ParticleSystemSimulationSpace.World;
-            main.startLifetime = 5f;
-            main.startSpeed = 2f;
-            main.maxParticles = 600;
-            var shape = ps.shape;
-            shape.shapeType = ParticleSystemShapeType.Sphere;
-            shape.radius = 0.5f;
-            var size = ps.sizeOverLifetime;
-            size.enabled = true;
-            size.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0, 0.6f, 1, 3f));
-            var col = ps.colorOverLifetime;
-            col.enabled = true;
-            var grad = new Gradient();
-            grad.SetKeys(new[] { new GradientColorKey(Color.white, 0), new GradientColorKey(Color.white, 1) },
-                         new[] { new GradientAlphaKey(1, 0), new GradientAlphaKey(0, 1) });
-            col.color = grad;
-            var r = go.GetComponent<ParticleSystemRenderer>();
-            var shader = Shader.Find("Universal Render Pipeline/Particles/Unlit") ?? Shader.Find("Sprites/Default");
-            var mat = new Material(shader);
-            mat.SetFloat("_Surface", 1);
-            mat.SetColor("_BaseColor", Color.white);
-            r.material = mat;
-            return ps;
+            Vector3 at = (smokePoint != null ? smokePoint : transform).position;
+            if (Crashed && !wasCrashed) Wrecked(at);
+            wasCrashed = Crashed;
+            if (smokeLevel == 0) return;
+            var fx = Fx.ToonFx.Get();
+            bool heavy = smokeLevel == 2;
+            float r = heavy ? 3.2f : 1.6f, spacing = r * 0.9f, now = Fx.ToonFx.Now;
+            int cluster = GetInstanceID() * 2 + 1;
+            if (!hasLastPuff || (at - lastPuff).sqrMagnitude > 200f * 200f) { lastPuff = at; lastPuffT = now - 1f; hasLastPuff = true; }
+            float gone = Vector3.Distance(lastPuff, at);
+            int n = Mathf.Min(24, Mathf.FloorToInt(gone / spacing));
+            for (int k = 1; k <= n; k++)
+            {
+                Vector3 p = Vector3.Lerp(lastPuff, at, k * spacing / gone);
+                fx.TrailPuff(p, new Vector3(0f, 0.6f, 0f), r, heavy, cluster, puffSeed++);
+            }
+            if (n > 0) { lastPuff = Vector3.Lerp(lastPuff, at, n * spacing / gone); lastPuffT = now; }
+            else if (now - lastPuffT > 0.12f)
+            {
+                fx.TrailPuff(at, new Vector3(0f, 1.4f, 0f), r, heavy, cluster, puffSeed++);
+                lastPuffT = now;
+            }
+        }
+
+        // It has hit the ground: a blast, and a wreck that burns and smokes for a while.
+        void Wrecked(Vector3 at)
+        {
+            var fx = Fx.ToonFx.Get();
+            fx.Blast(at, 3f, ground: true);
+            fx.SmokeColumn(at, 4f, 25f);
         }
     }
 }
