@@ -48,7 +48,8 @@ namespace Ooda.EditorTools
             var b17 = MakeB17Prefab();
             var p51Turn = MakeP51TurnPrefab();
             var phantom = JetTestBuilder.MakeTurnPrefab();
-            MakeScene(bf109, p51Turn, b17, spit, phantom);
+            var p38 = MakeP38Prefab(mats);
+            MakeScene(bf109, p51Turn, b17, spit, phantom, p38);
             AssetDatabase.SaveAssets();
             Debug.Log("OODA: turn battle built. Press Play.");
         }
@@ -82,7 +83,14 @@ namespace Ooda.EditorTools
 
         /// <summary>An enemy fighter for the turn battle: the model with its canopy hidden, the wolf seated in it, and its propeller turning.</summary>
         static GameObject MakeWolfFighter(string name, string fbx, string propeller, string prefabPath, TestWorldBuilder.Seat seat,
-                                          TestWorldBuilder.Mats mats, Material body, Material pilotMat, RuntimeAnimatorController pilotCtrl)
+                                          TestWorldBuilder.Mats mats, Material body, Material pilotMat, RuntimeAnimatorController pilotCtrl) =>
+            MakeFighter(name, fbx, new[] { propeller }, prefabPath, seat, mats, body, WolfFbx, Ooda.Turn.Core.PilotKind.Wolf, pilotMat, pilotCtrl);
+
+        /// <summary>A fighter for the turn battle: the model with its canopy hidden, its usual pilot seated in it (the others
+        /// beside him, hidden), and each propeller turning (every one after the first the other way, for the P-38's pair).</summary>
+        static GameObject MakeFighter(string name, string fbx, string[] propellers, string prefabPath, TestWorldBuilder.Seat seat,
+                                      TestWorldBuilder.Mats mats, Material body, string pilotFbx, Ooda.Turn.Core.PilotKind usual,
+                                      Material pilotMat, RuntimeAnimatorController pilotCtrl, float maxRpm = 1400)
         {
             var root = new GameObject(name);
             root.AddComponent<TurnAircraftView>();
@@ -96,13 +104,18 @@ namespace Ooda.EditorTools
                 if (r.name.Contains("Canopy")) r.shadowCastingMode = ShadowCastingMode.Off;
             }
 
-            var spin = root.AddComponent<PropellerSpin>();
-            spin.propeller = TestWorldBuilder.FindDeep(model.transform, propeller);
-            if (spin.propeller == null) Debug.LogWarning($"OODA: no {propeller} in {fbx}.");
+            for (int i = 0; i < propellers.Length; i++)
+            {
+                var spin = root.AddComponent<PropellerSpin>();
+                spin.propeller = TestWorldBuilder.FindDeep(model.transform, propellers[i]);
+                spin.maxRpm = maxRpm;
+                spin.reverse = i > 0;
+                if (spin.propeller == null) Debug.LogWarning($"OODA: no {propellers[i]} in {fbx}.");
+            }
 
             var mount = TestWorldBuilder.FindDeep(model.transform, "PilotMount");
             if (mount == null) { Debug.LogWarning($"OODA: no PilotMount in {fbx}."); mount = root.transform; }
-            var pilot = (GameObject)PrefabUtility.InstantiatePrefab(AssetDatabase.LoadAssetAtPath<GameObject>(WolfFbx));
+            var pilot = (GameObject)PrefabUtility.InstantiatePrefab(AssetDatabase.LoadAssetAtPath<GameObject>(pilotFbx));
             TestWorldBuilder.HideCanopy(model);
             TestWorldBuilder.SeatPilot(pilot, mount, seat);
             foreach (var r in pilot.GetComponentsInChildren<Renderer>())
@@ -114,7 +127,7 @@ namespace Ooda.EditorTools
             anim.cullingMode = AnimatorCullingMode.AlwaysAnimate;
             pilot.AddComponent<PilotHeadLook>();
             TestWorldBuilder.AddPilotControls(pilot);
-            PilotCast.AddRoster(root, pilot, Ooda.Turn.Core.PilotKind.Wolf);   // the tiger, the wizard, the skeleton and the bear too, hidden
+            PilotCast.AddRoster(root, pilot, usual);   // the other pilots too, hidden
 
             var saved = PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
             Object.DestroyImmediate(root);
@@ -151,6 +164,28 @@ namespace Ooda.EditorTools
             ImportPlane(Bf109Fbx, Art + "/Bf109/Bf109_MetallicSmoothness.png");
             var body = TestWorldBuilder.Textured("Bf109", Art + "/Bf109/Bf109_BaseColor.png", Art + "/Bf109/Bf109_MetallicSmoothness.png");
             return MakeWolfFighter("Bf109", Bf109Fbx, "Bf109_Propeller", Bf109PrefabPath, Bf109Seat, mats, body, pilotMat, pilotCtrl);
+        }
+
+        // ---------- the P-38 ----------
+
+        const string P38Fbx = Art + "/P38/P38.fbx";
+        const string P38PrefabPath = Root + "/Prefabs/P38.prefab";
+        const string TigerFbx = Art + "/TigerPilot/TigerPilot.fbx";
+        // The bubble is long and wide (Tools~/ArtPipeline/p38.py and build_cockpit.py P38): the tiger at the P-51's size,
+        // a little lower, so his head and shoulders stand over the sill and his forearms lie on the rails.
+        static readonly TestWorldBuilder.Seat P38Seat = new TestWorldBuilder.Seat { scale = 1.55f, lift = -0.40f, back = 0f, railHalfWidth = 0.47f, railHeight = 0.63f, railForward = 0.25f };
+
+        /// <summary>The P-38 Lightning with the tiger in it, its two propellers turning outward at the top (the Allisons'
+        /// 3,000 rpm through the 0.5 reduction gear). Null, with a warning, if its FBX isn't there.</summary>
+        static GameObject MakeP38Prefab(TestWorldBuilder.Mats mats)
+        {
+            if (!File.Exists(P38Fbx)) { Debug.LogWarning($"OODA: no {P38Fbx}; the dogfight's P-38s show as P-51s (or Bf 109s on their side)."); return null; }
+            ImportPlane(P38Fbx, Art + "/P38/P38_MetallicSmoothness.png");
+            var body = TestWorldBuilder.Textured("P38", Art + "/P38/P38_BaseColor.png", Art + "/P38/P38_MetallicSmoothness.png");
+            var tigerMat = TestWorldBuilder.Textured("TigerPilot", Art + "/TigerPilot/Pilot_BaseColor.png", Art + "/TigerPilot/Pilot_MetallicSmoothness.png");
+            var tigerCtrl = TestWorldBuilder.MakePilotController(TigerFbx, "TigerPilot");
+            return MakeFighter("P38", P38Fbx, new[] { "P38_PropR", "P38_PropL" }, P38PrefabPath, P38Seat, mats, body,
+                               TigerFbx, Ooda.Turn.Core.PilotKind.Tiger, tigerMat, tigerCtrl, maxRpm: 1500);
         }
 
         /// <summary>The P-51 and its tiger for the wingmen: the test world's prefab without its free-flight parts, flown by a TurnAircraftView.</summary>
@@ -260,7 +295,7 @@ namespace Ooda.EditorTools
             return saved;
         }
 
-        static void MakeScene(GameObject enemyPrefab, GameObject wingmanPrefab, GameObject bomberPrefab, GameObject spitfirePrefab, GameObject phantomPrefab)
+        static void MakeScene(GameObject enemyPrefab, GameObject wingmanPrefab, GameObject bomberPrefab, GameObject spitfirePrefab, GameObject phantomPrefab, GameObject p38Prefab)
         {
             AssetDatabase.DeleteAsset(ScenePath);
             AssetDatabase.CopyAsset(TestWorldBuilder.ScenePath, ScenePath);
@@ -317,9 +352,10 @@ namespace Ooda.EditorTools
             tb.wingmanPrefab = wingmanPrefab;
             tb.enemyPrefab = enemyPrefab;
             tb.bomberPrefab = bomberPrefab;
-            // the dogfight's setup screen can put any of the four types on either side
+            // the dogfight's setup screen can put any of the five types on either side
             tb.spitfirePrefab = spitfirePrefab;
             tb.phantomPrefab = phantomPrefab;
+            tb.p38Prefab = p38Prefab;
             tb.flakSites = PlaceFlak();
             Physics.SyncTransforms();
             float clear = AlpineWorld.CheckEscortRoute(tb.terrain);

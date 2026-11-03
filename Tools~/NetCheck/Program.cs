@@ -258,6 +258,13 @@ static class Program
             Check(types, "each plane flies its own type, in the battle's order (you, their lead, your wingmen, their others), the F-4 with 4 missiles");
             Check(Math.Abs(a.planes[0].state.pos.z - (3600 + 4400)) < 1500 && Math.Abs(a.planes[0].Kias - 380) < 2 && a.combat[3].hitRadiusFt < 20,
                   $"high and fast: {a.planes[0].state.pos.z:F0} ft, {a.planes[0].Kias:F0} KIAS; no easy aim for side against side");
+            var lightning = new DogfightSetup { ours = new[] { Craft.P38, Craft.Mustang }, theirs = new[] { Craft.Bf109, Craft.P38 }, randomStart = false,
+                                                oursPilots = new[] { PilotKind.Usual, PilotKind.Wolf }, theirsPilots = new[] { PilotKind.Usual, PilotKind.Wizard } };
+            var lb = DogfightSetup.FromBytes(lightning.ToBytes());
+            var lf = Scenarios.Dogfight(lb, centre, 3600, 300, 3000);
+            Check(lb.ours.SequenceEqual(lightning.ours) && lb.theirs.SequenceEqual(lightning.theirs) && lb.theirsPilots[1] == PilotKind.Wizard
+                  && DogfightSetup.Of(lf.planes[0].numbers) == Craft.P38 && DogfightSetup.Of(lf.planes[3].numbers) == Craft.P38 && lf.combat[3].guns.StartsWith("20 mm + 4"),
+                  "the P-38 survives the trip to bytes and flies as a P-38 with its nose guns, on either side");
             var easy = Scenarios.Dogfight(new DogfightSetup { ours = new[] { Craft.Bf109 }, theirs = new[] { Craft.Mustang }, randomStart = false }, centre);
             Check(easy.combat[0].hitRadiusFt == 20 && easy.combat[1].hitRadiusFt < 20, "against the AI your guns get the easy aim whatever you fly, and an enemy P-51 doesn't");
 

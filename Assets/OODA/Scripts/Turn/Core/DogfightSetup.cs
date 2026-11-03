@@ -5,10 +5,10 @@ using Ooda.Flight.Core;
 namespace Ooda.Turn.Core
 {
     /// <summary>The aircraft a dogfight can be flown in.</summary>
-    public enum Craft { Mustang, Spitfire, Bf109, Phantom }
+    public enum Craft { Mustang, Spitfire, Bf109, Phantom, P38 }   // new types go on the end: the numbers go over the wire
 
-    /// <summary>Who sits in a plane: Usual is the type's own pilot (the tiger in the P-51, the wolf in the Spitfire and the
-    /// Bf 109, both in the F-4, which keeps its crew whatever is picked).</summary>
+    /// <summary>Who sits in a plane: Usual is the type's own pilot (the tiger in the P-51 and the P-38, the wolf in the Spitfire
+    /// and the Bf 109, both in the F-4, which keeps its crew whatever is picked).</summary>
     public enum PilotKind { Usual, Tiger, Wolf, Wizard, Skeleton, Bear }
 
     /// <summary>
@@ -112,17 +112,18 @@ namespace Ooda.Turn.Core
 
         // ---------- the aircraft ----------
 
-        public static string Name(Craft c) => c == Craft.Spitfire ? "Spitfire IX" : c == Craft.Bf109 ? "Bf 109 G-6" : c == Craft.Phantom ? "F-4 Phantom" : "P-51D Mustang";
-        public static string Short(Craft c) => c == Craft.Spitfire ? "Spitfire" : c == Craft.Bf109 ? "Bf 109" : c == Craft.Phantom ? "F-4" : "P-51";
+        public static string Name(Craft c) => c == Craft.Spitfire ? "Spitfire IX" : c == Craft.Bf109 ? "Bf 109 G-6" : c == Craft.Phantom ? "F-4 Phantom"
+                                             : c == Craft.P38 ? "P-38L Lightning" : "P-51D Mustang";
+        public static string Short(Craft c) => c == Craft.Spitfire ? "Spitfire" : c == Craft.Bf109 ? "Bf 109" : c == Craft.Phantom ? "F-4" : c == Craft.P38 ? "P-38" : "P-51";
 
         public static AircraftNumbers Numbers(Craft c) => c == Craft.Spitfire ? AircraftNumbers.SpitfireIX() : c == Craft.Bf109 ? AircraftNumbers.Bf109G()
-                                                         : c == Craft.Phantom ? AircraftNumbers.Phantom() : AircraftNumbers.P51D();
+                                                         : c == Craft.Phantom ? AircraftNumbers.Phantom() : c == Craft.P38 ? AircraftNumbers.P38L() : AircraftNumbers.P51D();
 
         /// <summary>Its guns. The P-51's own numbers already carry the forgiving aim; with easy set, any type gets it.</summary>
         public static CombatNumbers Guns(Craft c, bool easy)
         {
             var g = c == Craft.Spitfire ? CombatNumbers.SpitfireIX() : c == Craft.Bf109 ? CombatNumbers.Bf109G()
-                  : c == Craft.Phantom ? CombatNumbers.Phantom() : CombatNumbers.P51D();
+                  : c == Craft.Phantom ? CombatNumbers.Phantom() : c == Craft.P38 ? CombatNumbers.P38L() : CombatNumbers.P51D();
             if (easy) { g.hitRadiusFt = Math.Max(g.hitRadiusFt, 20); g.spreadMil = Math.Min(g.spreadMil, 2.5); }
             else if (c == Craft.Mustang) { var d = new CombatNumbers(); g.hitRadiusFt = d.hitRadiusFt; g.spreadMil = d.spreadMil; }
             return g;
@@ -132,7 +133,8 @@ namespace Ooda.Turn.Core
         public static Craft Of(AircraftNumbers n)
         {
             string s = n?.name ?? "";
-            return s.StartsWith("Spitfire") ? Craft.Spitfire : s.StartsWith("Bf 109") ? Craft.Bf109 : s.StartsWith("F-4") ? Craft.Phantom : Craft.Mustang;
+            return s.StartsWith("Spitfire") ? Craft.Spitfire : s.StartsWith("Bf 109") ? Craft.Bf109 : s.StartsWith("F-4") ? Craft.Phantom
+                 : s.StartsWith("P-38") ? Craft.P38 : Craft.Mustang;
         }
 
         /// <summary>"2 P-51s", "P-51 + Spitfire", "3 F-4s": a side in a few words.</summary>
