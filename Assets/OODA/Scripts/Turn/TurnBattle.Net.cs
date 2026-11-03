@@ -18,6 +18,7 @@ namespace Ooda.Turn
     {
         /// <summary>The game with a friend, or null playing alone (and after the connection is lost).</summary>
         NetSession net;
+        string netLogWho;
         /// <summary>Our part of this turn has gone: waiting for the host's word (or, on the host, for the friend's part).</summary>
         bool netWaiting;
         bool netOnLead, netStarted, netRestartFromHost;
@@ -373,7 +374,8 @@ namespace Ooda.Turn
         /// <summary>A line in OnlineLog-host.txt or OnlineLog-friend.txt beside the dogfight log.</summary>
         void NetLog(string line)
         {
-            string who = net == null ? "alone" : net.IsHost ? "host" : "friend";
+            if (net != null) netLogWho = net.IsHost ? "host" : "friend";   // kept after the link goes, so the last lines land in the same file
+            string who = netLogWho ?? "alone";
             try
             {
                 string path = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(LogPath), $"OnlineLog-{who}.txt");
