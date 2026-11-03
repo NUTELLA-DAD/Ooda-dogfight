@@ -39,6 +39,7 @@ namespace Ooda.EditorTools
                 Directory.CreateDirectory(d);
             EnsureUrp();
             ConfigureImports();
+            PilotCast.Prepare();     // all four pilots imported and their animators made before any prefab uses them
             var mats = MakeMaterials();
             var controller = MakePilotAnimator();
             var prefab = MakePlanePrefab(mats, controller);
@@ -261,8 +262,22 @@ namespace Ooda.EditorTools
         internal static RuntimeAnimatorController MakePilotController(string fbx, string name)
         {
             string path = $"{Gen}/{name}.controller";
-            AssetDatabase.DeleteAsset(path);
-            var ctrl = AnimatorController.CreateAnimatorControllerAtPath(path);
+            // made again in place when it is there, so the prefabs that already use it (the other pilots seated in
+            // every fighter, PilotCast) keep their reference to it
+            var ctrl = AssetDatabase.LoadAssetAtPath<AnimatorController>(path);
+            if (ctrl == null || ctrl.layers.Length == 0)
+            {
+                AssetDatabase.DeleteAsset(path);
+                ctrl = AnimatorController.CreateAnimatorControllerAtPath(path);
+            }
+            else
+            {
+                foreach (var p in ctrl.parameters) ctrl.RemoveParameter(p);
+                var old = ctrl.layers[0].stateMachine;
+                foreach (var t in old.anyStateTransitions) old.RemoveAnyStateTransition(t);
+                foreach (var st in old.states) old.RemoveState(st.state);
+                while (ctrl.layers.Length > 1) ctrl.RemoveLayer(ctrl.layers.Length - 1);
+            }
             var all = AssetDatabase.LoadAllAssetsAtPath(fbx).OfType<AnimationClip>().Where(c => !c.name.StartsWith("__preview")).ToList();
             AnimationClip Clip(string n) => all.FirstOrDefault(c => c.name == n);
             var layers = ctrl.layers;
@@ -290,6 +305,7 @@ namespace Ooda.EditorTools
                 back.exitTime = 0.9f;
                 back.duration = 0.25f;
             }
+            EditorUtility.SetDirty(ctrl);
             return ctrl;
         }
 
@@ -400,6 +416,7 @@ namespace Ooda.EditorTools
             var look = pilot.AddComponent<PilotHeadLook>();
             look.aircraft = ac;
             AddPilotControls(pilot);
+            PilotCast.AddRoster(root, pilot, Ooda.Turn.Core.PilotKind.Tiger);   // the wolf, the wizard and the skeleton too, hidden
 
             var hud = root.AddComponent<FlightHud>();
             hud.aircraft = ac;

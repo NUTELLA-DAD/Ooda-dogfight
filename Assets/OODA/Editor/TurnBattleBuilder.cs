@@ -38,6 +38,7 @@ namespace Ooda.EditorTools
         {
             if (!File.Exists(TestWorldBuilder.ScenePath)) TestWorldBuilder.Build();
             ConfigureImports();
+            PilotCast.Prepare();
             var mats = TestWorldBuilder.MakeMaterials();
             var spitMat = TestWorldBuilder.Textured("Spitfire", Art + "/Spitfire/Spit_BaseColor.png", Art + "/Spitfire/Spit_MetallicSmoothness.png");
             var wolfMat = TestWorldBuilder.Textured("WolfPilot", Art + "/WolfPilot/Wolf_BaseColor.png", Art + "/WolfPilot/Wolf_MetallicSmoothness.png");
@@ -113,6 +114,7 @@ namespace Ooda.EditorTools
             anim.cullingMode = AnimatorCullingMode.AlwaysAnimate;
             pilot.AddComponent<PilotHeadLook>();
             TestWorldBuilder.AddPilotControls(pilot);
+            PilotCast.AddRoster(root, pilot, Ooda.Turn.Core.PilotKind.Wolf);   // the tiger, the wizard and the skeleton too, hidden
 
             var saved = PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
             Object.DestroyImmediate(root);

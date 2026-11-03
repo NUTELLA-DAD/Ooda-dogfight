@@ -102,7 +102,10 @@ namespace Ooda.EditorTools
             var village = GameObject.Find("Village");
             if (village != null)
             {
-                Vector3 c = village.GetComponent<MeshRenderer>().bounds.center;
+                var parts = village.GetComponentsInChildren<Renderer>();
+                var all = parts.Length > 0 ? parts[0].bounds : new Bounds(village.transform.position, Vector3.zero);
+                foreach (var r in parts) all.Encapsulate(r.bounds);
+                Vector3 c = all.center;
                 Shot(cam, rt, dir, "world_village", c + new Vector3(-420, 160, -520), c);
             }
 
