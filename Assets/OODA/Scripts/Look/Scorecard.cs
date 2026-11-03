@@ -185,6 +185,9 @@ namespace Ooda.Look
         public static (int strayColours, int fontSizes) CodeChecks()
         {
             string root = Path.Combine(Application.dataPath, "OODA", "Scripts");
+            var args = Environment.GetCommandLineArgs();
+            int at = Array.IndexOf(args, "-scorecardsrc");   // a build: where the project's Assets/OODA/Scripts is
+            if (at >= 0 && at + 1 < args.Length) root = args[at + 1];
             if (!Directory.Exists(root)) return (-1, -1);
             var colours = new HashSet<string>();
             var sizes = new HashSet<string>();

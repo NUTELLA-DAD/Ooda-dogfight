@@ -89,6 +89,7 @@ namespace Ooda.Look
         static void Boot()
         {
             if (PlayerPrefs.HasKey(OldLightKey)) { OldLight = true; PlayerPrefs.DeleteKey(OldLightKey); PlayerPrefs.Save(); }
+            if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-oldlight") >= 0) OldLight = true;   // the same, in a build
             if (!hooked) { SceneManager.sceneLoaded += (s, m) => DefaultFor(s); hooked = true; }
             DefaultFor(SceneManager.GetActiveScene());
         }
