@@ -7,11 +7,13 @@ using UnityEngine.InputSystem;
 namespace Ooda.UI
 {
     /// <summary>
-    /// The dogfight's briefing, before the fight: how many planes on each side (1 to 4), the aircraft each one flies
-    /// (P-51, Spitfire, Bf 109 or F-4 Phantom, any type on either side), how the two sides start (or at random), and
-    /// how far apart, how high and how fast. A map in the middle shows where everyone starts, from above, built from the
-    /// same Scenarios.Dogfight the battle uses. The title screen opens it when Dogfight is picked and Play pressed.
-    /// What is picked is kept (PlayerPrefs) for next time, and is in Chosen for the turn battle to read.
+    /// The dogfight's squadron briefing, before the fight: an airfield in the Alps with your flight parked on the left and
+    /// the bandits on the right, each pilot standing in front of his plane (BriefingStage), a VS badge between them. Pick a
+    /// pilot (a click, or the arrow keys) and Change Pilot or Change Aircraft; the + and - under each banner add or send
+    /// home a plane (1 to 4 a side). The Mission panel holds how the two sides start (or at random), how far apart, how
+    /// high and how fast, with a map of where everyone starts from above, built from the same Scenarios.Dogfight the battle
+    /// uses. The title screen opens it when Dogfight is picked and Play pressed. What is picked is kept (PlayerPrefs) for
+    /// next time, and is in Chosen for the turn battle to read.
     /// </summary>
     public class DogfightSetupScreen
     {
@@ -47,30 +49,138 @@ namespace Ooda.UI
 
         public bool open;
 
-        static readonly Craft[] Types = { Craft.Mustang, Craft.Spitfire, Craft.Bf109, Craft.Phantom };
+        /// <summary>The 3D airfield the flights stand on; the title screen gives it the plane prefabs.</summary>
+        public readonly BriefingStage stage = new BriefingStage();
+
+        /// <summary>Every type a plane can fly, in the order Change Aircraft steps through them (new ones join the end of Craft).</summary>
+        static readonly Craft[] Types = (Craft[])Enum.GetValues(typeof(Craft));
         static readonly Color Blue = new Color(0.4f, 0.75f, 1f), Red = new Color(1f, 0.4f, 0.35f);
 
+        // the picked place: your planes first (0 your lead), then theirs
+        int sel;
+        bool mission;   // the mission panel (the start, range, height, speed and the map) is up
+
         GUIStyle heading, head, label, dim, button, picked, small, smallPicked, bigFly;
-        Texture2D white;
+        GUIStyle barTitle, logo, plaque, plaqueRed, tag, tagPicked, tagRed, tagRedPicked, tagSub, tagSubRed, barButton, ready, vs, hint, count;
+        Texture2D white, bar, disc;
         string mapKey;      // the setup the map was laid out for
         Battle mapBattle;   // and where it puts everyone
 
-        /// <summary>Enter or pad A flies, Esc or pad B goes back. Call from Update while open.</summary>
+        // the mockup's colours: olive bars, cream plaques with dark olive or red stencil, gold for ready
+        static readonly Color Olive = new Color(0.25f, 0.27f, 0.16f), OliveDark = new Color(0.13f, 0.14f, 0.08f), Cream = new Color(0.95f, 0.91f, 0.78f),
+                              Ink = new Color(0.17f, 0.18f, 0.10f), Brick = new Color(0.62f, 0.10f, 0.08f), Gold = new Color(0.98f, 0.78f, 0.22f);
+
+        int Count => Chosen.Ours + Chosen.Theirs;
+        bool SelOurs => sel < Chosen.Ours;
+        int SelIndex => SelOurs ? sel : sel - Chosen.Ours;
+
+        /// <summary>Keys and the pad, called from Update while open: ← → (the d-pad) pick a pilot, P (pad X) changes his pilot, C (pad Y)
+        /// his aircraft, + and − (the bumpers) add or send home a plane on his side, M (pad Select) the mission panel, Enter (pad A)
+        /// flies, Esc (pad B) closes the mission panel or goes back.</summary>
         public Result Keys()
         {
             var kb = Keyboard.current;
             var pad = Gamepad.current;
-            if ((kb != null && kb.escapeKey.wasPressedThisFrame) || (pad != null && pad.buttonEast.wasPressedThisFrame)) return Result.Back;
-            if ((kb != null && (kb.enterKey.wasPressedThisFrame || kb.numpadEnterKey.wasPressedThisFrame)) || (pad != null && (pad.buttonSouth.wasPressedThisFrame || pad.startButton.wasPressedThisFrame))) return Result.Fly;
+            bool Kb(Func<Keyboard, UnityEngine.InputSystem.Controls.ButtonControl> k) => kb != null && k(kb).wasPressedThisFrame;
+            bool Pad(Func<Gamepad, UnityEngine.InputSystem.Controls.ButtonControl> b) => pad != null && b(pad).wasPressedThisFrame;
+            bool shift = kb != null && kb.shiftKey.isPressed;
+            if (Kb(k => k.escapeKey) || Pad(p => p.buttonEast))
+            {
+                if (mission) { mission = false; return Result.None; }
+                return Result.Back;
+            }
+            if (Kb(k => k.enterKey) || Kb(k => k.numpadEnterKey) || Pad(p => p.buttonSouth) || Pad(p => p.startButton)) return Result.Fly;
+            if (Kb(k => k.mKey) || Pad(p => p.selectButton)) mission = !mission;
+            if (mission) return Result.None;
+            if (Kb(k => k.leftArrowKey) || Kb(k => k.aKey) || Pad(p => p.dpad.left)) MoveSel(-1);
+            if (Kb(k => k.rightArrowKey) || Kb(k => k.dKey) || Pad(p => p.dpad.right)) MoveSel(1);
+            if (Kb(k => k.pKey) || Pad(p => p.buttonWest)) ChangePilot(shift ? -1 : 1);
+            if (Kb(k => k.cKey) || Pad(p => p.buttonNorth)) ChangeAircraft(shift ? -1 : 1);
+            if (Kb(k => k.equalsKey) || Kb(k => k.numpadPlusKey) || Pad(p => p.rightShoulder)) AddPlane(SelOurs);
+            if (Kb(k => k.minusKey) || Kb(k => k.numpadMinusKey) || Pad(p => p.leftShoulder)) RemovePlane(SelOurs);
             return Result.None;
+        }
+
+        /// <summary>Left and right across the apron as it looks: your wingmen to the left of your lead, the bandits right of the middle.</summary>
+        void MoveSel(int by)
+        {
+            // screen order, left to right: your last wingman ... your lead, their lead ... their last
+            int n = Count, ours = Chosen.Ours;
+            int pos = SelOurs ? ours - 1 - sel : sel;
+            pos = Mathf.Clamp(pos + by, 0, n - 1);
+            sel = pos < ours ? ours - 1 - pos : pos;
+        }
+
+        void ChangePilot(int by)
+        {
+            var s = Chosen;
+            s.FitPilots();
+            var craft = SelOurs ? s.ours[SelIndex] : s.theirs[SelIndex];
+            if (craft == Craft.Phantom) return;   // the F-4 keeps its crew
+            var pilots = SelOurs ? s.oursPilots : s.theirsPilots;
+            pilots[SelIndex] = NextPilot(pilots[SelIndex], craft, by);
+        }
+
+        /// <summary>The next pilot for a type: its usual one, then the others, skipping the one that is the usual one by name.</summary>
+        static PilotKind NextPilot(PilotKind p, Craft c, int by)
+        {
+            var usual = BriefingStage.UsualOf(c);
+            var order = new System.Collections.Generic.List<PilotKind> { PilotKind.Usual };
+            foreach (PilotKind k in Enum.GetValues(typeof(PilotKind))) if (k != PilotKind.Usual && k != usual) order.Add(k);
+            int i = order.IndexOf(p == usual ? PilotKind.Usual : p);
+            return order[((i < 0 ? 0 : i) + by + order.Count) % order.Count];
+        }
+
+        /// <summary>Who really sits in a plane: the usual pilot named.</summary>
+        static string PilotName(PilotKind p, Craft c) => c == Craft.Phantom ? "Tiger & Wolf" : DogfightSetup.Name(p == PilotKind.Usual ? BriefingStage.UsualOf(c) : p);
+
+        void ChangeAircraft(int by)
+        {
+            var s = Chosen;
+            if (SelOurs) s.ours[SelIndex] = Step(s.ours[SelIndex], by);
+            else s.theirs[SelIndex] = Step(s.theirs[SelIndex], by);
+        }
+
+        void AddPlane(bool ourSide)
+        {
+            var s = Chosen;
+            if (ourSide) { s.ours = DogfightSetup.Resize(s.ours, s.Ours + 1); sel = s.Ours - 1; }
+            else { s.theirs = DogfightSetup.Resize(s.theirs, s.Theirs + 1); sel = s.Ours + s.Theirs - 1; }
+            s.FitPilots();
+        }
+
+        void RemovePlane(bool ourSide)
+        {
+            var s = Chosen;
+            if (ourSide) s.ours = DogfightSetup.Resize(s.ours, s.Ours - 1);
+            else s.theirs = DogfightSetup.Resize(s.theirs, s.Theirs - 1);
+            s.FitPilots();
+            sel = Mathf.Clamp(sel, 0, Count - 1);
+            if (!ourSide && sel < s.Ours) sel = s.Ours;   // stay on their side
+            if (ourSide && sel >= s.Ours) sel = s.Ours - 1;
+        }
+
+        /// <summary>Every frame (from the title's Update): builds the airfield when the briefing opens and takes it down when it
+        /// closes, parks the setup's planes, moves the ring to the picked pilot, and holds the camera on it all.</summary>
+        public void Tick(Camera cam, float dt)
+        {
+            if (!open) { if (stage.Built) stage.Close(); mission = false; return; }
+            if (!stage.Built) { stage.Open(cam); sel = 0; }
+            var s = Chosen;
+            sel = Mathf.Clamp(sel, 0, Count - 1);
+            stage.Sync(s);
+            var list = SelOurs ? stage.ours : stage.theirs;
+            stage.Pick(SelIndex < list.Count ? list[SelIndex] : null);
+            stage.Tick(dt);
+            stage.PlaceCamera();
         }
 
         void Styles()
         {
             if (heading != null) return;
-            heading = BriefingStyle.Heading(GUI.skin.label, 52);
+            heading = BriefingStyle.Heading(GUI.skin.label, 40);
             heading.alignment = TextAnchor.MiddleCenter;
-            head = BriefingStyle.Heading(GUI.skin.label, 26);
+            head = BriefingStyle.Heading(GUI.skin.label, 24);
             label = new GUIStyle(GUI.skin.label) { fontSize = 18, alignment = TextAnchor.MiddleLeft };
             dim = new GUIStyle(label) { fontSize = 15 };
             dim.normal.textColor = BriefingStyle.DimGreen;
@@ -82,6 +192,81 @@ namespace Ooda.UI
             smallPicked.normal.textColor = smallPicked.hover.textColor = BriefingStyle.Amber;
             bigFly = new GUIStyle(picked) { fontSize = 26 };
             white = Texture2D.whiteTexture;
+
+            // the squadron briefing's own look
+            bar = Plate(Olive, OliveDark, new Color(0.42f, 0.44f, 0.28f));
+            var cream = Plate(Cream, new Color(0.35f, 0.30f, 0.18f), new Color(0.80f, 0.74f, 0.58f));
+            var creamHot = Plate(new Color(1f, 0.96f, 0.80f), Gold, Gold);
+            var red = Plate(Brick, new Color(0.30f, 0.05f, 0.04f), new Color(0.85f, 0.70f, 0.55f));
+            var redHot = Plate(new Color(0.75f, 0.14f, 0.10f), Gold, Gold);
+            var olive = Plate(new Color(0.30f, 0.32f, 0.20f), new Color(0.85f, 0.80f, 0.62f), new Color(0.18f, 0.19f, 0.11f));
+            var oliveHot = Plate(new Color(0.38f, 0.41f, 0.25f), Gold, new Color(0.18f, 0.19f, 0.11f));
+            var gold = Plate(Gold, new Color(0.45f, 0.30f, 0.05f), new Color(1f, 0.92f, 0.55f));
+            var goldHot = Plate(new Color(1f, 0.86f, 0.38f), new Color(0.45f, 0.30f, 0.05f), Color.white);
+            disc = Disc();
+            GUIStyle Stencil(int size, Color ink, Texture2D bg = null, Texture2D hot = null)
+            {
+                var st = new GUIStyle(GUI.skin.label) { font = BriefingStyle.Stencil, fontSize = size, alignment = TextAnchor.MiddleCenter, wordWrap = false, clipping = TextClipping.Overflow };
+                st.normal.textColor = st.hover.textColor = st.active.textColor = ink;
+                if (bg != null) { st.normal.background = bg; st.border = new RectOffset(5, 5, 5, 5); st.padding = new RectOffset(8, 8, 2, 2); }
+                if (hot != null) { st.hover.background = hot; st.active.background = hot; }
+                return st;
+            }
+            barTitle = Stencil(44, Cream);
+            logo = Stencil(34, Cream);
+            plaque = Stencil(30, Ink, cream);
+            plaqueRed = Stencil(30, Brick, cream);
+            tag = Stencil(17, Ink, cream);
+            tagPicked = Stencil(17, Ink, creamHot);
+            tagRed = Stencil(17, Cream, red);
+            tagRedPicked = Stencil(17, Cream, redHot);
+            tagSub = new GUIStyle(GUI.skin.label) { fontSize = 13, alignment = TextAnchor.MiddleCenter, clipping = TextClipping.Overflow };
+            tagSub.normal.textColor = Cream;
+            tagSubRed = new GUIStyle(tagSub);
+            barButton = Stencil(22, Cream, olive, oliveHot);
+            ready = Stencil(40, new Color(0.25f, 0.16f, 0.02f), gold, goldHot);
+            vs = Stencil(38, Gold);
+            hint = new GUIStyle(GUI.skin.label) { fontSize = 13, alignment = TextAnchor.MiddleCenter };
+            hint.normal.textColor = new Color(0.92f, 0.88f, 0.74f);
+            count = Stencil(18, Cream, olive, oliveHot);
+        }
+
+        /// <summary>A 16 x 16 nine-slice plate: a fill, a 2-pixel rim, and a 1-pixel bevel line just inside it.</summary>
+        static Texture2D Plate(Color fill, Color rim, Color bevel)
+        {
+            const int N = 16;
+            var t = new Texture2D(N, N, TextureFormat.RGBA32, false) { filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp, hideFlags = HideFlags.HideAndDontSave };
+            for (int y = 0; y < N; y++)
+                for (int x = 0; x < N; x++)
+                {
+                    int e = Mathf.Min(Mathf.Min(x, y), Mathf.Min(N - 1 - x, N - 1 - y));
+                    bool corner = (x < 1 || x > N - 2) && (y < 1 || y > N - 2);
+                    var c = corner ? Color.clear : e < 2 ? rim : e == 2 ? bevel : fill;
+                    if (e > 2) c = Color.Lerp(c, Color.black, 0.10f * (1f - (float)y / N));   // a touch darker toward the foot
+                    t.SetPixel(x, y, c);
+                }
+            t.Apply();
+            return t;
+        }
+
+        /// <summary>The VS badge's medal: an olive disc in a gold ring, soft at the edge.</summary>
+        static Texture2D Disc()
+        {
+            const int N = 128;
+            var t = new Texture2D(N, N, TextureFormat.RGBA32, false) { hideFlags = HideFlags.HideAndDontSave };
+            for (int y = 0; y < N; y++)
+                for (int x = 0; x < N; x++)
+                {
+                    float r = Vector2.Distance(new Vector2(x + 0.5f, y + 0.5f), new Vector2(N / 2f, N / 2f)) / (N / 2f);
+                    Color c = r < 0.78f ? Color.Lerp(new Color(0.33f, 0.35f, 0.20f), OliveDark, r / 0.78f * 0.6f)
+                            : r < 0.84f ? new Color(0.45f, 0.30f, 0.05f)
+                            : r < 0.97f ? Color.Lerp(Gold, new Color(1f, 0.93f, 0.6f), Mathf.Abs(r - 0.905f) < 0.02f ? 1 : 0)
+                            : new Color(0.45f, 0.30f, 0.05f);
+                    c.a = Mathf.Clamp01((1f - r) * 40f);
+                    t.SetPixel(x, y, c);
+                }
+            t.Apply();
+            return t;
         }
 
         /// <summary>Draw the screen (inside OnGUI, after BriefingStyle.Use). Returns Back or Fly when one is pressed.</summary>
@@ -89,60 +274,202 @@ namespace Ooda.UI
         {
             Styles();
             var s = Chosen;
+            s.FitPilots();
             var result = Result.None;
-            // laid out for 1280 x 780 and scaled down to fit smaller windows
-            float k = Mathf.Min(1f, sw / 1280f, sh / 780f);
+            // laid out for 1280 x 720 and scaled to fit the window
+            float k = Mathf.Min(sw / 1280f, sh / 720f);
             var keep = GUI.matrix;
             GUI.matrix = Matrix4x4.Scale(new Vector3(k, k, 1)) * keep;
             float w = sw / k, h = sh / k;
-            float pw = 1240, ph = 760, px = (w - pw) / 2, py = (h - ph) / 2;
-            GUI.Box(new Rect(px, py, pw, ph), "");
-            GUI.Label(new Rect(px, py + 8, pw, 60), "DOGFIGHT BRIEFING", heading);
+            const float TopH = 64, BotH = 86;
 
-            // the two flights either side, the map between them
-            float colW = 380, top = py + 80;
-            s.FitPilots();
-            Side(new Rect(px + 20, top, colW, 330), "YOUR FLIGHT", Blue, ref s.ours, s.oursPilots, true);
-            Side(new Rect(px + pw - 20 - colW, top, colW, 330), "ENEMY FLIGHT", Red, ref s.theirs, s.theirsPilots, false);
-            s.FitPilots();
-            Map(new Rect(px + 20 + colW + 20, top + 6, pw - 2 * (colW + 40), 320), s);
+            // the bar along the top: OODA, then SQUADRON BRIEFING
+            GUI.DrawTexture(new Rect(-4, -4, w + 8, TopH + 4), bar);
+            for (int i = 0; i < 3; i++)
+            {
+                float len = 34 - i * 8, y = 22 + i * 8;
+                Fill(new Rect(54 - len, y, len, 4), Cream);
+                Fill(new Rect(162, y, len, 4), Cream);
+            }
+            GUI.Label(new Rect(58, 4, 100, TopH - 8), "OODA", logo);
+            Fill(new Rect(212, 14, 3, TopH - 28), new Color(0.85f, 0.80f, 0.62f, 0.6f));
+            GUI.Label(new Rect(0, 2, w, TopH - 4), "SQUADRON BRIEFING", barTitle);
 
-            // how they start
-            float y = top + 344;
-            GUI.Label(new Rect(px + 20, y, 400, 32), "THE START", head);
-            y += 38;
-            float bw = (pw - 40 - 7 * 10) / 8;
+            if (!stage.Built)
+            {
+                GUI.matrix = keep;
+                return result;
+            }
+
+            // the flights' banners, with how many each side has
+            float bannerY = TopH + 18;
+            Banner(new Rect(w * 0.25f - 170, bannerY, 340, 54), "YOUR FLIGHT", plaque, Blue);
+            Banner(new Rect(w * 0.75f - 150, bannerY, 300, 54), "BANDITS", plaqueRed, Red);
+            Counter(new Rect(w * 0.25f - 90, bannerY + 60, 180, 30), true);
+            Counter(new Rect(w * 0.75f - 90, bannerY + 60, 180, 30), false);
+
+            // VS between them
+            Badge(new Vector2(w / 2, TopH + 96));
+
+            // a name plate under each pilot's feet
+            for (int side = 0; side < 2; side++)
+            {
+                var list = side == 0 ? stage.ours : stage.theirs;
+                for (int i = 0; i < list.Count; i++)
+                {
+                    var p = list[i];
+                    Vector3 at = stage.OnScreen(p.feet);
+                    if (at.z <= 0) continue;
+                    float x = at.x / k, y = at.y / k + 14;
+                    bool on = (side == 0 ? i : s.Ours + i) == sel;
+                    string who = side == 0 ? (i == 0 ? "LEAD" : $"WINGMAN {i}") : (i == 0 ? "BANDIT LEAD" : $"BANDIT {i + 1}");
+                    var st = side == 0 ? (on ? tagPicked : tag) : (on ? tagRedPicked : tagRed);
+                    float tw = Mathf.Max(132, st.CalcSize(new GUIContent(who)).x + 20);
+                    y = Mathf.Min(y, h - BotH - 52);
+                    if (GUI.Button(new Rect(x - tw / 2, y, tw, 30), who, st)) sel = side == 0 ? i : s.Ours + i;
+                    var craft = side == 0 ? s.ours[i] : s.theirs[i];
+                    var pk = side == 0 ? s.oursPilots[i] : s.theirsPilots[i];
+                    Shadow(new Rect(x - 110, y + 30, 220, 20), $"{PilotName(pk, craft)}  ·  {DogfightSetup.Short(craft)}", tagSub);
+                }
+            }
+
+            // the bar along the foot: back, change pilot, change aircraft, the mission, ready
+            float by = h - BotH;
+            GUI.DrawTexture(new Rect(-4, by, w + 8, BotH + 4), bar);
+            float bh = 54, bty = by + (BotH - bh) / 2;
+            if (GUI.Button(new Rect(28, bty, 170, bh), "< BACK", barButton)) { if (mission) mission = false; else result = Result.Back; }
+            Divider(214, by);
+            bool f4 = (SelOurs ? s.ours[Mathf.Min(SelIndex, s.Ours - 1)] : s.theirs[Mathf.Min(SelIndex, s.Theirs - 1)]) == Craft.Phantom;
+            var keepCol = GUI.color;
+            if (f4) GUI.color = new Color(1, 1, 1, 0.5f);
+            if (GUI.Button(new Rect(232, bty, 236, bh), "CHANGE PILOT", barButton)) ChangePilot(Event.current.button == 1 ? -1 : 1);
+            GUI.color = keepCol;
+            Divider(484, by);
+            if (GUI.Button(new Rect(502, bty, 270, bh), "CHANGE AIRCRAFT", barButton)) ChangeAircraft(Event.current.button == 1 ? -1 : 1);
+            Divider(788, by);
+            if (GUI.Button(new Rect(806, bty, Mathf.Max(190, w - 806 - 300), bh), mission ? "CLOSE MISSION" : "MISSION", barButton)) mission = !mission;
+            if (GUI.Button(new Rect(w - 268, by + 8, 240, BotH - 16), "READY", ready)) result = Result.Fly;
+            Shadow(new Rect(0, by - 24, w, 20), mission ? "Esc closes the mission panel  ·  Enter flies"
+                : "← → pick a pilot  ·  P change pilot  ·  C change aircraft  ·  + − planes on that side  ·  M mission  ·  Enter ready", hint);
+
+            if (mission) MissionPanel(new Rect(w / 2 - 560, TopH + 20, 1120, by - TopH - 56), s);
+            else if (Event.current.type == EventType.MouseDown && Event.current.button == 0)
+            {
+                // a click on a plane or a pilot picks it
+                Vector2 m = Event.current.mousePosition;
+                if (m.y > TopH && m.y < by)
+                {
+                    float best = float.MaxValue;
+                    int pick = -1;
+                    for (int side = 0; side < 2; side++)
+                    {
+                        var list = side == 0 ? stage.ours : stage.theirs;
+                        for (int i = 0; i < list.Count; i++)
+                        {
+                            Rect r = stage.ScreenBox(list[i]);
+                            r = new Rect(r.x / k - 20, r.y / k - 10, r.width / k + 40, r.height / k + 20);
+                            if (!r.Contains(m)) continue;
+                            float d = Vector2.Distance(m, r.center);
+                            if (d < best) { best = d; pick = side == 0 ? i : s.Ours + i; }
+                        }
+                    }
+                    if (pick >= 0) { sel = pick; Event.current.Use(); }
+                }
+            }
+
+            GUI.matrix = keep;
+            return result;
+        }
+
+        void Fill(Rect r, Color c)
+        {
+            var keep = GUI.color;
+            GUI.color = c;
+            GUI.DrawTexture(r, white);
+            GUI.color = keep;
+        }
+
+        void Divider(float x, float barY) => Fill(new Rect(x, barY + 20, 3, 46), new Color(0.85f, 0.80f, 0.62f, 0.55f));
+
+        static void Shadow(Rect r, string text, GUIStyle st)
+        {
+            var c = st.normal.textColor;
+            st.normal.textColor = new Color(0, 0, 0, 0.75f);
+            GUI.Label(new Rect(r.x + 1.5f, r.y + 1.5f, r.width, r.height), text, st);
+            st.normal.textColor = c;
+            GUI.Label(r, text, st);
+        }
+
+        /// <summary>A plaque with wings either side, like the mockup's: three stripes each way in the side's colour.</summary>
+        void Banner(Rect r, string text, GUIStyle st, Color col)
+        {
+            var wing = Color.Lerp(col, new Color(0.9f, 0.85f, 0.7f), 0.35f);
+            for (int i = 0; i < 3; i++)
+            {
+                float len = 70 - i * 18, y = r.y + 14 + i * 9;
+                Fill(new Rect(r.x - len + 6, y, len, 5), new Color(0, 0, 0, 0.35f));
+                Fill(new Rect(r.x - len + 4, y - 1, len, 5), wing);
+                Fill(new Rect(r.xMax - 6, y, len, 5), new Color(0, 0, 0, 0.35f));
+                Fill(new Rect(r.xMax - 4, y - 1, len, 5), wing);
+            }
+            GUI.Label(r, text, st);
+        }
+
+        /// <summary>− n PLANES + under a banner.</summary>
+        void Counter(Rect r, bool ourSide)
+        {
+            int n = ourSide ? Chosen.Ours : Chosen.Theirs;
+            if (GUI.Button(new Rect(r.x, r.y, 34, r.height), "-", count)) RemovePlane(ourSide);
+            Shadow(new Rect(r.x + 34, r.y, r.width - 68, r.height), n == 1 ? "1 PLANE" : $"{n} PLANES", new GUIStyle(hint) { fontSize = 16, font = BriefingStyle.Stencil });
+            if (GUI.Button(new Rect(r.xMax - 34, r.y, 34, r.height), "+", count)) AddPlane(ourSide);
+        }
+
+        /// <summary>The VS medal with gold wings.</summary>
+        void Badge(Vector2 c)
+        {
+            for (int i = 0; i < 4; i++)
+            {
+                float len = 92 - i * 16, y = c.y - 20 + i * 11;
+                Fill(new Rect(c.x - 44 - len, y + 2, len, 6), new Color(0, 0, 0, 0.35f));
+                Fill(new Rect(c.x - 46 - len, y, len, 6), Gold);
+                Fill(new Rect(c.x + 46, y + 2, len, 6), new Color(0, 0, 0, 0.35f));
+                Fill(new Rect(c.x + 46, y, len, 6), Gold);
+            }
+            GUI.DrawTexture(new Rect(c.x - 52, c.y - 52, 104, 104), disc);
+            Shadow(new Rect(c.x - 52, c.y - 52, 104, 104), "VS", vs);
+        }
+
+        /// <summary>The mission panel: how the two flights start, how far apart, how high and fast, and the map of where everyone starts.</summary>
+        void MissionPanel(Rect r, DogfightSetup s)
+        {
+            GUI.Box(r, "");
+            GUI.Box(r, "");
+            GUI.Label(new Rect(r.x, r.y + 6, r.width, 44), "MISSION", heading);
+            float x = r.x + 20, y = r.y + 58, colW = 600;
+            GUI.Label(new Rect(x, y, 400, 30), "THE START", head);
+            y += 36;
+            float bw = (colW - 3 * 8) / 4;
             for (int i = 0; i < 8; i++)
             {
                 bool on = i == 0 ? s.randomStart : !s.randomStart && (int)s.start == i - 1;
                 string text = i == 0 ? "Random" : Scenarios.Title((Scenarios.Start)(i - 1));
-                if (GUI.Button(new Rect(px + 20 + i * (bw + 10), y, bw, 44), text, on ? smallPicked : small))
+                if (GUI.Button(new Rect(x + (i % 4) * (bw + 8), y + (i / 4) * 48, bw, 42), text, on ? smallPicked : small))
                 {
                     if (i == 0) s.randomStart = true;
                     else { s.randomStart = false; s.start = (Scenarios.Start)(i - 1); }
                 }
             }
-            y += 52;
-            GUI.Label(new Rect(px + 20, y, pw - 40, 26), s.randomStart ? "One of the seven at random, a new one each time you fly again." : Explain(s.start), dim);
-
-            // range, height, speed
-            y += 40;
-            float gw = (pw - 40 - 2 * 30) / 3;
-            int r = (int)s.range, hgt = (int)s.height, sp = (int)s.speed;
-            Choice(new Rect(px + 20, y, gw, 44), "RANGE", new[] { "Close", "Medium", "Far" }, ref r);
-            Choice(new Rect(px + 20 + gw + 30, y, gw, 44), "HEIGHT", new[] { "Low", "Medium", "High" }, ref hgt);
-            Choice(new Rect(px + 20 + 2 * (gw + 30), y, gw, 44), "SPEED", new[] { "220 kt", "300 kt", "380 kt" }, ref sp);
-            s.range = (DogfightSetup.Range)r; s.height = (DogfightSetup.Height)hgt; s.speed = (DogfightSetup.Pace)sp;
-
-            // back, the summary, fly
-            float by = py + ph - 76;
-            if (GUI.Button(new Rect(px + 20, by, 200, 56), "Back (Esc)", button)) result = Result.Back;
-            GUI.Label(new Rect(px + 240, by, pw - 520, 56), $"{s.Ours} v {s.Theirs}: {DogfightSetup.Describe(s.ours)} against {DogfightSetup.Describe(s.theirs)}. Click a pilot to change who flies.",
-                      new GUIStyle(label) { alignment = TextAnchor.MiddleCenter, wordWrap = true });
-            if (GUI.Button(new Rect(px + pw - 260, by, 240, 56), "FLY (Enter)", bigFly)) result = Result.Fly;
-
-            GUI.matrix = keep;
-            return result;
+            y += 100;
+            GUI.Label(new Rect(x, y, colW, 50), s.randomStart ? "One of the seven at random, a new one each time you fly again." : Explain(s.start), new GUIStyle(dim) { wordWrap = true, alignment = TextAnchor.UpperLeft });
+            y += 58;
+            int rg = (int)s.range, hgt = (int)s.height, sp = (int)s.speed;
+            Choice(new Rect(x, y, colW, 42), "RANGE", new[] { "Close", "Medium", "Far" }, ref rg); y += 52;
+            Choice(new Rect(x, y, colW, 42), "HEIGHT", new[] { "Low", "Medium", "High" }, ref hgt); y += 52;
+            Choice(new Rect(x, y, colW, 42), "SPEED", new[] { "220 kt", "300 kt", "380 kt" }, ref sp); y += 52;
+            s.range = (DogfightSetup.Range)rg; s.height = (DogfightSetup.Height)hgt; s.speed = (DogfightSetup.Pace)sp;
+            // (the arena picker goes here, a row like the ones above)
+            float mx = x + colW + 24;
+            Map(new Rect(mx, r.y + 58, r.xMax - 20 - mx, r.height - 78), s);
         }
 
         static string Explain(Scenarios.Start st) =>
@@ -153,52 +480,6 @@ namespace Ooda.UI
           : st == Scenarios.Start.Crossing ? "Them coming in from your right at right angles: who turns first?"
           : st == Scenarios.Start.Perch ? "You high and behind them, out to one side: dive in on them."
           : "Them high and behind you, out to one side: they are diving in.";
-
-        /// <summary>A flight's column: how many, each plane's aircraft (the arrows, or a click on the name, step it) and its pilot
-        /// (a click steps it: the type's usual one, the tiger, the wolf, the wizard, the skeleton), and every plane's aircraft at once.</summary>
-        void Side(Rect r, string title, Color col, ref Craft[] side, PilotKind[] pilots, bool ours)
-        {
-            var t = new GUIStyle(head);
-            t.normal.textColor = col;
-            GUI.Label(new Rect(r.x, r.y, r.width, 32), title, t);
-            float y = r.y + 40;
-            GUI.Label(new Rect(r.x, y, 110, 40), "Planes", label);
-            for (int n = 1; n <= Scenarios.MaxSide; n++)
-                if (GUI.Button(new Rect(r.x + 110 + (n - 1) * 62, y, 54, 40), n.ToString(), side.Length == n ? picked : button))
-                    side = DogfightSetup.Resize(side, n);
-            y += 54;
-            for (int i = 0; i < side.Length; i++)
-            {
-                string who = i == 0 ? (ours ? "You" : "Lead") : $"#{i + 1}";
-                GUI.Label(new Rect(r.x, y, 70, 38), who, label);
-                float pilotW = 100, nameW = r.width - 162 - pilotW - 6;
-                if (GUI.Button(new Rect(r.x + 70, y, 40, 38), "<", button)) side[i] = Step(side[i], -1);
-                if (GUI.Button(new Rect(r.x + 116, y, nameW, 38), DogfightSetup.Short(side[i]), button)) side[i] = Step(side[i], 1);
-                if (GUI.Button(new Rect(r.x + 122 + nameW, y, 40, 38), ">", button)) side[i] = Step(side[i], 1);
-                if (i < pilots.Length)
-                {
-                    // the F-4 keeps its crew: its pilot button shows Crew and doesn't step
-                    bool crew = side[i] == Craft.Phantom;
-                    string who2 = crew ? "Crew" : DogfightSetup.Name(pilots[i]);
-                    if (GUI.Button(new Rect(r.x + r.width - pilotW, y, pilotW, 38), who2, crew || pilots[i] == PilotKind.Usual ? small : smallPicked) && !crew)
-                        pilots[i] = (PilotKind)(((int)pilots[i] + 1) % PilotCount);
-                }
-                y += 44;
-            }
-            y = r.y + 40 + 54 + Scenarios.MaxSide * 44 + 6;
-            GUI.Label(new Rect(r.x, y, 70, 36), "All", dim);
-            float bw = (r.width - 70 - 3 * 6) / 4;
-            for (int j = 0; j < Types.Length; j++)
-            {
-                var kind = Types[j];
-                bool all = true;
-                foreach (var c in side) if (c != kind) all = false;
-                if (GUI.Button(new Rect(r.x + 70 + j * (bw + 6), y, bw, 36), DogfightSetup.Short(Types[j]), all ? smallPicked : small))
-                    for (int i = 0; i < side.Length; i++) side[i] = Types[j];
-            }
-        }
-
-        static readonly int PilotCount = Enum.GetValues(typeof(PilotKind)).Length;
 
         static Craft Step(Craft c, int by) => Types[(Array.IndexOf(Types, c) + by + Types.Length) % Types.Length];
 
@@ -213,8 +494,9 @@ namespace Ooda.UI
         // ---------- the self-test: -setupshots <folder> ----------
 
         /// <summary>
-        /// With -setupshots folder on the command line: open the briefing on two setups (2 v 2 Spitfire and F-4 against Bf 109s on the
-        /// perch; 4 v 3 mixed, head-on, close, low), save each as a BMP there, and quit. Doesn't touch the setup kept for next time.
+        /// With -setupshots folder on the command line: open the briefing on three setups and save each as a BMP there, then
+        /// quit: 2 v 2 Spitfire and F-4 against Bf 109s with the wizard and the skeleton; 4 v 3 mixed with a wingman picked;
+        /// and the 4 v 3 with the mission panel up. Doesn't touch the setup kept for next time.
         /// </summary>
         public System.Collections.IEnumerator Shots(string folder)
         {
@@ -223,15 +505,21 @@ namespace Ooda.UI
             chosen = new DogfightSetup { ours = new[] { Craft.Spitfire, Craft.Phantom }, theirs = new[] { Craft.Bf109, Craft.Bf109 }, randomStart = false, start = Scenarios.Start.Perch,
                                       oursPilots = new[] { PilotKind.Wizard, PilotKind.Usual }, theirsPilots = new[] { PilotKind.Skeleton, PilotKind.Usual } };
             open = true;
-            yield return new WaitForSecondsRealtime(2f);
-            yield return Grab(System.IO.Path.Combine(folder, "setup_perch.bmp"));
+            yield return new WaitForSecondsRealtime(3f);
+            yield return Grab(System.IO.Path.Combine(folder, "briefing_2v2.bmp"));
             chosen = new DogfightSetup
             {
                 ours = new[] { Craft.Mustang, Craft.Spitfire, Craft.Mustang, Craft.Phantom }, theirs = new[] { Craft.Bf109, Craft.Mustang, Craft.Phantom },
+                oursPilots = new[] { PilotKind.Usual, PilotKind.Skeleton, PilotKind.Wolf, PilotKind.Usual }, theirsPilots = new[] { PilotKind.Wizard, PilotKind.Usual, PilotKind.Usual },
                 randomStart = false, start = Scenarios.Start.HeadOn, range = DogfightSetup.Range.Close, height = DogfightSetup.Height.Low, speed = DogfightSetup.Pace.Fast,
             };
+            sel = 1;
+            yield return new WaitForSecondsRealtime(2f);
+            yield return Grab(System.IO.Path.Combine(folder, "briefing_4v3.bmp"));
+            mission = true;
             yield return new WaitForSecondsRealtime(1f);
-            yield return Grab(System.IO.Path.Combine(folder, "setup_headon.bmp"));
+            yield return Grab(System.IO.Path.Combine(folder, "briefing_mission.bmp"));
+            mission = false;
             chosen = keep;
             Application.Quit();
         }
