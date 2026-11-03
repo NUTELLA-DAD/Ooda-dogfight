@@ -44,6 +44,17 @@ namespace Ooda.Turn.Core
         };
 
         /// <summary>
+        /// The F-4E Phantom's M61 Vulcan, 20 mm, 640 rounds at 6,000 a minute: a fast, hard-hitting stream but only about
+        /// 7 s of it, a little wider spread. Four heat-seekers (Sidewinders). A bigger, tougher airframe (63 ft long, 38 ft
+        /// span) and so a bigger target. Estimates to tune by feel.
+        /// </summary>
+        public static CombatNumbers Phantom() => new CombatNumbers
+        {
+            guns = "M61 20 mm", muzzleFps = 3380, damage = 1.3, ammoSec = 7, spreadMil = 3.5, dragPerSec = 0.3,
+            health = 16, sizeFt = 6, missiles = 4,
+        };
+
+        /// <summary>
         /// The B-17G as a target: 104 ft span, so a much bigger hit sphere; four engines and a big airframe take
         /// about three times a fighter's damage. Its own gunners come later: no guns for now. Estimates to tune.
         /// </summary>
@@ -152,6 +163,7 @@ namespace Ooda.Turn.Core
         public double alphaDeg, g, throttle;
         public bool firing, stalled, departed, down;
         public bool rocket, brake;   // the rocket burning, the speed brake out
+        public bool wep;             // war emergency power in (a jet's afterburner lit)
     }
 
     /// <summary>One packet's path through a turn, for drawing tracers: a point for each frame from startFrame.</summary>

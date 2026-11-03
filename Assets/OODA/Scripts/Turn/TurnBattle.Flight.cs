@@ -102,10 +102,15 @@ namespace Ooda.Turn
             if (last != null) SwapResult(last, a, b, Map);
             preview = gunPreview = null;
             burstHits = new bool[battle.Count];
-            // aircraft 0's objects are now the other plane's
+            AdoptPlayer();
+        }
+
+        /// <summary>Aircraft 0's objects are now views[0]'s: the camera, the cockpit eye, the pilot and the ghost follow it.</summary>
+        void AdoptPlayer()
+        {
             if (playerPilot != null) playerPilot.hideHead = false;
             player = views[0] != null ? views[0] : homePlayer;
-            holoMine = holos.Length > 0 ? holos[0] : homeHolo;
+            holoMine = holos.Length > 0 && holos[0] != null ? holos[0] : homeHolo;
             playerPilot = player.GetComponentInChildren<PilotHeadLook>();
             if (view != null)
             {

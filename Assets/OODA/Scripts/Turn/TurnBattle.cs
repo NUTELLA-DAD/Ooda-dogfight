@@ -56,6 +56,8 @@ namespace Ooda.Turn
         [Header("Squadron")]
         [Tooltip("Turn-view prefabs (each with a TurnAircraftView) for the extra aircraft: P-51 wingmen, Bf 109s and B-17s.")]
         public GameObject wingmanPrefab, enemyPrefab, bomberPrefab;
+        [Tooltip("The dogfight's other aircraft (the setup screen picks any type for either side): the Spitfire and the F-4 Phantom, each with a TurnAircraftView. The P-51 is wingmanPrefab, the Bf 109 enemyPrefab.")]
+        public GameObject spitfirePrefab, phantomPrefab;
         [Tooltip("Where the flak guns stand; their positions are read at the start.")]
         public Transform[] flakSites;
         public int squadronFighters = 8, squadronBombers = 3;
@@ -169,8 +171,7 @@ namespace Ooda.Turn
         void Start()
         {
             if (Ooda.UI.TitleScreen.ChosenMission is int chosen) mission = (Mission)chosen;   // picked on the title screen
-            dogOurs = Mathf.Clamp(Ooda.UI.TitleScreen.ChosenOurs, 1, Scenarios.MaxSide);
-            dogTheirs = Mathf.Clamp(Ooda.UI.TitleScreen.ChosenTheirs, 1, Scenarios.MaxSide);
+            dogSetup = Ooda.UI.DogfightSetupScreen.Chosen.Copy();   // picked on the setup screen
             BotSetUp();
             lines = new LinePool(transform, "Lines") { sizeAt = W };
             tipMat = new Material(Shader.Find("Sprites/Default")) { color = arrowColor };
@@ -264,6 +265,7 @@ namespace Ooda.Turn
             foreach (var g in spawned) if (g != null) Destroy(g);
             spawned.Clear();
             var route = HasRoute ? escortRoute.Select(Ft).ToArray() : null;
+            dogCraft = null;
             switch (Playing)
             {
                 case Mission.Squadron:
@@ -287,17 +289,22 @@ namespace Ooda.Turn
             // a view for each aircraft: the scene's player, enemy and bomber first, prefabs for the rest
             int n = battle.Count;
             views = new TurnAircraftView[n];
-            views[0] = player; views[1] = enemy;
+            // in the dogfight the scene's P-51 and Bf 109 stand in only for a P-51 of yours and a Bf 109 of theirs
+            bool scenePlayer = dogCraft == null || dogCraft[0] == Craft.Mustang || CraftPrefab(dogCraft[0]) == null;
+            bool sceneEnemy = dogCraft == null || dogCraft[1] == Craft.Bf109 || CraftPrefab(dogCraft[1]) == null;
+            player.gameObject.SetActive(scenePlayer);
+            enemy.gameObject.SetActive(sceneEnemy);
+            views[0] = scenePlayer ? player : Spawn(CraftPrefab(dogCraft[0]), 0);
+            views[1] = sceneEnemy ? enemy : Spawn(CraftPrefab(dogCraft[1]), 1);
             bool sceneBomberUsed = false;
             for (int i = 2; i < n; i++)
             {
                 if (battle.routes[i] != null && !sceneBomberUsed && bomber != null) { views[i] = bomber; sceneBomberUsed = true; continue; }
-                var prefab = battle.routes[i] != null ? bomberPrefab : battle.side[i] == 0 ? wingmanPrefab : enemyPrefab;
+                var prefab = battle.routes[i] != null ? bomberPrefab
+                           : dogCraft != null && i < dogCraft.Length && CraftPrefab(dogCraft[i]) != null ? CraftPrefab(dogCraft[i])
+                           : battle.side[i] == 0 ? wingmanPrefab : enemyPrefab;
                 if (prefab == null) continue;
-                var g = Instantiate(prefab);
-                g.name = $"{prefab.name} {i}";
-                spawned.Add(g);
-                views[i] = g.GetComponent<TurnAircraftView>();
+                views[i] = Spawn(prefab, i);
             }
             if (bomber != null) bomber.gameObject.SetActive(sceneBomberUsed);
             for (int i = 0; i < n; i++) if (views[i] != null) views[i].Bind(battle.planes[i]);
@@ -306,6 +313,18 @@ namespace Ooda.Turn
             spawnedHoloMats.Clear();
             holos = new GameObject[n];
             holos[0] = holoMine;
+            if (!scenePlayer)
+            {
+                // you fly something other than the scene's P-51: its own ghost, and the camera, the cockpit and the pilot on it
+                int before = holoMats.Count;
+                holos[0] = MakeHolo(views[0].gameObject, holoColor, "Ghost 0");
+                if (holos[0] != null) spawned.Add(holos[0]);
+                for (int k = before; k < holoMats.Count; k++) spawnedHoloMats.Add(holoMats[k]);
+                holoMats.RemoveRange(before, holoMats.Count - before);
+                AdoptPlayer();
+                if (homeHolo != null) homeHolo.SetActive(false);
+            }
+            RemakeSpreadHolos(views[1] != null ? views[1].gameObject : enemy.gameObject);
             for (int i = 1; i < n; i++)
             {
                 if (views[i] == null) continue;
@@ -343,6 +362,20 @@ namespace Ooda.Turn
             if (view != null) view.BehindPlayer();
             StrikeRestarted();
             if (Dogfighting) Notice(DogfightNotice);
+        }
+
+        /// <summary>What the WEP box is called for the plane you are in: a jet's is its afterburner.</summary>
+        string WepName => battle != null && battle.planes[0].numbers.thrustV0Kt > 1000 ? "BURNER" : "WEP";
+
+        /// <summary>The turn view for an aircraft type in the dogfight, or null if the scene has none for it (then the side's usual one stands in).</summary>
+        GameObject CraftPrefab(Craft c) => c == Craft.Spitfire ? spitfirePrefab : c == Craft.Phantom ? phantomPrefab : c == Craft.Bf109 ? enemyPrefab : wingmanPrefab;
+
+        TurnAircraftView Spawn(GameObject prefab, int i)
+        {
+            var g = Instantiate(prefab);
+            g.name = $"{prefab.name} {i}";
+            spawned.Add(g);
+            return g.GetComponent<TurnAircraftView>();
         }
 
         void BeginPlanning()
@@ -602,7 +635,7 @@ namespace Ooda.Turn
             GUI.DrawTexture(left, gauge.ThrottleTexture, ScaleMode.ScaleToFit, true);
             GUI.DrawTexture(shook, gauge.StickTexture, ScaleMode.ScaleToFit, true);
             var cap = new GUIStyle(small) { alignment = TextAnchor.UpperCenter };
-            GUI.Label(new Rect(left.x, y - 18, w, 20), gaugeWep ? $"Throttle {gaugeThrottle * 100:F0}%  WEP" : $"Throttle {gaugeThrottle * 100:F0}%", cap);
+            GUI.Label(new Rect(left.x, y - 18, w, 20), gaugeWep ? $"Throttle {gaugeThrottle * 100:F0}%  {WepName}" : $"Throttle {gaugeThrottle * 100:F0}%", cap);
             if (gaugeOver > 0) cap.normal.textColor = overpullColor;
             if (gaugeOver <= 0 && sk > 0) cap.normal.textColor = Color.Lerp(cap.normal.textColor, overpullColor, sk);
             bool steer = phase == Phase.Planning && !plan.HasMarks;
@@ -1712,7 +1745,7 @@ namespace Ooda.Turn
             float rx = px + col + 10;
             Row(rx, y, col - 10, 120, here.throttle != null, marks, $"Throttle {st.throttle * 100:F0}%", on, dim, (float)st.throttle, 0, 1,
                 v => { double t = Math.Round(v * 20) / 20; EditPoint(k => { k.throttle = t; return k; }); }, () => EditPoint(k => { k.throttle = null; return k; }));
-            bool wep = GUI.Toggle(new Rect(rx, y + 26, 120, 22), st.wep, marks && here.wep == null ? " WEP (carried)" : " WEP");
+            bool wep = GUI.Toggle(new Rect(rx, y + 26, 120, 22), st.wep, marks && here.wep == null ? $" {WepName} (carried)" : $" {WepName}");
             if (wep != st.wep) EditPoint(k => { k.wep = wep; return k; });
             if (marks && here.wep != null && GUI.Button(new Rect(rx + 124, y + 26, 22, 22), "x")) EditPoint(k => { k.wep = null; return k; });
             if (GUI.Button(new Rect(rx + 150, y + 26, col - 160, 22), "Level, 1 G here")) EditPoint(k => { k.bankDeg = 0; k.g = 1; return k; });

@@ -49,6 +49,7 @@ namespace Ooda.Flight.Core
         public double rocketBurnSec;    // seconds of rocket burn left
         public double rocketCoolSec;    // seconds until the rocket can be lit again (counts from lighting it)
         public bool brakeOut;           // the speed brake was out last step
+        public bool wepOn;              // war emergency power (a jet's afterburner) was in last step
 
         /// <summary>The rocket can be lit now.</summary>
         public bool RocketReady => rocketCoolSec <= 0 && rocketBurnSec <= 0 && numbers.rocketG > 0;
@@ -183,7 +184,8 @@ namespace Ooda.Flight.Core
             // Engine: the throttle spools toward the lever
             double lever = Math.Max(0, Math.Min(1, c.throttle));
             throttle += Math.Max(-dt * 0.8, Math.Min(dt * 0.8, lever - throttle));
-            double power = throttle * (c.wep && lever > 0.95 ? n.wepFactor : 1);
+            wepOn = c.wep && lever > 0.95;
+            double power = throttle * (wepOn ? n.wepFactor : 1);
             double side = Math.Abs(sideG);
 
             // The rocket: lit when asked and ready, it burns for its time and then needs its cool-down before the next

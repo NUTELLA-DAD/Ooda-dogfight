@@ -87,10 +87,24 @@ namespace Ooda.EditorTools
             EditorUtility.SetDirty(perf);
             ac.performance = perf;
 
-            // the model, turned and scaled so its nose is +z, its fin up, and it is Length long, centred on its bounds
+            AddModel(root.transform);
+
+            var burner = root.AddComponent<JetBurner>();
+            burner.aircraft = ac;
+            var hud = root.AddComponent<JetHud>();
+            hud.aircraft = ac;
+
+            var saved = PrefabUtility.SaveAsPrefabAsset(root, PrefabPath);
+            Object.DestroyImmediate(root);
+            return saved;
+        }
+
+        /// <summary>The model, turned and scaled so its nose is +z, its fin up, and it is Length long, centred on its bounds; and the cockpit eye.</summary>
+        static void AddModel(Transform root)
+        {
             var mesh = AssetDatabase.LoadAllAssetsAtPath(Obj).OfType<Mesh>().FirstOrDefault();
             var model = new GameObject("Model");
-            model.transform.SetParent(root.transform, false);
+            model.transform.SetParent(root, false);
             model.AddComponent<MeshFilter>().sharedMesh = mesh;
             var mr = model.AddComponent<MeshRenderer>();
             mr.sharedMaterial = TestWorldBuilder.Textured("Phantom", BaseTex, MetalTex);
@@ -100,15 +114,24 @@ namespace Ooda.EditorTools
 
             // the eye for the C camera: just above and behind the canopy, looking over the nose
             var eye = new GameObject("CockpitCamera").transform;
-            eye.SetParent(root.transform, false);
+            eye.SetParent(root, false);
             eye.localPosition = new Vector3(0, 1.4f, 1.5f);
+        }
 
-            var burner = root.AddComponent<JetBurner>();
-            burner.aircraft = ac;
-            var hud = root.AddComponent<JetHud>();
-            hud.aircraft = ac;
+        const string TurnPrefabPath = "Assets/OODA/Prefabs/PhantomTurn.prefab";
 
-            var saved = PrefabUtility.SaveAsPrefabAsset(root, PrefabPath);
+        /// <summary>
+        /// The Phantom for the turn battle's dogfight (Build Turn Battle calls this): the same model and eye, flown by a
+        /// TurnAircraftView, with its afterburner flame following the turn view (lit when its WEP is in). No pilot yet.
+        /// </summary>
+        public static GameObject MakeTurnPrefab()
+        {
+            Imports();
+            var root = new GameObject("PhantomTurn");
+            root.AddComponent<Ooda.Turn.TurnAircraftView>();
+            AddModel(root);
+            root.AddComponent<JetBurner>();   // it finds the TurnAircraftView itself
+            var saved = PrefabUtility.SaveAsPrefabAsset(root, TurnPrefabPath);
             Object.DestroyImmediate(root);
             return saved;
         }

@@ -60,13 +60,15 @@ namespace Ooda.UI
             if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-strikeshots") >= 0) { pick = 4; Play(); return; }   // the Town Strike self-test (see TurnBattle.StrikeShots)
             var args = System.Environment.GetCommandLineArgs();
             if (System.Array.IndexOf(args, "-squadshots") >= 0) { pick = 0; Play(); return; }   // the squad controls' self-test (see TurnBattle.SquadShots)
-            if (System.Array.IndexOf(args, "-dogfight") >= 0 || System.Array.IndexOf(args, "-dogfightbot") >= 0) { pick = 2; Play(); return; }   // straight into the one on one (the bot flies it, see TurnBattle.Bot)
+            if (System.Array.IndexOf(args, "-dogfight") >= 0 || System.Array.IndexOf(args, "-dogfightbot") >= 0) { pick = 2; LoadBattle(); return; }   // straight into the one on one (the bot flies it, see TurnBattle.Bot)
             if (cam == null) cam = Camera.main;
             if (terrain == null) terrain = Terrain.activeTerrain;
             cam.farClipPlane = 30000f;
             BuildPath();
             BuildFormation();
             StartShot(0);
+            int ss = System.Array.IndexOf(args, "-setupshots");   // the dogfight briefing's self-test (see DogfightSetupScreen.Shots)
+            if (ss >= 0 && ss + 1 < args.Length) StartCoroutine(setup.Shots(args[ss + 1]));
         }
 
         // ---------- the formation on rails ----------
@@ -149,18 +151,20 @@ namespace Ooda.UI
 
             var kb = Keyboard.current;
             var pad = Gamepad.current;
+            if (setup.open) { SetupKeys(setup.Keys()); return; }   // the dogfight's briefing has the keys while it is up
             if ((kb != null && (kb.leftArrowKey.wasPressedThisFrame || kb.aKey.wasPressedThisFrame)) || (pad != null && pad.dpad.left.wasPressedThisFrame)) pick = (pick + Missions.Length - 1) % Missions.Length;
             if ((kb != null && (kb.rightArrowKey.wasPressedThisFrame || kb.dKey.wasPressedThisFrame)) || (pad != null && pad.dpad.right.wasPressedThisFrame)) pick = (pick + 1) % Missions.Length;
             if (pick == 2)
             {
-                // the dogfight's sides: up and down yours, page up and down (or the bumpers) theirs
-                if ((kb != null && (kb.upArrowKey.wasPressedThisFrame || kb.wKey.wasPressedThisFrame)) || (pad != null && pad.dpad.up.wasPressedThisFrame)) ChosenOurs = Mathf.Min(4, ChosenOurs + 1);
-                if ((kb != null && (kb.downArrowKey.wasPressedThisFrame || kb.sKey.wasPressedThisFrame)) || (pad != null && pad.dpad.down.wasPressedThisFrame)) ChosenOurs = Mathf.Max(1, ChosenOurs - 1);
-                if ((kb != null && kb.pageUpKey.wasPressedThisFrame) || (pad != null && pad.rightShoulder.wasPressedThisFrame)) ChosenTheirs = Mathf.Min(4, ChosenTheirs + 1);
-                if ((kb != null && kb.pageDownKey.wasPressedThisFrame) || (pad != null && pad.leftShoulder.wasPressedThisFrame)) ChosenTheirs = Mathf.Max(1, ChosenTheirs - 1);
+                // the dogfight's sides: up and down yours, page up and down (or the bumpers) theirs (the briefing sets the rest)
+                var dog = DogfightSetupScreen.Chosen;
+                if ((kb != null && (kb.upArrowKey.wasPressedThisFrame || kb.wKey.wasPressedThisFrame)) || (pad != null && pad.dpad.up.wasPressedThisFrame)) dog.ours = DogfightSetup.Resize(dog.ours, dog.Ours + 1);
+                if ((kb != null && (kb.downArrowKey.wasPressedThisFrame || kb.sKey.wasPressedThisFrame)) || (pad != null && pad.dpad.down.wasPressedThisFrame)) dog.ours = DogfightSetup.Resize(dog.ours, dog.Ours - 1);
+                if ((kb != null && kb.pageUpKey.wasPressedThisFrame) || (pad != null && pad.rightShoulder.wasPressedThisFrame)) dog.theirs = DogfightSetup.Resize(dog.theirs, dog.Theirs + 1);
+                if ((kb != null && kb.pageDownKey.wasPressedThisFrame) || (pad != null && pad.leftShoulder.wasPressedThisFrame)) dog.theirs = DogfightSetup.Resize(dog.theirs, dog.Theirs - 1);
             }
             if ((kb != null && (kb.enterKey.wasPressedThisFrame || kb.numpadEnterKey.wasPressedThisFrame || kb.spaceKey.wasPressedThisFrame)) || (pad != null && (pad.buttonSouth.wasPressedThisFrame || pad.startButton.wasPressedThisFrame))) Play();
-            if (kb != null && kb.qKey.wasPressedThisFrame) { pick = 2; ChosenOurs = ChosenTheirs = 1; Play(); }   // Quick 1v1
+            if (kb != null && kb.qKey.wasPressedThisFrame) { pick = 2; DogfightSetupScreen.Chosen = new DogfightSetup(); LoadBattle(); }   // Quick 1v1: P-51 against a Bf 109, a random start
             if (kb != null && kb.jKey.wasPressedThisFrame) PlayJet();
         }
 
@@ -230,8 +234,25 @@ namespace Ooda.UI
 
         public void Play()
         {
+            if (pick == 2) { setup.open = true; return; }   // the dogfight opens its briefing first
+            LoadBattle();
+        }
+
+        /// <summary>Into the turn battle with the picked mission (and the dogfight's setup, DogfightSetupScreen.Chosen).</summary>
+        public void LoadBattle()
+        {
             ChosenMission = pick;
+            ChosenOurs = DogfightSetupScreen.Chosen.Ours; ChosenTheirs = DogfightSetupScreen.Chosen.Theirs;
             SceneManager.LoadScene(battleScene);
+        }
+
+        /// <summary>The dogfight's briefing, opened by Play with Dogfight picked.</summary>
+        readonly DogfightSetupScreen setup = new DogfightSetupScreen();
+
+        void SetupKeys(DogfightSetupScreen.Result r)
+        {
+            if (r == DogfightSetupScreen.Result.Back) setup.open = false;
+            else if (r == DogfightSetupScreen.Result.Fly) { DogfightSetupScreen.Save(); setup.open = false; LoadBattle(); }
         }
 
         /// <summary>The jet test, if it has been built into the game.</summary>
@@ -268,6 +289,7 @@ namespace Ooda.UI
             float fade = Mathf.Max(Mathf.InverseLerp(fadeSec, 0f, clock), Mathf.InverseLerp(shotSec - fadeSec, shotSec, clock));
             if (fade > 0) { GUI.color = new Color(1, 1, 1, fade); GUI.DrawTexture(new Rect(0, 0, sw, sh), black); GUI.color = Color.white; }
 
+            if (setup.open) { SetupKeys(setup.Draw(sw, sh)); return; }
             Shadowed(new Rect(0, sh * 0.08f, sw, 140), "OODA", title);
             Shadowed(new Rect(0, sh * 0.08f + 130, sw, 40), "Observe  ·  Orient  ·  Decide  ·  Act", sub);
             Shadowed(new Rect(0, sh * 0.08f + 168, sw, 34), "Dogfights over the Alps", note);
@@ -276,15 +298,14 @@ namespace Ooda.UI
             float x = (sw - total) / 2, y = sh - 230;
             for (int i = 0; i < Missions.Length; i++)
                 if (GUI.Button(new Rect(x + i * (bw + gap), y, bw, 48), (i == pick ? "▶ " : "") + Missions[i], i == pick ? picked : button)) pick = i;
+            var dog = DogfightSetupScreen.Chosen;
             string what = pick != 2 ? MissionNotes[pick]
-                : ChosenOurs == 1 && ChosenTheirs == 1 ? "you against a Bf 109"
-                : $"your {ChosenOurs} P-51{(ChosenOurs > 1 ? "s" : "")} against {ChosenTheirs} Bf 109{(ChosenTheirs > 1 ? "s" : "")}: you fly every one of yours";
+                : $"{dog.Ours} v {dog.Theirs}: {DogfightSetup.Describe(dog.ours)} against {DogfightSetup.Describe(dog.theirs)}. Play to set it up.";
             Shadowed(new Rect(0, y + 56, sw, 30), what, note);
-            if (pick == 2) SidePicker(sw, y - 112);
             if (Application.CanStreamedLevelBeLoaded(jetScene) && GUI.Button(new Rect(sw - 236, sh - 72, 212, 48), "Jet Test (J)", button)) PlayJet();
             if (GUI.Button(new Rect((sw - 260) / 2, y + 96, 260, 60), "Play", picked)) Play();
             Shadowed(new Rect(0, y + 162, sw, 26), pick == 2
-                ? "Enter to play  ·  ↑ ↓ your planes  ·  Page Up / Down the enemy's  ·  Q quick 1v1"
+                ? "Enter for the briefing: sides, aircraft and the start  ·  Q quick 1v1"
                 : "Enter, Space or pad A to play  ·  ← → or the d-pad to pick a mission  ·  Q quick 1v1", hint);
         }
 
