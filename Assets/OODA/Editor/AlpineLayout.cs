@@ -418,7 +418,7 @@ namespace Ooda.EditorTools
             return river;
         }
 
-        /// <summary>Cut the river's channel: its bed 3 m under the surface, the banks rising 1 m in 7 out to the ground beside it.</summary>
+        /// <summary>Cut the river's channel: its bed 3 m under the surface, the banks rising 0.6 m a metre out to the ground beside it.</summary>
         static void CarveRiver(float[,] h, bool[,] guard)
         {
             var dist = new float[Res, Res];
@@ -427,6 +427,23 @@ namespace Ooda.EditorTools
             for (int j = 0; j < Res; j++) for (int i = 0; i < Res; i++) dist[j, i] = float.MaxValue;
             riverNear = new bool[Res, Res];
             var r = River();
+            // the water sits under the ground actually there (the valley floors rise and fall a few tens of metres), 4 m under the
+            // lowest of it across the channel, and never runs uphill on its way to the sea
+            float prev = float.MaxValue;
+            for (int k = 0; k < r.Count; k++)
+            {
+                var rp = r[k];
+                Vector2 dir = (r[Mathf.Min(k + 1, r.Count - 1)].p - r[Mathf.Max(k - 1, 0)].p).normalized, across = V(dir.y, -dir.x);
+                float low = float.MaxValue;
+                for (int a = -3; a <= 3; a++)
+                {
+                    Vector2 q = rp.p + across * (a / 3f) * (rp.half + 30f);
+                    low = Mathf.Min(low, SampleArr(h, q.x, q.y));
+                }
+                rp.surface = Mathf.Min(rp.surface, low - 4f, prev);
+                prev = rp.surface;
+                r[k] = rp;
+            }
             for (int k = 0; k < r.Count; k += 2)
             {
                 var rp = r[k];
@@ -446,7 +463,7 @@ namespace Ooda.EditorTools
                     if (d == float.MaxValue) continue;
                     if (d < half[j, i] + 80f) guard[j, i] = true;
                     if (d < half[j, i] + 25f) riverNear[j, i] = true;
-                    float target = d < half[j, i] ? surf[j, i] - 3f : surf[j, i] - 3f + (d - half[j, i]) / 7f * 1.5f;
+                    float target = d < half[j, i] ? surf[j, i] - 3f : surf[j, i] - 3f + (d - half[j, i]) * 0.6f;   // banks 3 m up to the water in 5 m, then on up
                     h[j, i] = Mathf.Min(h[j, i], target);
                 }
         }

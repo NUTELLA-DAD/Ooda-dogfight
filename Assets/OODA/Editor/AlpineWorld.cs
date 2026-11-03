@@ -380,15 +380,7 @@ namespace Ooda.EditorTools
         {
             var r = River();
             var mb = new MeshBuilder(1);
-            bool Wet(int k)
-            {
-                var rp = r[k];
-                if (InLake(rp.p.x, rp.p.y) || rp.surface < 1f) return false;
-                Vector2 dir = (r[Mathf.Min(k + 1, r.Count - 1)].p - r[Mathf.Max(k - 1, 0)].p).normalized, across = V(dir.y, -dir.x);
-                float off = rp.half + 14f;
-                return SampleArr(h, rp.p.x + across.x * off, rp.p.y + across.y * off) > rp.surface + 0.3f
-                    && SampleArr(h, rp.p.x - across.x * off, rp.p.y - across.y * off) > rp.surface + 0.3f;
-            }
+            bool Wet(int k) => RiverWet(h, r, k);
             Vector3 Edge(int k, float side)
             {
                 var rp = r[k];

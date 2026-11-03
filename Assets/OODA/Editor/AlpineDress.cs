@@ -59,6 +59,18 @@ namespace Ooda.EditorTools
             return r < 0.3f ? 0 : r < 0.65f ? 1 : 2;
         }
 
+        /// <summary>Whether the river's water shows at point k: not inside a lake (its water is there already), not at the sea, and
+        /// only where both banks stand over it, so it never floats over the ground.</summary>
+        static bool RiverWet(float[,] h, List<RiverPoint> r, int k)
+        {
+            var rp = r[k];
+            if (InLake(rp.p.x, rp.p.y) || rp.surface < 1f) return false;
+            Vector2 dir = (r[Mathf.Min(k + 1, r.Count - 1)].p - r[Mathf.Max(k - 1, 0)].p).normalized, across = V(dir.y, -dir.x);
+            float off = rp.half + 14f;
+            return SampleArr(h, rp.p.x + across.x * off, rp.p.y + across.y * off) > rp.surface + 0.3f
+                && SampleArr(h, rp.p.x - across.x * off, rp.p.y - across.y * off) > rp.surface + 0.3f;
+        }
+
         static bool[,] riverNear;
         static bool RiverNear(float x, float z) => riverNear != null && riverNear[Idx(z), Idx(x)];
 

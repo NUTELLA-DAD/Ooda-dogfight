@@ -133,6 +133,9 @@ namespace Ooda.EditorTools
             Check(village.Count >= 20, $"{village.Count} chalets in the village");
             Check(farms.Count >= 40, $"{farms.Count} farmhouses");
             Check(trees.Count >= 11000, $"{trees.Count} trees ({trees.Count(t => t.kind == 0)} round, {trees.Count(t => t.kind == 1)} tall, {trees.Count(t => t.kind == 2)} pines)");
+            { var rv = River(); int wet = 0; for (int k = 0; k < rv.Count; k++) if (RiverWet(h, rv, k)) wet++;
+              int dry = rv.Count(p => !InLake(p.p.x, p.p.y) && p.surface >= 1f);
+              Check(wet > dry * 0.85, $"the river shows water along {wet * 100 / Math.Max(1, dry)} % of its course outside the lakes ({wet * 10 / 1000f:F1} km)"); }
             Check(footbridges.Count >= 3, $"{footbridges.Count} stone bridges over the river");
             Check(Peaks.Count(p => p.model == MountainModel) >= 70, $"{Peaks.Count(p => p.model == MountainModel)} mountains and {Peaks.Count(p => p.model == FoothillModel)} grass hills");
             var cover = new double[CoverLayers]; var w = new float[CoverLayers];

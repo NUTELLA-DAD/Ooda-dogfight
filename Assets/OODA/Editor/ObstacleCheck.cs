@@ -32,10 +32,10 @@ namespace Ooda.EditorTools
                     mb.GetType().GetMethod(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.Invoke(mb, null);
             var battle = (Battle)typeof(TurnBattle).GetField("battle", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(tb);
 
-            // the long stone viaduct across the main valley, the one the fight starts facing
+            // the long stone viaduct across the main valley above the village (it crosses at about z = 300)
             var mark = Object.FindObjectsByType<Transform>(FindObjectsSortMode.None)
                 .Where(t => t.name.StartsWith("Bridge ") && t.name.EndsWith(" centre"))
-                .OrderBy(t => Mathf.Abs(t.position.x)).First();
+                .OrderBy(t => Vector2.Distance(new Vector2(t.position.x, t.position.z), new Vector2(0, 300))).First();
             Vector3 deck = mark.position;   // the rail top, over the middle of the bridge
             Debug.Log($"OODA check: target {mark.parent.name}, rail top at ({deck.x:F0}, {deck.y:F0}, {deck.z:F0}).");
 
@@ -49,18 +49,19 @@ namespace Ooda.EditorTools
 
         static void Fly(Battle original, Vector3 deck, float over, string what)
         {
-            var battle = original.Clone();
+            // a fresh pair, so nothing of the scene's own fight (its G, roll or throttle) carries over: the P-51 600 m south of
+            // the bridge heading north at 300 knots, level; the Bf 109 out of the way, high to the east
+            Vec3d start = UnityFrame.Pos(new Vector3(deck.x, deck.y + over, deck.z - 600));
+            Vec3d away = UnityFrame.Pos(new Vector3(deck.x + 6000, deck.y + 2000, deck.z));
+            var battle = new Battle(new FlightModel(AircraftNumbers.P51D(), PointMass.Make(start, 300, System.Math.PI / 2)), CombatNumbers.P51D(),
+                                    new FlightModel(AircraftNumbers.Bf109G(), PointMass.Make(away, 300, 0)), CombatNumbers.Bf109G());
             battle.obstacleHit = original.obstacleHit;
             battle.groundFt = original.groundFt;
-            // 600 m south of the bridge, heading north at 300 knots, level
-            Vec3d start = UnityFrame.Pos(new Vector3(deck.x, deck.y + over, deck.z - 600));
-            battle.planes[0].state = PointMass.Make(start, 300, System.Math.PI / 2);
-            // the Spitfire out of the way, high to the east
-            battle.planes[1].state = PointMass.Make(UnityFrame.Pos(new Vector3(deck.x + 6000, deck.y + 2000, deck.z)), 300, 0);
             var r = battle.Resolve(TurnPlan.Holding(), TurnPlan.Holding(), 8, true);
             int crashFrame = System.Array.FindIndex(r.frames[0], f => f.down);
             var end = UnityFrame.Pos(battle.planes[0].state.pos);
-            Debug.Log($"OODA check: flying {what}: {(battle.crashed[0] ? $"CRASHED after {crashFrame * r.dt:F2} s" : "flew on")}, ended at ({end.x:F0}, {end.y:F0}, {end.z:F0}).");
+            Vector3 at = crashFrame >= 0 ? UnityFrame.Pos(r.frames[0][crashFrame].pos) : end;
+            Debug.Log($"OODA check: flying {what}: {(battle.crashed[0] ? $"CRASHED after {crashFrame * r.dt:F2} s at ({at.x:F0}, {at.y:F0}, {at.z:F0}), {at.z - deck.z:F0} m from the bridge's line, {at.y - deck.y:F0} m from the rail top" : "flew on")}, ended at ({end.x:F0}, {end.y:F0}, {end.z:F0}).");
         }
     }
 }
