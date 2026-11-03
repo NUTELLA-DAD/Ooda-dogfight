@@ -30,7 +30,7 @@ namespace Ooda.Look
             public Texture2D ui, noUi, noPlanes;   // noUi: HUD hidden; noPlanes: HUD and the aircraft hidden
             public bool usePlanes, useSaturation, useFootprint, useClipped;
             public float uiCoverage = float.NaN, saturation = float.NaN, clipped = float.NaN, pop = float.NaN, depthRatio = float.NaN;
-            public List<(float dist, float lum)> depth;
+            public DepthSamples depth;
         }
 
         public class Result
@@ -143,39 +143,59 @@ namespace Ooda.Look
             return new Vector3(116f * fy - 16f, 500f * (fx - fy), 200f * (fy - fz));
         }
 
-        /// <summary>Distance to what each pixel shows (a ray every 16 px), with that pixel's brightness. Sky pixels are left out.</summary>
-        public static List<(float dist, float lum)> SampleDepth(Camera cam, Texture2D t)
+        /// <summary>What a depth check reads off a shot: each ground pixel sampled (a ray every 16 px) with its distance and colour, and the sky pixels with their height on screen.</summary>
+        public class DepthSamples
         {
-            var list = new List<(float, float)>();
-            if (cam == null || t == null) return list;
+            public readonly List<(float dist, Vector3 lab)> ground = new List<(float, Vector3)>();
+            public readonly List<(int y, Vector3 lab)> sky = new List<(int, Vector3)>();
+        }
+
+        public static DepthSamples SampleDepth(Camera cam, Texture2D t)
+        {
+            var d = new DepthSamples();
+            if (cam == null || t == null) return d;
             var p = t.GetPixels32();
             for (int y = 8; y < t.height; y += 16)
                 for (int x = 8; x < t.width; x += 16)
                 {
+                    var c = Lab(p[y * t.width + x]);
                     var ray = cam.ScreenPointToRay(new Vector3(x + 0.5f, y + 0.5f, 0f));
-                    if (Physics.Raycast(ray, out var hit, 60000f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
-                        list.Add((hit.distance, Lum(p[y * t.width + x])));
+                    if (Physics.Raycast(ray, out var hit, 60000f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore)) d.ground.Add((hit.distance, c));
+                    else d.sky.Add((y, c));
                 }
-            return list;
+            return d;
         }
 
         /// <summary>
-        /// How much contrast the far ground keeps: the spread (standard deviation) of brightness in the farthest
-        /// quarter of the ground over that in the nearest quarter. Haze brings it down; 0.4 or less reads as distance.
+        /// Aerial perspective: how far the ground's colours stay from the horizon sky's. The mean colour difference
+        /// (delta E) between the farthest quarter of the ground and the sky just above the horizon, over the same for
+        /// the nearest quarter. Haze pulls far ground towards the sky colour; 0.4 or less reads as real distance.
         /// </summary>
-        public static float DepthRatio(List<(float dist, float lum)> samples)
+        public static float DepthRatio(DepthSamples d)
         {
-            if (samples == null || samples.Count < 40) return float.NaN;
-            var s = samples.OrderBy(v => v.dist).ToList();
-            int q = s.Count / 4;
-            float Sd(IEnumerable<(float dist, float lum)> part)
+            if (d == null || d.ground.Count < 40 || d.sky.Count < 10) return float.NaN;
+            var low = d.sky.OrderBy(v => v.y).Take(Math.Max(5, d.sky.Count / 4)).ToList();
+            Vector3 horizon = Vector3.zero;
+            foreach (var v in low) horizon += v.lab;
+            horizon /= low.Count;
+            var g = d.ground.OrderBy(v => v.dist).ToList();
+            int q = g.Count / 4;
+            float near = g.Take(q).Average(v => Vector3.Distance(v.lab, horizon));
+            float far = g.Skip(g.Count - q).Average(v => Vector3.Distance(v.lab, horizon));
+            return near < 1e-3f ? float.NaN : far / near;
+        }
+
+        /// <summary>Share of pixels with HSV saturation over 0.5 that aren't dark: the strong colour that reads as oversaturated.</summary>
+        public static float StrongColour(Texture2D t)
+        {
+            var p = t.GetPixels32(); int hit = 0;
+            foreach (var c in p)
             {
-                var l = part.Select(v => v.lum).ToList();
-                float m = l.Average();
-                return Mathf.Sqrt(l.Sum(v => (v - m) * (v - m)) / l.Count);
+                int mx = Math.Max(c.r, Math.Max(c.g, c.b)), mn = Math.Min(c.r, Math.Min(c.g, c.b));
+                if (mx < 77) continue;
+                if ((mx - mn) / (float)mx > 0.5f) hit++;
             }
-            float near = Sd(s.Take(q)), far = Sd(s.Skip(s.Count - q));
-            return near < 1e-4f ? float.NaN : far / near;
+            return p.Length == 0 ? 0 : (float)hit / p.Length;
         }
 
         // ---------- code checks ----------
@@ -226,7 +246,7 @@ namespace Ooda.Look
             foreach (var s in shots)
             {
                 if (s.ui != null && s.noUi != null && s.useFootprint) s.uiCoverage = UiCoverage(s.ui, s.noUi);
-                if (s.noUi != null && s.useSaturation) s.saturation = Saturation(s.noUi);
+                if (s.noUi != null && s.useSaturation) s.saturation = StrongColour(s.noUi);
                 if (s.noUi != null && s.useClipped) s.clipped = Clipped(s.noUi);
                 if (s.noUi != null && s.noPlanes != null && s.usePlanes) s.pop = Pop(s.noUi, s.noPlanes);
                 if (s.depth != null) s.depthRatio = DepthRatio(s.depth);
@@ -240,9 +260,9 @@ namespace Ooda.Look
             float foot = Mean(shots.Where(s => s.useFootprint).Select(s => s.uiCoverage));
             r.Add(new Result { name = "UI footprint", max = 6, value = Pct(foot) + " of the screen (planning shots)", target = "18% or less", points = Low(foot, 0.18f, 0.25f, 6) });
             float sat = Mean(shots.Where(s => s.useSaturation).Select(s => s.saturation));
-            r.Add(new Result { name = "Saturation ceiling", max = 5, value = Pct(sat) + " of pixels over 0.75", target = "3% or less", points = Low(sat, 0.03f, 0.08f, 5) });
+            r.Add(new Result { name = "Saturation ceiling", max = 5, value = Pct(sat) + " of pixels over 0.5", target = "12% or less", points = Low(sat, 0.12f, 0.22f, 5) });
             float depth = Mean(shots.Select(s => s.depthRatio));
-            r.Add(new Result { name = "Aerial depth", max = 5, value = Num(depth) + " far/near contrast", target = "0.40 or less", points = Low(depth, 0.40f, 0.60f, 5) });
+            r.Add(new Result { name = "Aerial depth", max = 5, value = Num(depth) + " far/near colour distance from the horizon sky", target = "0.40 or less", points = Low(depth, 0.40f, 0.60f, 5) });
             var pops = shots.Where(s => s.usePlanes && !float.IsNaN(s.pop)).Select(s => s.pop).ToList();
             float pop = pops.Count == 0 ? float.NaN : pops.Min();
             r.Add(new Result { name = "Aircraft pop", max = 6, value = Num(pop, "0.0") + " delta E (worst shot)", target = "20 or more", points = High(pop, 20f, 12f, 6) });

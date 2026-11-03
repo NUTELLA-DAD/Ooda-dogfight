@@ -21,7 +21,7 @@ namespace Ooda.Look
             public Color sunColor;
             public Color ambientSky, ambientEquator, ambientGround;
             public Color fogColor;
-            public float fogDensity;                 // exponential squared, per metre
+            public float fogDensity;                 // exponential, per metre
             public float skyThickness, skyExposure, sunSize;
             public Color skyTint, skyGround;
             public bool sunDisk;
@@ -40,11 +40,11 @@ namespace Ooda.Look
                     {
                         sunPitch = 52f, sunYaw = -20f, sunIntensity = 0.85f, shadowStrength = 0.45f,
                         sunColor = new Color(0.90f, 0.94f, 1.00f),
-                        ambientSky = new Color(0.66f, 0.70f, 0.76f), ambientEquator = new Color(0.58f, 0.60f, 0.62f), ambientGround = new Color(0.34f, 0.34f, 0.33f),
-                        fogColor = new Color(0.70f, 0.74f, 0.78f), fogDensity = 0.000085f,
+                        ambientSky = new Color(0.76f, 0.80f, 0.86f), ambientEquator = new Color(0.68f, 0.70f, 0.72f), ambientGround = new Color(0.42f, 0.42f, 0.40f),
+                        fogColor = new Color(0.70f, 0.74f, 0.78f), fogDensity = 0.00009f,
                         skyThickness = 1.7f, skyExposure = 0.95f, sunSize = 0.03f, sunDisk = false,
                         skyTint = new Color(0.58f, 0.60f, 0.63f), skyGround = new Color(0.42f, 0.42f, 0.42f),
-                        exposure = 0f, contrast = 4f, saturation = -24f, temperature = -8f, tint = 0f,
+                        exposure = 0.15f, contrast = 0f, saturation = -34f, temperature = -8f, tint = 0f,
                         shadows = new Vector4(0.96f, 0.99f, 1.06f, 0f), highlights = new Vector4(1f, 1f, 1f, 0f),
                         bloomThreshold = 1.2f, bloomIntensity = 0.15f,
                         vignette = 0.24f,
@@ -54,11 +54,11 @@ namespace Ooda.Look
                     {
                         sunPitch = 30f, sunYaw = -35f, sunIntensity = 1.55f, shadowStrength = 0.85f,
                         sunColor = new Color(1.00f, 0.92f, 0.80f),
-                        ambientSky = new Color(0.56f, 0.66f, 0.84f), ambientEquator = new Color(0.60f, 0.60f, 0.60f), ambientGround = new Color(0.30f, 0.28f, 0.25f),
-                        fogColor = new Color(0.69f, 0.78f, 0.90f), fogDensity = 0.000055f,
+                        ambientSky = new Color(0.70f, 0.78f, 0.92f), ambientEquator = new Color(0.70f, 0.70f, 0.68f), ambientGround = new Color(0.40f, 0.38f, 0.34f),
+                        fogColor = new Color(0.66f, 0.75f, 0.87f), fogDensity = 0.000065f,
                         skyThickness = 0.9f, skyExposure = 1.15f, sunSize = 0.035f, sunDisk = true,
                         skyTint = new Color(0.50f, 0.56f, 0.66f), skyGround = new Color(0.40f, 0.38f, 0.35f),
-                        exposure = 0f, contrast = 10f, saturation = -12f, temperature = 10f, tint = 2f,
+                        exposure = 0.2f, contrast = 2f, saturation = -28f, temperature = 8f, tint = 2f,
                         shadows = new Vector4(0.93f, 0.97f, 1.10f, 0f), highlights = new Vector4(1.05f, 1.01f, 0.95f, 0f),
                         bloomThreshold = 1.15f, bloomIntensity = 0.25f,
                         vignette = 0.2f,
@@ -73,6 +73,7 @@ namespace Ooda.Look
         static ShadowsMidtonesHighlights smh;
         static Bloom bloom;
         static Vignette vignette;
+        static ColorCurves curves;
         static Volume volume;
         static Material sky;
         static int appliedScene = -1;
@@ -126,9 +127,9 @@ namespace Ooda.Look
             RenderSettings.ambientEquatorColor = st.ambientEquator;
             RenderSettings.ambientGroundColor = st.ambientGround;
 
-            // haze that thickens with distance instead of a hard linear start: near is clear, far ridges go blue
+            // haze from the start, thickening with distance: about a quarter at 5 km, over half at 12 km, so far ridges go blue
             RenderSettings.fog = true;
-            RenderSettings.fogMode = FogMode.ExponentialSquared;
+            RenderSettings.fogMode = FogMode.Exponential;
             RenderSettings.fogDensity = st.fogDensity;
             RenderSettings.fogColor = st.fogColor;
 
@@ -191,6 +192,14 @@ namespace Ooda.Look
             smh = profile.Add<ShadowsMidtonesHighlights>(true);
             bloom = profile.Add<Bloom>(true);
             vignette = profile.Add<Vignette>(true);
+            // the neon grass and the yellow-green moss: take the greens and yellow-greens down harder than the rest
+            curves = profile.Add<ColorCurves>(false);
+            var greens = new TextureCurve(new[]
+            {
+                new Keyframe(0f, 0.5f), new Keyframe(0.12f, 0.5f), new Keyframe(0.2f, 0.34f), new Keyframe(0.3f, 0.28f),
+                new Keyframe(0.42f, 0.36f), new Keyframe(0.5f, 0.5f), new Keyframe(1f, 0.5f),
+            }, 0.5f, true, new Vector2(0f, 1f));
+            curves.hueVsSat.Override(greens);
             color.colorFilter.overrideState = false;
             color.hueShift.overrideState = false;
             smh.midtones.overrideState = false;

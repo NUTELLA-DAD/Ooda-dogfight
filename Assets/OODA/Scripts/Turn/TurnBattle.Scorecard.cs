@@ -161,7 +161,9 @@ namespace Ooda.Turn
             foreach (var g in holos.Concat(new[] { holoMine, holoTheirs }))
                 if (g != null && g.activeSelf) { g.SetActive(false); off.Add(g); }
             Vector3 from = new Vector3(0f, 1700f, -12000f), to = new Vector3(0f, 1100f, 6000f);
-            if (HasRoute) { from = escortRoute[0] + new Vector3(0f, 450f, -5500f); to = escortRoute[escortRoute.Length - 1]; }
+            if (HasRoute) { from = escortRoute[0] + new Vector3(0f, 0f, -5500f); to = escortRoute[escortRoute.Length - 1]; }
+            if (terrain != null) from.y = terrain.SampleHeight(from) + terrain.transform.position.y + 1200f;   // well above the basin floor, wherever it is
+            to.y = Mathf.Min(to.y, from.y - 300f);   // looking a little down the pass
             cam.transform.SetPositionAndRotation(from, Quaternion.LookRotation(to - from));
             cam.fieldOfView = 60f;
             yield return null;
