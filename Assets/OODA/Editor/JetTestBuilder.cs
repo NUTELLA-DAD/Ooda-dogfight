@@ -129,7 +129,7 @@ namespace Ooda.EditorTools
             Imports();
             var root = new GameObject("PhantomTurn");
             root.AddComponent<Ooda.Turn.TurnAircraftView>();
-            AddModel(root);
+            AddModel(root.transform);
             root.AddComponent<JetBurner>();   // it finds the TurnAircraftView itself
             var saved = PrefabUtility.SaveAsPrefabAsset(root, TurnPrefabPath);
             Object.DestroyImmediate(root);
