@@ -233,8 +233,8 @@ namespace Ooda.UI
             Box("TowerCab", new Vector3(4f, 13.8f, 98f), new Vector3(7.5f, 3.6f, 7.5f), glass);
             Box("TowerRoof", new Vector3(4f, 15.85f, 98f), new Vector3(8.5f, 0.5f, 8.5f), dark);
             Box("TowerHut", new Vector3(12f, 2f, 98f), new Vector3(12f, 4f, 7f), white);
-            Box("FlagPole", new Vector3(-3f, 9f, 97f), new Vector3(0.18f, 18f, 0.18f), strut);
-            var flag = Quad("Flag", new Vector3(-1.25f, 16.9f, 97f), Quaternion.identity, new Vector2(3.4f, 1.7f), Textured(Flag()));
+            Box("FlagPole", new Vector3(-9f, 5.5f, 97f), new Vector3(0.18f, 11f, 0.18f), strut);   // low enough to fly under the VS badge
+            var flag = Quad("Flag", new Vector3(-7.25f, 10.1f, 97f), Quaternion.identity, new Vector2(3.4f, 1.7f), Textured(Flag()));
             flag.transform.Rotate(0, 20f, 0);
             // a few crates and drums along the hangar fronts
             var r = new System.Random(7);
