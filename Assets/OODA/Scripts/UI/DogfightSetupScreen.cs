@@ -47,7 +47,7 @@ namespace Ooda.UI
 
         public bool open;
 
-        static readonly Craft[] Types = { Craft.Mustang, Craft.Spitfire, Craft.Bf109, Craft.Phantom };
+        static readonly Craft[] Types = { Craft.Mustang, Craft.P38, Craft.Spitfire, Craft.Bf109, Craft.Phantom };
         static readonly Color Blue = new Color(0.4f, 0.75f, 1f), Red = new Color(1f, 0.4f, 0.35f);
 
         GUIStyle heading, head, label, dim, button, picked, small, smallPicked, bigFly;
@@ -187,13 +187,13 @@ namespace Ooda.UI
             }
             y = r.y + 40 + 54 + Scenarios.MaxSide * 44 + 6;
             GUI.Label(new Rect(r.x, y, 70, 36), "All", dim);
-            float bw = (r.width - 70 - 3 * 6) / 4;
+            float bw = (r.width - 70 - (Types.Length - 1) * 6) / Types.Length;
             for (int j = 0; j < Types.Length; j++)
             {
                 var kind = Types[j];
                 bool all = true;
                 foreach (var c in side) if (c != kind) all = false;
-                if (GUI.Button(new Rect(r.x + 70 + j * (bw + 6), y, bw, 36), DogfightSetup.Short(Types[j]), all ? smallPicked : small))
+                if (GUI.Button(new Rect(r.x + 70 + j * (bw + 6), y, bw, 36), Types[j] == Craft.Spitfire ? "Spit" : DogfightSetup.Short(Types[j]), all ? smallPicked : small))   // five across: "Spitfire" won't fit
                     for (int i = 0; i < side.Length; i++) side[i] = Types[j];
             }
         }

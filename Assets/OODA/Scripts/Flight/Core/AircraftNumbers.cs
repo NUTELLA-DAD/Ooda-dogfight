@@ -162,6 +162,28 @@ namespace Ooda.Flight.Core
         };
 
         /// <summary>
+        /// The P-38L Lightning, clean, about 17,500 lb. Seeded from public figures (327.5 sq ft wing, aspect ratio 8.26,
+        /// Cd0 about 0.025, Oswald e about 0.8, two Allison V-1710s at 1,425 hp military and about 1,600 hp WEP each,
+        /// turbo-supercharged so the power holds to about 25,000 ft, prop efficiency about 0.85, about 414 mph at
+        /// 25,000 ft, stall about 105 mph, a low dive limit from compressibility, boosted ailerons but a big heavy
+        /// airframe so a slower roll and G onset). Estimates to tune. A little slower than the Mustang low down and
+        /// faster high up; it climbs well, turns wide and rolls slowly; the counter-rotating propellers make it docile
+        /// in a stall.
+        /// </summary>
+        public static AircraftNumbers P38L() => new AircraftNumbers
+        {
+            name = "P-38L Lightning",
+            maxG = 7, minG = -3.5, stallKias = 95, negStallKias = 120, vneKias = 375,
+            rollPerKtasDps = 0.36, maxRollRateDps = 75, rollFullRateSec = 0.4,
+            gOnsetGps = 5, gOnsetAccelGps2 = 20,
+            rudderSideG = 0.3,
+            thrustK = 92.9, thrustV0Kt = 40, thrustDensityExp = 0.9, thrustFlatSigma = 0.448,
+            maxStaticThrustPerWeight = 0.4, wepFactor = 1.12, dragA = 1.584e-6, dragB = 760.2,
+            alphaStallDeg = 16,
+            departureSec = 1.0, spinRateDps = 120,
+        };
+
+        /// <summary>
         /// The B-17G Flying Fortress at a combat weight of about 55,000 lb. Seeded from public figures (1,420 sq ft
         /// wing, aspect ratio 7.6, Cd0 about 0.026 with the turrets, Oswald e about 0.75, four Wright R-1820s at
         /// 1,200 hp each, turbo-supercharged so the power holds to about 25,000 ft, prop efficiency about 0.8, stall

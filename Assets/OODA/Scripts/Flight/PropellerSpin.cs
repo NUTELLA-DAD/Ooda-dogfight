@@ -9,6 +9,8 @@ namespace Ooda.Flight
         public AircraftController aircraft;
         public float idleRpm = 400;
         public float maxRpm = 1400; // the Merlin's 3,000 rpm through the 0.479 reduction gear
+        [Tooltip("Turn the other way (the P-38's left propeller: its two turn outward at the top).")]
+        public bool reverse;
 
         IFlightView source;
 
@@ -21,7 +23,7 @@ namespace Ooda.Flight
         {
             if (propeller == null || source == null || source.Model == null) return;
             float rpm = source.Crashed ? 0 : Mathf.Lerp(idleRpm, maxRpm, (float)source.Model.throttle);
-            propeller.Rotate(source.transform.forward, rpm * 6f * Time.deltaTime, Space.World);
+            propeller.Rotate(source.transform.forward, (reverse ? -rpm : rpm) * 6f * Time.deltaTime, Space.World);
         }
     }
 }
