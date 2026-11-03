@@ -127,7 +127,7 @@ namespace Ooda.EditorTools
             anim.cullingMode = AnimatorCullingMode.AlwaysAnimate;
             pilot.AddComponent<PilotHeadLook>();
             TestWorldBuilder.AddPilotControls(pilot);
-            PilotCast.AddRoster(root, pilot, usual);   // the other three too, hidden
+            PilotCast.AddRoster(root, pilot, usual);   // the other pilots too, hidden
 
             var saved = PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
             Object.DestroyImmediate(root);

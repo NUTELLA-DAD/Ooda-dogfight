@@ -12,24 +12,24 @@ namespace Ooda.Pilot
     public class PilotRoster : MonoBehaviour
     {
         public PilotKind usual = PilotKind.Wolf;
-        public GameObject tiger, wolf, wizard, skeleton;
+        public GameObject tiger, wolf, wizard, skeleton, bear;
 
         public GameObject For(PilotKind k)
         {
             var g = Slot(k == PilotKind.Usual ? usual : k);
             if (g == null) g = Slot(usual);                       // a pilot this plane lacks: its usual one
-            if (g == null) foreach (var any in new[] { tiger, wolf, wizard, skeleton }) if (any != null) return any;
+            if (g == null) foreach (var any in new[] { tiger, wolf, wizard, skeleton, bear }) if (any != null) return any;
             return g;
         }
 
         GameObject Slot(PilotKind k) =>
-            k == PilotKind.Tiger ? tiger : k == PilotKind.Wolf ? wolf : k == PilotKind.Wizard ? wizard : k == PilotKind.Skeleton ? skeleton : null;
+            k == PilotKind.Tiger ? tiger : k == PilotKind.Wolf ? wolf : k == PilotKind.Wizard ? wizard : k == PilotKind.Skeleton ? skeleton : k == PilotKind.Bear ? bear : null;
 
         /// <summary>Show pilot k (Usual: the type's own) and hide the rest.</summary>
         public void Use(PilotKind k)
         {
             var on = For(k);
-            foreach (var g in new[] { tiger, wolf, wizard, skeleton })
+            foreach (var g in new[] { tiger, wolf, wizard, skeleton, bear })
                 if (g != null) g.SetActive(g == on);
         }
     }

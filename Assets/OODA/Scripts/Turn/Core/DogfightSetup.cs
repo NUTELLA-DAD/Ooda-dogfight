@@ -9,7 +9,7 @@ namespace Ooda.Turn.Core
 
     /// <summary>Who sits in a plane: Usual is the type's own pilot (the tiger in the P-51 and the P-38, the wolf in the Spitfire
     /// and the Bf 109, both in the F-4, which keeps its crew whatever is picked).</summary>
-    public enum PilotKind { Usual, Tiger, Wolf, Wizard, Skeleton }
+    public enum PilotKind { Usual, Tiger, Wolf, Wizard, Skeleton, Bear }
 
     /// <summary>
     /// How a dogfight is set up before it begins, as the setup screen picks it: the aircraft on each side, one entry
@@ -89,7 +89,7 @@ namespace Ooda.Turn.Core
         }
 
         public static string Name(PilotKind p) => p == PilotKind.Tiger ? "Tiger" : p == PilotKind.Wolf ? "Wolf" : p == PilotKind.Wizard ? "Wizard"
-                                                 : p == PilotKind.Skeleton ? "Skeleton" : "Usual";
+                                                 : p == PilotKind.Skeleton ? "Skeleton" : p == PilotKind.Bear ? "Bear" : "Usual";
 
         /// <summary>A copy with a random start fixed (so every machine flies the same one); the others are copied unchanged.</summary>
         public DogfightSetup Resolved(Random dice)
