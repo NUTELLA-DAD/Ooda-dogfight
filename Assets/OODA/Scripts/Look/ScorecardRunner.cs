@@ -24,7 +24,7 @@ namespace Ooda.Look
             string dir = null;
             var args = Environment.GetCommandLineArgs();
             int at = Array.IndexOf(args, "-scorecard");
-            if (at >= 0) dir = at + 1 < args.Length ? args[at + 1] : Path.Combine(Path.GetDirectoryName(Application.dataPath), "Scorecard~", DateTime.Now.ToString("yyyyMMdd-HHmm"));
+            if (at >= 0) dir = at + 1 < args.Length ? args[at + 1] : Path.Combine(Path.GetDirectoryName(Application.dataPath), "Scorecard~", DateTime.Now.ToString("yyyyMMdd-HHmmss"));
             if (dir == null && PlayerPrefs.HasKey(Scorecard.RequestKey))
             {
                 dir = PlayerPrefs.GetString(Scorecard.RequestKey);

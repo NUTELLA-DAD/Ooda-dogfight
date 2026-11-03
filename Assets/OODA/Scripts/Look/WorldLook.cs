@@ -81,9 +81,14 @@ namespace Ooda.Look
         /// <summary>The mood last applied.</summary>
         public static Mood Current { get; private set; }
 
+        /// <summary>Leave the scenes' own light alone this session (the scorecard's baseline run, to score the old look).</summary>
+        public static bool OldLight { get; private set; }
+        public const string OldLightKey = "OODA.ScorecardOldLight";
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Boot()
         {
+            if (PlayerPrefs.HasKey(OldLightKey)) { OldLight = true; PlayerPrefs.DeleteKey(OldLightKey); PlayerPrefs.Save(); }
             if (!hooked) { SceneManager.sceneLoaded += (s, m) => DefaultFor(s); hooked = true; }
             DefaultFor(SceneManager.GetActiveScene());
         }
@@ -97,6 +102,7 @@ namespace Ooda.Look
         /// <summary>Light the active scene in this mood.</summary>
         public static void Apply(Mood mood)
         {
+            if (OldLight) return;
             var st = For(mood);
             Current = mood;
             appliedScene = SceneManager.GetActiveScene().handle;

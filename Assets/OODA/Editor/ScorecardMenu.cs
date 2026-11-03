@@ -20,11 +20,18 @@ namespace Ooda.EditorTools
         static string Root => Path.Combine(Path.GetDirectoryName(Application.dataPath), "Scorecard~");
 
         [MenuItem("OODA/Scorecard/Run (golden shots and score)")]
-        public static void Run()
+        public static void Run() => Start(false);
+
+        /// <summary>The same run with WorldLook switched off, to score the scenes' old light as a baseline.</summary>
+        [MenuItem("OODA/Scorecard/Run with the old light (baseline)")]
+        public static void RunOldLight() => Start(true);
+
+        static void Start(bool oldLight)
         {
             if (EditorApplication.isPlaying) { Debug.LogWarning("OODA scorecard: stop Play first."); return; }
+            if (oldLight) PlayerPrefs.SetInt(WorldLook.OldLightKey, 1); else PlayerPrefs.DeleteKey(WorldLook.OldLightKey);
             if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
-            string dir = Path.Combine(Root, DateTime.Now.ToString("yyyyMMdd-HHmm"));
+            string dir = Path.Combine(Root, DateTime.Now.ToString("yyyyMMdd-HHmmss"));
             PlayerPrefs.SetString(Scorecard.RequestKey, dir);
             PlayerPrefs.Save();
             if (File.Exists(TitleScene)) EditorSceneManager.OpenScene(TitleScene);

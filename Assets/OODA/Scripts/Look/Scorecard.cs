@@ -273,7 +273,7 @@ namespace Ooda.Look
             var json = new StringBuilder();
             json.Append("{\"run\":\"").Append(Esc(run)).Append("\",\"prev\":").Append(prev == null ? "null" : "\"" + Esc(prev) + "\"");
             json.Append(",\"resolution\":\"").Append(shots.Count > 0 && shots[0].ui != null ? $"{shots[0].ui.width}x{shots[0].ui.height}" : "").Append('"');
-            json.Append(",\"mood\":\"").Append(WorldLook.Current).Append('"');
+            json.Append(",\"mood\":\"").Append(WorldLook.OldLight ? "old light" : WorldLook.Current.ToString()).Append('"');
             json.Append(",\"autoPoints\":").Append(auto.ToString("0.0", ci)).Append(",\"autoMax\":37");
             json.Append(",\"checks\":[");
             json.Append(string.Join(",", results.Select(x =>
