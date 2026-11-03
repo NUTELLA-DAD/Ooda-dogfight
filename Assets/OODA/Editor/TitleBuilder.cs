@@ -16,6 +16,9 @@ namespace Ooda.EditorTools
     /// </summary>
     public static class TitleBuilder
     {
+        /// <summary>The turn battle's prefab for each dogfight type (Prefabs/name.prefab): a new type's prefab is named after it.</summary>
+        static string CraftPrefab(Ooda.Turn.Core.Craft c) => c == Ooda.Turn.Core.Craft.Mustang ? "P51Turn" : c == Ooda.Turn.Core.Craft.Phantom ? "PhantomTurn" : c.ToString();
+
         const string ScenePath = "Assets/OODA/Scenes/Title.unity";
         const string BattlePath = "Assets/OODA/Scenes/TurnBattle.unity";
 
@@ -34,6 +37,10 @@ namespace Ooda.EditorTools
             var ts = new GameObject("TitleScreen").AddComponent<TitleScreen>();
             ts.fighterPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/OODA/Prefabs/P51Turn.prefab");
             ts.bomberPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/OODA/Prefabs/B17.prefab");
+            // the squadron briefing parks the dogfight's planes by type: the turn battle's prefabs, any type without one left empty
+            var types = (Ooda.Turn.Core.Craft[])System.Enum.GetValues(typeof(Ooda.Turn.Core.Craft));
+            ts.craftPrefabs = types.Select(c => AssetDatabase.LoadAssetAtPath<GameObject>("Assets/OODA/Prefabs/" + CraftPrefab(c) + ".prefab")).ToArray();
+            foreach (var c in types) if (ts.craftPrefabs[(int)c] == null) Debug.LogWarning($"OODA: no prefab for the {c} on the briefing (run Build Turn Battle).");
             ts.route = (Vector3[])AlpineWorld.EscortRoute.Clone();
             ts.cam = cam;
             ts.terrain = Object.FindFirstObjectByType<Terrain>();

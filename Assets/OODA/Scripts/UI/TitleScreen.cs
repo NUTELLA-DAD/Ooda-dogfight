@@ -24,6 +24,8 @@ namespace Ooda.UI
         public static int ChosenOurs = 1, ChosenTheirs = 1;
 
         public GameObject fighterPrefab, bomberPrefab;
+        [Tooltip("The dogfight's turn prefabs by Craft (P-51, Spitfire, Bf 109, F-4, ...), parked on the squadron briefing's apron.")]
+        public GameObject[] craftPrefabs;
         [Tooltip("The route the formation flies (metres, x east, y height, z north): the escort route up the valley.")]
         public Vector3[] route;
         public Camera cam;
@@ -62,6 +64,7 @@ namespace Ooda.UI
             if (System.Array.IndexOf(args, "-squadshots") >= 0) { pick = 0; Play(); return; }   // the squad controls' self-test (see TurnBattle.SquadShots)
             if (System.Array.IndexOf(args, "-dogfight") >= 0 || System.Array.IndexOf(args, "-dogfightbot") >= 0) { pick = 2; LoadBattle(); return; }   // straight into the one on one (the bot flies it, see TurnBattle.Bot)
             if (cam == null) cam = Camera.main;
+            setup.stage.craftPrefabs = craftPrefabs != null && craftPrefabs.Length > 0 ? craftPrefabs : new[] { fighterPrefab };
             if (terrain == null) terrain = Terrain.activeTerrain;
             cam.farClipPlane = 30000f;
             BuildPath();
@@ -147,8 +150,9 @@ namespace Ooda.UI
             }
 
             clock += Time.deltaTime;
-            if (clock > shotSec) StartShot(shot + 1);
-            PlaceCamera(p, flat, r);
+            if (clock > shotSec && !setup.open) StartShot(shot + 1);
+            setup.Tick(cam, Time.deltaTime);   // the briefing's airfield: built while it is open, and it holds the camera then
+            if (!setup.open) PlaceCamera(p, flat, r);
 
             if (LobbyUpdate()) return;   // the online panel is open: it takes the keys
             var kb = Keyboard.current;
@@ -291,7 +295,7 @@ namespace Ooda.UI
             float sw = Screen.width, sh = Screen.height;
             // a dip to black between the shots
             float fade = Mathf.Max(Mathf.InverseLerp(fadeSec, 0f, clock), Mathf.InverseLerp(shotSec - fadeSec, shotSec, clock));
-            if (fade > 0) { GUI.color = new Color(1, 1, 1, fade); GUI.DrawTexture(new Rect(0, 0, sw, sh), black); GUI.color = Color.white; }
+            if (fade > 0 && !setup.open) { GUI.color = new Color(1, 1, 1, fade); GUI.DrawTexture(new Rect(0, 0, sw, sh), black); GUI.color = Color.white; }
 
             if (setup.open) { SetupKeys(setup.Draw(sw, sh)); return; }
             Shadowed(new Rect(0, sh * 0.08f, sw, 140), "OODA", title);
