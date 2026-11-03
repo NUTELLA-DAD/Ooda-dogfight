@@ -7,6 +7,10 @@ namespace Ooda.Turn.Core
     /// <summary>The aircraft a dogfight can be flown in.</summary>
     public enum Craft { Mustang, Spitfire, Bf109, Phantom }
 
+    /// <summary>Who sits in a plane: Usual is the type's own pilot (the tiger in the P-51, the wolf in the Spitfire and the
+    /// Bf 109, both in the F-4, which keeps its crew whatever is picked).</summary>
+    public enum PilotKind { Usual, Tiger, Wolf, Wizard, Skeleton }
+
     /// <summary>
     /// How a dogfight is set up before it begins, as the setup screen picks it: the aircraft on each side, one entry
     /// per plane (1 to Scenarios.MaxSide each), how the two sides start (or at random), and how far apart, how high
@@ -26,6 +30,10 @@ namespace Ooda.Turn.Core
         public Craft[] ours = { Craft.Mustang };
         /// <summary>The other side's, their lead first.</summary>
         public Craft[] theirs = { Craft.Bf109 };
+        /// <summary>Who flies each of your planes, in the same order as ours (FitPilots keeps the lengths together).</summary>
+        public PilotKind[] oursPilots = { PilotKind.Usual };
+        /// <summary>Who flies each of theirs.</summary>
+        public PilotKind[] theirsPilots = { PilotKind.Usual };
         /// <summary>Pick the start at random when the fight begins (each restart a new one); else start.</summary>
         public bool randomStart = true;
         public Scenarios.Start start = Scenarios.Start.HeadOn;
@@ -43,6 +51,9 @@ namespace Ooda.Turn.Core
             var c = (DogfightSetup)MemberwiseClone();
             c.ours = (Craft[])ours.Clone();
             c.theirs = (Craft[])theirs.Clone();
+            c.oursPilots = (PilotKind[])(oursPilots ?? new PilotKind[0]).Clone();
+            c.theirsPilots = (PilotKind[])(theirsPilots ?? new PilotKind[0]).Clone();
+            c.FitPilots();
             return c;
         }
 
@@ -54,6 +65,31 @@ namespace Ooda.Turn.Core
             for (int k = 0; k < count; k++) c[k] = side.Length == 0 ? Craft.Mustang : side[Math.Min(k, side.Length - 1)];
             return c;
         }
+
+        /// <summary>The pilot lists the same length as the aircraft lists: planes added get the usual pilot, planes past the end go.</summary>
+        public void FitPilots()
+        {
+            oursPilots = FitPilots(oursPilots, ours.Length);
+            theirsPilots = FitPilots(theirsPilots, theirs.Length);
+        }
+
+        static PilotKind[] FitPilots(PilotKind[] side, int count)
+        {
+            if (side != null && side.Length == count) return side;
+            var p = new PilotKind[count];
+            for (int k = 0; k < count && side != null && k < side.Length; k++) p[k] = side[k];
+            return p;
+        }
+
+        /// <summary>Who flies plane k of a side (ours or theirs): Usual when not picked.</summary>
+        public PilotKind PilotOf(bool ourSide, int k)
+        {
+            var side = ourSide ? oursPilots : theirsPilots;
+            return side != null && k >= 0 && k < side.Length ? side[k] : PilotKind.Usual;
+        }
+
+        public static string Name(PilotKind p) => p == PilotKind.Tiger ? "Tiger" : p == PilotKind.Wolf ? "Wolf" : p == PilotKind.Wizard ? "Wizard"
+                                                 : p == PilotKind.Skeleton ? "Skeleton" : "Usual";
 
         /// <summary>A copy with a random start fixed (so every machine flies the same one); the others are copied unchanged.</summary>
         public DogfightSetup Resolved(Random dice)
@@ -112,7 +148,8 @@ namespace Ooda.Turn.Core
 
         // ---------- over the wire ----------
 
-        const byte Version = 1;
+        // 2 added the pilots; a version 1 setup (kept from an older build) still reads, everyone with the usual pilot
+        const byte Version = 2;
 
         public byte[] ToBytes()
         {
@@ -123,6 +160,8 @@ namespace Ooda.Turn.Core
                 w.Write((byte)ours.Length); foreach (var c in ours) w.Write((byte)c);
                 w.Write((byte)theirs.Length); foreach (var c in theirs) w.Write((byte)c);
                 w.Write(randomStart); w.Write((byte)start); w.Write((byte)range); w.Write((byte)height); w.Write((byte)speed); w.Write(easyAimOurs);
+                for (int k = 0; k < ours.Length; k++) w.Write((byte)PilotOf(true, k));
+                for (int k = 0; k < theirs.Length; k++) w.Write((byte)PilotOf(false, k));
                 w.Flush();
                 return ms.ToArray();
             }
@@ -132,7 +171,8 @@ namespace Ooda.Turn.Core
         {
             using (var r = new BinaryReader(new MemoryStream(bytes)))
             {
-                if (r.ReadByte() != Version) throw new InvalidDataException("A dogfight setup from another version of the game.");
+                byte version = r.ReadByte();
+                if (version != Version && version != 1) throw new InvalidDataException("A dogfight setup from another version of the game.");
                 var s = new DogfightSetup();
                 s.ours = new Craft[r.ReadByte()]; for (int k = 0; k < s.ours.Length; k++) s.ours[k] = (Craft)r.ReadByte();
                 s.theirs = new Craft[r.ReadByte()]; for (int k = 0; k < s.theirs.Length; k++) s.theirs[k] = (Craft)r.ReadByte();
@@ -140,6 +180,13 @@ namespace Ooda.Turn.Core
                 s.height = (Height)r.ReadByte(); s.speed = (Pace)r.ReadByte(); s.easyAimOurs = r.ReadBoolean();
                 if (s.ours.Length < 1 || s.ours.Length > Scenarios.MaxSide || s.theirs.Length < 1 || s.theirs.Length > Scenarios.MaxSide)
                     throw new InvalidDataException("A dogfight setup with too many or too few planes.");
+                s.oursPilots = new PilotKind[s.ours.Length];
+                s.theirsPilots = new PilotKind[s.theirs.Length];
+                if (version >= 2)
+                {
+                    for (int k = 0; k < s.ours.Length; k++) s.oursPilots[k] = (PilotKind)r.ReadByte();
+                    for (int k = 0; k < s.theirs.Length; k++) s.theirsPilots[k] = (PilotKind)r.ReadByte();
+                }
                 return s;
             }
         }

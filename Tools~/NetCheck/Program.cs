@@ -233,11 +233,21 @@ static class Program
             {
                 ours = new[] { Craft.Spitfire, Craft.Phantom, Craft.Mustang }, theirs = new[] { Craft.Bf109, Craft.Mustang },
                 randomStart = true, range = DogfightSetup.Range.Far, height = DogfightSetup.Height.High, speed = DogfightSetup.Pace.Fast, easyAimOurs = false,
+                oursPilots = new[] { PilotKind.Wizard, PilotKind.Usual, PilotKind.Skeleton }, theirsPilots = new[] { PilotKind.Skeleton, PilotKind.Tiger },
             };
             var fixedOne = setup.Resolved(new Random(5));
             var back = DogfightSetup.FromBytes(fixedOne.ToBytes());
             Check(!fixedOne.randomStart && back.ToBytes().SequenceEqual(fixedOne.ToBytes()) && back.ours.SequenceEqual(setup.ours) && back.theirs.SequenceEqual(setup.theirs),
                   $"a setup survives the trip to bytes ({fixedOne.ToBytes().Length} bytes), its random start fixed ({fixedOne.start})");
+            Check(back.oursPilots.SequenceEqual(setup.oursPilots) && back.theirsPilots.SequenceEqual(setup.theirsPilots),
+                  $"the pilots survive it too ({string.Join(", ", back.oursPilots)} against {string.Join(", ", back.theirsPilots)})");
+            var resized = setup.Copy(); resized.ours = DogfightSetup.Resize(resized.ours, 4); resized.theirs = DogfightSetup.Resize(resized.theirs, 1); resized.FitPilots();
+            Check(resized.oursPilots.Length == 4 && resized.oursPilots[3] == PilotKind.Usual && resized.oursPilots[0] == PilotKind.Wizard && resized.theirsPilots.Length == 1,
+                  "resizing a side keeps its pilots and gives new planes the usual one");
+            var v1 = fixedOne.ToBytes().Take(1 + 1 + 3 + 1 + 2 + 6).ToArray(); v1[0] = 1;
+            var old = DogfightSetup.FromBytes(v1);
+            Check(old.oursPilots.Length == 3 && old.oursPilots.All(x => x == PilotKind.Usual) && old.theirs.SequenceEqual(setup.theirs),
+                  "a setup saved by the build before the pilots still reads, everyone with the usual pilot");
             var centre = new Vec3d(0, -26000, 0);
             var a = Scenarios.Dogfight(fixedOne, centre, 3600, 300, 3000);
             var b = Scenarios.Dogfight(back, centre, 3600, 300, 3000);

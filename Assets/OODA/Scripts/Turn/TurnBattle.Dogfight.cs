@@ -86,6 +86,10 @@ namespace Ooda.Turn
             dogCraft[0] = s.ours[0]; dogCraft[1] = s.theirs[0];
             for (int k = 1; k < s.Ours; k++) dogCraft[1 + k] = s.ours[k];
             for (int k = 1; k < s.Theirs; k++) dogCraft[s.Ours + k] = s.theirs[k];
+            dogPilots = new PilotKind[dogCraft.Length];                // the same order
+            dogPilots[0] = s.PilotOf(true, 0); dogPilots[1] = s.PilotOf(false, 0);
+            for (int k = 1; k < s.Ours; k++) dogPilots[1 + k] = s.PilotOf(true, k);
+            for (int k = 1; k < s.Theirs; k++) dogPilots[s.Ours + k] = s.PilotOf(false, k);
             return Scenarios.Dogfight(s, UnityFrame.Pos(startCentre), startAltFt, startKias, startGapM);
         }
 
@@ -93,6 +97,8 @@ namespace Ooda.Turn
         DogfightSetup dogSetup = new DogfightSetup();
         /// <summary>The aircraft each plane flies, by its index when the fight began (null outside the dogfight).</summary>
         Craft[] dogCraft;
+        /// <summary>Who flies each plane, in the same order (null outside the dogfight: everyone's usual pilot).</summary>
+        PilotKind[] dogPilots;
         int dogOurs => dogSetup.Ours;
         int dogTheirs => dogSetup.Theirs;
 
@@ -449,7 +455,14 @@ namespace Ooda.Turn
             // -dogfightcraft Mustang,Spitfire Bf109,Phantom: the aircraft on each side (and so how many)
             s = Array.IndexOf(args, "-dogfightcraft");
             if (s >= 0 && s + 2 < args.Length && ParseSide(args[s + 1], out var mine) && ParseSide(args[s + 2], out var theirs)) { dogSetup.ours = mine; dogSetup.theirs = theirs; }
+            // -dogfightpilots Wizard,Usual Skeleton: who flies each plane of each side (missing ones fly with their usual pilot)
+            s = Array.IndexOf(args, "-dogfightpilots");
+            if (s >= 0 && s + 2 < args.Length) { dogSetup.oursPilots = ParsePilots(args[s + 1]); dogSetup.theirsPilots = ParsePilots(args[s + 2]); }
+            dogSetup.FitPilots();
         }
+
+        static PilotKind[] ParsePilots(string list) =>
+            list.Split(',').Select(x => Enum.TryParse(x.Trim(), true, out PilotKind p) ? p : PilotKind.Usual).ToArray();
 
         static bool ParseSide(string list, out Craft[] side)
         {

@@ -267,6 +267,7 @@ namespace Ooda.Turn
             spawned.Clear();
             var route = HasRoute ? escortRoute.Select(Ft).ToArray() : null;
             dogCraft = null;
+            dogPilots = null;
             switch (Playing)
             {
                 case Mission.Squadron:
@@ -309,6 +310,18 @@ namespace Ooda.Turn
                 views[i] = Spawn(prefab, i);
             }
             if (bomber != null) bomber.gameObject.SetActive(sceneBomberUsed);
+            // who flies each plane (the briefing's picks in the dogfight, else each type's usual pilot), before anything looks the pilot up
+            for (int i = 0; i < n; i++)
+            {
+                if (views[i] == null) continue;
+                var roster = views[i].GetComponent<PilotRoster>();
+                if (roster != null) roster.Use(dogPilots != null && i < dogPilots.Length ? dogPilots[i] : PilotKind.Usual);
+            }
+            if (scenePlayer && player != null)
+            {
+                if (playerPilot != null) playerPilot.hideHead = false;
+                playerPilot = player.GetComponentInChildren<PilotHeadLook>();
+            }
             for (int i = 0; i < n; i++) if (views[i] != null) views[i].Bind(battle.planes[i]);
             // the same holographic ghost as the player's for everyone: green ours, red theirs
             foreach (var m in spawnedHoloMats) Destroy(m);

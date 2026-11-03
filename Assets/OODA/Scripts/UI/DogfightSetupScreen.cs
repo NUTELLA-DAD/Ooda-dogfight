@@ -101,8 +101,10 @@ namespace Ooda.UI
 
             // the two flights either side, the map between them
             float colW = 380, top = py + 80;
-            Side(new Rect(px + 20, top, colW, 330), "YOUR FLIGHT", Blue, ref s.ours, true);
-            Side(new Rect(px + pw - 20 - colW, top, colW, 330), "ENEMY FLIGHT", Red, ref s.theirs, false);
+            s.FitPilots();
+            Side(new Rect(px + 20, top, colW, 330), "YOUR FLIGHT", Blue, ref s.ours, s.oursPilots, true);
+            Side(new Rect(px + pw - 20 - colW, top, colW, 330), "ENEMY FLIGHT", Red, ref s.theirs, s.theirsPilots, false);
+            s.FitPilots();
             Map(new Rect(px + 20 + colW + 20, top + 6, pw - 2 * (colW + 40), 320), s);
 
             // how they start
@@ -135,7 +137,7 @@ namespace Ooda.UI
             // back, the summary, fly
             float by = py + ph - 76;
             if (GUI.Button(new Rect(px + 20, by, 200, 56), "Back (Esc)", button)) result = Result.Back;
-            GUI.Label(new Rect(px + 240, by, pw - 520, 56), $"{s.Ours} v {s.Theirs}: {DogfightSetup.Describe(s.ours)} against {DogfightSetup.Describe(s.theirs)}",
+            GUI.Label(new Rect(px + 240, by, pw - 520, 56), $"{s.Ours} v {s.Theirs}: {DogfightSetup.Describe(s.ours)} against {DogfightSetup.Describe(s.theirs)}. Click a pilot to change who flies.",
                       new GUIStyle(label) { alignment = TextAnchor.MiddleCenter, wordWrap = true });
             if (GUI.Button(new Rect(px + pw - 260, by, 240, 56), "FLY (Enter)", bigFly)) result = Result.Fly;
 
@@ -152,8 +154,9 @@ namespace Ooda.UI
           : st == Scenarios.Start.Perch ? "You high and behind them, out to one side: dive in on them."
           : "Them high and behind you, out to one side: they are diving in.";
 
-        /// <summary>A flight's column: how many, and each plane's aircraft (the arrows, or a click on the name, step it), and every plane at once.</summary>
-        void Side(Rect r, string title, Color col, ref Craft[] side, bool ours)
+        /// <summary>A flight's column: how many, each plane's aircraft (the arrows, or a click on the name, step it) and its pilot
+        /// (a click steps it: the type's usual one, the tiger, the wolf, the wizard, the skeleton), and every plane's aircraft at once.</summary>
+        void Side(Rect r, string title, Color col, ref Craft[] side, PilotKind[] pilots, bool ours)
         {
             var t = new GUIStyle(head);
             t.normal.textColor = col;
@@ -168,9 +171,18 @@ namespace Ooda.UI
             {
                 string who = i == 0 ? (ours ? "You" : "Lead") : $"#{i + 1}";
                 GUI.Label(new Rect(r.x, y, 70, 38), who, label);
+                float pilotW = 100, nameW = r.width - 162 - pilotW - 6;
                 if (GUI.Button(new Rect(r.x + 70, y, 40, 38), "<", button)) side[i] = Step(side[i], -1);
-                if (GUI.Button(new Rect(r.x + 116, y, r.width - 162, 38), DogfightSetup.Name(side[i]), button)) side[i] = Step(side[i], 1);
-                if (GUI.Button(new Rect(r.x + r.width - 40, y, 40, 38), ">", button)) side[i] = Step(side[i], 1);
+                if (GUI.Button(new Rect(r.x + 116, y, nameW, 38), DogfightSetup.Short(side[i]), button)) side[i] = Step(side[i], 1);
+                if (GUI.Button(new Rect(r.x + 122 + nameW, y, 40, 38), ">", button)) side[i] = Step(side[i], 1);
+                if (i < pilots.Length)
+                {
+                    // the F-4 keeps its crew: its pilot button shows Crew and doesn't step
+                    bool crew = side[i] == Craft.Phantom;
+                    string who2 = crew ? "Crew" : DogfightSetup.Name(pilots[i]);
+                    if (GUI.Button(new Rect(r.x + r.width - pilotW, y, pilotW, 38), who2, crew || pilots[i] == PilotKind.Usual ? small : smallPicked) && !crew)
+                        pilots[i] = (PilotKind)(((int)pilots[i] + 1) % PilotCount);
+                }
                 y += 44;
             }
             y = r.y + 40 + 54 + Scenarios.MaxSide * 44 + 6;
@@ -185,6 +197,8 @@ namespace Ooda.UI
                     for (int i = 0; i < side.Length; i++) side[i] = Types[j];
             }
         }
+
+        static readonly int PilotCount = Enum.GetValues(typeof(PilotKind)).Length;
 
         static Craft Step(Craft c, int by) => Types[(Array.IndexOf(Types, c) + by + Types.Length) % Types.Length];
 
@@ -206,7 +220,8 @@ namespace Ooda.UI
         {
             System.IO.Directory.CreateDirectory(folder);
             var keep = chosen;
-            chosen = new DogfightSetup { ours = new[] { Craft.Spitfire, Craft.Phantom }, theirs = new[] { Craft.Bf109, Craft.Bf109 }, randomStart = false, start = Scenarios.Start.Perch };
+            chosen = new DogfightSetup { ours = new[] { Craft.Spitfire, Craft.Phantom }, theirs = new[] { Craft.Bf109, Craft.Bf109 }, randomStart = false, start = Scenarios.Start.Perch,
+                                      oursPilots = new[] { PilotKind.Wizard, PilotKind.Usual }, theirsPilots = new[] { PilotKind.Skeleton, PilotKind.Usual } };
             open = true;
             yield return new WaitForSecondsRealtime(2f);
             yield return Grab(System.IO.Path.Combine(folder, "setup_perch.bmp"));

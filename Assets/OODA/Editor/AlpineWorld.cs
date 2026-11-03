@@ -783,33 +783,40 @@ namespace Ooda.EditorTools
 
         static void MakeVillage(float[,] h, WMats m)
         {
-            // on the meadow at the north shore of the lower lake, by the main valley's road-less floor
-            var mb = new MeshBuilder(3);          // 0 plaster, 1 wood, 2 roof
+            // on the meadow at the north shore of the lower lake, by the main valley's road-less floor: copies of the
+            // alpine chalet model (Art/Chalet, near and far meshes), each turned to the valley and a little bigger or
+            // smaller, solid on the Obstacles layer as a box round it; and the church
+            var root = new GameObject("Village").transform;
+            root.gameObject.isStatic = true;
+            Load(ChaletModel, false);
+            if (ChaletModel.near == null) Debug.LogError("OODA: no chalet model (Art/Chalet/Chalet_Near.obj); the village has only its church.");
             var rnd = new System.Random(5);
             var placed = new List<Vector2>();
-            for (int tries = 0; tries < 400 && placed.Count < 18; tries++)
+            int layer = ObstacleLayerIndex();
+            for (int tries = 0; tries < 400 && placed.Count < 18 && ChaletModel.near != null; tries++)
             {
                 var p = new Vector2(-110 + (float)rnd.NextDouble() * 220, -7350 + (float)rnd.NextDouble() * 1150);
                 if (placed.Any(q => Vector2.Distance(p, q) < 28)) continue;
                 if (Slope(h, p.x, p.y) > 8) continue;
                 placed.Add(p);
                 float y = SampleArr(h, p.x, p.y);
-                float w = 9 + (float)rnd.NextDouble() * 4, d = 8 + (float)rnd.NextDouble() * 3;
-                var rot = Quaternion.Euler(0, (rnd.Next(2) * 90) + ((float)rnd.NextDouble() - 0.5f) * 20, 0);
+                float size = 0.85f + (float)rnd.NextDouble() * 0.3f;
+                var rot = Quaternion.Euler(0, (rnd.Next(4) * 90) + ((float)rnd.NextDouble() - 0.5f) * 20, 0);
                 Vector3 c = new Vector3(p.x, y, p.y);
-                mb.Box(c + rot * new Vector3(0, 0.5f, 0), rot, new Vector3(w, 3f, d), 0);                    // stone ground floor
-                mb.Box(c + rot * new Vector3(0, 4.5f, 0), rot, new Vector3(w, 5f, d), 1);                    // wooden upper floors
-                float pitch = 30f, run = (w / 2 + 1.2f) / Mathf.Cos(pitch * Mathf.Deg2Rad);
-                foreach (float side in new[] { -1f, 1f })
-                {
-                    var rr = rot * Quaternion.Euler(0, 0, side * pitch);
-                    Vector3 rc = c + rot * new Vector3(side * (w / 4 + 0.3f), 7f + Mathf.Tan(pitch * Mathf.Deg2Rad) * w / 4, 0);
-                    mb.Box(rc, rr, new Vector3(run, 0.5f, d + 2.4f), 2);
-                }
-                // the gable ends
-                mb.Box(c + rot * new Vector3(0, 7.9f, 0), rot, new Vector3(w * 0.5f, 1.8f, d - 0.1f), 1);
+                var go = new GameObject($"Chalet {placed.Count}");
+                go.transform.SetParent(root, false);
+                go.transform.SetPositionAndRotation(c + Vector3.down * 0.4f, rot);    // sunk a little so a slope shows no gap under it
+                go.transform.localScale = Vector3.one * size;
+                go.isStatic = true;
+                AddLods(go, ChaletModel, 0.08f, 0.002f);
+                var bounds = ChaletModel.near.bounds;
+                var box = go.AddComponent<BoxCollider>();
+                box.center = new Vector3(0, bounds.size.y * ChaletModel.fit / 2, 0);
+                box.size = bounds.size * ChaletModel.fit * 0.9f;
+                go.layer = layer;
             }
             // the church
+            var mb = new MeshBuilder(3);          // 0 plaster, 1 wood, 2 roof
             {
                 Vector3 c = new Vector3(70, SampleArr(h, 70, -6700), -6700);
                 mb.Box(c + new Vector3(0, 6, 0), Quaternion.identity, new Vector3(12, 12, 22), 0);
@@ -818,7 +825,7 @@ namespace Ooda.EditorTools
                 foreach (float side in new[] { -1f, 1f })
                     mb.Box(c + new Vector3(side * 3.6f, 14.3f, 0), Quaternion.Euler(0, 0, side * 40), new Vector3(10.5f, 0.5f, 23f), 2);
             }
-            MeshObject("Village", SaveMesh(mb, "Village"), new[] { m.plaster, m.wood, m.roof }, null, true);
+            MeshObject("Church", SaveMesh(mb, "Village"), new[] { m.plaster, m.wood, m.roof }, root, true);
             Debug.Log($"OODA: a village of {placed.Count} chalets and a church.");
         }
 

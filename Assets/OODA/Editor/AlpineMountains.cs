@@ -41,6 +41,8 @@ namespace Ooda.EditorTools
         static readonly LandModel RoundTree = new LandModel { name = "RoundTree", dir = "Assets/OODA/Art/Tree", nearTris = 2000, farTris = 250, byHeight = true, size = 12 };
         static readonly LandModel TallTree = new LandModel { name = "TallTree", dir = "Assets/OODA/Art/Tree", nearTris = 2000, farTris = 250, byHeight = true, size = 15 };
         static readonly LandModel PineTree = new LandModel { name = "PineTree", dir = "Assets/OODA/Art/Tree", nearTris = 2000, farTris = 250, byHeight = true, size = 16 };
+        // the Hi3D alpine chalet: its OBJs are made in Blender (Tools~/ArtPipeline/chalet.py), so it has no FBX to fall back on
+        static readonly LandModel ChaletModel = new LandModel { name = "Chalet", dir = "Assets/OODA/Art/Chalet", nearTris = 12000, farTris = 1500, size = 14 };
 
         struct Peak { public LandModel model; public string kind; public Vector3 pos; public float yaw, width; public Vector3 scale; }
         static readonly List<Peak> Peaks = new List<Peak>();
