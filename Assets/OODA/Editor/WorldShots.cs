@@ -105,7 +105,7 @@ namespace Ooda.EditorTools
                 float len = bridge.GetComponent<MeshRenderer>().bounds.size.magnitude;
                 Vector3 side = m.right * Mathf.Clamp(len * 0.55f, 120, 900);
                 Vector3 from = m.position + side + m.forward * len * 0.15f;
-                from.y = Mathf.Max(Ground(from.x, from.z) + 40, m.position.y - 60);
+                from.y = Mathf.Max(Ground(from.x, from.z) + 60, m.position.y + 60);
                 string n = m.name.Split(' ')[1];
                 Shot(cam, rt, dir, $"world_bridge{n}", from, m.position + Vector3.down * 40);
                 Vector3 low = m.position - m.right * 90 + m.forward * 60;

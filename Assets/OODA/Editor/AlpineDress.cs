@@ -64,12 +64,15 @@ namespace Ooda.EditorTools
         static bool RiverWet(float[,] h, List<RiverPoint> r, int k)
         {
             var rp = r[k];
-            if (InLake(rp.p.x, rp.p.y) || rp.surface < 1f) return false;
+            if (InLakeWater(rp.p.x, rp.p.y) || rp.surface < 0.5f) return false;
             Vector2 dir = (r[Mathf.Min(k + 1, r.Count - 1)].p - r[Mathf.Max(k - 1, 0)].p).normalized, across = V(dir.y, -dir.x);
             float off = rp.half + 14f;
             return SampleArr(h, rp.p.x + across.x * off, rp.p.y + across.y * off) > rp.surface + 0.3f
                 && SampleArr(h, rp.p.x - across.x * off, rp.p.y - across.y * off) > rp.surface + 0.3f;
         }
+
+        /// <summary>Under a lake's own water (its disc reaches 1.05 of its radii): the river's ribbon stops here, overlapping it a little.</summary>
+        static bool InLakeWater(float x, float z) => Lakes.Any(l => { float ex = (x - l.c.x) / l.r.x, ez = (z - l.c.y) / l.r.y; return ex * ex + ez * ez < 1.0f; });
 
         static bool[,] riverNear;
         static bool RiverNear(float x, float z) => riverNear != null && riverNear[Idx(z), Idx(x)];
@@ -126,21 +129,25 @@ namespace Ooda.EditorTools
         /// <summary>The church: on the village's east side, its tower to the north.</summary>
         static readonly Vector2 ChurchAt = V(150, -430);
 
-        /// <summary>The village's chalets: 26 copies close together round the square, each turned to the street a little differently.</summary>
+        /// <summary>The square, with its fountain: on the west bank, clear of the river.</summary>
+        static readonly Vector2 SquareAt = V(-100, -470);
+
+        /// <summary>The village's chalets: 26 copies close together, most round the square on the west bank and the rest round the
+        /// church on the east, each facing its square or church, turned to the street a little differently.</summary>
         static List<HouseSpot> VillageSpots(float[,] h, List<Vector3> rail)
         {
             var rnd = new System.Random(5);
             var placed = new List<HouseSpot>();
-            for (int tries = 0; tries < 3000 && placed.Count < 26; tries++)
+            for (int tries = 0; tries < 6000 && placed.Count < 26; tries++)
             {
-                float a = Rand(rnd, 0, Mathf.PI * 2), r = Mathf.Sqrt((float)rnd.NextDouble());
-                var p = VillageCentre + V(Mathf.Cos(a) * VillageRadii.x * r, Mathf.Sin(a) * VillageRadii.y * r);
-                if (Vector2.Distance(p, VillageCentre) < 45f) continue;                 // the square
-                if (Vector2.Distance(p, ChurchAt) < 42f) continue;
-                if (placed.Any(q => Vector2.Distance(p, V(q.pos.x, q.pos.z)) < 26f)) continue;
-                if (RiverNear(p.x, p.y) || InLake(p.x, p.y) || NearRail(rail, p.x, p.y, 40f) || Slope(h, p.x, p.y) > 9) continue;
-                // face the square, give or take
-                float yaw = Mathf.Atan2(VillageCentre.x - p.x, VillageCentre.y - p.y) * Mathf.Rad2Deg + Rand(rnd, -20f, 20f);
+                bool bySquare = placed.Count % 3 != 2;   // two in three round the square
+                Vector2 c = bySquare ? SquareAt : ChurchAt;
+                float a = Rand(rnd, 0, Mathf.PI * 2), r = Mathf.Lerp(0.3f, 1f, (float)rnd.NextDouble());
+                var p = c + V(Mathf.Cos(a), Mathf.Sin(a)) * (bySquare ? 190f : 150f) * r;
+                if (Vector2.Distance(p, SquareAt) < 52f || Vector2.Distance(p, ChurchAt) < 42f) continue;
+                if (placed.Any(q => Vector2.Distance(p, V(q.pos.x, q.pos.z)) < 24f)) continue;
+                if (RiverNear(p.x, p.y) || InLake(p.x, p.y) || NearRail(rail, p.x, p.y, 40f) || Slope(h, p.x, p.y) > 10) continue;
+                float yaw = Mathf.Atan2(c.x - p.x, c.y - p.y) * Mathf.Rad2Deg + Rand(rnd, -20f, 20f);
                 placed.Add(new HouseSpot { pos = new Vector3(p.x, SampleArr(h, p.x, p.y), p.y), yaw = yaw, size = Rand(rnd, 0.85f, 1.15f) });
             }
             return placed;

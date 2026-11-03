@@ -134,7 +134,13 @@ namespace Ooda.EditorTools
             Check(farms.Count >= 40, $"{farms.Count} farmhouses");
             Check(trees.Count >= 11000, $"{trees.Count} trees ({trees.Count(t => t.kind == 0)} round, {trees.Count(t => t.kind == 1)} tall, {trees.Count(t => t.kind == 2)} pines)");
             { var rv = River(); int wet = 0; for (int k = 0; k < rv.Count; k++) if (RiverWet(h, rv, k)) wet++;
-              int dry = rv.Count(p => !InLake(p.p.x, p.p.y) && p.surface >= 1f);
+              int dry = rv.Count(p => !InLakeWater(p.p.x, p.p.y) && p.surface >= 0.5f);
+              for (int k = 0, s0 = -1; k <= rv.Count; k++)
+              {
+                  bool gap = k < rv.Count && !RiverWet(h, rv, k) && !InLakeWater(rv[k].p.x, rv[k].p.y) && rv[k].surface >= 0.5f;
+                  if (gap && s0 < 0) s0 = k;
+                  if (!gap && s0 >= 0) { if (k - s0 >= 3) Console.WriteLine($"  river dry {(k - s0) * 10} m from ({rv[s0].p.x:F0}, {rv[s0].p.y:F0}), surface {rv[s0].surface:F0}, ground {SampleArr(h, rv[s0].p.x, rv[s0].p.y):F0}"); s0 = -1; }
+              }
               Check(wet > dry * 0.85, $"the river shows water along {wet * 100 / Math.Max(1, dry)} % of its course outside the lakes ({wet * 10 / 1000f:F1} km)"); }
             Check(footbridges.Count >= 3, $"{footbridges.Count} stone bridges over the river");
             Check(Peaks.Count(p => p.model == MountainModel) >= 70, $"{Peaks.Count(p => p.model == MountainModel)} mountains and {Peaks.Count(p => p.model == FoothillModel)} grass hills");

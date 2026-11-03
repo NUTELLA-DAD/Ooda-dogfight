@@ -488,7 +488,7 @@ namespace Ooda.EditorTools
 
             // the square and its fountain
             var sq = new MeshBuilder(2);           // 0 cobbles, 1 stone
-            Vector3 c = new Vector3(VillageCentre.x, SampleArr(h, VillageCentre.x, VillageCentre.y), VillageCentre.y);
+            Vector3 c = new Vector3(SquareAt.x, SampleArr(h, SquareAt.x, SquareAt.y), SquareAt.y);
             sq.Prism(c + Vector3.up * 0.15f, 40f, 0.5f, 16, 0);
             sq.Prism(c + Vector3.up * 0.5f, 3.2f, 1.0f, 12, 1);
             sq.Prism(c + Vector3.up * 1.4f, 0.5f, 2.6f, 6, 1);
@@ -503,7 +503,8 @@ namespace Ooda.EditorTools
             mb.Box(ch + new Vector3(0, 6.5f, -4), face, new Vector3(12, 13, 24), 0);
             foreach (float side in new[] { -1f, 1f })
                 mb.Box(ch + new Vector3(side * 3.7f, 15.4f, -4), Quaternion.Euler(0, 0, -side * 44), new Vector3(11f, 0.6f, 25f), 2);   // a positive z turn lifts +x: so -side, eaves down
-            mb.Box(ch + new Vector3(0, 9f, -17f), face, new Vector3(9, 18, 5), 0);                   // the apse end
+            mb.Prism(ch + new Vector3(0, 0, -16f), 4.8f, 9.5f, 8, 0);                                // the round apse at the east end, lower than the nave
+            mb.Cone(ch + new Vector3(0, 9.5f, -16f), 5.3f, 3.6f, 8, 2);
             Vector3 tw = ch + new Vector3(0, 0, 11.5f);
             mb.Box(tw + new Vector3(0, 13f, 0), face, new Vector3(7.5f, 26f, 7.5f), 1);
             mb.Box(tw + new Vector3(0, 26.8f, 0), face, new Vector3(8.4f, 1.0f, 8.4f), 1);
@@ -517,7 +518,7 @@ namespace Ooda.EditorTools
             mb.Box(tw + new Vector3(0, 46.2f, 0), face, new Vector3(1.6f, 0.35f, 0.35f), 4);
             mb.Box(tw + new Vector3(0, 2.2f, 3.8f), face, new Vector3(2.4f, 4.4f, 0.3f), 3);           // the door, in the tower's north face
             MeshObject("Church", SaveMesh(mb, "Church"), new[] { m.plaster, m.stone, m.slate, m.dark, m.wood }, root, true);
-            Debug.Log($"OODA: a village of {spots.Count} chalets round a square, and a church with a {46:F0} m spire, at ({VillageCentre.x:F0}, {VillageCentre.y:F0}).");
+            Debug.Log($"OODA: a village of {spots.Count} chalets round a square, and a church with a {46:F0} m spire, at ({SquareAt.x:F0}, {SquareAt.y:F0}).");
         }
 
         /// <summary>The farmhouses: single chalets dotted over the green slopes and the farmland.</summary>

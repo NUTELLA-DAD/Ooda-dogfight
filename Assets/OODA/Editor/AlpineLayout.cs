@@ -418,7 +418,13 @@ namespace Ooda.EditorTools
             return river;
         }
 
-        /// <summary>Cut the river's channel: its bed 3 m under the surface, the banks rising 0.6 m a metre out to the ground beside it.</summary>
+        /// <summary>Cut the river's channel (twice: once before the models go in, and again at the end): its bed 3 m under the surface, the banks rising 0.6 m a metre out to the ground beside it.</summary>
+        static int LakeAt(float x, float z)
+        {
+            for (int l = 0; l < Lakes.Length; l++) { float ex = (x - Lakes[l].c.x) / Lakes[l].r.x, ez = (z - Lakes[l].c.y) / Lakes[l].r.y; if (ex * ex + ez * ez < 1f) return l; }
+            return -1;
+        }
+
         static void CarveRiver(float[,] h, bool[,] guard)
         {
             var dist = new float[Res, Res];
@@ -440,7 +446,9 @@ namespace Ooda.EditorTools
                     Vector2 q = rp.p + across * (a / 3f) * (rp.half + 30f);
                     low = Mathf.Min(low, SampleArr(h, q.x, q.y));
                 }
-                rp.surface = Mathf.Min(rp.surface, low - 4f, prev);
+                int lake = LakeAt(rp.p.x, rp.p.y);
+                if (lake >= 0) rp.surface = Lakes[lake].level;   // through a lake at its level, and on from there
+                else rp.surface = Mathf.Max(0.3f, Mathf.Min(rp.surface, low - 4f, prev));
                 prev = rp.surface;
                 r[k] = rp;
             }
@@ -638,6 +646,9 @@ namespace Ooda.EditorTools
                     float e = Mathf.SmoothStep(0, 1, Mathf.InverseLerp(0.84f, 0.98f, d));
                     h[j, i] = Mathf.Lerp(h[j, i], Base + 20f, e);
                 }
+            // and the river again, now the lakes, the railway's cuttings and the coast are in: its water settles under the ground
+            // as it is now, so it shows all the way down
+            CarveRiver(h, guard);
             return h;
         }
 
