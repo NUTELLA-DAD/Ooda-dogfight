@@ -65,6 +65,7 @@ namespace Ooda.EditorTools
         {
             var rp = r[k];
             if (InLakeWater(rp.p.x, rp.p.y) || rp.surface < 0.5f) return false;
+            if (InLake(rp.p.x, rp.p.y)) return true;   // by a lake's shore the banks fall away into it: the water runs on to meet the lake's
             Vector2 dir = (r[Mathf.Min(k + 1, r.Count - 1)].p - r[Mathf.Max(k - 1, 0)].p).normalized, across = V(dir.y, -dir.x);
             float off = rp.half + 14f;
             return SampleArr(h, rp.p.x + across.x * off, rp.p.y + across.y * off) > rp.surface + 0.3f
