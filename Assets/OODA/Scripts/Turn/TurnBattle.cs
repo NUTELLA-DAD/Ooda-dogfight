@@ -172,6 +172,8 @@ namespace Ooda.Turn
             dogOurs = Mathf.Clamp(Ooda.UI.TitleScreen.ChosenOurs, 1, Scenarios.MaxSide);
             dogTheirs = Mathf.Clamp(Ooda.UI.TitleScreen.ChosenTheirs, 1, Scenarios.MaxSide);
             BotSetUp();
+            NetSetUp();
+            NetBotSetUp();
             lines = new LinePool(transform, "Lines") { sizeAt = W };
             tipMat = new Material(Shader.Find("Sprites/Default")) { color = arrowColor };
             flashMat = new Material(Shader.Find("Sprites/Default")) { color = new Color(1f, 0.9f, 0.4f, 1f) };
@@ -256,6 +258,7 @@ namespace Ooda.Turn
 
         public void Restart()
         {
+            if (!NetRestarting()) return;   // online, the host starts each new fight
             StopReplayQuietly();
             thinking = null; thinkingFor = null;
             reading = null; readingFor = null; read = null;
@@ -283,6 +286,7 @@ namespace Ooda.Turn
             if (grid != null) battle.groundFt = grid.At; else battle.groundFt = GroundFt;
             battle.obstacleHit = ObstacleHit;
             battle.wires = MakeWires();
+            NetSeat();
 
             // a view for each aircraft: the scene's player, enemy and bomber first, prefabs for the rest
             int n = battle.Count;
@@ -310,7 +314,7 @@ namespace Ooda.Turn
             {
                 if (views[i] == null) continue;
                 int before = holoMats.Count;
-                holos[i] = MakeHolo(views[i].gameObject, battle.side[i] == 0 ? holoFriendColor : holoEnemyColor, $"Ghost {i}");
+                holos[i] = MakeHolo(views[i].gameObject, battle.side[i] == MySide ? holoFriendColor : holoEnemyColor, $"Ghost {i}");
                 if (holos[i] != null) spawned.Add(holos[i]);
                 for (int k = before; k < holoMats.Count; k++) spawnedHoloMats.Add(holoMats[k]);
                 holoMats.RemoveRange(before, holoMats.Count - before);
@@ -329,6 +333,7 @@ namespace Ooda.Turn
                     role = ours ? (i % 2 == 0 ? EnemyAi.Role.Escort : EnemyAi.Role.Fighter) : (i % 2 == 1 ? EnemyAi.Role.Hunter : EnemyAi.Role.Fighter),
                 };
             }
+            NetSitDown();   // online: into your own first plane
             healthBefore = (double[])battle.health.Clone();
             shownHp = (double[])battle.health.Clone();
             ListFlight();
@@ -342,7 +347,7 @@ namespace Ooda.Turn
             BeginPlanning();
             if (view != null) view.BehindPlayer();
             StrikeRestarted();
-            if (Dogfighting) Notice(DogfightNotice);
+            if (Dogfighting && !Online) Notice(DogfightNotice);
         }
 
         void BeginPlanning()
@@ -352,7 +357,7 @@ namespace Ooda.Turn
             FlightTurnStarts();
             // with only one fighter of yours, it is always yours to fly: it never flies itself on its AI pilot's plan
             int fighters = 0;
-            for (int i = 0; i < battle.Count; i++) if (battle.side[i] == battle.side[0] && battle.routes[i] == null && !battle.Out(i)) fighters++;
+            for (int i = 0; i < battle.Count; i++) if (battle.side[i] == battle.side[0] && battle.routes[i] == null && !battle.Out(i) && NetMine(i)) fighters++;
             if (fighters <= 1 && battle.orders[0] == Order.AutoFight) battle.orders[0] = Order.YouControl;
             var m = battle.planes[0];
             env = Envelope.Compute(m, turnSec);
@@ -428,9 +433,16 @@ namespace Ooda.Turn
             else plans = task.Result;
             if (battle.orders[0] != Order.AutoFight || !plans[0].HasValue) plans[0] = plan;
             ApplyManual(plans);
+            if (Online) { NetSendTurn(plans, onLead); return; }   // the turn is flown when both of you have planned
+            FlyTurn(plans, onLead);
+        }
+
+        /// <summary>Fly the turn from every plane's plan (by local index) and play it back.</summary>
+        void FlyTurn(TurnPlan?[] plans, bool onLead)
+        {
             healthBefore = (double[])battle.health.Clone();
             lastOverpull = plan.overpull;
-            last = battle.Resolve(plans, turnSec, true);
+            last = Online ? net.seating.ResolveInWireOrder(battle, plans, turnSec, true) : battle.Resolve(plans, turnSec, true);
             RecordTurn();
             TurnFlown(plans, onLead);
             bool over = FightIsOver();
@@ -442,6 +454,7 @@ namespace Ooda.Turn
 
         void SwitchOoda()
         {
+            if (Online) { NetNotice("Online fights keep to 3 s turns."); return; }
             if (phase != Phase.Planning && phase != Phase.Over) return;
             ooda = !ooda;
             turnSec = ooda ? oodaTurnSec : (float)Scenarios.TurnSec;
@@ -466,6 +479,7 @@ namespace Ooda.Turn
 
         string Outcome()
         {
+            if (Online && Dogfighting) return NetOutcome();
             if (battle.strike != null) return StrikeOutcome();
             bool me = battle.down[0];
             int bombers = 0, through = 0, enemies = 0;
@@ -511,6 +525,7 @@ namespace Ooda.Turn
 
         void SwitchMission()
         {
+            if (Online) { NetNotice("Online fights are dogfights for now."); return; }
             int missions = Enum.GetValues(typeof(Mission)).Length;
             for (int k = 0; k < missions; k++)
             {
@@ -530,6 +545,7 @@ namespace Ooda.Turn
         void Update()
         {
             if (view != null) view.sightPose = false;   // set again below while the gunsight view is up
+            NetUpdate();
             if (MenuUpdate()) return;   // Esc: the menu is open and the battle waits
             if (replaying) { ReplayUpdate(); return; }
             if (briefing) { UpdateBriefing(); return; }
@@ -540,6 +556,7 @@ namespace Ooda.Turn
             WatchOrders();
             SquadShotsCheck();
             BotUpdate();
+            NetBotUpdate();
             lines.Begin();
             if (phase == Phase.Playing) Playback();
             else if (phase == Phase.Planning || phase == Phase.Thinking) DrawPlanning();
@@ -1494,7 +1511,7 @@ namespace Ooda.Turn
             guiRects.Add(buttons);
             bool planning = phase == Phase.Planning;
             GUI.enabled = planning;
-            if (GUI.Button(new Rect(bx, by, 180, 44), phase == Phase.Thinking ? "Pilots thinking..." : "Fly turn  (Enter)")) Commit();
+            if (GUI.Button(new Rect(bx, by, 180, 44), phase == Phase.Thinking ? (netWaiting ? $"Waiting for {Friend}..." : "Pilots thinking...") : "Fly turn  (Enter)")) Commit();
             GUI.enabled = true;
             by += 52;
             GUI.enabled = last != null && phase != Phase.Playing;
@@ -1505,7 +1522,9 @@ namespace Ooda.Turn
             by += 36;
             if (GUI.Button(new Rect(bx, by, 180, 30), $"View: {(view != null ? view.focus.ToString() : "-")}  (V)") && view != null) view.NextFocus();
             by += 36;
+            GUI.enabled = net == null || net.IsHost;
             if (GUI.Button(new Rect(bx, by, 180, 30), "Restart  (Backspace)")) Restart();
+            GUI.enabled = true;
             by += 36;
             if (GUI.Button(new Rect(bx, by, 180, 30), $"Mission: {Playing}  (M)")) SwitchMission();
             by += 36;
@@ -1545,6 +1564,7 @@ namespace Ooda.Turn
             }
             if (notice != null && Time.time < noticeUntil)
                 GUI.Label(new Rect(0, sh * 0.22f, sw, 30), notice, new GUIStyle(label) { alignment = TextAnchor.MiddleCenter, fontSize = 18 });
+            NetGUI(sw, label);
 
             if (showHelp)
             {

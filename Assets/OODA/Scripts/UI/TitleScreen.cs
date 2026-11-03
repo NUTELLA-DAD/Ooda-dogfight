@@ -16,7 +16,7 @@ namespace Ooda.UI
     /// shots every few seconds, and the title with a mission picker. Enter, Space or pad A starts the chosen mission in
     /// the turn battle, which reads it from ChosenMission.
     /// </summary>
-    public class TitleScreen : MonoBehaviour
+    public partial class TitleScreen : MonoBehaviour
     {
         /// <summary>The mission picked here (TurnBattle.Mission's order: Squadron, Escort, Dogfight, ValleyRun, TownStrike), for the battle to read.</summary>
         public static int? ChosenMission;
@@ -67,6 +67,7 @@ namespace Ooda.UI
             BuildPath();
             BuildFormation();
             StartShot(0);
+            LobbyFromCommandLine();   // the online self-test: -nethost or -netjoin
         }
 
         // ---------- the formation on rails ----------
@@ -147,8 +148,10 @@ namespace Ooda.UI
             if (clock > shotSec) StartShot(shot + 1);
             PlaceCamera(p, flat, r);
 
+            if (LobbyUpdate()) return;   // the online panel is open: it takes the keys
             var kb = Keyboard.current;
             var pad = Gamepad.current;
+            if (kb != null && kb.oKey.wasPressedThisFrame) { OpenLobby(); return; }
             if ((kb != null && (kb.leftArrowKey.wasPressedThisFrame || kb.aKey.wasPressedThisFrame)) || (pad != null && pad.dpad.left.wasPressedThisFrame)) pick = (pick + Missions.Length - 1) % Missions.Length;
             if ((kb != null && (kb.rightArrowKey.wasPressedThisFrame || kb.dKey.wasPressedThisFrame)) || (pad != null && pad.dpad.right.wasPressedThisFrame)) pick = (pick + 1) % Missions.Length;
             if (pick == 2)
@@ -272,6 +275,8 @@ namespace Ooda.UI
             Shadowed(new Rect(0, sh * 0.08f + 130, sw, 40), "Observe  ·  Orient  ·  Decide  ·  Act", sub);
             Shadowed(new Rect(0, sh * 0.08f + 168, sw, 34), "Dogfights over the Alps", note);
 
+            if (lobbyOpen) { LobbyGUI(sw, sh); return; }
+            if (GUI.Button(new Rect(24, sh - 72, 212, 48), "Online (O)", button)) OpenLobby();
             float bw = 190, gap = 16, total = Missions.Length * bw + (Missions.Length - 1) * gap;
             float x = (sw - total) / 2, y = sh - 230;
             for (int i = 0; i < Missions.Length; i++)
@@ -289,14 +294,14 @@ namespace Ooda.UI
         }
 
         /// <summary>The dogfight's two rows: how many planes on your side, how many on theirs.</summary>
-        void SidePicker(float sw, float y)
+        void SidePicker(float sw, float y, string ourLabel = "Your P-51s", string theirLabel = "Bf 109s")
         {
-            float bw = 56, gap = 10, lw = 170, total = lw + 4 * bw + 3 * gap;
+            float bw = 56, gap = 10, lw = 240, total = lw + 4 * bw + 3 * gap;
             float x = (sw - total) / 2;
             for (int row = 0; row < 2; row++)
             {
                 float ry = y + row * 52;
-                Shadowed(new Rect(x, ry + 8, lw, 34), row == 0 ? "Your P-51s" : "Bf 109s", note);
+                Shadowed(new Rect(x, ry + 8, lw, 34), row == 0 ? ourLabel : theirLabel, note);
                 for (int k = 1; k <= 4; k++)
                 {
                     bool on = (row == 0 ? ChosenOurs : ChosenTheirs) == k;

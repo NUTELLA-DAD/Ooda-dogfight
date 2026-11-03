@@ -51,13 +51,13 @@ namespace Ooda.Turn
         void ListFlight()
         {
             flight.Clear();
-            var mine = Enumerable.Range(0, battle.Count).Where(i => battle.side[i] == SideOf0)
+            var mine = Enumerable.Range(0, battle.Count).Where(i => battle.side[i] == SideOf0 && NetMine(i))
                 .OrderBy(i => battle.routes[i] != null).ThenBy(i => i == 0 ? -1 : battle.flightOf[i]).ThenBy(i => battle.number[i]).ThenBy(i => i);
             foreach (int i in mine) flight.Add(battle.planes[i]);
         }
 
         /// <summary>One of yours you can take the stick of: on your side and not waiting on a runway. Bombers and wingmen in formation too.</summary>
-        bool Flyable(int i) => i >= 0 && i < battle.Count && battle.side[i] == SideOf0 && (battle.strike == null || !battle.strike.Held(i));
+        bool Flyable(int i) => i >= 0 && i < battle.Count && battle.side[i] == SideOf0 && (battle.strike == null || !battle.strike.Held(i)) && NetMine(i);
 
         /// <summary>Your side (aircraft 0's, whichever plane that is now).</summary>
         int SideOf0 => battle.side[0];
@@ -92,6 +92,7 @@ namespace Ooda.Turn
             if (reading != null && !reading.IsCompleted) { try { reading.Wait(); } catch (System.AggregateException) { } }
             reading = null; readingFor = null; read = null;
             battle.Swap(a, b);
+            net?.seating?.Swapped(a, b);
             void S<T>(T[] arr) { if (arr != null && a < arr.Length && b < arr.Length) { var t = arr[a]; arr[a] = arr[b]; arr[b] = t; } }
             S(views); S(ais); S(holos); S(healthBefore); S(shownHp);
             for (int i = 0; i < ais.Length; i++) if (ais[i] != null) { ais[i].me = i; ais[i].Forget(); }
@@ -215,6 +216,7 @@ namespace Ooda.Turn
         /// <summary>The fight is over, counting a plane of yours still flying as you carrying on.</summary>
         bool FightIsOver()
         {
+            if (Online) return NetFightIsOver();
             // you are down but one of yours flies: carry on in it unless the fight is over anyway
             return battle.OverWith(battle.Out(0) && !CanTakeOver());
         }
@@ -311,7 +313,7 @@ namespace Ooda.Turn
             if (unplannedAsk != null) { unplannedAsk = null; return false; }
             var list = new List<int>();
             for (int i = 1; i < battle.Count; i++)
-                if (battle.side[i] == SideOf0 && !battle.Out(i) && battle.orders[i] == Order.YouControl && !manual.ContainsKey(battle.planes[i])) list.Add(i);
+                if (battle.side[i] == SideOf0 && NetMine(i) && !battle.Out(i) && battle.orders[i] == Order.YouControl && !manual.ContainsKey(battle.planes[i])) list.Add(i);
             if (list.Count == 0) return false;
             unplannedAsk = list;
             return true;

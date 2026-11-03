@@ -64,7 +64,7 @@ namespace Ooda.Turn
         /// <summary>The one on one, begun one of the four ways at random.</summary>
         Battle DogfightBattle()
         {
-            dogStart = botStart ?? (Scenarios.Start)startDice.Next(4);
+            dogStart = net != null ? (Scenarios.Start)net.setup.start : botStart ?? (Scenarios.Start)startDice.Next(4);
             return Scenarios.Dogfight(dogStart, UnityFrame.Pos(startCentre), startAltFt, startKias, startGapM, dogOurs, dogTheirs);
         }
 
@@ -193,6 +193,7 @@ namespace Ooda.Turn
             if (read != null)
                 for (int i = 1; i < p.Length && i < read.pred.Length; i++) if (read.pred[i] != null) p[i] = read.pred[i].plans[0];
             ApplyManual(p);   // the planes of yours you have planned fly your plans
+            NetDrafts(p);     // online: your wingman's fly what they are planning
             return p;
         }
 

@@ -8,6 +8,7 @@
   <ItemGroup>
     <Compile Include="../../Assets/OODA/Scripts/Flight/Core/*.cs" />
     <Compile Include="../../Assets/OODA/Scripts/Turn/Core/*.cs" />
+    <Compile Include="../../Assets/OODA/Scripts/Net/*.cs" />
     <Compile Include="Program.cs" />
   </ItemGroup>
 </Project>

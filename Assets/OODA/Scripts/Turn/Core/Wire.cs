@@ -80,6 +80,7 @@ namespace Ooda.Turn.Core
             if (t == typeof(uint)) { w.Write((uint)v); return; }
             if (t == typeof(bool)) { w.Write((bool)v); return; }
             if (t == typeof(long)) { w.Write((long)v); return; }
+            if (t == typeof(ulong)) { w.Write((ulong)v); return; }
             if (t == typeof(float)) { w.Write((float)v); return; }
             if (t == typeof(byte)) { w.Write((byte)v); return; }
             if (t.IsEnum) { w.Write(Convert.ToInt64(v)); return; }
@@ -95,6 +96,7 @@ namespace Ooda.Turn.Core
             // a reference: null or not, then its contents
             w.Write(v != null);
             if (v == null) return;
+            if (t == typeof(byte[])) { var bytes = (byte[])v; w.Write(bytes.Length); w.Write(bytes); return; }
             if (t.IsArray)
             {
                 var a = (Array)v; var et = t.GetElementType();
@@ -146,6 +148,7 @@ namespace Ooda.Turn.Core
             if (t == typeof(uint)) return r.ReadUInt32();
             if (t == typeof(bool)) return r.ReadBoolean();
             if (t == typeof(long)) return r.ReadInt64();
+            if (t == typeof(ulong)) return r.ReadUInt64();
             if (t == typeof(float)) return r.ReadSingle();
             if (t == typeof(byte)) return r.ReadByte();
             if (t.IsEnum) return Enum.ToObject(t, r.ReadInt64());
@@ -159,6 +162,7 @@ namespace Ooda.Turn.Core
                 return box;
             }
             if (!r.ReadBoolean()) return null;
+            if (t == typeof(byte[])) { int len = r.ReadInt32(); return r.ReadBytes(len); }
             if (t.IsArray)
             {
                 var et = t.GetElementType(); int n = r.ReadInt32();
