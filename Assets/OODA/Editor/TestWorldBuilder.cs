@@ -416,7 +416,7 @@ namespace Ooda.EditorTools
             var look = pilot.AddComponent<PilotHeadLook>();
             look.aircraft = ac;
             AddPilotControls(pilot);
-            PilotCast.AddRoster(root, pilot, Ooda.Turn.Core.PilotKind.Tiger);   // the wolf, the wizard and the skeleton too, hidden
+            PilotCast.AddRoster(root, pilot, Ooda.Turn.Core.PilotKind.Tiger);   // the wolf, the wizard, the skeleton and the bear too, hidden
 
             var hud = root.AddComponent<FlightHud>();
             hud.aircraft = ac;

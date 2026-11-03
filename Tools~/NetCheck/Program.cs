@@ -233,7 +233,7 @@ static class Program
             {
                 ours = new[] { Craft.Spitfire, Craft.Phantom, Craft.Mustang }, theirs = new[] { Craft.Bf109, Craft.Mustang },
                 randomStart = true, range = DogfightSetup.Range.Far, height = DogfightSetup.Height.High, speed = DogfightSetup.Pace.Fast, easyAimOurs = false,
-                oursPilots = new[] { PilotKind.Wizard, PilotKind.Usual, PilotKind.Skeleton }, theirsPilots = new[] { PilotKind.Skeleton, PilotKind.Tiger },
+                oursPilots = new[] { PilotKind.Wizard, PilotKind.Usual, PilotKind.Skeleton }, theirsPilots = new[] { PilotKind.Bear, PilotKind.Tiger },
             };
             var fixedOne = setup.Resolved(new Random(5));
             var back = DogfightSetup.FromBytes(fixedOne.ToBytes());
