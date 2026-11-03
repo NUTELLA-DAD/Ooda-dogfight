@@ -529,15 +529,30 @@ namespace Ooda.Turn
                 int foes = 0, foesDown = 0, ours = 0, oursDown = 0;
                 for (int i = 0; i < battle.Count; i++)
                     if (battle.side[i] != battle.side[0]) { foes++; if (battle.Out(i)) foesDown++; } else { ours++; if (battle.Out(i)) oursDown++; }
-                string tally = $" {foesDown} of {foes} Bf 109{(foes > 1 ? "s" : "")} down, {oursDown} of {ours} P-51{(ours > 1 ? "s" : "")} lost.";
+                string tally = $" {foesDown} of {foes} {SideKind(1 - battle.side[0], foes > 1)} down, {oursDown} of {ours} {SideKind(battle.side[0], ours > 1)} lost.";
                 if (foesDown == foes && oursDown == ours) return "Everyone went down. A draw." + tally;
                 if (foesDown == foes) return "The sky is clear. You win!" + tally;
                 return (ours > 1 ? "Your whole flight is down." : battle.crashed[0] ? "You flew into the ground." : "You were shot down.") + tally;
             }
             bool them = battle.down[1];
             if (me && them) return "Both aircraft went down. A draw.";
-            if (them) return battle.crashed[1] ? "The Bf 109 flew into the ground. You win!" : "Bf 109 shot down. You win!";
+            string foe = SideKind(battle.side[1], false);
+            if (them) return battle.crashed[1] ? $"The {foe} flew into the ground. You win!" : $"{foe} shot down. You win!";
             return battle.crashed[0] ? "You flew into the ground." : "You were shot down.";
+        }
+
+        /// <summary>What a side flies, in a word or two: "Bf 109s" when they are all one type, else "fighters" (a mixed dogfight).</summary>
+        string SideKind(int side, bool plural)
+        {
+            Craft? kind = null; bool mixed = false;
+            for (int i = 0; i < battle.Count; i++)
+            {
+                if (battle.side[i] != side || battle.routes[i] != null) continue;
+                var c = DogfightSetup.Of(battle.planes[i].numbers);
+                if (kind == null) kind = c; else if (kind != c) mixed = true;
+            }
+            if (kind == null || mixed) return plural ? "fighters" : "fighter";
+            return DogfightSetup.Short(kind.Value) + (plural ? "s" : "");
         }
 
         void Notice(string s) { notice = s; noticeUntil = Time.time + 3f; }
@@ -1485,7 +1500,7 @@ namespace Ooda.Turn
             Rect panel = new Rect(10, 10, 300, 170);
             guiRects.Add(panel);
             GUI.Box(panel, GUIContent.none);
-            GUI.Label(new Rect(20, 14, 290, 26), $"{(flight.Count > 1 ? FlightName(0) : "P-51D")}   Turn {battle.turn + (phase == Phase.Planning ? 1 : 0)}", title);
+            GUI.Label(new Rect(20, 14, 290, 26), $"{(flight.Count > 1 ? FlightName(0) : DogfightSetup.Short(DogfightSetup.Of(battle.planes[0].numbers)))}   Turn {battle.turn + (phase == Phase.Planning ? 1 : 0)}", title);
             string extra = me.RocketBurning ? "   ROCKET" : me.brakeOut ? "   BRAKE" : "";
             GUI.Label(new Rect(20, 42, 290, 22), $"{me.Kias:F0} KIAS   {me.AltFt:F0} ft   {me.g:F1} G{extra}", label);
             Bar(new Rect(20, 68, 270, 14), shownHp[0] / battle.combat[0].health, new Color(0.3f, 0.9f, 0.3f), "Airframe");
