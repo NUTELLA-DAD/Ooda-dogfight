@@ -435,6 +435,10 @@ namespace Ooda.EditorTools
             var r = River();
             // the water sits under the ground actually there (the valley floors rise and fall a few tens of metres), 4 m under the
             // lowest of it across the channel, and never runs uphill on its way to the sea
+            // and never under the lake it runs into next (a dip upstream mustn't drag it down below the lake's water)
+            var floorAhead = new float[r.Count];
+            float ahead = 0.3f;
+            for (int k = r.Count - 1; k >= 0; k--) { int l = LakeAt(r[k].p.x, r[k].p.y); if (l >= 0) ahead = Lakes[l].level; floorAhead[k] = ahead; }
             float prev = float.MaxValue;
             for (int k = 0; k < r.Count; k++)
             {
@@ -448,7 +452,7 @@ namespace Ooda.EditorTools
                 }
                 int lake = LakeAt(rp.p.x, rp.p.y);
                 if (lake >= 0) rp.surface = Lakes[lake].level;   // through a lake at its level, and on from there
-                else rp.surface = Mathf.Max(0.3f, Mathf.Min(rp.surface, low - 4f, prev));
+                else rp.surface = Mathf.Max(floorAhead[k], Mathf.Min(rp.surface, low - 4f, prev));
                 prev = rp.surface;
                 r[k] = rp;
             }
