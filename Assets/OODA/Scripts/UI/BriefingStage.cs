@@ -234,7 +234,7 @@ namespace Ooda.UI
             Box("TowerRoof", new Vector3(4f, 15.85f, 98f), new Vector3(8.5f, 0.5f, 8.5f), dark);
             Box("TowerHut", new Vector3(12f, 2f, 98f), new Vector3(12f, 4f, 7f), white);
             Box("FlagPole", new Vector3(-3f, 9f, 97f), new Vector3(0.18f, 18f, 0.18f), strut);
-            var flag = Quad("Flag", new Vector3(-1.6f, 16.9f, 97f), Quaternion.identity, new Vector2(2.6f, 2.6f), Textured(Flag()));
+            var flag = Quad("Flag", new Vector3(-1.25f, 16.9f, 97f), Quaternion.identity, new Vector2(3.4f, 1.7f), Textured(Flag()));
             flag.transform.Rotate(0, 20f, 0);
             // a few crates and drums along the hangar fronts
             var r = new System.Random(7);
@@ -359,33 +359,77 @@ namespace Ooda.UI
             Part("Gable", new Vector3(0, 9.2f, -L / 2 + 0.1f), new Vector3(7.5f, 1.6f, 0.3f), white);
             if (emblem != null)
             {
-                var q = Quad("Emblem", Vector3.zero, Quaternion.identity, new Vector2(3.4f, 3.4f), Textured(emblem));
+                var q = Quad("Emblem", Vector3.zero, Quaternion.identity, new Vector2(4.8f, 2.4f), Textured(emblem));
                 q.transform.SetParent(t, false);
-                q.transform.localPosition = new Vector3(-4.4f, 6.4f, -L / 2 - 0.35f);
+                q.transform.localPosition = new Vector3(0f, 8.5f, -L / 2 - 0.35f);
                 q.transform.localRotation = Quaternion.identity;
             }
         }
 
-        /// <summary>The emblem over a hangar door: a white cross on red for us, a black cross edged in white for them.</summary>
-        static Texture2D Emblem(bool ours)
+        /// <summary>The emblem over a hangar door: the Allied star-and-bar for us (a white star in a blue disc, white bars
+        /// edged in blue), a black cross edged in white for them. Twice as wide as high.</summary>
+        static Texture2D Emblem(bool ours) => ours ? StarAndBar(Wall) : Cross();
+        static readonly Color Wall = new Color(0.80f, 0.76f, 0.66f);   // the hangar fronts' paint, so the emblem sits on it
+
+        static Texture2D Cross()
         {
-            const int N = 64;
-            var t = new Texture2D(N, N, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
-            Color red = new Color(0.78f, 0.08f, 0.08f), wht = new Color(0.95f, 0.95f, 0.92f), blk = new Color(0.05f, 0.05f, 0.05f);
-            for (int y = 0; y < N; y++)
-                for (int x = 0; x < N; x++)
+            const int W = 128, H = 64;
+            var t = new Texture2D(W, H, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
+            Color wht = new Color(0.95f, 0.95f, 0.92f), blk = new Color(0.05f, 0.05f, 0.05f), wall = Wall;
+            for (int y = 0; y < H; y++)
+                for (int x = 0; x < W; x++)
                 {
-                    int dx = Mathf.Abs(x - N / 2), dy = Mathf.Abs(y - N / 2);
-                    Color c;
-                    if (ours) c = (dx < 7 && dy < 22) || (dy < 7 && dx < 22) ? wht : red;
-                    else c = (dx < 6 && dy < 26) || (dy < 6 && dx < 26) ? blk : (dx < 10 && dy < 29) || (dy < 10 && dx < 29) ? wht : new Color(0.62f, 0.63f, 0.60f);
+                    int dx = Mathf.Abs(x - W / 2), dy = Mathf.Abs(y - H / 2);
+                    t.SetPixel(x, y, (dx < 6 && dy < 26) || (dy < 6 && dx < 26) ? blk : (dx < 10 && dy < 29) || (dy < 10 && dx < 29) ? wht : wall);
+                }
+            t.Apply();
+            return t;
+        }
+
+        static Texture2D StarAndBar(Color ground)
+        {
+            const int W = 128, H = 64;
+            var t = new Texture2D(W, H, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
+            Color blue = new Color(0.10f, 0.16f, 0.42f), wht = new Color(0.95f, 0.95f, 0.92f);
+            const float R = 28f;   // the disc
+            for (int y = 0; y < H; y++)
+                for (int x = 0; x < W; x++)
+                {
+                    float px = x + 0.5f - W / 2f, py = y + 0.5f - H / 2f;
+                    float r = Mathf.Sqrt(px * px + py * py);
+                    Color c = ground;
+                    // the bars: white, a blue edge round them, either side of the disc
+                    float ax = Mathf.Abs(px), ay = Mathf.Abs(py);
+                    if (ax < 60f && ay < 10f) c = blue;
+                    if (ax < 57f && ay < 7f) c = wht;
+                    if (r < R + 0.5f) c = blue;
+                    if (InStar(px / (R - 1f), py / (R - 1f))) c = wht;
                     t.SetPixel(x, y, c);
                 }
             t.Apply();
             return t;
         }
 
-        static Texture2D Flag() => Emblem(true);
+        /// <summary>Inside a five-pointed star of radius 1 at the origin, one point straight up.</summary>
+        static bool InStar(float x, float y)
+        {
+            float r = Mathf.Sqrt(x * x + y * y);
+            if (r > 1f) return false;
+            float a = Mathf.Atan2(x, y);   // from straight up, clockwise
+            float seg = 2 * Mathf.PI / 5;
+            float u = Mathf.Repeat(a + seg / 2, seg) - seg / 2;   // angle from the nearest point
+            // the edge from a point (radius 1, angle 0) to the next notch (radius 0.382, angle seg/2), as a straight line
+            float inner = 0.382f;
+            Vector2 p0 = new Vector2(0, 1), p1 = new Vector2(Mathf.Sin(seg / 2) * inner, Mathf.Cos(seg / 2) * inner);
+            Vector2 q = new Vector2(Mathf.Sin(Mathf.Abs(u)) * r, Mathf.Cos(Mathf.Abs(u)) * r);
+            // inside if q is on the origin's side of the line p0-p1
+            float side = (p1.x - p0.x) * (q.y - p0.y) - (p1.y - p0.y) * (q.x - p0.x);
+            float origin = (p1.x - p0.x) * (0 - p0.y) - (p1.y - p0.y) * (0 - p0.x);
+            return side * origin >= 0;
+        }
+
+        /// <summary>The tower's flag: the star-and-bar on olive drab.</summary>
+        static Texture2D Flag() => StarAndBar(new Color(0.33f, 0.36f, 0.20f));
 
         // ---------- the ring ----------
 
