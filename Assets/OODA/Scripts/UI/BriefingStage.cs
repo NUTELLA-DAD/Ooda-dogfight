@@ -46,10 +46,10 @@ namespace Ooda.UI
         float ringT;
 
         // the camera, and where the planes park (stage frame: x right, z away from the camera, metres)
-        static readonly Vector3 CamAt = new Vector3(0, 3.4f, -17f), CamLook = new Vector3(0, 2.6f, 16f);
-        const float CamFov = 46f;
+        static readonly Vector3 CamAt = new Vector3(0, 5.2f, -27f), CamLook = new Vector3(0, 3.2f, 20f);
+        const float CamFov = 36f;
         /// <summary>Your lead's plane, and the step back and out to each wingman. The bandits mirror it.</summary>
-        static readonly Vector3 LeadAt = new Vector3(-7.5f, 0, 10f), Step = new Vector3(-8.5f, 0, 11.5f);
+        static readonly Vector3 LeadAt = new Vector3(-7.5f, 0, 13f), Step = new Vector3(-6.6f, 0, 6.5f);
         /// <summary>Where the pilot stands from his plane's centre, and which way the noses point (degrees from straight away, toward the middle).</summary>
         static readonly Vector3 PilotFromPlane = new Vector3(-1.5f, 0, -7.2f);
         const float NoseYaw = 112f;
@@ -159,9 +159,16 @@ namespace Ooda.UI
                 if (m.HasProperty("_Metallic")) m.SetFloat("_Metallic", 0f);
                 return m;
             }
-            concrete = Mat(new Color(0.55f, 0.53f, 0.50f), 0.08f);   // a warm, sunlit grey: lighter than the runway's
+            concrete = Mat(new Color(0.62f, 0.60f, 0.56f), 0.08f);   // a warm, sunlit grey: lighter than the runway's
+            var slabs = Slabs();
+            concrete.SetTexture("_BaseMap", slabs); concrete.SetTexture("_MainTex", slabs);
+            concrete.SetTextureScale("_BaseMap", new Vector2(20f, 18.7f)); concrete.mainTextureScale = new Vector2(20f, 18.7f);
             if (paint == null) paint = Mat(new Color(0.92f, 0.92f, 0.88f));
-            shed = Mat(new Color(0.58f, 0.60f, 0.58f), 0.35f);
+            shed = Mat(new Color(0.66f, 0.68f, 0.66f), 0.45f);
+            var ribs = Corrugated();
+            shed.SetTexture("_BaseMap", ribs); shed.SetTexture("_MainTex", ribs);
+            shed.SetTextureScale("_BaseMap", new Vector2(14f, 1f)); shed.mainTextureScale = new Vector2(14f, 1f);
+            lamp = Mat(new Color(1f, 0.85f, 0.45f), 0.9f);
             dark = Mat(new Color(0.10f, 0.09f, 0.08f));
             rubber = Mat(new Color(0.07f, 0.07f, 0.07f), 0.3f);
             strut = Mat(new Color(0.55f, 0.56f, 0.55f), 0.6f);
@@ -172,15 +179,47 @@ namespace Ooda.UI
             Textured = tex => { var m = Mat(Color.white); m.SetTexture("_BaseMap", tex); m.SetTexture("_MainTex", tex); return m; };
         }
 
-        Material yellow;
+        Material yellow, lamp;
+
+        /// <summary>One concrete slab, tiled: a mottled grey with a dark seam on two edges and a few stains.</summary>
+        static Texture2D Slabs()
+        {
+            const int N = 128;
+            var t = new Texture2D(N, N, TextureFormat.RGBA32, true) { wrapMode = TextureWrapMode.Repeat, filterMode = FilterMode.Trilinear, anisoLevel = 4 };
+            for (int y = 0; y < N; y++)
+                for (int x = 0; x < N; x++)
+                {
+                    float n = 0.86f + 0.08f * Mathf.PerlinNoise(x * 0.09f, y * 0.09f) + 0.06f * Mathf.PerlinNoise(x * 0.5f + 40, y * 0.5f) + 0.04f * (Hash(x, y) - 0.5f);
+                    n -= 0.10f * Mathf.Clamp01(Mathf.PerlinNoise(x * 0.03f + 7, y * 0.03f + 3) * 2.2f - 1.4f);   // oil stains
+                    if (x < 2 || y < 2) n = 0.45f;
+                    else if (x < 3 || y < 3) n *= 0.8f;
+                    t.SetPixel(x, y, new Color(n, n, n, 1));
+                }
+            t.Apply(true);
+            return t;
+        }
+
+        /// <summary>Corrugated sheet: light and dark bands across, for the hangar roofs (tiled along the arc).</summary>
+        static Texture2D Corrugated()
+        {
+            const int N = 32;
+            var t = new Texture2D(N, 4, TextureFormat.RGBA32, true) { wrapMode = TextureWrapMode.Repeat, filterMode = FilterMode.Trilinear };
+            for (int x = 0; x < N; x++)
+            {
+                float n = 0.78f + 0.22f * Mathf.Sin(x / (float)N * Mathf.PI * 4f);
+                for (int y = 0; y < 4; y++) t.SetPixel(x, y, new Color(n, n, n, 1));
+            }
+            t.Apply(true);
+            return t;
+        }
+
+        static float Hash(int x, int y) { uint h = (uint)(x * 374761393 + y * 668265263); h = (h ^ (h >> 13)) * 1274126177; return (h & 0xffff) / 65535f; }
         Func<Texture2D, Material> Textured;
 
         void BuildSet()
         {
             // the apron: one thick slab (its sides go down into any dip), seams every 7.5 m, and a taxi line up the middle
             Box("Apron", new Vector3(0, -2.5f, 45f), new Vector3(150f, 5f, 140f), concrete);
-            for (float x = -75; x <= 75; x += 7.5f) Box("Seam", new Vector3(x, 0.006f, 45f), new Vector3(0.08f, 0.02f, 140f), dark);
-            for (float z = -25; z <= 115; z += 7.5f) Box("Seam", new Vector3(0, 0.006f, z), new Vector3(150f, 0.02f, 0.08f), dark);
             for (float z = -12; z < 110; z += 6f) Box("TaxiLine", new Vector3(0, 0.012f, z), new Vector3(0.35f, 0.02f, 3.4f), yellow);
             Box("StopBar", new Vector3(0, 0.012f, 26f), new Vector3(16f, 0.02f, 0.45f), yellow);
 
@@ -250,6 +289,7 @@ namespace Ooda.UI
             g.transform.localRotation = Quaternion.Euler(0, 180f + yaw, 0);   // its door (local -z) toward the middle
             var verts = new List<Vector3>();
             var norms = new List<Vector3>();
+            var uvs = new List<Vector2>();
             var shell = new List<int>();
             var ends = new List<int>();
             // the roof, out- and inside, with a rib every few metres
@@ -260,8 +300,8 @@ namespace Ooda.UI
                 {
                     float a = Mathf.PI * s / Segs;
                     Vector3 n = new Vector3(Mathf.Cos(a), Mathf.Sin(a), 0);
-                    verts.Add(n * R + new Vector3(0, 0, -L / 2)); norms.Add(side == 0 ? n : -n);
-                    verts.Add(n * R + new Vector3(0, 0, L / 2)); norms.Add(side == 0 ? n : -n);
+                    verts.Add(n * R + new Vector3(0, 0, -L / 2)); norms.Add(side == 0 ? n : -n); uvs.Add(new Vector2((float)s / Segs * 6f, 0));
+                    verts.Add(n * R + new Vector3(0, 0, L / 2)); norms.Add(side == 0 ? n : -n); uvs.Add(new Vector2((float)s / Segs * 6f, 1));
                 }
                 for (int s = 0; s < Segs; s++)
                 {
@@ -273,17 +313,18 @@ namespace Ooda.UI
             // the back wall, closed, and the front's two side panels round a door 13 m wide and 7.5 m high
             {
                 int c = verts.Count;
-                verts.Add(new Vector3(0, 0, L / 2)); norms.Add(Vector3.forward);
+                verts.Add(new Vector3(0, 0, L / 2)); norms.Add(Vector3.forward); uvs.Add(Vector2.zero);
                 for (int s = 0; s <= Segs; s++)
                 {
                     float a = Mathf.PI * s / Segs;
-                    verts.Add(new Vector3(Mathf.Cos(a) * R, Mathf.Sin(a) * R, L / 2)); norms.Add(Vector3.forward);
+                    verts.Add(new Vector3(Mathf.Cos(a) * R, Mathf.Sin(a) * R, L / 2)); norms.Add(Vector3.forward); uvs.Add(Vector2.zero);
                 }
                 for (int s = 0; s < Segs; s++) ends.AddRange(new[] { c, c + 2 + s, c + 1 + s, c, c + 1 + s, c + 2 + s });
             }
             var mesh = new Mesh();
             mesh.SetVertices(verts);
             mesh.SetNormals(norms);
+            mesh.SetUVs(0, uvs);
             mesh.subMeshCount = 2;
             mesh.SetTriangles(shell, 0);
             mesh.SetTriangles(ends, 1);
@@ -303,7 +344,14 @@ namespace Ooda.UI
                 p.GetComponent<Renderer>().sharedMaterial = m;
                 return p;
             }
-            Part("Inside", new Vector3(0, 3.75f, -L / 2 + 0.6f), new Vector3(13f, 7.5f, 0.2f), dark);
+            Part("Inside", new Vector3(0, 3.75f, -L / 2 + 9f), new Vector3(13f, 7.5f, 0.2f), dark);
+            Part("InsideL", new Vector3(-6.5f, 3.75f, -L / 2 + 4.5f), new Vector3(0.2f, 7.5f, 9f), dark);
+            Part("InsideR", new Vector3(6.5f, 3.75f, -L / 2 + 4.5f), new Vector3(0.2f, 7.5f, 9f), dark);
+            Part("InsideTop", new Vector3(0, 7.5f, -L / 2 + 4.5f), new Vector3(13f, 0.2f, 9f), dark);
+            for (int i = 0; i < 3; i++) Part("Lamp", new Vector3(-4f + i * 4f, 7.2f, -L / 2 + 4f), new Vector3(1.4f, 0.25f, 0.6f), lamp);
+            Part("CrateIn", new Vector3(-4f, 0.7f, -L / 2 + 6.5f), new Vector3(1.6f, 1.4f, 1.6f), white);
+            Part("CrateIn", new Vector3(-2.2f, 0.5f, -L / 2 + 7f), new Vector3(1.1f, 1f, 1.1f), white);
+            Part("CrateIn", new Vector3(4.2f, 0.6f, -L / 2 + 6f), new Vector3(1.3f, 1.2f, 2.4f), white);
             Part("WallL", new Vector3(-8.25f, 3.6f, -L / 2), new Vector3(3.5f, 7.2f, 0.3f), white);
             Part("WallR", new Vector3(8.25f, 3.6f, -L / 2), new Vector3(3.5f, 7.2f, 0.3f), white);
             Part("Lintel", new Vector3(0, 8.4f, -L / 2), new Vector3(15.5f, 1.8f, 0.3f), white);
@@ -723,6 +771,14 @@ namespace Ooda.UI
             transform.localPosition = home + Vector3.up * (picked ? 0.06f * Mathf.Abs(Mathf.Sin(t * 3f)) : 0f);
         }
 
-        void OnDestroy() => handler?.Dispose();
+        static bool quitting;
+        [RuntimeInitializeOnLoadMethod]
+        static void WatchQuit() => Application.quitting += () => quitting = true;
+
+        void OnDestroy()
+        {
+            if (!quitting) handler?.Dispose();   // (at quit the avatar may already be gone: let the process take it)
+            handler = null;
+        }
     }
 }

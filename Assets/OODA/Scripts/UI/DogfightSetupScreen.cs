@@ -61,8 +61,8 @@ namespace Ooda.UI
         bool mission;   // the mission panel (the start, range, height, speed and the map) is up
 
         GUIStyle heading, head, label, dim, button, picked, small, smallPicked, bigFly;
-        GUIStyle barTitle, logo, plaque, plaqueRed, tag, tagPicked, tagRed, tagRedPicked, tagSub, tagSubRed, barButton, ready, vs, hint, count;
-        Texture2D white, bar, disc;
+        GUIStyle barTitle, logo, plaque, plaqueRed, tag, tagPicked, tagRed, tagRedPicked, tagSub, tagSubOn, barButton, ready, vs, hint, count;
+        Texture2D white, bar, disc, shade;
         string mapKey;      // the setup the map was laid out for
         Battle mapBattle;   // and where it puts everyone
 
@@ -220,13 +220,15 @@ namespace Ooda.UI
             tagPicked = Stencil(17, Ink, creamHot);
             tagRed = Stencil(17, Cream, red);
             tagRedPicked = Stencil(17, Cream, redHot);
-            tagSub = new GUIStyle(GUI.skin.label) { fontSize = 13, alignment = TextAnchor.MiddleCenter, clipping = TextClipping.Overflow };
-            tagSub.normal.textColor = Cream;
-            tagSubRed = new GUIStyle(tagSub);
+            tagSub = Stencil(15, Cream);
+            tagSubOn = Stencil(15, Gold);
+            shade = new Texture2D(1, 1) { hideFlags = HideFlags.HideAndDontSave };
+            shade.SetPixel(0, 0, new Color(0.08f, 0.09f, 0.05f, 0.72f));
+            shade.Apply();
             barButton = Stencil(22, Cream, olive, oliveHot);
             ready = Stencil(40, new Color(0.25f, 0.16f, 0.02f), gold, goldHot);
             vs = Stencil(38, Gold);
-            hint = new GUIStyle(GUI.skin.label) { fontSize = 13, alignment = TextAnchor.MiddleCenter };
+            hint = new GUIStyle(GUI.skin.label) { fontSize = 15, alignment = TextAnchor.MiddleCenter };
             hint.normal.textColor = new Color(0.92f, 0.88f, 0.74f);
             count = Stencil(18, Cream, olive, oliveHot);
         }
@@ -311,25 +313,26 @@ namespace Ooda.UI
             // VS between them
             Badge(new Vector2(w / 2, TopH + 96));
 
-            // a name plate under each pilot's feet
+            // the name plates: a row above the foot bar in the order they stand, lead nearest the middle (under each
+            // pilot's feet they crowd together as the wingmen step back)
             for (int side = 0; side < 2; side++)
             {
                 var list = side == 0 ? stage.ours : stage.theirs;
                 for (int i = 0; i < list.Count; i++)
                 {
-                    var p = list[i];
-                    Vector3 at = stage.OnScreen(p.feet);
-                    if (at.z <= 0) continue;
-                    float x = at.x / k, y = at.y / k + 14;
+                    float dir = side == 0 ? -1 : 1;
+                    float x = w / 2 + dir * (w * 0.06f + 70 + i * 140);
+                    float y = h - BotH - 92;
                     bool on = (side == 0 ? i : s.Ours + i) == sel;
                     string who = side == 0 ? (i == 0 ? "LEAD" : $"WINGMAN {i}") : (i == 0 ? "BANDIT LEAD" : $"BANDIT {i + 1}");
                     var st = side == 0 ? (on ? tagPicked : tag) : (on ? tagRedPicked : tagRed);
-                    float tw = Mathf.Max(132, st.CalcSize(new GUIContent(who)).x + 20);
-                    y = Mathf.Min(y, h - BotH - 52);
-                    if (GUI.Button(new Rect(x - tw / 2, y, tw, 30), who, st)) sel = side == 0 ? i : s.Ours + i;
+                    if (GUI.Button(new Rect(x - 68, y, 136, 30), who, st)) sel = side == 0 ? i : s.Ours + i;
                     var craft = side == 0 ? s.ours[i] : s.theirs[i];
                     var pk = side == 0 ? s.oursPilots[i] : s.theirsPilots[i];
-                    Shadow(new Rect(x - 110, y + 30, 220, 20), $"{PilotName(pk, craft)}  ·  {DogfightSetup.Short(craft)}", tagSub);
+                    var sub = new Rect(x - 68, y + 32, 136, 40);
+                    GUI.DrawTexture(sub, shade);
+                    GUI.Label(new Rect(sub.x, sub.y + 1, sub.width, 20), PilotName(pk, craft).ToUpperInvariant(), on ? tagSubOn : tagSub);
+                    GUI.Label(new Rect(sub.x, sub.y + 19, sub.width, 20), DogfightSetup.Short(craft).ToUpperInvariant(), on ? tagSubOn : tagSub);
                 }
             }
 
@@ -349,7 +352,8 @@ namespace Ooda.UI
             Divider(788, by);
             if (GUI.Button(new Rect(806, bty, Mathf.Max(190, w - 806 - 300), bh), mission ? "CLOSE MISSION" : "MISSION", barButton)) mission = !mission;
             if (GUI.Button(new Rect(w - 268, by + 8, 240, BotH - 16), "READY", ready)) result = Result.Fly;
-            Shadow(new Rect(0, by - 24, w, 20), mission ? "Esc closes the mission panel  ·  Enter flies"
+            GUI.DrawTexture(new Rect(0, by - 26, w, 26), shade);
+            Shadow(new Rect(0, by - 25, w, 24), mission ? "Esc closes the mission panel  ·  Enter flies"
                 : "← → pick a pilot  ·  P change pilot  ·  C change aircraft  ·  + − planes on that side  ·  M mission  ·  Enter ready", hint);
 
             if (mission) MissionPanel(new Rect(w / 2 - 560, TopH + 20, 1120, by - TopH - 56), s);
@@ -606,7 +610,7 @@ namespace Ooda.UI
         void DrawPlane(Vector2 at, float hdg, float size, Color col)
         {
             var keep = GUI.matrix;
-            GUIUtility.RotateAroundPivot(hdg, at);
+            Rotate(hdg, at);
             var c = GUI.color;
             GUI.color = col;
             float L = 26 * size, W = 22 * size;
@@ -617,13 +621,18 @@ namespace Ooda.UI
             GUI.matrix = keep;
         }
 
+        /// <summary>Turn what is drawn next by deg about a GUI point. (GUIUtility.RotateAroundPivot puts the pivot in the wrong
+        /// place once GUI.matrix scales, as the briefing's does.)</summary>
+        static void Rotate(float deg, Vector2 pivot) =>
+            GUI.matrix = GUI.matrix * Matrix4x4.TRS(pivot, Quaternion.Euler(0, 0, deg), Vector3.one) * Matrix4x4.Translate(-pivot);
+
         /// <summary>A straight line between two GUI points.</summary>
         void Rule(Vector2 a, Vector2 b, float width, Color col)
         {
             var keep = GUI.matrix;
             var d = b - a;
             float ang = Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg;
-            GUIUtility.RotateAroundPivot(ang, a);
+            Rotate(ang, a);
             var c = GUI.color;
             GUI.color = col;
             GUI.DrawTexture(new Rect(a.x, a.y - width / 2, d.magnitude, width), white);
