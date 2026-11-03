@@ -283,6 +283,7 @@ namespace Ooda.Turn
             if (grid != null) battle.groundFt = grid.At; else battle.groundFt = GroundFt;
             battle.obstacleHit = ObstacleHit;
             battle.wires = MakeWires();
+            Ooda.Look.WorldLook.Apply(Playing == Mission.TownStrike ? Ooda.Look.Mood.OvercastMorning : Ooda.Look.Mood.Afternoon);
 
             // a view for each aircraft: the scene's player, enemy and bomber first, prefabs for the rest
             int n = battle.Count;
@@ -529,6 +530,7 @@ namespace Ooda.Turn
 
         void Update()
         {
+            if (Ooda.Look.Scorecard.Frozen) return;   // the scorecard holds the frame still while it takes a shot
             if (view != null) view.sightPose = false;   // set again below while the gunsight view is up
             if (MenuUpdate()) return;   // Esc: the menu is open and the battle waits
             if (replaying) { ReplayUpdate(); return; }
@@ -1417,7 +1419,7 @@ namespace Ooda.Turn
 
         void OnGUI()
         {
-            if (battle == null) return;
+            if (battle == null || Ooda.Look.Scorecard.HideUi) return;
             Ooda.UI.BriefingStyle.Use();
             guiScale = Mathf.Clamp(Screen.height / 900f, 1f, 2.5f);
             GUI.matrix = Matrix4x4.Scale(Vector3.one * guiScale);

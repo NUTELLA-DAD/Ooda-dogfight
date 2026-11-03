@@ -89,6 +89,7 @@ namespace Ooda.EditorTools
             Set("m_ShadowCascadeCount", p => p.intValue = 4);
             Set("m_Cascade4Split", p => p.vector3Value = new Vector3(0.02f, 0.08f, 0.3f)); // 60 m, 240 m, 900 m, 3 km
             Set("m_SoftShadowsSupported", p => p.boolValue = true);
+            Set("m_ColorGradingMode", p => p.intValue = 1);   // HDR grading, for the WorldLook volume
             so.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(urp);
 
