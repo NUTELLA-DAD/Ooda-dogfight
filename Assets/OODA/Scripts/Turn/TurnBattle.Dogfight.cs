@@ -448,6 +448,7 @@ namespace Ooda.Turn
             // -dogfightcraft Mustang,Spitfire Bf109,Phantom: the aircraft on each side (and so how many)
             s = Array.IndexOf(args, "-dogfightcraft");
             if (s >= 0 && s + 2 < args.Length && ParseSide(args[s + 1], out var mine) && ParseSide(args[s + 2], out var theirs)) { dogSetup.ours = mine; dogSetup.theirs = theirs; }
+            FilmSetUp(args);
         }
 
         static bool ParseSide(string list, out Craft[] side)
@@ -476,6 +477,7 @@ namespace Ooda.Turn
             else if (phase == Phase.Over)
             {
                 FightOver();
+                if (FilmFightOver()) return;
                 if (fightNo >= botFights)
                 {
                     int t = Math.Max(1, botTurns);

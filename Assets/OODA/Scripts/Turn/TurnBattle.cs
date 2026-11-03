@@ -1466,6 +1466,7 @@ namespace Ooda.Turn
         void OnGUI()
         {
             if (battle == null) return;
+            if (filming) return;
             Ooda.UI.BriefingStyle.Use();
             guiScale = Mathf.Clamp(Screen.height / 900f, 1f, 2.5f);
             GUI.matrix = Matrix4x4.Scale(Vector3.one * guiScale);

@@ -290,7 +290,7 @@ namespace Ooda.Turn
             }
             if (!effects) return;
 
-            for (int s = 0; s < r.frames.Length; s++)
+            for (int s = 0; s < r.frames.Length && !filming; s++)
             {
                 if (r.frames[s] == null) continue;
                 var col = s == rFollow ? ghostColor : tapeBomber[s] ? bomberColor : tapeSide[s] != tapeSide[rFollow] ? projectionColor : wingmanColor;
