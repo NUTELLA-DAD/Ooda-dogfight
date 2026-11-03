@@ -44,6 +44,16 @@ namespace Ooda.Turn.Core
         };
 
         /// <summary>
+        /// One 20 mm Hispano and four .50s, all in the nose: no convergence, so a tight cone that holds at any range,
+        /// about 15 s of fire. Two engines and a bigger airframe (52 ft span): a little tougher, and a bigger target.
+        /// </summary>
+        public static CombatNumbers P38L() => new CombatNumbers
+        {
+            guns = "20 mm + 4 x .50 cal", muzzleFps = 2850, damage = 1.35, ammoSec = 15, spreadMil = 2.5, dragPerSec = 0.32,
+            health = 15, sizeFt = 3,
+        };
+
+        /// <summary>
         /// The F-4E Phantom's M61 Vulcan, 20 mm, 640 rounds at 6,000 a minute: a fast, hard-hitting stream but only about
         /// 7 s of it, a little wider spread. Four heat-seekers (Sidewinders). A bigger, tougher airframe (63 ft long, 38 ft
         /// span) and so a bigger target. Estimates to tune by feel.

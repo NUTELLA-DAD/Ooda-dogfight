@@ -504,7 +504,7 @@ namespace Ooda.UI
 
         /// <summary>
         /// With -setupshots folder on the command line: open the briefing on three setups and save each as a BMP there, then
-        /// quit: 2 v 2 Spitfire and F-4 against Bf 109s with the wizard and the skeleton; 4 v 3 mixed with a wingman picked;
+        /// quit: 2 v 2 Spitfire and F-4 against Bf 109s with the wizard and the skeleton; 4 v 3 mixed with the bear leading and a wingman picked;
         /// and the 4 v 3 with the mission panel up. Doesn't touch the setup kept for next time.
         /// </summary>
         public System.Collections.IEnumerator Shots(string folder)
@@ -519,7 +519,7 @@ namespace Ooda.UI
             chosen = new DogfightSetup
             {
                 ours = new[] { Craft.Mustang, Craft.Spitfire, Craft.Mustang, Craft.Phantom }, theirs = new[] { Craft.Bf109, Craft.Mustang, Craft.Phantom },
-                oursPilots = new[] { PilotKind.Usual, PilotKind.Skeleton, PilotKind.Wolf, PilotKind.Usual }, theirsPilots = new[] { PilotKind.Wizard, PilotKind.Usual, PilotKind.Usual },
+                oursPilots = new[] { PilotKind.Bear, PilotKind.Skeleton, PilotKind.Wolf, PilotKind.Usual }, theirsPilots = new[] { PilotKind.Wizard, PilotKind.Usual, PilotKind.Usual },
                 randomStart = false, start = Scenarios.Start.HeadOn, range = DogfightSetup.Range.Close, height = DogfightSetup.Height.Low, speed = DogfightSetup.Pace.Fast,
             };
             sel = 1;

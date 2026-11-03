@@ -66,6 +66,7 @@ MonoBehaviour:
   aircraft: {fileID: 0}
   idleRpm: 400
   maxRpm: 1400
+  reverse: 0
 --- !u!114 &5527612611976568230
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -82,6 +83,7 @@ MonoBehaviour:
   aircraft: {fileID: 0}
   idleRpm: 400
   maxRpm: 1400
+  reverse: 0
 --- !u!114 &7272129160996191456
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -98,6 +100,7 @@ MonoBehaviour:
   aircraft: {fileID: 0}
   idleRpm: 400
   maxRpm: 1400
+  reverse: 0
 --- !u!114 &3825357812986705280
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -114,6 +117,7 @@ MonoBehaviour:
   aircraft: {fileID: 0}
   idleRpm: 400
   maxRpm: 1400
+  reverse: 0
 --- !u!1001 &5021385190289568304
 PrefabInstance:
   m_ObjectHideFlags: 0
