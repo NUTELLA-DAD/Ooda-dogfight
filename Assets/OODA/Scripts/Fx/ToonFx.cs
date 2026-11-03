@@ -98,12 +98,10 @@ namespace Ooda.Fx
         static readonly Color[] Metal = { Hex("#3a3f48"), Hex("#5a606a"), Hex("#2a2d33"), Hex("#6e5a48") };
         static readonly Color[] Rubble = { Hex("#4a4038"), Hex("#6e6152"), Hex("#3a3330"), Hex("#7a4a2a") };
         static readonly Color FlashWhite = new Color(1f, 1f, 0.94f, 1f), FlashYellow = new Color(1f, 0.92f, 0.36f, 1f);
-        static readonly Color FireOrange = new Color(1f, 0.5f, 0.1f, 1f), FireYellow = new Color(1f, 0.85f, 0.25f, 1f), FlameInk = Hex("#8a1e08");
-        static readonly Color SparkHot = new Color(1f, 0.97f, 0.7f, 1f), ShardLine = Hex("#141218");
+                static readonly Color SparkHot = new Color(1f, 0.97f, 0.7f, 1f), ShardLine = Hex("#141218");
 
         static Color Hex(string h) { ColorUtility.TryParseHtmlString(h, out var c); return c; }
         static readonly float[] Tilt3 = { -40f, 6f, 38f }, Tilt2 = { -30f, 32f }, TrailLen = { 1f, 0.66f, 0.84f, 0.74f };
-        static readonly float[] FlameHgt = { 1.5f, 1.15f, 1.7f, 1.25f };
 
         // ---------------------------------------------------------------------------------------------------------
         // stable hashes (no unseeded random)
@@ -194,7 +192,7 @@ namespace Ooda.Fx
         }
 
         /// <summary>
-        /// A dark column of smoke rising from p for a while (a wreck, a bombed target), with flames at its foot while it
+        /// A dark column of smoke rising from p for a while (a wreck, a bombed target), with fire at its foot while it
         /// burns. s: its size (1 is a small wreck's; a factory's is 10 or more). seconds &lt; 0: until cleared.
         /// </summary>
         public void SmokeColumn(Vector3 p, float s, float seconds, float? t0 = null)
@@ -217,7 +215,6 @@ namespace Ooda.Fx
         Vector3 right, up, toCam, camPos, camFwd;
         float pxPerM1, screenH;
         readonly float[] radii = new float[64];
-        readonly List<(Vector3 p, float s, int seed)> flames = new List<(Vector3, float, int)>();
 
         void LateUpdate() => Draw(Camera.main);
 
@@ -249,9 +246,7 @@ namespace Ooda.Fx
                 }
                 DrawGroups();
                 DrawFlashes(now);
-                DrawFlames(now);
             }
-            flames.Clear();
             if (mesh == null) return;
             mesh.Clear();
             mesh.SetVertices(verts);
@@ -440,26 +435,6 @@ namespace Ooda.Fx
                 for (int k = 0; k < 18; k++) radii[k] = s * (2.4f - 0.25f * key) * ((k & 1) == 0 ? 1f : 0.86f);
                 Shape(P0 + Vector3.up * 0.3f, d1, d2, radii, 18, 0f, new Color(1f, 0.6f, 0.2f, la));
             }
-            // flame tongues breaking the outline, pointing the way the blast threw, behind the puffs
-            if (key >= 1 && key <= 7)
-            {
-                int ts = StageOf(key);
-                Vector3 thrown = Vector3.Dot(n, right) * right + Vector3.Dot(n, up) * up;
-                thrown = (thrown + up * 1.1f + right * Rng(seed, 805, -0.5f, 0.5f)).normalized;   // (up and off to one side: flames rise, never drip)
-                int nT = 3 + (int)(R01(seed, 800) * 1.99f);
-                float tl = s * (key <= 3 ? 1f : 1f - (key - 3) * 0.2f);
-                for (int k = 0; k < nT; k++)
-                {
-                    float ang = Rng(seed, k + 810, -75f, 75f) * Mathf.Deg2Rad;
-                    Vector3 dir = (thrown * Mathf.Cos(ang) + Vector3.Cross(toCam, thrown).normalized * Mathf.Sin(ang) + up * 0.4f).normalized;
-                    if (Vector3.Dot(dir, up) < 0.15f) dir = (dir + up * (0.15f - Vector3.Dot(dir, up) + 0.2f)).normalized;
-                    Vector3 sideT = Vector3.Cross(dir, toCam).normalized;
-                    float len = tl * Rng(seed, k + 820, 2.4f, 3.4f), wid = s * Rng(seed, k + 830, 0.9f, 1.3f);
-                    Vector3 from = c + dir * (0.6f * s) - toCam * (0.1f * s);
-                    Tongue(from, dir, sideT, len + 0.25f * s, wid + 0.22f * s, StageLine[ts]);
-                    Tongue(from + dir * (0.08f * s) + toCam * (0.02f * s), dir, sideT, len, wid, StageFill[ts]);
-                }
-            }
             // the burst at its base: clusters of brick-red puffs spreading out (above and beside it, never dripping below)
             Group(BrickLine, BrickLine, 2f * s);
             const int RingN = 9;
@@ -599,7 +574,7 @@ namespace Ooda.Fx
                 if (now > q.Until + 12f) { q.On = false; continue; }
                 float s = q.S, life = Mathf.Min(7f, 2.8f * Mathf.Sqrt(s));
                 if (now < q.T0 + 0.5f) { q.Last = now; continue; }   // (the blast's own plume first)
-                if (now <= q.Until) flames.Add((q.P + Vector3.up * 0.2f * s, 1.6f * s, q.Seed));
+                if (now <= q.Until) FootFire(q.P + Vector3.up * 0.3f * s, s, q.Seed, now);
                 // every puff due since the last frame (a shot's first frame back-fills the column already risen)
                 float from = Mathf.Max(q.Last, q.T0 + 0.5f, now - life);
                 int k0 = Mathf.CeilToInt(from / Every), k1 = Mathf.FloorToInt(Mathf.Min(now, q.Until) / Every);
@@ -696,8 +671,9 @@ namespace Ooda.Fx
                             float s = BlastScale(f);
                             Vector3 n = f.D.sqrMagnitude > 0.01f ? f.D.normalized : Vector3.up;
                             Vector3 p = f.P + n * (0.5f * s) + toCam * (1.4f * s);
-                            if (key == 0) { Star(p, s * 3.2f, s * 1.4f, 9, f.Seed, FlashWhite, R01(f.Seed, 1) * 6.28f); Circle(p, right, up, s * 1.7f, 22, FlashWhite); }
-                            if (key == 1) Star(p, s * 2.6f, s * 0.9f, 9, f.Seed + 1, FlashYellow, R01(f.Seed, 1) * 6.28f + 0.35f);
+                            // (a round flash, no star spikes: a hot white disc in a pale yellow ring, then a smaller yellow one)
+                            if (key == 0) { Circle(p, right, up, s * 2.6f, 28, new Color(1f, 0.92f, 0.5f, 0.55f)); Circle(p + toCam * 0.01f, right, up, s * 1.8f, 24, FlashWhite); }
+                            if (key == 1) Circle(p, right, up, s * 1.5f, 22, new Color(1f, 0.92f, 0.36f, 0.8f));
                             Sparks(p, s, key, f.Seed, 6, 14f, 2.0f, (n + up).normalized * 0.6f);
                             if (key > BlastKeys) alive = false;
                         }
@@ -718,22 +694,6 @@ namespace Ooda.Fx
             if (key == 2) Star(p, 0.6f * s, 0.2f * s, 6, seed, FlashYellow, rot + 0.5f);
             Sparks(p, s, key, seed, 4, 7f, 0.65f);
             return true;
-        }
-
-        // a flame tongue: a pointed leaf from the root out along dir, flat on the screen
-        void Tongue(Vector3 tip, Vector3 dir, Vector3 side, float len, float wid, Color c)
-        {
-            pts.Clear();
-            const int N = 7;
-            for (int pass = 0; pass < 2; pass++)
-                for (int i = 0; i <= N; i++)
-                {
-                    int k = pass == 0 ? i : N - i;
-                    float u = k / (float)N;
-                    float wv = wid * 0.5f * Mathf.Sin(Mathf.PI * Mathf.Pow(u, 0.7f)) * (u < 0.15f ? 0.6f + u * 2.6f : 1f);
-                    pts.Add(tip + dir * (len * u) + side * (pass == 0 ? wv : -wv));
-                }
-            Polygon(tip + dir * (len * 0.35f), pts, c);
         }
 
         // short hot streaks flying out (ballistic), drawn as tapered wedges: head white, tail orange
@@ -763,25 +723,26 @@ namespace Ooda.Fx
             Shape(c, right, up, radii, n, rot, col);
         }
 
-        // fires at a column's foot: a clump of toon flame tongues (an ink line, orange, a yellow heart), each leaping
-        // between heights on its own beat (stepped)
-        void DrawFlames(float now)
+        // fire at a column's foot, in the blast's puff language: a low clump of round puffs, a yellow heart in orange
+        // and red, each swelling and shrinking on its own stepped beat (no cartoon flame leaves)
+        static readonly Color[] FireFill = { Hex("#ffd24a"), Hex("#ff9a2a"), Hex("#e8561e"), Hex("#b8361a") };
+        void FootFire(Vector3 p, float s, int seed, float now)
         {
-            int beat = Mathf.FloorToInt(now * KeysPerSec / 3f);
-            foreach (var (p, s, seed) in flames)
+            int beat = Mathf.FloorToInt(now * KeysPerSec / 2f);
+            Group(Hex("#8a2a10"), Hex("#8a2a10"), -0.5f * s);   // (over the smoke rising from it)
+            for (int k = 0; k < 6; k++)
             {
-                Vector3 b = p + toCam * (0.3f * s);
-                for (int k = 0; k < 3; k++)
-                {
-                    int key = (beat + seed + k * 3) & 3;
-                    float hgt = s * FlameHgt[key] * (k == 1 ? 1.3f : 0.95f), wid = s * (k == 1 ? 0.85f : 0.7f);
-                    float ang = (k - 1) * 0.42f + Rng(seed, k + key * 3, -0.12f, 0.12f);
-                    Vector3 dir = (up * Mathf.Cos(ang) + right * Mathf.Sin(ang)).normalized, side = Vector3.Cross(dir, toCam).normalized;
-                    Vector3 root = b + right * ((k - 1) * 0.48f * s) - dir * (0.15f * s);
-                    Tongue(root - dir * (0.06f * s) - toCam * (0.01f * s), dir, side, hgt + 0.18f * s, wid + 0.16f * s, FlameInk);
-                    Tongue(root, dir, side, hgt, wid, FireOrange);
-                    Tongue(root + dir * (0.05f * s) + toCam * (0.01f * s), dir, side, hgt * 0.55f, wid * 0.5f, FireYellow);
-                }
+                int ph = (beat + k * 3 + seed) & 3;
+                float a = (k + Rng(seed, k, -0.3f, 0.3f)) * Mathf.PI * 2f / 6f;
+                Vector3 o = right * (Mathf.Cos(a) * 0.55f * s) + Vector3.up * ((0.15f + 0.35f * Mathf.Abs(Mathf.Sin(a))) * s) + toCam * (0.2f * s);
+                float r = s * (0.32f + 0.08f * ph) * Rng(seed, k + 20, 0.85f, 1.15f);
+                Add(p + o + Vector3.up * (0.06f * ph * s), r, FireFill[2 + (k & 1)], false, seed + k * 5 + ph, 4);
+            }
+            for (int k = 0; k < 3; k++)
+            {
+                int ph = (beat + k * 2 + seed + 1) & 3;
+                Vector3 o = right * ((k - 1) * 0.3f * s) + Vector3.up * ((0.35f + 0.1f * ph) * s) + toCam * (0.35f * s);
+                Add(p + o, s * (0.26f + 0.05f * ph), FireFill[k == 1 ? 0 : 1], false, seed + 60 + k + ph, 4);
             }
         }
 
