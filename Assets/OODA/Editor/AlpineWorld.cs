@@ -107,7 +107,7 @@ namespace Ooda.EditorTools
             foreach (var v in h) { lo = Mathf.Min(lo, v); hi = Mathf.Max(hi, v); }
             Debug.Log($"OODA: alpine terrain built: {lo:F0} m to {hi:F0} m; {Peaks.Count} mountains and hills; floor under the Chalet Lake arena {SampleArr(h, FightCentre.x, FightCentre.z):F0} m, flying at {FightAltFt * 0.3048f:F0} m.");
             foreach (var a in Ooda.Turn.Core.Arenas.All)
-                Debug.Log($"OODA: arena {a.name}: ground {SampleArr(h, a.x, a.z):F0} m under its centre, starting at {a.altFt * 0.3048f:F0} m.");
+                Debug.Log($"OODA: arena {a.name}: ground {SampleArr(h, (float)a.x, (float)a.z):F0} m under its centre, starting at {a.altFt * 0.3048f:F0} m.");
             return t;
         }
 
