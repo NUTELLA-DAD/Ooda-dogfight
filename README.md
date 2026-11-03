@@ -72,6 +72,17 @@ The turn engine is plain C# in `Assets/OODA/Scripts/Turn/Core/`: the autopilot t
 
 Every screen's text, the title, the planning panels, the buttons, the HUD and the end screens, is green monospaced type (Share Tech Mono) on dark olive panels with a thin green rim, and the big headings are stencil (Stardos Stencil). It all comes from one skin, `UI/BriefingStyle.cs`: each OnGUI calls `BriefingStyle.Use()` first, and any GUIStyle made from `GUI.skin` after that takes the look. The fonts are under `Resources/Fonts` with their SIL Open Font Licenses.
 
+## Online play (in progress)
+
+Two players on separate machines will fly one fight: co-op against the AI or side against side, Dogfight first. Each turn only the plans cross the network; the host runs the AI pilots and sends every plane's plan out, both machines fly the turn, and they compare a hash of the result. If the hashes differ, the friend's game takes the host's whole battle as a snapshot.
+
+The pieces under that are in `Turn/Core/`, pure C# like the rest of the turn engine:
+
+- `Wire.cs` turns the battle, or a turn's plans, into bytes and back by walking their fields (so a new field is carried without listing it), and hashes the battle. Each machine keeps its own aircraft and gun numbers, hazard shapes and ground: a snapshot only carries what a turn changes.
+- `Seating.cs` says who flies which plane (`ShareOurs` splits side 0's fighters as evenly as it goes, the host taking the extra one; `SideAgainstSide` gives each player a side), and keeps the one order every machine agrees on: an aircraft's wire id is its index at the start, on the host. Each machine keeps its own plane at index 0 as Tab does, and `ResolveInWireOrder` flies the turn in wire order, because the order planes are stepped in decides the order rounds are fired and the gun dispersion's dice.
+
+`Tools~/NetCheck` checks them without a network (`dotnet run` there): the same plans fly the same turn to the bit, a snapshot puts a fresh battle exactly in step, a 4 v 4 kept in a shuffled order on the friend's side agrees with the host's hash every turn, plans survive the trip to bytes, and the planes are shared out as described. The connection, the lobby and the waiting-for-your-friend turn come next.
+
 ## Jet Test: the Phantom with an afterburner
 
 A side test, kept apart from the WW2 missions: **Jet Test** in the bottom-right corner of the title (or **J**) puts you in an F-4 Phantom (the Hi3D model cut to about 50k triangles, `Art/Phantom`) in free flight over the Alps, 14,000 ft over the lake at the foot of the main valley at 420 kt. **Space** or pad **A** lights the afterburner (it pushes the throttle to the stop) and puts it out; pulling the throttle back with Ctrl or the left trigger puts it out too. The rest is the sandbox's controls, plus **Esc** back to the title. The HUD shows Mach big, the airspeed in knots and mph, and the best Mach of the flight; a flame and an orange glow come out of the nozzles when the burner is lit, and a vapour cone forms round the jet right at Mach 1 low down.

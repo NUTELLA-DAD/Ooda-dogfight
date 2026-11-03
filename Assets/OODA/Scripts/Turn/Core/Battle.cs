@@ -121,6 +121,7 @@ namespace Ooda.Turn.Core
             if (a == b || a < 0 || b < 0 || a >= Count || b >= Count) return;
             void S<T>(T[] arr) { var t = arr[a]; arr[a] = arr[b]; arr[b] = t; }
             int Map(int i) => i == a ? b : i == b ? a : i;
+            side = (int[])side.Clone(); combat = (CombatNumbers[])combat.Clone();   // new arrays: clones share these two
             S(planes); S(combat); S(side); S(routes); S(flightOf); S(number); S(orders); S(health); S(ammo); S(missiles); S(down); S(crashed); S(hitObstacle); S(fireClock);
             foreach (var bl in bullets)
             {
