@@ -6,6 +6,7 @@ using System;
 using System.Linq;
 using Ooda.Flight.Core;
 using Ooda.Turn.Core;
+using Ooda.Net;
 
 static class Program
 {
@@ -138,6 +139,92 @@ static class Program
             Check(Enumerable.Range(0, vs.Count).All(i => sv.SeatOf(i) == vs.side[i]), $"2 v 3 player against player: each flies a side ({Seats(vs, sv)})");
             vs.Swap(0, 1); sv.Swapped(0, 1);
             Check(sv.Mine(0) && vs.side[0] == 1 && !sv.Mine(1), "after a swap (Tab) the seats follow the planes");
+        }
+
+
+        Console.WriteLine("\nOver the network (localhost)");
+        {
+            bool Until(Func<bool> done, double sec = 5)
+            {
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                while (!done() && sw.Elapsed.TotalSeconds < sec) System.Threading.Thread.Sleep(5);
+                return done();
+            }
+            var host = NetSession.Host("test", "Kenny", 0);
+            var friend = NetSession.Join("127.0.0.1", host.link.Port, "test", "Sam");
+            Check(Until(() => { host.Pump(); friend.Pump(); return host.Ready && friend.Ready; }), $"host and friend connect on port {host.link.Port} and say hello");
+            Check(host.friendName == "Sam" && friend.friendName == "Kenny", "each knows the other's name");
+
+            foreach (bool versus in new[] { false, true })
+            {
+                var dog = new DogfightSetup { ours = new[] { Craft.Mustang, Craft.Spitfire, Craft.Phantom }, theirs = new[] { Craft.Bf109, Craft.Bf109, Craft.Mustang }, randomStart = true, easyAimOurs = !versus }.Resolved(new Random(versus ? 3 : 4));
+                var setup = new SetupMsg { dogfight = dog.ToBytes(), versus = versus, fight = versus ? 2 : 1 };
+                host.Send(Msg.Setup, setup);
+                Check(Until(() => { friend.Pump(); if (friend.TryNext(out var ty, out var d) && ty == Msg.Setup) friend.setup = NetSession.Read<SetupMsg>(d); else if (ty != 0) Console.WriteLine("got " + ty); return friend.setup != null && friend.setup.fight == setup.fight; }), $"the friend gets the {(versus ? "versus" : "co-op")} fight's setup");
+                host.setup = setup;
+                Battle Build(SetupMsg st) => Scenarios.Dogfight(DogfightSetup.FromBytes(st.dogfight), new Vec3d(0, 0, 0));
+                var hb = Build(host.setup); var fb = Build(friend.setup);
+                host.SeatFor(hb); friend.SeatFor(fb);
+                // the friend sits in its own first plane, as the battle screen does
+                int first = friend.seating.FirstMine(); fb.Swap(0, first); friend.seating.Swapped(0, first);
+                Check(friend.seating.Mine(0) && fb.side[0] == (versus ? 1 : 0), $"the friend is in its own plane, a {fb.planes[0].numbers.name}");
+                var hp = Pilots(hb); var fp = Pilots(fb);
+                for (int i = 0; i < fb.Count; i++) fp[i].me = i;
+                bool same = true, ordersCame = true; int turns = 0;
+                for (int t = 0; t < 8 && !hb.Over; t++)
+                {
+                    // each plans its own planes (the host the AI's too); the friend changes an order on its plane
+                    var fplans = Plan(fb, fp);
+                    fb.orders[0] = t % 2 == 0 ? Order.YouControl : Order.AutoFight;
+                    friend.Send(Msg.Plans, Lockstep.Mine(fb, friend.seating, fplans, false, setup.fight));
+                    var hplans = Plan(hb, hp);
+                    var mine = Lockstep.Mine(hb, host.seating, hplans, true, setup.fight);
+                    PlansMsg got = null;
+                    Until(() => { host.Pump(); if (host.TryNext(out var ty, out var d) && ty == Msg.Plans) got = NetSession.Read<PlansMsg>(d); return got != null; });
+                    var turn = Lockstep.Merge(hb, host.seating, mine, got, 1, TurnSec);
+                    Lockstep.Apply(hb, host.seating, turn);
+                    host.seating.ResolveInWireOrder(hb, host.seating.PlansToLocal(turn.plans), turn.turnSec);
+                    turn.hash = host.seating.Hash(hb);
+                    host.Send(Msg.Turn, turn);
+                    TurnMsg tm = null;
+                    Until(() => { friend.Pump(); if (friend.TryNext(out var ty, out var d) && ty == Msg.Turn) tm = NetSession.Read<TurnMsg>(d); return tm != null; });
+                    Lockstep.Apply(fb, friend.seating, tm);
+                    ordersCame &= hb.orders[host.seating.LocalOf(friend.seating.wireOf[0])] == fb.orders[0];
+                    friend.seating.ResolveInWireOrder(fb, friend.seating.PlansToLocal(tm.plans), tm.turnSec);
+                    same &= friend.seating.Hash(fb) == tm.hash;
+                    turns++;
+                }
+                Check(same && turns > 3, $"{(versus ? "versus" : "co-op")} 3 v 3 of mixed types ({dog.start}): {turns} turns through the sockets, the friend's hash matches the host's every turn");
+                Check(ordersCame, "the friend's orders for its planes reach the host's battle");
+            }
+
+            // a resync: the friend's battle knocked out of step takes the host's snapshot
+            {
+                host.setup = new SetupMsg(); friend.setup = new SetupMsg();   // co-op
+                var hb = Scenarios.Dogfight(Scenarios.Start.HeadOn, new Vec3d(0, 0, 0), ours: 2, theirs: 2); host.SeatFor(hb);
+                var fb = hb.Clone(); friend.SeatFor(fb); fb.Swap(0, 2); friend.seating.Swapped(0, 2);
+                fb.planes[2].state.pos = fb.planes[2].state.pos + new Vec3d(5, 0, 0);
+                Check(friend.seating.Hash(fb) != host.seating.Hash(hb), "a friend's battle out of step by 5 ft hashes differently");
+                host.Send(Msg.Snapshot, new SnapshotMsg { data = host.seating.Snapshot(hb) });
+                SnapshotMsg sm = null;
+                Until(() => { friend.Pump(); if (friend.TryNext(out var ty, out var d) && ty == Msg.Snapshot) sm = NetSession.Read<SnapshotMsg>(d); return sm != null; });
+                friend.seating.Restore(fb, sm.data);
+                Check(friend.seating.Hash(fb) == host.seating.Hash(hb) && friend.seating.Mine(0), $"after the {sm.data.Length} byte snapshot it is back in step, still in its own plane");
+            }
+
+            friend.Close();
+            Check(Until(() => host.link.Lost, 3), $"the friend leaves and the host knows at once: \"{host.Problem}\"");
+            host.Close();
+
+            var other = NetSession.Host("build A", "Kenny", 0);
+            var wrong = NetSession.Join("127.0.0.1", other.link.Port, "build B", "Sam");
+            Until(() => { other.Pump(); wrong.Pump(); return other.Problem != null && wrong.Problem != null; });
+            Check(!other.Online && !wrong.Online && other.Problem != null, $"two different builds refuse each other: \"{other.Problem}\"");
+            other.Close(); wrong.Close();
+
+            var nobody = NetSession.Join("127.0.0.1", 1, "test", "Sam");
+            Check(Until(() => nobody.link.Lost, 12), $"joining where no one hosts gives up with a reason: \"{nobody.Problem}\"");
+            Check(NetLink.ParseAddress("100.64.1.2:9000", out var hh, out var pp) && hh == "100.64.1.2" && pp == 9000 && NetLink.ParseAddress("kenny-pc", out hh, out pp) && pp == NetLink.DefaultPort, "addresses with and without a port");
         }
 
         Console.WriteLine("\nThe dogfight setup");

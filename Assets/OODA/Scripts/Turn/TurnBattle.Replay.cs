@@ -501,6 +501,7 @@ namespace Ooda.Turn
             OpenMenu(false);
             Time.timeScale = 1;
             if (rPilot != null) rPilot.hideHead = false;
+            NetLeave();
             SceneManager.LoadScene(titleScene);
         }
 

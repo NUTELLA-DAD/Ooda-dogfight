@@ -219,6 +219,7 @@ namespace Ooda.Turn
             if (read != null)
                 for (int i = 1; i < p.Length && i < read.pred.Length; i++) if (read.pred[i] != null) p[i] = read.pred[i].plans[0];
             ApplyManual(p);   // the planes of yours you have planned fly your plans
+            NetDrafts(p);     // online: your wingman's fly what they are planning
             return p;
         }
 
