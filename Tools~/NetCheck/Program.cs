@@ -277,6 +277,39 @@ static class Program
                 }
             Check(allOk, $"all {Scenarios.StartCount} starts at every range, 4 v 4: nobody within 250 ft, the leads at least 800 ft apart, all still flying after 3 turns{worst}");
             Check(Scenarios.StartCount == Enum.GetValues(typeof(Scenarios.Start)).Length, "a random start can be any of them");
+
+            // the arena: picked at random and fixed like the start, carried in the bytes, and an older setup gets a random one
+            Check(fixedOne.arena >= 0 && fixedOne.arena < Arenas.Count && !fixedOne.randomArena && back.arena == fixedOne.arena && !back.randomArena,
+                  $"the arena is fixed by Resolved and survives the trip ({Arenas.Get(back.arena).name})");
+            var picked = setup.Copy(); picked.randomArena = false; picked.arena = 2;
+            Check(DogfightSetup.FromBytes(picked.ToBytes()).arena == 2, "a picked arena survives it too");
+            var v2 = fixedOne.ToBytes(); v2 = v2.Take(v2.Length - 2).ToArray(); v2[0] = 2;
+            var older = DogfightSetup.FromBytes(v2);
+            Check(older.randomArena && older.oursPilots.SequenceEqual(setup.oursPilots), "a setup saved by the build before the arenas still reads, over a random arena");
+            var seen = new System.Collections.Generic.HashSet<int>();
+            var dice = new Random(1);
+            for (int k = 0; k < 200; k++) seen.Add(new DogfightSetup().Resolved(dice).arena);
+            Check(seen.Count == Arenas.Count, $"a random arena can be any of the {Arenas.Count}");
+
+            // turned to an arena's axis: 90 degrees, head-on, puts you west of the middle flying east, them east flying west
+            var ho = new DogfightSetup { randomStart = false, start = Scenarios.Start.HeadOn, randomArena = false };
+            var east = Scenarios.Dogfight(ho, centre, 3600, 300, 3000, true, 90);
+            var me0 = east.planes[0].state; var them0 = east.planes[1].state;
+            Check(me0.pos.x < centre.x - 4000 && Math.Abs(me0.pos.y - centre.y) < 400 && me0.vel.x > 0 && Math.Abs(me0.vel.y) < 1
+                  && them0.pos.x > centre.x + 4000 && them0.vel.x < 0,
+                  $"an arena's axis turns the start: you at ({me0.pos.x - centre.x:F0}, {me0.pos.y - centre.y:F0}) ft heading east, them heading west");
+            var north = Scenarios.Dogfight(ho, centre, 3600, 300, 3000, true, 0);
+            Check(Wire.Hash(north) == Wire.Hash(Scenarios.Dogfight(ho, centre, 3600, 300, 3000)), "no axis is the same as before");
+
+            // lifted clear of a ridge under the start, all together, and not at all over flat ground
+            var low = Scenarios.Dogfight(new DogfightSetup { randomStart = false, start = Scenarios.Start.Perch, range = DogfightSetup.Range.Far, height = DogfightSetup.Height.Low,
+                                                            ours = DogfightSetup.Resize(new[] { Craft.Mustang }, 4), theirs = DogfightSetup.Resize(new[] { Craft.Bf109 }, 4) }, centre, 3600, 300, 3000);
+            double gap01 = low.planes[0].state.pos.z - low.planes[1].state.pos.z;
+            double lift = Scenarios.LiftClear(low, (x, y) => 3000);
+            double lowest = Enumerable.Range(0, low.Count).Min(i => low.planes[i].state.pos.z);
+            Check(lift > 0 && lowest >= 3500 - 1 && Math.Abs(low.planes[0].state.pos.z - low.planes[1].state.pos.z - gap01) < 1e-6,
+                  $"a start under a 3,000 ft ridge goes up {lift:F0} ft, everyone together, the lowest 500 ft over it");
+            Check(Scenarios.LiftClear(Scenarios.Dogfight(ho, centre, 3600, 300, 3000), (x, y) => 0) == 0, "over low ground nothing moves");
         }
 
         Console.WriteLine(fails == 0 ? "\nAll checks pass." : $"\n{fails} check(s) failed.");

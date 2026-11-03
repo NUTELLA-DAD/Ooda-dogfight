@@ -50,6 +50,7 @@ namespace Ooda.Turn
         string ghostReport;
         System.Random startDice = new System.Random();
         Scenarios.Start dogStart;
+        int dogArena;
 
         bool Dogfighting => Playing == Mission.Dogfight;
 
@@ -80,8 +81,10 @@ namespace Ooda.Turn
         {
             var s = dogSetup.Copy();
             if (botStart != null) { s.randomStart = false; s.start = botStart.Value; }
+            if (botArena != null) { s.randomArena = false; s.arena = botArena.Value; }
             s = s.Resolved(startDice);
             dogStart = s.start;
+            dogArena = s.arena;
             dogCraft = new Craft[s.Ours + s.Theirs];   // in the battle's order: you, their lead, your wingmen, their others
             dogCraft[0] = s.ours[0]; dogCraft[1] = s.theirs[0];
             for (int k = 1; k < s.Ours; k++) dogCraft[1 + k] = s.ours[k];
@@ -90,7 +93,14 @@ namespace Ooda.Turn
             dogPilots[0] = s.PilotOf(true, 0); dogPilots[1] = s.PilotOf(false, 0);
             for (int k = 1; k < s.Ours; k++) dogPilots[1 + k] = s.PilotOf(true, k);
             for (int k = 1; k < s.Theirs; k++) dogPilots[s.Ours + k] = s.PilotOf(false, k);
-            return Scenarios.Dogfight(s, UnityFrame.Pos(startCentre), startAltFt, startKias, startGapM);
+            // over the arena picked: its middle, its height and its axis (startCentre and startAltFt are only for a world without arenas)
+            var a = Arenas.Get(s.arena);
+            var b = useArenas ? Scenarios.Dogfight(s, a.CentreFt, a.altFt, startKias, startGapM, true, a.axisDeg)
+                              : Scenarios.Dogfight(s, UnityFrame.Pos(startCentre), startAltFt, startKias, startGapM);
+            // a low start at long range can put someone under a ridge: lift everyone together until all are clear
+            double lift = Scenarios.LiftClear(b, GroundFt);
+            if (lift > 0) Debug.Log($"OODA: the dogfight over {Arenas.Get(s.arena).name} starts {lift:F0} ft higher than set, to clear the ground.");
+            return b;
         }
 
         /// <summary>The fight's setup: from the setup screen (or -dogfightsides N M for the bot).</summary>
@@ -103,8 +113,10 @@ namespace Ooda.Turn
         int dogTheirs => dogSetup.Theirs;
 
         string DogfightNotice => dogOurs == 1 && dogTheirs == 1
-            ? $"Dogfight: your {DogfightSetup.Short(dogSetup.ours[0])} against a {DogfightSetup.Short(dogSetup.theirs[0])}, {Scenarios.Name(dogStart)}."
-            : $"Dogfight {dogOurs} v {dogTheirs}: {DogfightSetup.Describe(dogSetup.ours)} against {DogfightSetup.Describe(dogSetup.theirs)}, {Scenarios.Name(dogStart)}. Tab: your next plane, N: next target.";
+            ? $"Dogfight over {ArenaName}: your {DogfightSetup.Short(dogSetup.ours[0])} against a {DogfightSetup.Short(dogSetup.theirs[0])}, {Scenarios.Name(dogStart)}."
+            : $"Dogfight {dogOurs} v {dogTheirs} over {ArenaName}: {DogfightSetup.Describe(dogSetup.ours)} against {DogfightSetup.Describe(dogSetup.theirs)}, {Scenarios.Name(dogStart)}. Tab: your next plane, N: next target.";
+
+        string ArenaName => useArenas ? Arenas.Get(dogArena).name : "the valley";
 
         // ---------- reading the enemy ----------
 
@@ -381,7 +393,7 @@ namespace Ooda.Turn
             ghostReport = null;
             if (!Dogfighting) return;
             fightNo++; fightBursts = fightHits = fightTaken = 0; fightBurstSec = 0; fightLogged = false;
-            Log($"fight {fightNo} begins: {Scenarios.Name(dogStart)}{(bot ? " (bot)" : "")}");
+            Log($"fight {fightNo} begins over {ArenaName}: {Scenarios.Name(dogStart)}{(bot ? " (bot)" : "")}");
         }
 
         /// <summary>After a turn is flown: how far the enemy ended from the bright ghost, the line on screen, and the log.</summary>
@@ -431,6 +443,7 @@ namespace Ooda.Turn
         int botFights = 10, botTurnLimit = 30;
         EnemyAi botPilot;
         Scenarios.Start? botStart;   // -dogfightstart HeadOn|Neutral|Offensive|Defensive: always begin this way
+        int? botArena;               // -dogfightarena 0..3 (or its name, spaces left out): always begin over this arena
         string botShots;             // -dogfightshots <folder>: a picture of the first turns' planning there
         bool botPlanned, botShot;
         float botWaitUntil;
@@ -447,6 +460,8 @@ namespace Ooda.Turn
             botPilot = new EnemyAi { me = 0, role = EnemyAi.Role.Fighter, rng = new Lcg(4242), ignoreObstacles = true };
             int s = Array.IndexOf(args, "-dogfightstart");
             if (s >= 0 && s + 1 < args.Length && Enum.TryParse(args[s + 1], true, out Scenarios.Start st)) botStart = st;
+            s = Array.IndexOf(args, "-dogfightarena");
+            if (s >= 0 && s + 1 < args.Length) botArena = ParseArena(args[s + 1]);
             s = Array.IndexOf(args, "-dogfightshots");
             if (s >= 0 && s + 1 < args.Length) { botShots = args[s + 1]; Directory.CreateDirectory(botShots); }
             s = Array.IndexOf(args, "-dogfightsides");
@@ -459,6 +474,15 @@ namespace Ooda.Turn
             s = Array.IndexOf(args, "-dogfightpilots");
             if (s >= 0 && s + 2 < args.Length) { dogSetup.oursPilots = ParsePilots(args[s + 1]); dogSetup.theirsPilots = ParsePilots(args[s + 2]); }
             dogSetup.FitPilots();
+        }
+
+        static int? ParseArena(string a)
+        {
+            if (int.TryParse(a, out int n) && n >= 0 && n < Arenas.Count) return n;
+            for (int k = 0; k < Arenas.Count; k++)
+                if (string.Equals(Arenas.All[k].name.Replace(" ", "").Replace("&", ""), a.Replace("&", ""), StringComparison.OrdinalIgnoreCase)) return k;
+            Debug.LogWarning($"OODA: no arena {a}; picking at random.");
+            return null;
         }
 
         static PilotKind[] ParsePilots(string list) =>

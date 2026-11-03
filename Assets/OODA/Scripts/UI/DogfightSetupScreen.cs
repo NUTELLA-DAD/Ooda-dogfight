@@ -9,7 +9,7 @@ namespace Ooda.UI
     /// <summary>
     /// The dogfight's briefing, before the fight: how many planes on each side (1 to 4), the aircraft each one flies
     /// (P-51, Spitfire, Bf 109 or F-4 Phantom, any type on either side), how the two sides start (or at random), and
-    /// how far apart, how high and how fast. A map in the middle shows where everyone starts, from above, built from the
+    /// how far apart, how high and how fast, and which arena of the island it starts over (or one at random). A map in the middle shows where everyone starts, from above, built from the
     /// same Scenarios.Dogfight the battle uses. The title screen opens it when Dogfight is picked and Play pressed.
     /// What is picked is kept (PlayerPrefs) for next time, and is in Chosen for the turn battle to read.
     /// </summary>
@@ -134,10 +134,25 @@ namespace Ooda.UI
             Choice(new Rect(px + 20 + 2 * (gw + 30), y, gw, 44), "SPEED", new[] { "220 kt", "300 kt", "380 kt" }, ref sp);
             s.range = (DogfightSetup.Range)r; s.height = (DogfightSetup.Height)hgt; s.speed = (DogfightSetup.Pace)sp;
 
+            // where on the island
+            y += 54;
+            GUI.Label(new Rect(px + 20, y, 100, 44), "ARENA", label);
+            float aw = (pw - 40 - 100 - Arenas.Count * 8) / (Arenas.Count + 1);
+            for (int i = 0; i <= Arenas.Count; i++)
+            {
+                bool on = i == 0 ? s.randomArena : !s.randomArena && s.arena == i - 1;
+                if (GUI.Button(new Rect(px + 120 + i * (aw + 8), y, aw, 44), i == 0 ? "Random" : Arenas.All[i - 1].name, on ? smallPicked : small))
+                {
+                    if (i == 0) s.randomArena = true;
+                    else { s.randomArena = false; s.arena = i - 1; }
+                }
+            }
+
             // back, the summary, fly
             float by = py + ph - 76;
             if (GUI.Button(new Rect(px + 20, by, 200, 56), "Back (Esc)", button)) result = Result.Back;
-            GUI.Label(new Rect(px + 240, by, pw - 520, 56), $"{s.Ours} v {s.Theirs}: {DogfightSetup.Describe(s.ours)} against {DogfightSetup.Describe(s.theirs)}. Click a pilot to change who flies.",
+            string where = s.randomArena ? "Over an arena picked at random." : Arenas.Get(s.arena).blurb;
+            GUI.Label(new Rect(px + 240, by, pw - 520, 56), $"{s.Ours} v {s.Theirs}: {DogfightSetup.Describe(s.ours)} against {DogfightSetup.Describe(s.theirs)}. {where}",
                       new GUIStyle(label) { alignment = TextAnchor.MiddleCenter, wordWrap = true });
             if (GUI.Button(new Rect(px + pw - 260, by, 240, 56), "FLY (Enter)", bigFly)) result = Result.Fly;
 
@@ -266,7 +281,9 @@ namespace Ooda.UI
             if (key != mapKey)
             {
                 mapKey = key;
-                try { mapBattle = Scenarios.Dogfight(show, new Vec3d(0, 0, 0), 3600, 300, 3000); }
+                // turned to the arena's axis, so north is up as on the island (a random arena shows it head north)
+                double axis = show.randomArena ? 0 : Arenas.Get(show.arena).axisDeg;
+                try { mapBattle = Scenarios.Dogfight(show, new Vec3d(0, 0, 0), 3600, 300, 3000, true, axis); }
                 catch (Exception e) { mapBattle = null; Debug.LogException(e); }
             }
             var b = mapBattle;

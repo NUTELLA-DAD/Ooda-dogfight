@@ -74,6 +74,8 @@ namespace Ooda.Turn
         [Tooltip("Middle of the fight, metres (Unity x east, z north; height is ignored).")]
         public Vector3 startCentre = new Vector3(0, 0, -6000);
         public float startAltFt = 5000, startKias = 300, startGapM = 3000;
+        [Tooltip("The dogfight starts over one of the island's arenas (Arenas.All: picked in the briefing, or at random), not startCentre.")]
+        public bool useArenas = true;
 
         [Header("Turns")]
         public float turnSec = (float)Scenarios.TurnSec;
