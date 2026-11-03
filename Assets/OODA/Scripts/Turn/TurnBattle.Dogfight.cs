@@ -97,9 +97,9 @@ namespace Ooda.Turn
             var a = Arenas.Get(s.arena);
             var b = useArenas ? Scenarios.Dogfight(s, a.CentreFt, a.altFt, startKias, startGapM, true, a.axisDeg)
                               : Scenarios.Dogfight(s, UnityFrame.Pos(startCentre), startAltFt, startKias, startGapM);
-            // a low start at long range can put someone under a ridge: lift everyone together until all are clear
+            // a low start at long range can put a flight under a ridge: it comes in over it instead (Scenarios.LiftClear)
             double lift = Scenarios.LiftClear(b, GroundFt);
-            if (lift > 0) Debug.Log($"OODA: the dogfight over {Arenas.Get(s.arena).name} starts {lift:F0} ft higher than set, to clear the ground.");
+            if (lift > 0) Debug.Log($"OODA: the dogfight over {Arenas.Get(s.arena).name} starts with a flight up to {lift:F0} ft higher than set, to clear the ground.");
             return b;
         }
 

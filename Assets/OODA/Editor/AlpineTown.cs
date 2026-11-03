@@ -5,48 +5,14 @@ using UnityEngine;
 namespace Ooda.EditorTools
 {
     /// <summary>
-    /// The town in the middle of the island, the Town Strike's target: a flat basin opened out of the main valley where it
-    /// runs north through the centre, with a factory (long sawtooth-roofed halls, chimneys and a water tower), streets of
+    /// The factory town on the farmland in the south-east, the Town Strike's target (AlpineLayout places and levels it), with a factory (long sawtooth-roofed halls, chimneys and a water tower), streets of
     /// houses round it, and a runway strip with hangars on the west side, its take-off end to the south so the fighters
     /// climb out north up the valley. Three radar sites stand on high ground round the island. The turn battle finds all of
     /// it by name under "Town": FactoryTarget, RunwayStart, RunwayEnd and RadarSite 0, 1, 2.
     /// </summary>
     internal static partial class AlpineWorld
     {
-        public static readonly Vector2 TownCentre = V(0, -300);
-        static readonly Vector2 TownRadii = V(1150, 1450);           // the flat basin, an ellipse
-        public static readonly Vector2 FactoryAt = V(380, -250);
-        public static readonly Vector2 RunwayStart = V(-500, -1050), RunwayEnd = V(-500, 150);   // 1.2 km, take-off to the north
         const float RunwayWidth = 40f;
-        /// <summary>Where to look for each radar site: the highest ground within RadarSearch of each that is no higher than RadarMaxY.</summary>
-        static readonly Vector2[] RadarNear = { V(-5200, -4200), V(5600, -2600), V(-2800, 6200) };
-        const float RadarSearch = 1800f, RadarMaxY = 2600f, RadarMinY = 900f;
-
-        static float TownFloor => MainFloorAt(TownCentre.y);
-
-        static float TownR(float x, float z)
-        {
-            float ex = (x - TownCentre.x) / TownRadii.x, ez = (z - TownCentre.y) / TownRadii.y;
-            return Mathf.Sqrt(ex * ex + ez * ez);
-        }
-
-        /// <summary>In the town's basin or just round it: keep the balloons, the cable cars and the masts out.</summary>
-        static bool InTown(float x, float z) => TownR(x, z) < 1.25f;
-
-        /// <summary>Open the basin: flat floor inside the ellipse, easing up to the ground round it; and keep the mountain models out.</summary>
-        static void CarveTown(float[,] h, bool[,] guard)
-        {
-            float floor = TownFloor;
-            for (int j = 0; j < Res; j++)
-                for (int i = 0; i < Res; i++)
-                {
-                    float r = TownR(X(i), X(j));
-                    if (r < 1.6f) guard[j, i] = true;
-                    if (r >= 1.5f) continue;
-                    float t = Mathf.SmoothStep(0, 1, Mathf.InverseLerp(1f, 1.5f, r));
-                    h[j, i] = Mathf.Lerp(floor, h[j, i], t);   // level both ways: low ground round it is raised to the floor too
-                }
-        }
 
         static void MakeTown(float[,] h, WMats m, List<Vector3> rail)
         {
@@ -129,7 +95,7 @@ namespace Ooda.EditorTools
                     mb.Box(c + Vector3.up * (tall / 2 - 0.5f), rot, new Vector3(w, tall + 1f, d), rnd.NextDouble() < 0.7 ? 0 : 1);
                     float pitch = 32f, run = (w / 2 + 1f) / Mathf.Cos(pitch * Mathf.Deg2Rad);
                     foreach (float side in new[] { -1f, 1f })
-                        mb.Box(c + rot * new Vector3(side * (w / 4 + 0.3f), tall + Mathf.Tan(pitch * Mathf.Deg2Rad) * w / 4, 0), rot * Quaternion.Euler(0, 0, side * pitch),
+                        mb.Box(c + rot * new Vector3(side * (w / 4 + 0.3f), tall + Mathf.Tan(pitch * Mathf.Deg2Rad) * w / 4, 0), rot * Quaternion.Euler(0, 0, -side * pitch),   // a positive z turn lifts +x: -side puts the eaves down
                                new Vector3(run, 0.5f, d + 1.6f), 2);
                 }
                 // a church with a tall spire on the square

@@ -8,7 +8,7 @@ namespace Ooda.EditorTools
 {
     /// <summary>
     /// OODA > World Shots: opens the test world and renders the Alps to PNGs in Shots~: an overview, the main valley
-    /// at fight height, each bridge, the village and the view from the P-51's cockpit.
+    /// at fight height, each dogfight arena, each bridge, the train, the village and its church, and the view from the P-51's cockpit.
     /// </summary>
     public static class WorldShots
     {
@@ -53,7 +53,7 @@ namespace Ooda.EditorTools
             }).ToList();
             float fov0 = cam.fieldOfView;
             cam.fieldOfView = 60f;
-            Shot(cam, rt, dir, "valley_topdown", new Vector3(0, 19000, -600), new Vector3(0, 0, -500));
+            Shot(cam, rt, dir, "valley_topdown", new Vector3(0, 21000, -200), new Vector3(0, 0, -100));
             cam.fieldOfView = fov0;
             Object.DestroyImmediate(lineGo);
             foreach (var f in flak) Object.DestroyImmediate(f);
@@ -62,6 +62,41 @@ namespace Ooda.EditorTools
             float alt = AlpineWorld.FightAltFt * 0.3048f;
             Shot(cam, rt, dir, "world_valley", new Vector3(fight.x - 40, alt, fight.z - 1500), new Vector3(fight.x, alt - 120, fight.z + 2000));
             Shot(cam, rt, dir, "world_valley_back", new Vector3(fight.x + 40, alt, fight.z + 1500), new Vector3(fight.x, alt - 150, fight.z - 2500));
+
+            // each dogfight arena from its start line, looking along its axis at the usual height, and back the other way
+            foreach (var a in Ooda.Turn.Core.Arenas.All)
+            {
+                float ax = (float)(a.axisDeg * Mathf.Deg2Rad), half = (float)a.halfLengthM, y = (float)(a.altFt * 0.3048);
+                Vector3 c = new Vector3((float)a.x, y, (float)a.z), along = new Vector3(Mathf.Sin(ax), 0, Mathf.Cos(ax));
+                string n = a.name.Split(' ')[0].ToLowerInvariant();
+                Shot(cam, rt, dir, $"arena_{n}", c - along * half, c + along * half + Vector3.down * 250);
+                Shot(cam, rt, dir, $"arena_{n}_back", c + along * half, c - along * half + Vector3.down * 250);
+                Shot(cam, rt, dir, $"arena_{n}_high", c - along * half * 1.6f + Vector3.up * 1500 + Vector3.Cross(along, Vector3.up) * 1500, c + Vector3.down * 300);
+            }
+
+            // the steam train on its line, from beside and a little above, wherever it is when the scene opens
+            var engine = GameObject.Find("Train/Engine");
+            if (engine != null)
+            {
+                Vector3 e = engine.transform.position, fwd = engine.transform.forward, right = engine.transform.right;
+                Shot(cam, rt, dir, "world_train", e + fwd * 40 + right * 45 + Vector3.up * 14, e - fwd * 25);
+                Shot(cam, rt, dir, "world_train_far", e + fwd * 300 + right * 380 + Vector3.up * 140, e - fwd * 30);
+            }
+            // the river bridges: low beside each
+            foreach (var rb in Object.FindObjectsByType<MeshRenderer>(FindObjectsSortMode.None).Where(r => r.name.StartsWith("Stone bridge ")).OrderBy(r => r.name))
+            {
+                Vector3 p = rb.bounds.center, from = p + new Vector3(70, 0, -80);
+                from.y = Mathf.Max(Ground(from.x, from.z) + 12, p.y + 8);
+                Shot(cam, rt, dir, "world_" + rb.name.Replace(' ', '_').ToLowerInvariant(), from, p);
+            }
+            // the church from the square
+            var church = GameObject.Find("Village/Church");
+            if (church != null)
+            {
+                var r = church.GetComponentInChildren<Renderer>();
+                Vector3 c = r != null ? r.bounds.center : church.transform.position;
+                Shot(cam, rt, dir, "world_church", c + new Vector3(-90, 25, -110), c + Vector3.up * 10);
+            }
 
             var marks = Object.FindObjectsByType<Transform>(FindObjectsSortMode.None).Where(t => t.name.StartsWith("Bridge ") && t.name.EndsWith(" centre")).OrderBy(t => t.name).ToList();
             foreach (var m in marks)
@@ -80,7 +115,7 @@ namespace Ooda.EditorTools
 
             // the clouds: up the valley from low over the lake, and among the peaks from high
             Shot(cam, rt, dir, "world_clouds_valley", new Vector3(0, 900, -9500), new Vector3(0, 1700, -2500));
-            Shot(cam, rt, dir, "world_clouds_high", new Vector3(-3000, 3400, -7000), new Vector3(1000, 3000, 0));
+            Shot(cam, rt, dir, "world_clouds_high", new Vector3(-3000, 3400, -1000), new Vector3(1000, 3000, 6000));
 
             // the B-17 prefab, alone in the sky over the map
             var b17 = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/OODA/Prefabs/B17.prefab");

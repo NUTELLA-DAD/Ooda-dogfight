@@ -109,14 +109,14 @@ namespace Ooda.Turn.Core
         }
 
         /// <summary>
-        /// Raise every aircraft by the same amount, if it takes it, so none starts less than clearFt over the ground under it
-        /// or under where it will be a turn and a half on (so nobody starts nose into a hillside). groundFt(x, y) is the
-        /// ground in ft. Returns how far they went up, ft (0 if they were clear). The same ground gives the same lift on every
-        /// machine, so a game over the network stays in step.
+        /// Raise each side's aircraft together, if it takes it, so none starts less than clearFt over the ground under it or
+        /// under where it will be a turn and a half on (so nobody starts nose into a hillside). A side that starts over a ridge
+        /// comes in over it; the other stays where it was. groundFt(x, y) is the ground in ft. Returns the most either side went
+        /// up, ft (0 if all were clear). The same ground gives the same lift on every machine, so a game over the network stays in step.
         /// </summary>
         public static double LiftClear(Battle b, Func<double, double, double> groundFt, double clearFt = 500)
         {
-            double need = 0;
+            var need = new double[2];
             for (int i = 0; i < b.Count; i++)
             {
                 var st = b.planes[i].state;
@@ -124,12 +124,16 @@ namespace Ooda.Turn.Core
                 foreach (double f in new[] { 0.0, 0.5, 1.0 })
                 {
                     Vec3d p = st.pos + ahead * f;
-                    need = Math.Max(need, groundFt(p.x, p.y) + clearFt - p.z);
+                    int side = b.side[i] == 0 ? 0 : 1;
+                    need[side] = Math.Max(need[side], groundFt(p.x, p.y) + clearFt - p.z);
                 }
             }
-            if (need <= 0) return 0;
-            for (int i = 0; i < b.Count; i++) b.planes[i].state.pos.z += need;
-            return need;
+            for (int i = 0; i < b.Count; i++)
+            {
+                double up = need[b.side[i] == 0 ? 0 : 1];
+                if (up > 0) b.planes[i].state.pos.z += up;
+            }
+            return Math.Max(0, Math.Max(need[0], need[1]));
         }
 
         /// <summary>Formation spacing (lateral, back, up per unit of a shape, ft): close for escorting, wide for fighting, and the bombers'.</summary>

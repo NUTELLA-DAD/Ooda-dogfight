@@ -63,7 +63,7 @@ namespace Ooda.EditorTools
             {
                 ("south, low up the main valley", new[] { new Vector3(0, Low(0, -9400), -9400), new Vector3(0, Low(0, -5000), -5000) }),
                 ("east, high and straight", new[] { new Vector3(9400, 2400, 1500) }),
-                ("west, low, round by the south-west valley", new[] { new Vector3(-9400, Low(-9400, -6800), -6800), new Vector3(-4000, Low(-4000, -3500), -3500), new Vector3(-1500, Low(-1500, -1800), -1800) }),
+                ("west, low, across the lake and the farmland", new[] { new Vector3(-9400, Low(-9400, -3000), -3000), new Vector3(-2500, Low(-2500, -2500), -2500), new Vector3(1000, Low(1000, -3500), -3500) }),
             };
             foreach (var (name, pts) in plans)
             {

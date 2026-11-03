@@ -311,6 +311,7 @@ namespace Ooda.EditorTools
             b17.transform.position = AlpineWorld.EscortRoute[0];
             tb.bomber = b17.GetComponent<TurnAircraftView>();
             tb.escortRoute = (Vector3[])AlpineWorld.EscortRoute.Clone();
+            tb.valleyRunStartM = AlpineWorld.ValleyRunStartM;
             tb.bomberKias = 135;
             tb.squadronGapM = 8000;   // the 109s start 8 km up the valley: a few turns in formation before they arrive
             // the squadron battle: the rest of each side is made from these at the start

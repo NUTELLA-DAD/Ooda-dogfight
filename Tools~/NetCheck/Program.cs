@@ -304,11 +304,15 @@ static class Program
             // lifted clear of a ridge under the start, all together, and not at all over flat ground
             var low = Scenarios.Dogfight(new DogfightSetup { randomStart = false, start = Scenarios.Start.Perch, range = DogfightSetup.Range.Far, height = DogfightSetup.Height.Low,
                                                             ours = DogfightSetup.Resize(new[] { Craft.Mustang }, 4), theirs = DogfightSetup.Resize(new[] { Craft.Bf109 }, 4) }, centre, 3600, 300, 3000);
-            double gap01 = low.planes[0].state.pos.z - low.planes[1].state.pos.z;
+            double gap02 = low.planes[0].state.pos.z - low.planes[2].state.pos.z;   // you and your wingman
             double lift = Scenarios.LiftClear(low, (x, y) => 3000);
             double lowest = Enumerable.Range(0, low.Count).Min(i => low.planes[i].state.pos.z);
-            Check(lift > 0 && lowest >= 3500 - 1 && Math.Abs(low.planes[0].state.pos.z - low.planes[1].state.pos.z - gap01) < 1e-6,
-                  $"a start under a 3,000 ft ridge goes up {lift:F0} ft, everyone together, the lowest 500 ft over it");
+            Check(lift > 0 && lowest >= 3500 - 1 && Math.Abs(low.planes[0].state.pos.z - low.planes[2].state.pos.z - gap02) < 1e-6,
+                  $"a start under a 3,000 ft ridge goes up {lift:F0} ft, each flight together, the lowest 500 ft over it");
+            var ridge = Scenarios.Dogfight(new DogfightSetup { randomStart = false, start = Scenarios.Start.HeadOn }, centre, 3600, 300, 3000);
+            double meZ = ridge.planes[0].state.pos.z;
+            Scenarios.LiftClear(ridge, (x, y) => y > centre.y ? 5000 : 0);   // a ridge under their side only
+            Check(ridge.planes[0].state.pos.z == meZ && ridge.planes[1].state.pos.z >= 5500 - 1, "a ridge under one side lifts only that side");
             Check(Scenarios.LiftClear(Scenarios.Dogfight(ho, centre, 3600, 300, 3000), (x, y) => 0) == 0, "over low ground nothing moves");
         }
 

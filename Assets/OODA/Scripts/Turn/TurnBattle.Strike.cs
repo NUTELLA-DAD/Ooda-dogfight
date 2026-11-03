@@ -560,10 +560,10 @@ namespace Ooda.Turn
         {
             string dir = System.IO.Path.GetDirectoryName(Application.dataPath);
             while (cover == null) yield return null;
-            planStart = ToCoast(new Vector2(-9400, -6800));
+            planStart = ToCoast(new Vector2(-9400, -3000));
             planPoints.Clear(); planHeights.Clear();
             planHeights.Add(1);
-            foreach (var p in new[] { new Vector2(-4000, -3500), new Vector2(-1500, -1800) }) { planPoints.Add(p); planHeights.Add(0); }
+            foreach (var p in new[] { new Vector2(-2500, -2500), new Vector2(1000, -3500) }) { planPoints.Add(p); planHeights.Add(0); }
             planSel = 1; planDirty = true;
             yield return new WaitForSeconds(1f);
             yield return Grab(System.IO.Path.Combine(dir, "strike_map.bmp"));

@@ -51,6 +51,8 @@ namespace Ooda.Turn
         public float escortGapM = 5000;
         [Tooltip("Squadron: how far up the valley the Bf 109s start, m (they meet the formation about turn 6-7 from 8 km)")]
         public float squadronGapM = 8000;
+        [Tooltip("Valley Run: how far along the route the Spitfire starts, m (where the narrow pass begins; the world builder sets it).")]
+        public float valleyRunStartM = 4400;
         public Color bomberColor = new Color(0.4f, 1f, 0.45f, 0.7f);
 
         [Header("Squadron")]
@@ -281,7 +283,7 @@ namespace Ooda.Turn
                 case Mission.ValleyRun:
                 {
                     var guns = flakSites == null ? new Vec3d[0] : flakSites.Where(f => f != null).Select(f => Ft(f.position)).ToArray();
-                    battle = Scenarios.ValleyRun(route, guns);
+                    battle = Scenarios.ValleyRun(route, guns, valleyRunStartM);
                     break;
                 }
                 default: battle = DogfightBattle(); break;
