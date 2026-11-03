@@ -471,7 +471,12 @@ namespace Ooda.UI
             Choice(new Rect(x, y, colW, 42), "HEIGHT", new[] { "Low", "Medium", "High" }, ref hgt); y += 52;
             Choice(new Rect(x, y, colW, 42), "SPEED", new[] { "220 kt", "300 kt", "380 kt" }, ref sp); y += 52;
             s.range = (DogfightSetup.Range)rg; s.height = (DogfightSetup.Height)hgt; s.speed = (DogfightSetup.Pace)sp;
-            // (the arena picker goes here, a row like the ones above)
+            // where on the island: Random or one of the arenas (short names on the buttons, the arena's own words under them)
+            int ar = s.randomArena ? 0 : s.arena + 1;
+            Choice(new Rect(x, y, colW, 42), "ARENA", new[] { "Random", "Peaks", "Pass", "Lake", "Town" }, ref ar); y += 48;
+            s.randomArena = ar == 0; if (ar > 0) s.arena = ar - 1;
+            GUI.Label(new Rect(x + 100, y, colW - 100, 46), s.randomArena ? "Over one of the four arenas at random: the Peak Maze, the High Pass, Chalet Lake or the Town & Farmland."
+                                                                         : $"{Arenas.Get(s.arena).name}: {Arenas.Get(s.arena).blurb}", new GUIStyle(dim) { wordWrap = true, alignment = TextAnchor.UpperLeft });
             float mx = x + colW + 24;
             Map(new Rect(mx, r.y + 58, r.xMax - 20 - mx, r.height - 78), s);
         }
@@ -558,7 +563,9 @@ namespace Ooda.UI
             if (key != mapKey)
             {
                 mapKey = key;
-                try { mapBattle = Scenarios.Dogfight(show, new Vec3d(0, 0, 0), 3600, 300, 3000); }
+                // turned to the arena's axis, so north is up as on the island (a random arena shows it heading north)
+                double axis = show.randomArena ? 0 : Arenas.Get(show.arena).axisDeg;
+                try { mapBattle = Scenarios.Dogfight(show, new Vec3d(0, 0, 0), 3600, 300, 3000, true, axis); }
                 catch (Exception e) { mapBattle = null; Debug.LogException(e); }
             }
             var b = mapBattle;

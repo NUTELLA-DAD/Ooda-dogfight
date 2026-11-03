@@ -1,18 +1,15 @@
 using System.Collections.Generic;
-using System.Globalization;
-using System.IO;
 using System.Linq;
-using System.Text;
-using UnityEditor;
+using Ooda.Turn.Core;
 using UnityEngine;
-using UnityEngine.Rendering;
 
 namespace Ooda.EditorTools
 {
     /// <summary>
-    /// The models the Alps are dressed with. The snowy mountain is the big peaks: copies at four sizes, each turned,
-    /// stretched and sometimes mirrored, on the land between the valleys and crowding in beside the main pass, overlapping
-    /// into massifs. The grass hills are the foothills round their feet and on the low ground. The three trees (round, tall and pine) replace
+    /// Where the models the island is dressed with go (AlpineModels makes them). The snowy mountain is the big peaks: copies at
+    /// several sizes, each turned, stretched and sometimes mirrored, crowding the north, standing in a ring round the Peak Maze,
+    /// lining the main pass and rising out of the wooded middle, overlapping into massifs. The grass hills are the foothills
+    /// round their feet and the green swells of the farmland. The three trees (round, tall and pine) replace
     /// the old cone pines. The ground under each mountain and hill is raised to just under its surface, so the battle's ground
     /// check, the AI, the clouds and the trees all see them. Nothing of a copy may stand above the ground near a valley (see
     /// Valley.guard), on the railway or round the basin where the dogfight starts: a copy that would has to sink until it
@@ -49,104 +46,6 @@ namespace Ooda.EditorTools
         static bool[,] underModel;
 
         static bool UnderMountain(float x, float z) => underModel != null && underModel[Idx(z), Idx(x)];
-
-        // ---------- the meshes ----------
-
-        /// <summary>The model's meshes, material, and (for land) its height grid; the OBJs are made first if they are missing.</summary>
-        static void Load(LandModel m, bool heights)
-        {
-            if (!File.Exists(m.NearObj) || !File.Exists(m.FarObj)) PrepareObjs(m);
-            m.near = AssetDatabase.LoadAllAssetsAtPath(m.NearObj).OfType<Mesh>().FirstOrDefault();
-            m.far = AssetDatabase.LoadAllAssetsAtPath(m.FarObj).OfType<Mesh>().FirstOrDefault() ?? m.near;
-            if (m.near == null) return;
-            var b = m.near.bounds;
-            m.fit = m.byHeight ? m.size / b.size.y : m.size / Mathf.Max(b.size.x, b.size.z);
-            m.centre = new Vector3(b.center.x, b.min.y, b.center.z);
-            var ti = (TextureImporter)AssetImporter.GetAtPath(m.Tex);
-            int max = m.byHeight ? 2048 : 4096;
-            if (ti != null && ti.maxTextureSize != max) { ti.maxTextureSize = max; ti.SaveAndReimport(); }
-            m.mat = TestWorldBuilder.Mat(m.name, Color.white, 0.12f);
-            var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(m.Tex);
-            m.mat.SetTexture("_BaseMap", tex);
-            m.mat.SetTexture("_MainTex", tex);
-            if (!heights) return;
-            m.hf = ModelHeights(m.near, m.fit, m.centre);
-            m.top = 0; int cover = 0;
-            foreach (var y in m.hf) { m.top = Mathf.Max(m.top, y); if (y > 0) cover++; }
-            Debug.Log($"OODA: the {m.name} model is {m.size:F0} m across and {m.top:F0} m tall in its frame; it covers {cover * 100f / (Hf * Hf):F0} % of its square.");
-        }
-
-        /// <summary>Two LODs of the FBX as OBJs, in metres: centred, base at 0, size across (or tall, for trees).</summary>
-        static void PrepareObjs(LandModel m)
-        {
-            var imp = (ModelImporter)AssetImporter.GetAtPath(m.Fbx);
-            if (imp == null) { Debug.LogError($"OODA: no {m.NearObj} and no {m.Fbx} to make it from."); return; }
-            imp.materialImportMode = ModelImporterMaterialImportMode.None;
-            imp.animationType = ModelImporterAnimationType.None;
-            imp.importAnimation = false;
-            imp.isReadable = true;
-            imp.SaveAndReimport();
-            // the base colour is embedded in the FBX: take it out next to the OBJs
-            if (!File.Exists(m.Tex))
-            {
-                string tmp = $"{m.dir}/Extracted";
-                imp.ExtractTextures(tmp);
-                AssetDatabase.Refresh();
-                File.Copy($"{tmp}/0.jpg", m.Tex);
-                AssetDatabase.DeleteAsset(tmp);
-                AssetDatabase.ImportAsset(m.Tex);
-            }
-            var mesh = Object.Instantiate(AssetDatabase.LoadAllAssetsAtPath(m.Fbx).OfType<Mesh>().First());
-            MeshLodUtility.GenerateMeshLods(mesh, 14);
-            var v = mesh.vertices; var n = mesh.normals; var uv = mesh.uv;
-            Vector3 lo = v[0], hi = v[0];
-            foreach (var p in v) { lo = Vector3.Min(lo, p); hi = Vector3.Max(hi, p); }
-            float k = m.byHeight ? m.size / (hi.y - lo.y) : m.size / Mathf.Max(hi.x - lo.x, hi.z - lo.z);
-            var off = new Vector3(-(lo.x + hi.x) / 2, -lo.y, -(lo.z + hi.z) / 2);
-
-            int[] idx;
-            using (var data = Mesh.AcquireReadOnlyMeshData(mesh))
-            {
-                var d = data[0];
-                int bv = d.GetSubMesh(0).baseVertex;
-                idx = d.indexFormat == IndexFormat.UInt32 ? d.GetIndexData<uint>().Select(x => (int)x + bv).ToArray() : d.GetIndexData<ushort>().Select(x => x + bv).ToArray();
-            }
-            var lods = Enumerable.Range(0, mesh.lodCount).Select(l => mesh.GetLod(0, l)).ToArray();
-            Debug.Log($"OODA: {m.name} LODs (triangles): " + string.Join(", ", lods.Select(r => r.indexCount / 3)));
-            MeshLodRange Pick(int tris) => lods.OrderBy(r => Mathf.Abs(Mathf.Log(r.indexCount / 3f / tris))).First();
-            WriteObj(m.NearObj, m.name, v, n, uv, idx, Pick(m.nearTris), k, off);
-            WriteObj(m.FarObj, m.name, v, n, uv, idx, Pick(m.farTris), k, off);
-            Object.DestroyImmediate(mesh);
-            AssetDatabase.ImportAsset(m.NearObj);
-            AssetDatabase.ImportAsset(m.FarObj);
-        }
-
-        /// <summary>One LOD of the mesh as an OBJ. Unity's OBJ import mirrors x and turns the triangles round, so write it the other way.</summary>
-        static void WriteObj(string path, string name, Vector3[] v, Vector3[] n, Vector2[] uv, int[] idx, MeshLodRange r, float k, Vector3 off)
-        {
-            var map = new Dictionary<int, int>();
-            var sb = new StringBuilder();
-            var ci = CultureInfo.InvariantCulture;
-            var faces = new StringBuilder();
-            int Use(int i)
-            {
-                if (map.TryGetValue(i, out int o)) return o;
-                o = map.Count + 1;
-                map[i] = o;
-                var p = (v[i] + off) * k;
-                sb.Append("v ").Append((-p.x).ToString("F3", ci)).Append(' ').Append(p.y.ToString("F3", ci)).Append(' ').Append(p.z.ToString("F3", ci)).Append('\n');
-                sb.Append("vt ").Append(uv[i].x.ToString("F5", ci)).Append(' ').Append(uv[i].y.ToString("F5", ci)).Append('\n');
-                sb.Append("vn ").Append((-n[i].x).ToString("F4", ci)).Append(' ').Append(n[i].y.ToString("F4", ci)).Append(' ').Append(n[i].z.ToString("F4", ci)).Append('\n');
-                return o;
-            }
-            for (int t = (int)r.indexStart; t + 2 < r.indexStart + r.indexCount; t += 3)
-            {
-                int a = Use(idx[t]), b = Use(idx[t + 1]), c = Use(idx[t + 2]);
-                faces.Append($"f {a}/{a}/{a} {c}/{c}/{c} {b}/{b}/{b}\n");
-            }
-            File.WriteAllText(path, $"# OODA: {name}, metres\no {name}\n" + sb + faces);
-            Debug.Log($"OODA: wrote {path}: {map.Count} vertices, {r.indexCount / 3} triangles.");
-        }
 
         /// <summary>The model's top surface on a grid over its frame (x and z from -size/2 to size/2), -1 where it isn't.</summary>
         static float[,] ModelHeights(Mesh mesh, float fit, Vector3 centre)
@@ -192,18 +91,19 @@ namespace Ooda.EditorTools
             public float squat, tall;                  // the height stretch's range
             public float rise, summit, maxGround;      // at least rise over the ground there; summit and the ground at its middle at most this
             public bool besidePass;                    // put beside the main pass, so the bombers weave between them
+            public bool ring;                          // in a ring round the Peak Maze's bowl
+            public float zMin, zMax;                   // only this far north and south (0 and 0: anywhere)
         }
 
-        static void PlaceMountains(float[,] h, bool[,] guard)
+        static void PlaceMountains(float[,] h, bool[,] guard, List<Vector3> rail)
         {
             Peaks.Clear();
             underModel = new bool[Res, Res];
             Load(MountainModel, true);
             Load(FoothillModel, true);
-            if (MountainModel.near == null) { Debug.LogWarning("OODA: no mountain mesh: the Alps are noise only."); return; }
+            if (MountainModel.near == null) { Debug.LogWarning("OODA: no mountain mesh: the land is noise only."); return; }
 
-            // more places they must not show: the railway, round the basin where the dogfight starts, and near the sea
-            var rail = RailLine();
+            // more places they must not show: the railway, and near the sea
             int rr = Mathf.CeilToInt(RailGuard / Cell) + 1;
             for (int k = 0; k < rail.Count; k += 4)
             {
@@ -214,27 +114,29 @@ namespace Ooda.EditorTools
             }
             for (int j = 0; j < Res; j++)
                 for (int i = 0; i < Res; i++)
-                {
-                    float x = X(i), z = X(j);
-                    float basin = Vector2.Distance(V(x, z), V(0, Mathf.Clamp(z, -10600, -6000)));
-                    if (basin < 1600f || Mathf.Max(Mathf.Abs(x), Mathf.Abs(z)) > 8000f) guard[j, i] = true;
-                }
+                    if (Mathf.Max(Mathf.Abs(X(i)), Mathf.Abs(X(j))) > 8000f) guard[j, i] = true;
 
+            // the biggest first, so the smaller ones fill in round them
             var kinds = new[]
             {
-                new Kind { model = MountainModel, name = "pass", want = 16, tries = 4000, lo = 3000, hi = 6000, squat = 0.9f, tall = 1.4f, rise = 350, summit = 6400, maxGround = 9999, besidePass = true },
-                new Kind { model = MountainModel, name = "great", want = 7, tries = 3000, lo = 7000, hi = 11000, squat = 0.85f, tall = 1.35f, rise = 350, summit = 6400, maxGround = 9999 },
-                new Kind { model = MountainModel, name = "big", want = 14, tries = 4000, lo = 4500, hi = 7000, squat = 0.85f, tall = 1.35f, rise = 350, summit = 6400, maxGround = 9999 },
-                new Kind { model = MountainModel, name = "small", want = 30, tries = 5000, lo = 2400, hi = 4200, squat = 0.85f, tall = 1.35f, rise = 350, summit = 6400, maxGround = 9999 },
-                // the grass hills on the low ground and round the mountains' feet
-                new Kind { model = FoothillModel, name = "foothill", want = 60, tries = 8000, lo = 900, hi = 3200, squat = 0.7f, tall = 1.6f, rise = 50, summit = 2300, maxGround = 1300 },
+                new Kind { model = MountainModel, name = "great", want = 10, tries = 5000, lo = 4500, hi = 7500, squat = 1.0f, tall = 1.6f, rise = 400, summit = 6400, maxGround = 9999, zMin = 3000 },
+                new Kind { model = MountainModel, name = "maze", want = 10, tries = 4000, lo = 2600, hi = 5000, squat = 1.0f, tall = 1.6f, rise = 600, summit = 6400, maxGround = 9999, ring = true },
+                new Kind { model = MountainModel, name = "pass", want = 14, tries = 4000, lo = 3000, hi = 6000, squat = 0.9f, tall = 1.4f, rise = 350, summit = 6400, maxGround = 9999, besidePass = true },
+                new Kind { model = MountainModel, name = "north", want = 24, tries = 9000, lo = 2800, hi = 5000, squat = 0.9f, tall = 1.5f, rise = 350, summit = 6400, maxGround = 9999, zMin = 2000 },
+                new Kind { model = MountainModel, name = "middle", want = 9, tries = 3000, lo = 4500, hi = 7000, squat = 0.8f, tall = 1.25f, rise = 350, summit = 5200, maxGround = 9999, zMin = -2800, zMax = 2600 },
+                new Kind { model = MountainModel, name = "small", want = 40, tries = 9000, lo = 2200, hi = 4000, squat = 0.85f, tall = 1.4f, rise = 350, summit = 6400, maxGround = 9999, zMin = -3600 },
+                // the grass hills: round the mountains' feet in the middle, and the swells of the farmland
+                new Kind { model = FoothillModel, name = "foothill", want = 50, tries = 8000, lo = 900, hi = 3200, squat = 0.7f, tall = 1.6f, rise = 50, summit = 2300, maxGround = 1300, zMin = -4200, zMax = 3000 },
+                new Kind { model = FoothillModel, name = "farm hill", want = 30, tries = 6000, lo = 700, hi = 2200, squat = 0.45f, tall = 0.9f, rise = 30, summit = 700, maxGround = 400, zMax = -3200 },
             };
             var rnd = new System.Random(2026);
-            float start = MainLength(3), total = MainLength();
+            float start = MainLength(NarrowFrom), total = MainLength();
+            var maze = PeakMaze;
             foreach (var k in kinds)
             {
                 if (k.model.near == null) continue;
                 int made = 0;
+                whyNot.Clear();
                 for (int t = 0; t < k.tries && made < k.want; t++)
                 {
                     float w = Rand(rnd, k.lo, k.hi);
@@ -244,6 +146,14 @@ namespace Ooda.EditorTools
                         Vector2 c = AlongMain(Rand(rnd, start, total - 300f), out Vector2 dir);
                         pos = c + V(dir.y, -dir.x) * (rnd.Next(2) == 0 ? -1 : 1) * (Rand(rnd, 0.3f, 0.5f) * w + 450f);
                     }
+                    else if (k.ring)
+                    {
+                        // round the bowl: either side of its axis and past its ends, their middles 1.4 to 2.6 km from its line
+                        float along = Rand(rnd, -(float)maze.halfLengthM * 1.1f, (float)maze.halfLengthM * 1.1f);
+                        Vector2 d = ArenaDir(maze), across = V(d.y, -d.x);
+                        pos = ArenaAt(maze, along) + across * (rnd.Next(2) == 0 ? -1 : 1) * Rand(rnd, 1400f, 2600f);
+                    }
+                    else if ((k.zMin != 0 && pos.y < k.zMin) || (k.zMax != 0 && pos.y > k.zMax)) continue;
                     float s = w / k.model.size;
                     var p = new Peak
                     {
@@ -251,14 +161,16 @@ namespace Ooda.EditorTools
                         // stretched each way, taller or squatter, and every other one mirrored
                         scale = new Vector3(s * Rand(rnd, 0.85f, 1.2f) * (rnd.Next(2) == 0 ? -1 : 1), s * Rand(rnd, k.squat, k.tall), s * Rand(rnd, 0.85f, 1.2f)),
                     };
-                    if (guard[Idx(p.pos.z), Idx(p.pos.x)] || h[Idx(p.pos.z), Idx(p.pos.x)] > k.maxGround) continue;
-                    if (Peaks.Any(q => q.model == k.model && Vector2.Distance(V(q.pos.x, q.pos.z), V(p.pos.x, p.pos.z)) < 0.25f * (q.width + w) / 2)) continue;
+                    if (Mathf.Abs(p.pos.x) > 8200f || Mathf.Abs(p.pos.z) > 8200f) continue;
+                    if (guard[Idx(p.pos.z), Idx(p.pos.x)]) { Why("its middle in a valley"); continue; }
+                    if (h[Idx(p.pos.z), Idx(p.pos.x)] > k.maxGround) { Why("ground too high"); continue; }
+                    if (Peaks.Any(q => q.model == k.model && Vector2.Distance(V(q.pos.x, q.pos.z), V(p.pos.x, p.pos.z)) < 0.25f * (q.width + w) / 2)) { Why("on another"); continue; }
                     if (!FitPeak(h, guard, k, ref p, 3) || !FitPeak(h, guard, k, ref p, 1)) continue;
                     Stamp(h, guard, p);
                     Peaks.Add(p);
                     made++;
                 }
-                Debug.Log($"OODA: {made} of {k.want} {k.name} {k.model.name.ToLower()}s found room.");
+                Debug.Log($"OODA: {made} of {k.want} {k.name} {k.model.name.ToLower()}s found room" + (made < k.want ? " (the others: " + string.Join(", ", whyNot.Select(w => $"{w.Key} {w.Value}")) + ")." : "."));
             }
             Debug.Log($"OODA: {Peaks.Count} land models: " + string.Join(", ", Peaks.Select(q => $"{q.kind} ({q.pos.x:F0}, {q.pos.z:F0}) {q.width:F0} m")) + ".");
         }
@@ -280,7 +192,7 @@ namespace Ooda.EditorTools
         }
 
         /// <summary>Sets the copy's base: on the lower ground round it, then down as far as it must go to stay under the ground
-        /// in the guarded cells. False if that sinks it more than a third, takes it over the kind's summit, or leaves it hardly
+        /// in the guarded cells. False if that sinks it more than 40 %, takes it over the kind's summit, or leaves it hardly
         /// higher than the ground already there.</summary>
         static bool FitPeak(float[,] h, bool[,] guard, Kind k, ref Peak p, int stride)
         {
@@ -292,15 +204,19 @@ namespace Ooda.EditorTools
                 if (guard[j, i]) limit = Mathf.Min(limit, h[j, i] - 15f - rel);
                 if (rel > peak) { peak = rel; underPeak = h[j, i]; }
             }
-            if (ground.Count < 20) return false;
+            if (ground.Count < 20) return Why("off the land");
             ground.Sort();
             float natural = ground[ground.Count / 10] - 20f;
             float b = Mathf.Min(natural, limit);
-            if (natural - b > peak / 3) return false;
-            if (b + peak > k.summit || b + peak - underPeak < k.rise) return false;
+            if (natural - b > peak * 0.4f) return Why("would sink too far");
+            if (b + peak > k.summit) return Why("too tall");
+            if (b + peak - underPeak < k.rise) return Why("too low");
             p.pos.y = b;
             return true;
         }
+
+        static readonly Dictionary<string, int> whyNot = new Dictionary<string, int>();
+        static bool Why(string reason) { whyNot[reason] = whyNot.TryGetValue(reason, out int n) ? n + 1 : 1; return false; }
 
         static void Stamp(float[,] h, bool[,] guard, Peak p)
         {
@@ -312,56 +228,5 @@ namespace Ooda.EditorTools
             }
         }
 
-        // ---------- the models ----------
-
-        static void MakeMountains()
-        {
-            if (Peaks.Count == 0) return;
-            var root = new GameObject("Mountains").transform;
-            var hills = new GameObject("Foothills").transform;
-            for (int n = 0; n < Peaks.Count; n++)
-            {
-                var p = Peaks[n];
-                var go = new GameObject($"{p.model.name} {n} ({p.kind}, {p.width:F0} m across)");
-                go.transform.SetParent(p.model == FoothillModel ? hills : root, false);
-                go.transform.SetPositionAndRotation(p.pos, Quaternion.Euler(0, p.yaw, 0));
-                go.transform.localScale = p.scale;
-                go.isStatic = true;
-                AddLods(go, p.model, 0.15f, 0f);
-            }
-        }
-
-        /// <summary>The near and far meshes under go, base at its origin, with an LODGroup between them.</summary>
-        static void AddLods(GameObject go, LandModel m, float nearToFar, float cull)
-        {
-            Renderer Part(string name, Mesh mesh)
-            {
-                var c = new GameObject(name);
-                c.transform.SetParent(go.transform, false);
-                c.transform.localPosition = -m.centre * m.fit;
-                c.transform.localScale = Vector3.one * m.fit;
-                c.AddComponent<MeshFilter>().sharedMesh = mesh;
-                var r = c.AddComponent<MeshRenderer>();
-                r.sharedMaterial = m.mat;
-                c.isStatic = go.isStatic;
-                return r;
-            }
-            var lod = go.AddComponent<LODGroup>();
-            lod.SetLODs(new[] { new LOD(nearToFar, new[] { Part("Near", m.near) }), new LOD(cull, new[] { Part("Far", m.far) }) });
-            lod.RecalculateBounds();
-        }
-
-        /// <summary>A tree model as a prefab for the terrain's trees: about size metres tall, its foot at the origin.</summary>
-        static GameObject TreePrefab(LandModel m)
-        {
-            Load(m, false);
-            if (m.near == null) return null;
-            var go = new GameObject(m.name);
-            AddLods(go, m, 0.05f, 0.003f);
-            foreach (var r in go.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = ShadowCastingMode.On;
-            var prefab = PrefabUtility.SaveAsPrefabAsset(go, $"{Dir}/{m.name}.prefab");
-            Object.DestroyImmediate(go);
-            return prefab;
-        }
     }
 }

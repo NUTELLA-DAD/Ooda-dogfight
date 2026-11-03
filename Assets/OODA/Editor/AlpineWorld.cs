@@ -16,71 +16,7 @@ namespace Ooda.EditorTools
     /// </summary>
     internal static partial class AlpineWorld
     {
-        public const float Size = 20000f, Base = -80f, Height = 7000f;   // room for the mountain models over the noise peaks
-        const int Res = 1025;                      // heightmap: about 20 m a sample
-        const int SplatRes = 1024;
-        const float Cell = Size / (Res - 1);
         const string Dir = "Assets/OODA/Generated/Alpine";
-
-        // ---------- the main valley ----------
-        // Straight north across the basin at the south end (the lower lake and the village), then a low, open pass that
-        // turns 25 degrees left or right every 1.5 km, weaving between the mountain models either side of it. The escort
-        // route flies its centreline.
-
-        const float MainLeg = 1500f;
-        static readonly float[] MainTurns = { 25, 0, -25, 0, -25, 0, 25, 0, 25, 0 };   // headings, degrees east of north
-
-        static readonly Vector2[] MainLine = MakeMainLine();
-
-        static Vector2[] MakeMainLine()
-        {
-            var pts = new List<Vector2> { V(0, -10600), V(0, -9600), V(0, -7800), V(0, -6000) };
-            Vector2 p = pts[pts.Count - 1];
-            foreach (float hdg in MainTurns)
-            {
-                p += MainLeg * V(Mathf.Sin(hdg * Mathf.Deg2Rad), Mathf.Cos(hdg * Mathf.Deg2Rad));
-                pts.Add(p);
-            }
-            return pts.ToArray();
-        }
-
-        /// <summary>The main valley's floor at a point on its line: 360 m over the basin, rising to 880 m at the north end.</summary>
-        static float MainFloorAt(float z) => z < -6000 ? Mathf.Lerp(360f, 380f, Mathf.InverseLerp(-10600, -6000, z)) : Mathf.Lerp(380f, 600f, Mathf.InverseLerp(-6000, 8200, z));
-
-        /// <summary>How far a point is from the narrow part of the main valley's line, and the floor height there.</summary>
-        static float MainDistance(float x, float z, out float floor)
-        {
-            float best = float.MaxValue; floor = 0;
-            var q = V(x, z);
-            for (int s = 3; s + 1 < MainLine.Length; s++)
-            {
-                Vector2 a = MainLine[s], b = MainLine[s + 1];
-                float u = Mathf.Clamp01(Vector2.Dot(q - a, b - a) / (b - a).sqrMagnitude);
-                var c = Vector2.Lerp(a, b, u);
-                float d = Vector2.Distance(q, c);
-                if (d < best) { best = d; floor = MainFloorAt(c.y); }
-            }
-            return best;
-        }
-
-        // The dogfight's head-on starts over the basin, straight north over the lake and the village.
-        public static readonly Vector3 FightCentre = new Vector3(0, 0, -8000);
-        public const float FightAltFt = 3600f;     // about 1100 m: 730 m over the basin, well under the peaks
-        public static readonly Vector3 FreeFlightSpawn = new Vector3(0, 1000f, -9400f);
-
-        /// <summary>The bombers' way up the main valley (x east, height, z north; the first point is the start): its centreline at
-        /// 300 m over the floor, down between the walls, turning 25 degrees at most at each point.</summary>
-        public static readonly Vector3[] EscortRoute = MainLine.Skip(1).Select(p => new Vector3(p.x, MainFloorAt(p.y) + 300f, p.y)).ToArray();
-
-        /// <summary>Flak along the route: on the valley floor beside the line, every other leg, alternating sides.</summary>
-        public static readonly Vector3[] FlakSites = Enumerable.Range(0, 8).Select(i =>
-        {
-            int s = new[] { 3, 4, 6, 7, 8, 9, 10, 12 }[i];   // the narrow valley's legs, skipping the one gorge one cuts across, and one more
-            Vector2 a = MainLine[s], b = MainLine[s + 1], mid = Vector2.Lerp(a, b, 0.55f);
-            Vector2 side = V(b.y - a.y, a.x - b.x).normalized * (i % 2 == 0 ? 35f : -35f);
-            Vector2 p = mid + side;
-            return new Vector3(p.x, MainFloorAt(p.y), p.y);
-        }).ToArray();
 
         /// <summary>
         /// The least clearance along the route, every 25 m and 150 m either side (the squadrons fly up to 130 m off the line):
@@ -118,86 +54,14 @@ namespace Ooda.EditorTools
             return worst;
         }
 
-        // ---------- the land's shape ----------
-
-        class Valley
-        {
-            public Vector2[] pts; public float[] floor; public float halfFloor, wall; public bool gorge;
-            public float minWall;   // raise the land beside the valley to at least this over its floor first, so its walls are tall
-            public float guard;     // how far from its line the mountain models must stay under the ground; 0: ValleyGuard past its walls
-        }
-
-        static readonly Valley[] Valleys =
-        {
-            // The main valley's twisting part: a broad, gentle pass. Only its middle 450 m either side is kept clear of the
-            // mountain models, so they crowd in beside it and the bombers weave between them.
-            new Valley { pts = MainLine.Skip(2).ToArray(), floor = MainLine.Skip(2).Select(p => MainFloorAt(p.y)).ToArray(), halfFloor = 300, wall = 900, guard = 450 },
-            // The basin at its foot: the lower lake and the village, on a floor about 320 m wide. Only the main valley
-            // raises its walls: one that crossed it would fill it in.
-            new Valley { pts = new[] { V(0, -10600), V(0, -7800), V(0, -6100) }, floor = new[] { 360f, 372f, 380f }, halfFloor = 160, wall = 700 },
-            // The rail valley, winding east-west across the north.
-            new Valley { pts = Enumerable.Range(0, 15).Select(i => { float x = -10600 + i * 1514f; return V(x, 2600 + 1300 * Mathf.Sin(x / 2600f)); }).ToArray(),
-                         floor = Enumerable.Range(0, 15).Select(i => 680f + 40 * Mathf.Sin(i * 0.7f)).ToArray(), halfFloor = 120, wall = 650 },
-            // A side valley from the south-west.
-            new Valley { pts = new[] { V(-10600, -7000), V(-4000, -3500), V(-2500, 1500) }, floor = new[] { 400f, 560f, 680f }, halfFloor = 140, wall = 700 },
-        };
-
-        struct Lake { public Vector2 c, r; public float level; }
-        static readonly Lake[] Lakes =
-        {
-            new Lake { c = V(0, -8500), r = V(200, 1000), level = 372 },     // long and thin down the basin floor
-            new Lake { c = V(-6400, 3150), r = V(500, 140), level = 685 },
-        };
-
-        // The railway's line and its rail height (x, rail top, z): it keeps a gentle grade and lets the ground decide
-        // where it needs a bridge (more than 10 m of air under it) or a tunnel (more than 30 m of rock over it).
-        static readonly Vector3[] Rail =
-        {
-            new Vector3(-8000, 580, -4600), new Vector3(-7500, 600, -4300), new Vector3(-4800, 700, -3200),
-            new Vector3(-2200, 760, -1800), new Vector3(0, 790, -1300), new Vector3(2400, 830, -700),
-            new Vector3(4300, 870, 300), new Vector3(5200, 880, 900), new Vector3(6500, 900, 1800),
-            new Vector3(7600, 920, 2650), new Vector3(8200, 930, 2900),
-        };
-
-        static Vector2 V(float x, float y) => new Vector2(x, y);
-
-        static float Ridged(float x, float z)
-        {
-            // warp the domain so the ridges wander, then a ridged multifractal: sharp crests, weighted by the octave below
-            float wx = x + 1100f * (Mathf.PerlinNoise(x * 0.00011f + 3.1f, z * 0.00011f + 7.3f) - 0.5f) * 2f;
-            float wz = z + 1100f * (Mathf.PerlinNoise(x * 0.00011f + 11.7f, z * 0.00011f + 1.9f) - 0.5f) * 2f;
-            float sum = 0, amp = 1, freq = 1f / 4200f, norm = 0, weight = 1;
-            for (int o = 0; o < 6; o++)
-            {
-                float n = 1 - Mathf.Abs(2 * Mathf.PerlinNoise(wx * freq + 17.3f * o + 5.2f, wz * freq + 9.1f * o + 3.4f) - 1);
-                n *= n;
-                sum += n * amp * weight;
-                norm += amp;
-                weight = Mathf.Clamp01(n * 1.8f);
-                amp *= 0.5f;
-                freq *= 2.03f;
-            }
-            return sum / norm;
-        }
-
-        static float Mountains(float x, float z)
-        {
-            float massif = Mathf.Lerp(0.7f, 1.15f, Mathf.PerlinNoise(x / 9000f + 41.1f, z / 9000f + 13.7f));
-            // the noise runs about 0.2 to 0.95: spread it over valley-side hills to 4 km spires, without capping the tops flat
-            float r = Mathf.InverseLerp(0.15f, 0.95f, Ridged(x, z));
-            float y = Mathf.Min(4400f, 250f + 2600f * massif * Mathf.Pow(r, 1.6f));
-            // the rolling ground is kept low and squashed above 1.2 km: the mountain models are the big peaks, and stand well over it
-            return y < 1200f ? y : 1200f + (y - 1200f) * 0.3f;
-        }
-
         // ---------- build ----------
 
         public static Terrain Build(TestWorldBuilder.Mats mats)
         {
             Directory.CreateDirectory(Dir);
-            float[,] h = Heights();                                  // metres, [z, x]
+            var rail = RailPath();                                   // by design, so the valleys can be carved round it
+            float[,] h = Heights(rail);                              // metres, [z, x]
             var original = (float[,])h.Clone();
-            var rail = RailPath(original);
             var states = Classify(rail, original);
             Flatten(h, rail, states);
 
@@ -211,7 +75,7 @@ namespace Ooda.EditorTools
                     norm[j, i] = Mathf.Clamp01((h[j, i] - Base) / Height);
             data.SetHeights(0, 0, norm);
             Paint(data, h);
-            Plant(data, h, rail, states);
+            Plant(data, h, rail);
             EditorUtility.SetDirty(data);
             AssetDatabase.SaveAssets();
 
@@ -229,124 +93,22 @@ namespace Ooda.EditorTools
 
             var m = WorldMats(mats);
             MakeLakes(m);
+            MakeRiver(h, m);
+            MakeRiverBridges(h, m);
             BuildRailway(rail, states, original, m);
-            MakeVillage(h, m);
+            MakeTrain(rail);
+            MakeVillage(h, m, rail);
+            MakeFarms(h, rail);
             MakeTown(h, m, rail);
             MakeFlakSites(h);
             MakeAirHazards(h, rail, m);
 
             float lo = float.MaxValue, hi = float.MinValue;
             foreach (var v in h) { lo = Mathf.Min(lo, v); hi = Mathf.Max(hi, v); }
-            Debug.Log($"OODA: alpine terrain built: {lo:F0} m to {hi:F0} m; floor under the fight {SampleArr(h, FightCentre.x, FightCentre.z):F0} m, flying at {FightAltFt * 0.3048f:F0} m.");
+            Debug.Log($"OODA: alpine terrain built: {lo:F0} m to {hi:F0} m; {Peaks.Count} mountains and hills; floor under the Chalet Lake arena {SampleArr(h, FightCentre.x, FightCentre.z):F0} m, flying at {FightAltFt * 0.3048f:F0} m.");
+            foreach (var a in Ooda.Turn.Core.Arenas.All)
+                Debug.Log($"OODA: arena {a.name}: ground {SampleArr(h, (float)a.x, (float)a.z):F0} m under its centre, starting at {a.altFt * 0.3048f:F0} m.");
             return t;
-        }
-
-        static float[,] Heights()
-        {
-            var h = new float[Res, Res];
-            var rs = new List<float>();
-            for (int j = 0; j < Res; j++)
-                for (int i = 0; i < Res; i++)
-                {
-                    h[j, i] = Mountains(X(i), X(j));
-                    if (((i * 7 + j * 13) & 255) == 0) rs.Add(Ridged(X(i), X(j)));
-                }
-            rs.Sort();
-            Debug.Log($"OODA: ridged noise p5 {rs[rs.Count / 20]:F3} p50 {rs[rs.Count / 2]:F3} p95 {rs[rs.Count * 19 / 20]:F3} max {rs[rs.Count - 1]:F3}.");
-
-            var dist = new float[Res, Res];
-            var floor = new float[Res, Res];
-            var guard = new bool[Res, Res];         // in or beside a valley: the mountain models must stay under the ground here
-            foreach (var v in Valleys)
-            {
-                for (int j = 0; j < Res; j++) for (int i = 0; i < Res; i++) dist[j, i] = float.MaxValue;
-                float reach = v.halfFloor + v.wall;
-                float shoulder = v.minWall > 0 ? 700f : 0f;    // how far past the wall the raised land eases back down
-                int rc = Mathf.CeilToInt((reach + shoulder) / Cell) + 1;
-                float step = v.gorge ? 15f : 40f;
-                for (int s = 0; s + 1 < v.pts.Length; s++)
-                {
-                    Vector2 a = v.pts[s], b = v.pts[s + 1];
-                    int n = Mathf.Max(1, Mathf.CeilToInt(Vector2.Distance(a, b) / step));
-                    for (int k = 0; k <= n; k++)
-                    {
-                        float u = k / (float)n;
-                        Vector2 p = Vector2.Lerp(a, b, u);
-                        float f = Mathf.Lerp(v.floor[s], v.floor[s + 1], u);
-                        int ci = Idx(p.x), cj = Idx(p.y);
-                        for (int jj = Mathf.Max(0, cj - rc); jj <= Mathf.Min(Res - 1, cj + rc); jj++)
-                            for (int ii = Mathf.Max(0, ci - rc); ii <= Mathf.Min(Res - 1, ci + rc); ii++)
-                            {
-                                float dx = X(ii) - p.x, dz = X(jj) - p.y;
-                                float d = Mathf.Sqrt(dx * dx + dz * dz);
-                                if (d < dist[jj, ii]) { dist[jj, ii] = d; floor[jj, ii] = f; }
-                            }
-                    }
-                }
-                for (int j = 0; j < Res; j++)
-                    for (int i = 0; i < Res; i++)
-                    {
-                        float d = dist[j, i];
-                        if (d < (v.guard > 0 ? v.guard : reach + ValleyGuard)) guard[j, i] = true;
-                        if (d >= reach + shoulder) continue;
-                        if (v.minWall > 0)
-                            h[j, i] = Mathf.Max(h[j, i], floor[j, i] + v.minWall * (0.8f + 0.7f * Ridged(X(i) * 1.7f + 900, X(j) * 1.7f)) * (1 - Step(reach, reach + shoulder, d)));   // not a flat terrace: crests along the rim
-                        if (d >= reach) continue;
-                        float t = Mathf.Clamp01((d - v.halfFloor) / v.wall);
-                        float shape = v.gorge ? Mathf.Pow(t, 0.5f) : t * t * (3 - 2 * t);
-                        float f = floor[j, i] + 12f * (Mathf.PerlinNoise(X(i) * 0.002f + 5, X(j) * 0.002f + 9) - 0.5f);
-                        float carved = f + (h[j, i] - f) * shape;
-                        h[j, i] = Mathf.Min(h[j, i], carved);
-                    }
-            }
-
-            CarveTown(h, guard);
-            PlaceMountains(h, guard);
-
-            // a lake sits a little under its lowest shore, so the water never stands above the ground round it
-            for (int k = 0; k < Lakes.Length; k++)
-            {
-                float shore = float.MaxValue;
-                for (int a = 0; a < 64; a++)
-                {
-                    float t = a * Mathf.PI / 32;
-                    shore = Mathf.Min(shore, SampleArr(h, Lakes[k].c.x + Mathf.Cos(t) * Lakes[k].r.x * 1.15f, Lakes[k].c.y + Mathf.Sin(t) * Lakes[k].r.y * 1.15f));
-                }
-                Lakes[k].level = Mathf.Min(Lakes[k].level, shore - 3f);
-            }
-
-            foreach (var l in Lakes)
-                for (int j = 0; j < Res; j++)
-                    for (int i = 0; i < Res; i++)
-                    {
-                        float ex = (X(i) - l.c.x) / l.r.x, ez = (X(j) - l.c.y) / l.r.y;
-                        float r = Mathf.Sqrt(ex * ex + ez * ez);
-                        if (r > 1.6f) continue;
-                        float target = r < 1 ? l.level - 25f * (1 - r * r) : l.level + (r - 1) * 500f;
-                        h[j, i] = Mathf.Min(h[j, i], target);
-                    }
-
-            // the island: down to the sea floor at the edges
-            for (int j = 0; j < Res; j++)
-                for (int i = 0; i < Res; i++)
-                {
-                    float d = Mathf.Max(Mathf.Abs(X(i)), Mathf.Abs(X(j))) / (Size / 2);
-                    d += 0.04f * (Mathf.PerlinNoise(X(i) * 0.0004f + 2, X(j) * 0.0004f + 6) - 0.5f);
-                    float e = Mathf.SmoothStep(0, 1, Mathf.InverseLerp(0.84f, 0.98f, d));
-                    h[j, i] = Mathf.Lerp(h[j, i], Base + 20f, e);
-                }
-            return h;
-        }
-
-        static float X(int i) => -Size / 2 + i * Cell;
-        static int Idx(float x) => Mathf.Clamp(Mathf.RoundToInt((x + Size / 2) / Cell), 0, Res - 1);
-
-        static float SampleArr(float[,] h, float x, float z)
-        {
-            float fx = Mathf.Clamp((x + Size / 2) / Cell, 0, Res - 1.001f), fz = Mathf.Clamp((z + Size / 2) / Cell, 0, Res - 1.001f);
-            int i = (int)fx, j = (int)fz;
-            float u = fx - i, w = fz - j;
-            return Mathf.Lerp(Mathf.Lerp(h[j, i], h[j, i + 1], u), Mathf.Lerp(h[j + 1, i], h[j + 1, i + 1], u), w);
         }
 
         // ---------- ground colours ----------
@@ -357,6 +119,8 @@ namespace Ooda.EditorTools
             var forest = TestWorldBuilder.MakeNoiseTexture("Alpine_Forest", new Color(0.16f, 0.36f, 0.18f), new Color(0.22f, 0.42f, 0.20f));
             var rock = TestWorldBuilder.MakeNoiseTexture("Alpine_Rock", new Color(0.38f, 0.39f, 0.46f), new Color(0.47f, 0.47f, 0.53f));
             var snow = TestWorldBuilder.MakeNoiseTexture("Alpine_Snow", new Color(0.90f, 0.93f, 0.98f), new Color(0.98f, 0.99f, 1f));
+            var field = TestWorldBuilder.MakeNoiseTexture("Alpine_Field", new Color(0.80f, 0.68f, 0.31f), new Color(0.88f, 0.76f, 0.38f));
+            var pasture = TestWorldBuilder.MakeNoiseTexture("Alpine_Pasture", new Color(0.48f, 0.72f, 0.24f), new Color(0.56f, 0.80f, 0.30f));
             TerrainLayer Layer(string name, Texture2D tex, float tile)
             {
                 string path = $"{Dir}/{name}.terrainlayer";
@@ -365,206 +129,43 @@ namespace Ooda.EditorTools
                 return l;
             }
             data.alphamapResolution = SplatRes;
-            data.terrainLayers = new[] { Layer("Meadow", meadow, 80), Layer("Forest", forest, 80), Layer("Rock", rock, 120), Layer("Snow", snow, 120) };
-            var a = new float[SplatRes, SplatRes, 4];
-            var cover = new float[4];
+            data.terrainLayers = new[]
+            {
+                Layer("Meadow", meadow, 80), Layer("Forest", forest, 80), Layer("Rock", rock, 120), Layer("Snow", snow, 120),
+                Layer("Field", field, 60), Layer("Pasture", pasture, 60),
+            };
+            var a = new float[SplatRes, SplatRes, CoverLayers];
+            var cover = new float[CoverLayers];
+            var w = new float[CoverLayers];
             for (int j = 0; j < SplatRes; j++)
                 for (int i = 0; i < SplatRes; i++)
                 {
                     float x = -Size / 2 + (i + 0.5f) * Size / SplatRes, z = -Size / 2 + (j + 0.5f) * Size / SplatRes;
-                    float y = SampleArr(h, x, z);
-                    float slope = Slope(h, x, z);
-                    float jitter = 120f * (Mathf.PerlinNoise(x * 0.003f + 1, z * 0.003f + 4) - 0.5f);
-                    // toon: narrow transitions between flat colours
-                    float snowW = Step(2150 + jitter, 2250 + jitter, y) * (1 - Step(72, 80, slope));
-                    float rockW = Mathf.Max(Step(38, 44, slope), Step(2050 + jitter, 2200 + jitter, y)) * (1 - snowW);
-                    float forestW = Step(520, 600, y) * (1 - Step(1650 + jitter, 1750 + jitter, y)) * (1 - Step(32, 38, slope))
-                                    * Step(0.38f, 0.46f, Mathf.PerlinNoise(x * 0.0012f + 7, z * 0.0012f + 3)) * (1 - rockW) * (1 - snowW);
-                    float meadowW = Mathf.Max(0, 1 - snowW - rockW - forestW);
-                    a[j, i, 0] = meadowW; a[j, i, 1] = forestW; a[j, i, 2] = rockW; a[j, i, 3] = snowW;
-                    for (int l = 0; l < 4; l++) cover[l] += a[j, i, l];
+                    GroundCover(h, x, z, w);
+                    for (int l = 0; l < CoverLayers; l++) { a[j, i, l] = w[l]; cover[l] += w[l]; }
                 }
             data.SetAlphamaps(0, 0, a);
             float total = SplatRes * (float)SplatRes;
-            var back = data.GetAlphamaps(0, 0, SplatRes, SplatRes);
-            float rockBack = 0;
-            for (int j = 0; j < SplatRes; j += 4) for (int i = 0; i < SplatRes; i += 4) rockBack += back[j, i, 2];
-            Debug.Log($"OODA: ground cover meadow {cover[0] / total:P0}, forest {cover[1] / total:P0}, rock {cover[2] / total:P0}, snow {cover[3] / total:P0} (rock read back {rockBack * 16 / total:P0}, {data.alphamapLayers} layers).");
-        }
-
-        static float Step(float a, float b, float x) => Mathf.SmoothStep(0, 1, Mathf.InverseLerp(a, b, x));
-
-        static float Slope(float[,] h, float x, float z)
-        {
-            float d = Cell;
-            float gx = (SampleArr(h, x + d, z) - SampleArr(h, x - d, z)) / (2 * d);
-            float gz = (SampleArr(h, x, z + d) - SampleArr(h, x, z - d)) / (2 * d);
-            return Mathf.Atan(Mathf.Sqrt(gx * gx + gz * gz)) * Mathf.Rad2Deg;
+            Debug.Log($"OODA: ground cover meadow {cover[0] / total:P0}, forest {cover[1] / total:P0}, rock {cover[2] / total:P0}, snow {cover[3] / total:P0}, fields {cover[4] / total:P0}, pasture {cover[5] / total:P0} ({data.alphamapLayers} layers).");
         }
 
         // ---------- trees ----------
 
-        static void Plant(TerrainData data, float[,] h, List<Vector3> rail, State[] states)
+        static void Plant(TerrainData data, float[,] h, List<Vector3> rail)
         {
-            // the round leafy tree low down, the tall one above it and pines highest, mixed where they meet
             data.treePrototypes = new[] { TreePrefab(RoundTree), TreePrefab(TallTree), TreePrefab(PineTree) }.Select(p => new TreePrototype { prefab = p }).ToArray();
-            var rnd = new System.Random(23);
-            var trees = new List<TreeInstance>();
-            for (int tries = 0; tries < 160000 && trees.Count < 10000; tries++)
+            var spots = TreeSpots(h, rail);
+            var trees = spots.Select(s => new TreeInstance
             {
-                float x = ((float)rnd.NextDouble() - 0.5f) * Size * 0.92f, z = ((float)rnd.NextDouble() - 0.5f) * Size * 0.92f;
-                float y = SampleArr(h, x, z);
-                if (y < 450 || y > 2100 || Slope(h, x, z) > 36) continue;
-                // in clumps: the same noise as the forest colour, a little wider
-                if (Mathf.PerlinNoise(x * 0.0012f + 7, z * 0.0012f + 3) < 0.38f) continue;
-                if (NearRail(rail, x, z, 25f) || InTown(x, z) || UnderMountain(x, z)) continue;
-                if (Lakes.Any(l => { float ex = (x - l.c.x) / l.r.x, ez = (z - l.c.y) / l.r.y; return ex * ex + ez * ez < 1.3f; })) continue;
-                float s = 0.75f + (float)rnd.NextDouble() * 0.7f;
-                trees.Add(new TreeInstance
-                {
-                    position = new Vector3((x + Size / 2) / Size, 0, (z + Size / 2) / Size),
-                    widthScale = s, heightScale = s * (0.9f + (float)rnd.NextDouble() * 0.3f),
-                    rotation = (float)rnd.NextDouble() * Mathf.PI * 2, color = Color.white, lightmapColor = Color.white,
-                    prototypeIndex = rnd.NextDouble() < Mathf.InverseLerp(1100f, 1500f, y) ? 2 : rnd.NextDouble() < Mathf.InverseLerp(650f, 1050f, y) ? 1 : 0,
-                });
-            }
-            data.SetTreeInstances(trees.ToArray(), true);
-            Debug.Log($"OODA: planted {trees.Count} trees ({trees.Count(t => t.prototypeIndex == 0)} round, {trees.Count(t => t.prototypeIndex == 1)} tall, {trees.Count(t => t.prototypeIndex == 2)} pines).");
+                position = new Vector3((s.x + Size / 2) / Size, 0, (s.z + Size / 2) / Size),
+                widthScale = s.scale, heightScale = s.tall, rotation = s.yaw,
+                color = Color.white, lightmapColor = Color.white, prototypeIndex = s.kind,
+            }).ToArray();
+            data.SetTreeInstances(trees, true);
+            Debug.Log($"OODA: planted {trees.Length} trees ({spots.Count(t => t.kind == 0)} round, {spots.Count(t => t.kind == 1)} tall, {spots.Count(t => t.kind == 2)} pines).");
         }
 
-        static bool NearRail(List<Vector3> rail, float x, float z, float r)
-        {
-            for (int k = 0; k < rail.Count; k += 2)
-            {
-                float dx = rail[k].x - x, dz = rail[k].z - z;
-                if (dx * dx + dz * dz < r * r) return true;
-            }
-            return false;
-        }
-
-        // ---------- the railway ----------
-
-        enum State { Ground, Bridge, Tunnel }
-        const float RailStep = 10f;
-
-        static List<Vector3> RailPath(float[,] ground)
-        {
-            var path = RailLine();
-            // the rail height: the ground averaged over 2.4 km, so it bridges gorges and tunnels through ridges, then no
-            // steeper than 3.5 % either way
-            var g = path.Select(p => Mathf.Max(SampleArr(ground, p.x, p.z), 40f)).ToArray();
-            int half = Mathf.RoundToInt(1200f / RailStep);
-            var y = new float[g.Length];
-            for (int k = 0; k < g.Length; k++)
-            {
-                int a = Mathf.Max(0, k - half), b = Mathf.Min(g.Length - 1, k + half);
-                float sum = 0;
-                for (int q = a; q <= b; q++) sum += g[q];
-                y[k] = sum / (b - a + 1);
-            }
-            float rise = 0.035f * RailStep;
-            for (int pass = 0; pass < 3; pass++)
-            {
-                for (int k = 1; k < y.Length; k++) y[k] = Mathf.Clamp(y[k], y[k - 1] - rise, y[k - 1] + rise);
-                for (int k = y.Length - 2; k >= 0; k--) y[k] = Mathf.Clamp(y[k], y[k + 1] - rise, y[k + 1] + rise);
-            }
-            // across the main valley it stays low, 110 m over the floor at most, so its bridge passes under the bombers
-            // flying up the valley at 300 m rather than across their path; then the line either side comes down to meet
-            // that at the same grade (only ever lowering it, so the cap holds)
-            for (int k = 0; k < y.Length; k++)
-                if (MainDistance(path[k].x, path[k].z, out float mainFloor) < 900f) y[k] = Mathf.Min(y[k], mainFloor + 110f);
-            for (int k = 1; k < y.Length; k++) y[k] = Mathf.Min(y[k], y[k - 1] + rise);
-            for (int k = y.Length - 2; k >= 0; k--) y[k] = Mathf.Min(y[k], y[k + 1] + rise);
-            for (int k = 0; k < path.Count; k++) path[k] = new Vector3(path[k].x, y[k], path[k].z);
-            return path;
-        }
-
-        static List<Vector3> RailLine()
-        {
-            var dense = new List<Vector3>();
-            for (int s = 0; s + 1 < Rail.Length; s++)
-            {
-                Vector3 p0 = Rail[Mathf.Max(0, s - 1)], p1 = Rail[s], p2 = Rail[s + 1], p3 = Rail[Mathf.Min(Rail.Length - 1, s + 2)];
-                for (int k = 0; k < 200; k++)
-                {
-                    float t = k / 200f;
-                    dense.Add(0.5f * (2 * p1 + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t + (-p0 + 3 * p1 - 3 * p2 + p3) * t * t * t));
-                }
-            }
-            dense.Add(Rail[Rail.Length - 1]);
-            // even steps along the ground
-            var path = new List<Vector3> { dense[0] };
-            float carry = 0;
-            for (int k = 1; k < dense.Count; k++)
-            {
-                Vector3 a = dense[k - 1], b = dense[k];
-                float seg = Vector2.Distance(new Vector2(a.x, a.z), new Vector2(b.x, b.z));
-                while (carry + seg >= RailStep)
-                {
-                    float u = (RailStep - carry) / seg;
-                    a = Vector3.Lerp(a, b, u);
-                    seg = Vector2.Distance(new Vector2(a.x, a.z), new Vector2(b.x, b.z));
-                    path.Add(a);
-                    carry = 0;
-                }
-                carry += seg;
-            }
-            return path;
-        }
-
-        static State[] Classify(List<Vector3> rail, float[,] h)
-        {
-            var s = new State[rail.Count];
-            for (int k = 0; k < rail.Count; k++)
-            {
-                float g = SampleArr(h, rail[k].x, rail[k].z);
-                s[k] = g < rail[k].y - 10 ? State.Bridge : g > rail[k].y + 30 ? State.Tunnel : State.Ground;
-            }
-            // no runs shorter than 4 steps: they take their neighbours' state
-            for (int pass = 0; pass < 2; pass++)
-                for (int k = 0; k < s.Length;)
-                {
-                    int e = k;
-                    while (e + 1 < s.Length && s[e + 1] == s[k]) e++;
-                    if (e - k + 1 < 4 && k > 0) for (int q = k; q <= e; q++) s[q] = s[k - 1];
-                    k = e + 1;
-                }
-            // bridges land on solid ground: two more steps at each end
-            var b = (State[])s.Clone();
-            for (int k = 0; k < s.Length; k++)
-                if (s[k] == State.Bridge)
-                    for (int q = Mathf.Max(0, k - 2); q <= Mathf.Min(s.Length - 1, k + 2); q++)
-                        if (b[q] == State.Ground) b[q] = State.Bridge;
-            return b;
-        }
-
-        const float BedDepth = 0.93f;              // from the rail top down to the ground or deck under the ballast
-
-        static void Flatten(float[,] h, List<Vector3> rail, State[] states)
-        {
-            var weight = new float[Res, Res];
-            var target = new float[Res, Res];
-            int rc = Mathf.CeilToInt(60f / Cell) + 1;
-            for (int k = 0; k < rail.Count; k++)
-            {
-                bool nearEnd = states[k] != State.Ground && ((k > 0 && states[k - 1] == State.Ground) || (k + 1 < states.Length && states[k + 1] == State.Ground));
-                if (states[k] != State.Ground && !nearEnd) continue;
-                Vector3 p = rail[k];
-                int ci = Idx(p.x), cj = Idx(p.z);
-                for (int j = Mathf.Max(0, cj - rc); j <= Mathf.Min(Res - 1, cj + rc); j++)
-                    for (int i = Mathf.Max(0, ci - rc); i <= Mathf.Min(Res - 1, ci + rc); i++)
-                    {
-                        float dx = X(i) - p.x, dz = X(j) - p.z;
-                        float w = 1 - Step(14f, 60f, Mathf.Sqrt(dx * dx + dz * dz));
-                        if (w > weight[j, i]) { weight[j, i] = w; target[j, i] = p.y - BedDepth; }
-                    }
-            }
-            for (int j = 0; j < Res; j++)
-                for (int i = 0; i < Res; i++)
-                    if (weight[j, i] > 0) h[j, i] = Mathf.Lerp(h[j, i], target[j, i], weight[j, i]);
-        }
-
-        class WMats { public Material stone, steel, rail, ballast, sleeper, dark, water, wood, plaster, roof; }
+        class WMats { public Material stone, steel, rail, ballast, sleeper, dark, water, river, wood, plaster, roof, slate, cobbles; }
 
         static WMats WorldMats(TestWorldBuilder.Mats mats) => new WMats
         {
@@ -578,6 +179,9 @@ namespace Ooda.EditorTools
             wood = TestWorldBuilder.Mat("Alpine_ChaletWood", new Color(0.48f, 0.29f, 0.15f), 0.15f),
             plaster = TestWorldBuilder.Mat("Alpine_Plaster", new Color(0.94f, 0.92f, 0.86f), 0.1f),
             roof = TestWorldBuilder.Mat("Alpine_Roof", new Color(0.30f, 0.20f, 0.17f), 0.1f),
+            river = TestWorldBuilder.Mat("Alpine_River", new Color(0.18f, 0.66f, 0.74f), 0.9f),
+            slate = TestWorldBuilder.Mat("Alpine_Slate", new Color(0.33f, 0.34f, 0.38f), 0.2f),
+            cobbles = TestWorldBuilder.Mat("Alpine_Cobbles", new Color(0.62f, 0.60f, 0.56f), 0.1f),
         };
 
         static void BuildRailway(List<Vector3> rail, State[] states, float[,] ground, WMats m)
@@ -757,76 +361,176 @@ namespace Ooda.EditorTools
             MeshObject(name, SaveMesh(mb, name.Replace(" ", "")), new[] { m.stone, m.dark }, root, true);
         }
 
-        // ---------- lakes and the village ----------
+        // ---------- the lakes, the river and its bridges ----------
 
         static void MakeLakes(WMats m)
         {
             var mb = new MeshBuilder(1);
             foreach (var l in Lakes) mb.Disc(new Vector3(l.c.x, l.level, l.c.y), l.r * 1.05f, 48, 0);
-            var go = MeshObject("Lakes", SaveMesh(mb, "Lakes"), new[] { m.water }, null);
+            var go = MeshObject("Lakes", SaveMesh(mb, "Lakes"), new[] { m.river }, null);
             go.GetComponent<MeshRenderer>().shadowCastingMode = ShadowCastingMode.Off;
         }
 
-        /// <summary>Empty markers where the flak guns go, standing on the ground at the FlakSites.</summary>
+        /// <summary>
+        /// The river's water: a ribbon at its surface down the channel CarveRiver cut, a little wider than the channel's floor
+        /// so it laps the banks. Left out inside the lakes (their water is there already) and where the banks are lower than the
+        /// water (at the sea, where the sea takes over).
+        /// </summary>
+        static void MakeRiver(float[,] h, WMats m)
+        {
+            var r = River();
+            var mb = new MeshBuilder(1);
+            bool Wet(int k) => RiverWet(h, r, k);
+            Vector3 Edge(int k, float side)
+            {
+                var rp = r[k];
+                Vector2 dir = (r[Mathf.Min(k + 1, r.Count - 1)].p - r[Mathf.Max(k - 1, 0)].p).normalized, across = V(dir.y, -dir.x);
+                Vector2 e = rp.p + across * side * (rp.half + 4f);
+                return new Vector3(e.x, rp.surface, e.y);
+            }
+            int quads = 0;
+            for (int k = 0; k + 2 < r.Count; k += 2)
+            {
+                if (!Wet(k) || !Wet(k + 2)) continue;
+                mb.Flat(Edge(k, -1), Edge(k, 1), Edge(k + 2, 1), Edge(k + 2, -1), 0);
+                quads++;
+            }
+            var go = MeshObject("River", SaveMesh(mb, "River"), new[] { m.river }, null);
+            go.GetComponent<MeshRenderer>().shadowCastingMode = ShadowCastingMode.Off;
+            Debug.Log($"OODA: the river's water: {quads * 20 / 1000f:F1} km of it.");
+        }
+
+        /// <summary>Little stone arch bridges over the river: a single arch springing from each bank, parapets along the deck.</summary>
+        static void MakeRiverBridges(float[,] h, WMats m)
+        {
+            var root = new GameObject("River bridges").transform;
+            int n = 0;
+            foreach (var b in RiverBridges(h))
+            {
+                var mb = new MeshBuilder(1);
+                var rot = Quaternion.Euler(0, b.yaw, 0);
+                float half = b.span / 2, rise = Mathf.Min(9f, b.span * 0.28f), deckW = 5f;
+                Vector3 c = b.at;
+                // the arch: boxes round a flattened half circle from bank to bank
+                const int segs = 12;
+                for (int s = 0; s < segs; s++)
+                {
+                    float t0 = Mathf.PI * s / segs, t1 = Mathf.PI * (s + 1) / segs, tm = (t0 + t1) / 2;
+                    Vector3 P(float t) => c + rot * new Vector3(0, Mathf.Sin(t) * rise, -Mathf.Cos(t) * half);
+                    Vector3 mid = P(tm), d = P(t1) - P(t0);
+                    mb.Box(mid, Quaternion.LookRotation(d, rot * Vector3.up), new Vector3(deckW, 1.6f, d.magnitude + 0.3f), 0);
+                }
+                // the deck over it, the spandrels down to the arch, the parapets, and the abutments into the banks
+                float deckY = rise + 1.4f;
+                mb.Box(c + rot * new Vector3(0, deckY, 0), rot, new Vector3(deckW, 0.8f, b.span + 8f), 0);
+                foreach (float side in new[] { -1f, 1f })
+                {
+                    mb.Box(c + rot * new Vector3(side * (deckW / 2 - 0.3f), deckY + 0.9f, 0), rot, new Vector3(0.6f, 1.1f, b.span + 8f), 0);
+                    float u = 0.78f;
+                    float spandrel = deckY - Mathf.Sin(Mathf.Acos(u)) * rise;
+                    mb.Box(c + rot * new Vector3(0, deckY - spandrel / 2, side * half * u), rot, new Vector3(deckW, spandrel, half * 0.44f), 0);
+                    Vector3 foot = c + rot * new Vector3(0, 0, side * (half + 3f));
+                    float g = SampleArr(h, foot.x, foot.z);
+                    mb.Box(new Vector3(foot.x, (g - 2f + c.y + deckY) / 2, foot.z), rot, new Vector3(deckW + 1f, c.y + deckY - g + 2f, 6f), 0);
+                }
+                MeshObject($"Stone bridge {n++}", SaveMesh(mb, $"RiverBridge{n}"), new[] { m.stone }, root, true);
+                Debug.Log($"OODA: a stone bridge over the river at ({c.x:F0}, {c.z:F0}), {b.span:F0} m across.");
+            }
+        }
+
+        /// <summary>Empty markers where the flak guns go, standing on the ground at the FlakSites (moved off the river if one would be in it).</summary>
         static void MakeFlakSites(float[,] h)
         {
             var parent = new GameObject("Flak").transform;
             for (int i = 0; i < FlakSites.Length; i++)
             {
                 var s = FlakSites[i];
+                Vector2 p = V(s.x, s.z);
+                // step out sideways until it is on dry, gentle ground
+                Vector2 away = V(1, 0);
+                for (int k = 0; k < 40 && (RiverNear(p.x, p.y) || Slope(h, p.x, p.y) > 14f); k++) p += away * (k % 2 == 0 ? 1 : -1) * 15f * (k + 1);
                 var t = new GameObject($"FlakSite {i}").transform;
                 t.SetParent(parent, false);
-                t.position = new Vector3(s.x, SampleArr(h, s.x, s.z), s.z);
+                t.position = new Vector3(p.x, SampleArr(h, p.x, p.y), p.y);
             }
             Debug.Log("OODA: flak sites " + string.Join(", ", parent.Cast<Transform>().Select(t => $"({t.position.x:F0}, {t.position.y:F0}, {t.position.z:F0}) slope {Slope(h, t.position.x, t.position.z):F0}")) + ".");
         }
 
-        static void MakeVillage(float[,] h, WMats m)
+        // ---------- the village and the farmhouses ----------
+
+        /// <summary>A copy of the Hi3D chalet at a spot, its near and far meshes, solid on the Obstacles layer as a box round it.</summary>
+        static void PlaceChalet(HouseSpot s, string name, Transform root, int layer)
         {
-            // on the meadow at the north shore of the lower lake, by the main valley's road-less floor: copies of the
-            // alpine chalet model (Art/Chalet, near and far meshes), each turned to the valley and a little bigger or
-            // smaller, solid on the Obstacles layer as a box round it; and the church
+            var go = new GameObject(name);
+            go.transform.SetParent(root, false);
+            go.transform.SetPositionAndRotation(s.pos + Vector3.down * 0.4f, Quaternion.Euler(0, s.yaw, 0));    // sunk a little so a slope shows no gap under it
+            go.transform.localScale = Vector3.one * s.size;
+            go.isStatic = true;
+            AddLods(go, ChaletModel, 0.08f, 0.002f);
+            var bounds = ChaletModel.near.bounds;
+            var box = go.AddComponent<BoxCollider>();
+            box.center = new Vector3(0, bounds.size.y * ChaletModel.fit / 2, 0);
+            box.size = bounds.size * ChaletModel.fit * 0.9f;
+            go.layer = layer;
+        }
+
+        static void MakeVillage(float[,] h, WMats m, List<Vector3> rail)
+        {
+            // on the flat at the north end of the chalet lake, either side of the river where it comes in: copies of the alpine
+            // chalet model (Art/Chalet) round a cobbled square with a fountain, and the church with its tall spire
             var root = new GameObject("Village").transform;
             root.gameObject.isStatic = true;
             Load(ChaletModel, false);
             if (ChaletModel.near == null) Debug.LogError("OODA: no chalet model (Art/Chalet/Chalet_Near.obj); the village has only its church.");
-            var rnd = new System.Random(5);
-            var placed = new List<Vector2>();
             int layer = ObstacleLayerIndex();
-            for (int tries = 0; tries < 400 && placed.Count < 18 && ChaletModel.near != null; tries++)
+            var spots = ChaletModel.near != null ? VillageSpots(h, rail) : new List<HouseSpot>();
+            for (int k = 0; k < spots.Count; k++) PlaceChalet(spots[k], $"Chalet {k + 1}", root, layer);
+
+            // the square and its fountain
+            var sq = new MeshBuilder(2);           // 0 cobbles, 1 stone
+            Vector3 c = new Vector3(SquareAt.x, SampleArr(h, SquareAt.x, SquareAt.y), SquareAt.y);
+            sq.Prism(c + Vector3.up * 0.15f, 40f, 0.5f, 16, 0);
+            sq.Prism(c + Vector3.up * 0.5f, 3.2f, 1.0f, 12, 1);
+            sq.Prism(c + Vector3.up * 1.4f, 0.5f, 2.6f, 6, 1);
+            sq.Prism(c + Vector3.up * 2.8f, 1.2f, 0.4f, 10, 1);
+            MeshObject("Square", SaveMesh(sq, "VillageSquare"), new[] { m.cobbles, m.stone }, root);
+
+            // the church: a white nave under a slate roof, a stone tower with its belfry open on all four sides, an eight-sided
+            // spire and a cross, the tower to the north
+            var mb = new MeshBuilder(5);           // 0 plaster, 1 stone, 2 slate, 3 dark (the openings), 4 wood
+            Vector3 ch = new Vector3(ChurchAt.x, SampleArr(h, ChurchAt.x, ChurchAt.y) - 0.5f, ChurchAt.y);
+            var face = Quaternion.Euler(0, 0, 0);
+            mb.Box(ch + new Vector3(0, 6.5f, -4), face, new Vector3(12, 13, 24), 0);
+            foreach (float side in new[] { -1f, 1f })
+                mb.Box(ch + new Vector3(side * 3.7f, 15.4f, -4), Quaternion.Euler(0, 0, -side * 44), new Vector3(11f, 0.6f, 25f), 2);   // a positive z turn lifts +x: so -side, eaves down
+            mb.Prism(ch + new Vector3(0, 0, -16f), 4.8f, 9.5f, 8, 0);                                // the round apse at the east end, lower than the nave
+            mb.Cone(ch + new Vector3(0, 9.5f, -16f), 5.3f, 3.6f, 8, 2);
+            Vector3 tw = ch + new Vector3(0, 0, 11.5f);
+            mb.Box(tw + new Vector3(0, 13f, 0), face, new Vector3(7.5f, 26f, 7.5f), 1);
+            mb.Box(tw + new Vector3(0, 26.8f, 0), face, new Vector3(8.4f, 1.0f, 8.4f), 1);
+            foreach (var (dx, dz) in new[] { (0f, 3.8f), (0f, -3.8f), (3.8f, 0f), (-3.8f, 0f) })
             {
-                var p = new Vector2(-110 + (float)rnd.NextDouble() * 220, -7350 + (float)rnd.NextDouble() * 1150);
-                if (placed.Any(q => Vector2.Distance(p, q) < 28)) continue;
-                if (Slope(h, p.x, p.y) > 8) continue;
-                placed.Add(p);
-                float y = SampleArr(h, p.x, p.y);
-                float size = 0.85f + (float)rnd.NextDouble() * 0.3f;
-                var rot = Quaternion.Euler(0, (rnd.Next(4) * 90) + ((float)rnd.NextDouble() - 0.5f) * 20, 0);
-                Vector3 c = new Vector3(p.x, y, p.y);
-                var go = new GameObject($"Chalet {placed.Count}");
-                go.transform.SetParent(root, false);
-                go.transform.SetPositionAndRotation(c + Vector3.down * 0.4f, rot);    // sunk a little so a slope shows no gap under it
-                go.transform.localScale = Vector3.one * size;
-                go.isStatic = true;
-                AddLods(go, ChaletModel, 0.08f, 0.002f);
-                var bounds = ChaletModel.near.bounds;
-                var box = go.AddComponent<BoxCollider>();
-                box.center = new Vector3(0, bounds.size.y * ChaletModel.fit / 2, 0);
-                box.size = bounds.size * ChaletModel.fit * 0.9f;
-                go.layer = layer;
+                mb.Box(tw + new Vector3(dx, 22.5f, dz), Quaternion.Euler(0, dx != 0 ? 90 : 0, 0), new Vector3(2.4f, 4.2f, 0.3f), 3);   // the belfry openings
+                mb.Box(tw + new Vector3(dx * 1.01f, 15f, dz * 1.01f), Quaternion.Euler(0, dx != 0 ? 90 : 0, 0), new Vector3(1.0f, 1.6f, 0.3f), 3);
             }
-            // the church
-            var mb = new MeshBuilder(3);          // 0 plaster, 1 wood, 2 roof
-            {
-                Vector3 c = new Vector3(70, SampleArr(h, 70, -6700), -6700);
-                mb.Box(c + new Vector3(0, 6, 0), Quaternion.identity, new Vector3(12, 12, 22), 0);
-                mb.Box(c + new Vector3(0, 13, -16), Quaternion.identity, new Vector3(6, 26, 6), 0);
-                mb.Cone(c + new Vector3(0, 26, -16), 4.6f, 12f, 4, 2);
-                foreach (float side in new[] { -1f, 1f })
-                    mb.Box(c + new Vector3(side * 3.6f, 14.3f, 0), Quaternion.Euler(0, 0, side * 40), new Vector3(10.5f, 0.5f, 23f), 2);
-            }
-            MeshObject("Church", SaveMesh(mb, "Village"), new[] { m.plaster, m.wood, m.roof }, root, true);
-            Debug.Log($"OODA: a village of {placed.Count} chalets and a church.");
+            mb.Cone(tw + new Vector3(0, 27.3f, 0), 4.6f, 17f, 8, 2);
+            mb.Box(tw + new Vector3(0, 45.5f, 0), face, new Vector3(0.35f, 3.2f, 0.35f), 4);
+            mb.Box(tw + new Vector3(0, 46.2f, 0), face, new Vector3(1.6f, 0.35f, 0.35f), 4);
+            mb.Box(tw + new Vector3(0, 2.2f, 3.8f), face, new Vector3(2.4f, 4.4f, 0.3f), 3);           // the door, in the tower's north face
+            MeshObject("Church", SaveMesh(mb, "Church"), new[] { m.plaster, m.stone, m.slate, m.dark, m.wood }, root, true);
+            Debug.Log($"OODA: a village of {spots.Count} chalets round a square, and a church with a {46:F0} m spire, at ({SquareAt.x:F0}, {SquareAt.y:F0}).");
+        }
+
+        /// <summary>The farmhouses: single chalets dotted over the green slopes and the farmland.</summary>
+        static void MakeFarms(float[,] h, List<Vector3> rail)
+        {
+            if (ChaletModel.near == null) return;
+            var root = new GameObject("Farmhouses").transform;
+            root.gameObject.isStatic = true;
+            int layer = ObstacleLayerIndex();
+            var spots = FarmSpots(h, rail);
+            for (int k = 0; k < spots.Count; k++) PlaceChalet(spots[k], $"Farmhouse {k + 1}", root, layer);
+            Debug.Log($"OODA: {spots.Count} farmhouses.");
         }
 
         // ---------- things to fly round: barrage balloons, cable cars and radio masts ----------
@@ -900,14 +604,14 @@ namespace Ooda.EditorTools
             var mb = new MeshBuilder(4);           // 0 steel, 1 wood, 2 roof, 3 the car
             // where to try (a leg of the main line and how far along it), in order: clear of the gorge and the railway's crossing,
             // and the first one between the Valley Run's start and the Bf 109s ahead of it
-            var spots = new[] { (4, 0.30f), (7, 0.45f), (10, 0.50f), (11, 0.55f), (12, 0.35f), (9, 0.50f) };
+            var spots = new[] { (7, 0.45f), (9, 0.55f), (8, 0.50f), (10, 0.40f), (8, 0.20f), (10, 0.75f) };   // the pass: not leg 6, where the viaduct crosses
             int made = 0;
             foreach (var (s, u0) in spots)
             {
                 if (made == 3) break;
                 Vector2 a2 = MainLine[s], b2 = MainLine[s + 1];
                 Vector2 c = Vector2.Lerp(a2, b2, Mathf.Clamp01(u0 + Rand(rnd, -0.06f, 0.06f)));
-                if (InTown(c.x, c.y)) continue;   // the runway's climb-out
+                if (InTown(c.x, c.y) || InVillage(c.x, c.y)) continue;
                 Vector2 along = (b2 - a2).normalized, across = V(along.y, -along.x);
                 float floor = MainFloorAt(c.y);
                 RouteGap(new Vector3(c.x, 0, c.y), out float routeY);
@@ -1024,7 +728,7 @@ namespace Ooda.EditorTools
                 var centre = new Vector3(q.x, y, q.y);
                 var foot = new Vector3(q.x, g, q.y);
                 if (BalloonCentres.Any(p => Vector2.Distance(V(p.x, p.z), q) < 550f)) continue;
-                if (NearRail(rail, q.x, q.y, 40f) || InLake(q.x, q.y) || InTown(q.x, q.y) || UnderMountain(q.x, q.y)) continue;
+                if (NearRail(rail, q.x, q.y, 40f) || InLake(q.x, q.y) || InTown(q.x, q.y) || InVillage(q.x, q.y) || UnderMountain(q.x, q.y)) continue;
                 if (HazardWires.Any(w => SegDist(centre, w.a, w.b) < 250f)) continue;    // clear of the cable cars
                 if (!ClearOfRoute(foot, centre + Vector3.up * BalloonRadius, BalloonRadius + 2f)) continue;
 
@@ -1050,7 +754,7 @@ namespace Ooda.EditorTools
             var red = TestWorldBuilder.Mat("Alpine_MastRed", new Color(0.80f, 0.18f, 0.12f), 0.3f, 0.3f);
             var white = TestWorldBuilder.Mat("Alpine_MastWhite", new Color(0.92f, 0.92f, 0.90f), 0.3f, 0.3f);
             var mb = new MeshBuilder(2);
-            float start = MainLength(3), total = MainLength();
+            float start = MainLength(NarrowFrom), total = MainLength();
             int made = 0;
             for (int tries = 0; tries < 8000 && made < 5; tries++)
             {
@@ -1109,50 +813,6 @@ namespace Ooda.EditorTools
             }
             if (made > 0) MeshObject("Radio masts", SaveMesh(mb, "RadioMasts"), new[] { red, white }, root);   // solid by their box colliders
             return made;
-        }
-
-        static float Rand(System.Random rnd, float a, float b) => a + (float)rnd.NextDouble() * (b - a);
-
-        static bool InLake(float x, float z) => Lakes.Any(l => { float ex = (x - l.c.x) / l.r.x, ez = (z - l.c.y) / l.r.y; return ex * ex + ez * ez < 1.3f; });
-
-        /// <summary>How far it is along the main valley's line from its south end to its point upTo (to its north end by default), metres on the map.</summary>
-        static float MainLength(int upTo = -1)
-        {
-            int last = upTo < 0 ? MainLine.Length - 1 : Mathf.Min(upTo, MainLine.Length - 1);
-            float total = 0;
-            for (int s = 0; s < last; s++) total += Vector2.Distance(MainLine[s], MainLine[s + 1]);
-            return total;
-        }
-
-        /// <summary>The point dist metres along the main valley's line from its south end, and the line's direction there.</summary>
-        static Vector2 AlongMain(float dist, out Vector2 dir)
-        {
-            for (int s = 0; s + 1 < MainLine.Length; s++)
-            {
-                float len = Vector2.Distance(MainLine[s], MainLine[s + 1]);
-                dir = (MainLine[s + 1] - MainLine[s]).normalized;
-                if (dist <= len || s + 2 == MainLine.Length) return Vector2.Lerp(MainLine[s], MainLine[s + 1], Mathf.Clamp01(dist / len));
-                dist -= len;
-            }
-            dir = V(0, 1);
-            return MainLine[0];
-        }
-
-        /// <summary>How far a point is from the escort route on the map, and the route's height at the nearest point.</summary>
-        static float RouteGap(Vector3 p, out float routeY)
-        {
-            float best = float.MaxValue;
-            routeY = 0;
-            var q = V(p.x, p.z);
-            for (int i = 0; i + 1 < EscortRoute.Length; i++)
-            {
-                Vector3 a = EscortRoute[i], b = EscortRoute[i + 1];
-                Vector2 a2 = V(a.x, a.z), b2 = V(b.x, b.z);
-                float u = Mathf.Clamp01(Vector2.Dot(q - a2, b2 - a2) / (b2 - a2).sqrMagnitude);
-                float d = Vector2.Distance(q, Vector2.Lerp(a2, b2, u));
-                if (d < best) { best = d; routeY = Mathf.Lerp(a.y, b.y, u); }
-            }
-            return best;
         }
 
         /// <summary>A straight piece of something radius metres thick is out of the bombers' way: nowhere within the corridor
@@ -1484,6 +1144,40 @@ namespace Ooda.EditorTools
                     Vector3 p1 = baseCentre + new Vector3(Mathf.Cos(a1), 0, Mathf.Sin(a1)) * radius;
                     Tri(p0, apex, p1, sub);
                     Tri(p1, baseCentre, p0, sub);
+                }
+            }
+
+            /// <summary>A flat quad facing up (whichever way round its corners are given).</summary>
+            public void Flat(Vector3 a, Vector3 b, Vector3 c, Vector3 d, int sub)
+            {
+                if (Vector3.Cross(d - a, b - a).y > 0) Quad(a, b, c, d, sub); else Quad(a, d, c, b, sub);   // Quad faces Cross(d - a, b - a)
+            }
+
+            /// <summary>An upright prism (a cylinder of a few sides), its foot centred at c.</summary>
+            public void Prism(Vector3 c, float radius, float height, int sides, int sub)
+            {
+                Vector3 up = Vector3.up * height;
+                for (int s = 0; s < sides; s++)
+                {
+                    float a0 = 2 * Mathf.PI * s / sides, a1 = 2 * Mathf.PI * (s + 1) / sides;
+                    Vector3 p0 = c + new Vector3(Mathf.Cos(a0), 0, Mathf.Sin(a0)) * radius, p1 = c + new Vector3(Mathf.Cos(a1), 0, Mathf.Sin(a1)) * radius;
+                    Quad(p1, p1 + up, p0 + up, p0, sub);   // a to d along the face, a to b up it: Cross(d - a, b - a) points out
+                    Tri(c + up, p1 + up, p0 + up, sub);
+                }
+            }
+
+            /// <summary>A cylinder of radius round the line from a to b, its ends capped.</summary>
+            public void Tube(Vector3 a, Vector3 b, float radius, int sides, int sub)
+            {
+                Vector3 ax = b - a;
+                var rot = Quaternion.LookRotation(ax, Mathf.Abs(Vector3.Dot(ax.normalized, Vector3.up)) > 0.95f ? Vector3.forward : Vector3.up);
+                for (int s = 0; s < sides; s++)
+                {
+                    float a0 = 2 * Mathf.PI * s / sides, a1 = 2 * Mathf.PI * (s + 1) / sides;
+                    Vector3 o0 = rot * new Vector3(Mathf.Cos(a0), Mathf.Sin(a0), 0) * radius, o1 = rot * new Vector3(Mathf.Cos(a1), Mathf.Sin(a1), 0) * radius;
+                    Quad(a + o1, a + o0, b + o0, b + o1, sub);
+                    Tri(a, a + o1, a + o0, sub);
+                    Tri(b, b + o0, b + o1, sub);
                 }
             }
 

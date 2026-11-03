@@ -61,9 +61,11 @@ namespace Ooda.Turn.Core
         /// way round; crossing, them coming from your right at right angles, both about 1.5 km from where the paths cross;
         /// perch, you 3,500 ft behind and 2,500 ft out to the side of them and 2,500 ft higher, the same way; bounced, the
         /// other way round. Each side flies a finger-four on its leader (side by side, an echelon away from the other side).
-        /// Order: 0 you, 1 their leader, then your wingmen, then their others.
+        /// All of it is laid out with you heading north, then turned round centre by axisDeg (clockwise from north: an
+        /// arena's axis). Order: 0 you, 1 their leader, then your wingmen, then their others.
         /// </summary>
-        public static Battle Dogfight(DogfightSetup setup, Vec3d centre, double altFt = 5000, double kias = 300, double gapM = 3000, bool applySetup = true)
+        public static Battle Dogfight(DogfightSetup setup, Vec3d centre, double altFt = 5000, double kias = 300, double gapM = 3000, bool applySetup = true,
+                                      double axisDeg = 0)
         {
             int ours = Math.Max(1, Math.Min(MaxSide, setup.Ours));
             int theirs = Math.Max(1, Math.Min(MaxSide, setup.Theirs));
@@ -74,7 +76,9 @@ namespace Ooda.Turn.Core
             double half = gapM / 0.3048 / 2;
             Vec3d me, foe;
             double myHdg = Math.PI / 2, foeHdg = Math.PI / 2;
-            Vec3d At(double x, double y, double up) => new Vec3d(centre.x + x, centre.y + y, altFt + up);
+            // turned clockwise by the axis: offsets round centre, headings anticlockwise from east
+            double turn = axisDeg * Math.PI / 180, cos = Math.Cos(turn), sin = Math.Sin(turn);
+            Vec3d At(double x, double y, double up) => new Vec3d(centre.x + x * cos + y * sin, centre.y - x * sin + y * cos, altFt + up);
             switch (s)
             {
                 case Start.HeadOn: me = At(-150, -half, 0); foe = At(150, half, 0); foeHdg = -Math.PI / 2; break;
@@ -85,6 +89,7 @@ namespace Ooda.Turn.Core
                 case Start.Perch: me = At(-2500 * scale, -1750 * scale, 1250 * scale); foe = At(0, 1750 * scale, -1250 * scale); break;
                 default: me = At(0, 1750 * scale, -1250 * scale); foe = At(-2500 * scale, -1750 * scale, 1250 * scale); break;
             }
+            myHdg -= turn; foeHdg -= turn;
             FlightModel Make(Craft c, Vec3d pos, double hdg) => new FlightModel(DogfightSetup.Numbers(c), PointMass.Make(pos, ktas, hdg)) { throttle = 1 };
             // the k-th aircraft's place on its leader: lateral (right positive), back, up, ft
             bool echelon = s == Start.Neutral;
@@ -101,6 +106,34 @@ namespace Ooda.Turn.Core
             for (int k = 1; k < theirs; k++) battle.Add(Make(setup.theirs[k], Place(foe, foeHdg, k, 1), foeHdg), DogfightSetup.Guns(setup.theirs[k], false), 1);
             Formations.Organise(battle, 0, WideUnit, BomberUnit);
             return battle;
+        }
+
+        /// <summary>
+        /// Raise each side's aircraft together, if it takes it, so none starts less than clearFt over the ground under it or
+        /// under where it will be a turn and a half on (so nobody starts nose into a hillside). A side that starts over a ridge
+        /// comes in over it; the other stays where it was. groundFt(x, y) is the ground in ft. Returns the most either side went
+        /// up, ft (0 if all were clear). The same ground gives the same lift on every machine, so a game over the network stays in step.
+        /// </summary>
+        public static double LiftClear(Battle b, Func<double, double, double> groundFt, double clearFt = 500)
+        {
+            var need = new double[2];
+            for (int i = 0; i < b.Count; i++)
+            {
+                var st = b.planes[i].state;
+                Vec3d ahead = st.vel * (TurnSec * 1.5);
+                foreach (double f in new[] { 0.0, 0.5, 1.0 })
+                {
+                    Vec3d p = st.pos + ahead * f;
+                    int side = b.side[i] == 0 ? 0 : 1;
+                    need[side] = Math.Max(need[side], groundFt(p.x, p.y) + clearFt - p.z);
+                }
+            }
+            for (int i = 0; i < b.Count; i++)
+            {
+                double up = need[b.side[i] == 0 ? 0 : 1];
+                if (up > 0) b.planes[i].state.pos.z += up;
+            }
+            return Math.Max(0, Math.Max(need[0], need[1]));
         }
 
         /// <summary>Formation spacing (lateral, back, up per unit of a shape, ft): close for escorting, wide for fighting, and the bombers'.</summary>

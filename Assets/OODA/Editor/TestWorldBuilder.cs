@@ -485,7 +485,7 @@ namespace Ooda.EditorTools
             var sea = GameObject.CreatePrimitive(PrimitiveType.Plane);
             sea.name = "Sea";
             sea.transform.position = Vector3.zero;
-            sea.transform.localScale = new Vector3(10000f, 1f, 10000f); // 100 km
+            sea.transform.localScale = new Vector3(40000f, 1f, 40000f); // 400 km: past the far clip from any height
             sea.GetComponent<Renderer>().sharedMaterial = mats.water;
             sea.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
         }

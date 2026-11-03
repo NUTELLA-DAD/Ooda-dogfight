@@ -64,9 +64,10 @@ namespace Ooda.Turn
                 NetNotice($"{Friend} starts the next fight.");
                 return false;
             }
-            // the next fight: the same planes, and a new start if the briefing asked for a random one
+            // the next fight: the same planes, and a new start (and arena) if the briefing asked for a random one
             var next = dogSetup.Copy();
             next.randomStart = Ooda.UI.DogfightSetupScreen.Chosen.randomStart;
+            next.randomArena = Ooda.UI.DogfightSetupScreen.Chosen.randomArena;
             dogSetup = next.Resolved(startDice);
             net.setup.dogfight = dogSetup.ToBytes();
             net.setup.fight++;

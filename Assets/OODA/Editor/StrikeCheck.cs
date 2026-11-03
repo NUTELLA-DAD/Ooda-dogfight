@@ -63,7 +63,7 @@ namespace Ooda.EditorTools
             {
                 ("south, low up the main valley", new[] { new Vector3(0, Low(0, -9400), -9400), new Vector3(0, Low(0, -5000), -5000) }),
                 ("east, high and straight", new[] { new Vector3(9400, 2400, 1500) }),
-                ("west, low, round by the south-west valley", new[] { new Vector3(-9400, Low(-9400, -6800), -6800), new Vector3(-4000, Low(-4000, -3500), -3500), new Vector3(-1500, Low(-1500, -1800), -1800) }),
+                ("west, low along the south coast", new[] { new Vector3(-9400, Low(-9400, -8300), -8300), new Vector3(-1000, Low(-1000, -8300), -8300), new Vector3(1000, Low(1000, -6000), -6000) }),
             };
             foreach (var (name, pts) in plans)
             {
@@ -73,6 +73,13 @@ namespace Ooda.EditorTools
                 route.Add(new Vector3(factory.x, fy, factory.z));
                 Vector3 on = factory + (factory - last).normalized * 4000f; on.y = fy;
                 route.Add(on);
+                // low means low, not into the hills: each leg at least 200 m over the highest ground along it
+                for (int k = 1; k < route.Count; k++)
+                {
+                    float top = 0;
+                    for (int t = 0; t <= 40; t++) { var q = Vector3.Lerp(route[k - 1], route[k], t / 40f); top = Mathf.Max(top, GroundM(q.x, q.z)); }
+                    foreach (int e in new[] { k - 1, k }) if (route[e].y < top + 200f) route[e] = new Vector3(route[e].x, top + 200f, route[e].z);
+                }
                 Fly(name, Scenarios.TownStrike(route.Select(Ft).ToArray(), Ft(factory), radars.Select(Ft).ToArray(), loop, Ft(rs), Ft(re), flak), G);
             }
 

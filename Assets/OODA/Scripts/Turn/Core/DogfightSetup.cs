@@ -14,9 +14,9 @@ namespace Ooda.Turn.Core
     /// <summary>
     /// How a dogfight is set up before it begins, as the setup screen picks it: the aircraft on each side, one entry
     /// per plane (1 to Scenarios.MaxSide each), how the two sides start (or at random), and how far apart, how high
-    /// and how fast. Scenarios.Dogfight(setup, ...) builds the battle from it.
+    /// and how fast, and which arena it begins over (or one at random). Scenarios.Dogfight(setup, ...) builds the battle from it.
     ///
-    /// For a game over the network the host picks it, fixes a random start with Resolved, and sends ToBytes to the
+    /// For a game over the network the host picks it, fixes a random start and arena with Resolved, and sends ToBytes to the
     /// friend; the same bytes build the same battle on both machines. Pure C#, no Unity.
     /// </summary>
     [Serializable]
@@ -40,6 +40,10 @@ namespace Ooda.Turn.Core
         public Range range = Range.Medium;
         public Height height = Height.Medium;
         public Pace speed = Pace.Cruise;
+        /// <summary>Pick the arena at random when the fight begins (each restart a new one); else arena.</summary>
+        public bool randomArena = true;
+        /// <summary>Which of Arenas.All the fight starts over.</summary>
+        public int arena = 0;
         /// <summary>Side 0's guns get the forgiving hit radius and the tighter cone (a game liberty for the player against the AI). Off for side against side.</summary>
         public bool easyAimOurs = true;
 
@@ -91,17 +95,18 @@ namespace Ooda.Turn.Core
         public static string Name(PilotKind p) => p == PilotKind.Tiger ? "Tiger" : p == PilotKind.Wolf ? "Wolf" : p == PilotKind.Wizard ? "Wizard"
                                                  : p == PilotKind.Skeleton ? "Skeleton" : p == PilotKind.Bear ? "Bear" : "Usual";
 
-        /// <summary>A copy with a random start fixed (so every machine flies the same one); the others are copied unchanged.</summary>
+        /// <summary>A copy with a random start and a random arena fixed (so every machine flies the same ones); the others are copied unchanged.</summary>
         public DogfightSetup Resolved(Random dice)
         {
             var c = Copy();
             if (c.randomStart) { c.start = (Scenarios.Start)dice.Next(Scenarios.StartCount); c.randomStart = false; }
+            if (c.randomArena) { c.arena = dice.Next(Arenas.Count); c.randomArena = false; }
             return c;
         }
 
         /// <summary>How much further apart (or closer) than the usual starts the two sides begin.</summary>
         public double RangeScale => range == Range.Close ? 0.6 : range == Range.Far ? 1.7 : 1;
-        /// <summary>Added to the fight's usual height, ft: low puts you about 400 m over the basin floor, high up among the peaks.</summary>
+        /// <summary>Added to the arena's usual height, ft: low puts you a few hundred metres over the ground, high up among the peaks.</summary>
         public double HeightOffsetFt => height == Height.Low ? -1100 : height == Height.High ? 4400 : 0;
         /// <summary>The starting speed, KIAS.</summary>
         public double Kias => speed == Pace.Slow ? 220 : speed == Pace.Fast ? 380 : 300;
@@ -150,8 +155,9 @@ namespace Ooda.Turn.Core
 
         // ---------- over the wire ----------
 
-        // 2 added the pilots; a version 1 setup (kept from an older build) still reads, everyone with the usual pilot
-        const byte Version = 2;
+        // 2 added the pilots, 3 the arena; an older setup (kept from an older build) still reads, everyone with the usual
+        // pilot over a random arena
+        const byte Version = 3;
 
         public byte[] ToBytes()
         {
@@ -164,6 +170,7 @@ namespace Ooda.Turn.Core
                 w.Write(randomStart); w.Write((byte)start); w.Write((byte)range); w.Write((byte)height); w.Write((byte)speed); w.Write(easyAimOurs);
                 for (int k = 0; k < ours.Length; k++) w.Write((byte)PilotOf(true, k));
                 for (int k = 0; k < theirs.Length; k++) w.Write((byte)PilotOf(false, k));
+                w.Write(randomArena); w.Write((byte)arena);
                 w.Flush();
                 return ms.ToArray();
             }
@@ -174,7 +181,7 @@ namespace Ooda.Turn.Core
             using (var r = new BinaryReader(new MemoryStream(bytes)))
             {
                 byte version = r.ReadByte();
-                if (version != Version && version != 1) throw new InvalidDataException("A dogfight setup from another version of the game.");
+                if (version < 1 || version > Version) throw new InvalidDataException("A dogfight setup from another version of the game.");
                 var s = new DogfightSetup();
                 s.ours = new Craft[r.ReadByte()]; for (int k = 0; k < s.ours.Length; k++) s.ours[k] = (Craft)r.ReadByte();
                 s.theirs = new Craft[r.ReadByte()]; for (int k = 0; k < s.theirs.Length; k++) s.theirs[k] = (Craft)r.ReadByte();
@@ -189,6 +196,8 @@ namespace Ooda.Turn.Core
                     for (int k = 0; k < s.ours.Length; k++) s.oursPilots[k] = (PilotKind)r.ReadByte();
                     for (int k = 0; k < s.theirs.Length; k++) s.theirsPilots[k] = (PilotKind)r.ReadByte();
                 }
+                if (version >= 3) { s.randomArena = r.ReadBoolean(); s.arena = r.ReadByte(); }
+                if (s.arena >= Arenas.Count) s.arena = 0;
                 return s;
             }
         }
