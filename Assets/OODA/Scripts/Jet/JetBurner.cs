@@ -10,6 +10,8 @@ namespace Ooda.Flight
     public class JetBurner : MonoBehaviour
     {
         public AircraftController aircraft;
+        [Tooltip("In the turn battle: the turn view it follows instead of an AircraftController (found on this object if empty).")]
+        public Ooda.Turn.TurnAircraftView turnView;
         [Tooltip("The nozzles' exits in the aircraft's frame (metres; x right, y up, z forward).")]
         public Vector3[] nozzles = { new Vector3(-0.5f, -0.85f, -8.75f), new Vector3(0.5f, -0.85f, -8.75f) };
         public float nozzleRadius = 0.34f;
@@ -104,11 +106,15 @@ namespace Ooda.Flight
 
         void LateUpdate()
         {
-            if (aircraft == null || aircraft.Model == null || plumes == null) return;
-            var m = aircraft.Model;
-            bool lit = !aircraft.Crashed && aircraft.Input.Wep && m.throttle > 0.95;
+            if (plumes == null) return;
+            if (aircraft == null && turnView == null) turnView = GetComponent<Ooda.Turn.TurnAircraftView>();
+            var m = aircraft != null ? aircraft.Model : turnView != null ? turnView.Model : null;
+            if (m == null) return;
+            bool crashed = aircraft != null ? aircraft.Crashed : turnView.Crashed;
+            bool wep = aircraft != null ? aircraft.Input.Wep : turnView.Wep;
+            bool lit = !crashed && wep && m.throttle > 0.95;
             burn = Mathf.MoveTowards(burn, lit ? 1 : 0, Time.deltaTime / lightSec);
-            float dry = aircraft.Crashed ? 0 : (float)m.throttle;
+            float dry = crashed ? 0 : (float)m.throttle;
 
             for (int i = 0; i < plumes.Length; i++)
             {
@@ -127,7 +133,7 @@ namespace Ooda.Flight
             float mach = (float)m.Mach;
             float wet = Mathf.InverseLerp(25000f, 3000f, (float)m.AltFt);
             float v = Mathf.Clamp01(1 - Mathf.Abs(mach - 0.99f) / 0.035f) * Mathf.Lerp(0.25f, 1f, wet);
-            vapour.gameObject.SetActive(v > 0.01f && !aircraft.Crashed);
+            vapour.gameObject.SetActive(v > 0.01f && !crashed);
             vapourMat.color = new Color(1, 1, 1, v);
         }
     }

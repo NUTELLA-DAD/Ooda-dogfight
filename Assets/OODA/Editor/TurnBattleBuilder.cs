@@ -42,11 +42,12 @@ namespace Ooda.EditorTools
             var spitMat = TestWorldBuilder.Textured("Spitfire", Art + "/Spitfire/Spit_BaseColor.png", Art + "/Spitfire/Spit_MetallicSmoothness.png");
             var wolfMat = TestWorldBuilder.Textured("WolfPilot", Art + "/WolfPilot/Wolf_BaseColor.png", Art + "/WolfPilot/Wolf_MetallicSmoothness.png");
             var wolfCtrl = MakeSeatedAnimator(WolfFbx, "WolfPilot");
-            MakeSpitfirePrefab(mats, spitMat, wolfMat, wolfCtrl);
+            var spit = MakeSpitfirePrefab(mats, spitMat, wolfMat, wolfCtrl);
             var bf109 = MakeBf109Prefab(mats, wolfMat, wolfCtrl);
             var b17 = MakeB17Prefab();
             var p51Turn = MakeP51TurnPrefab();
-            MakeScene(bf109, p51Turn, b17);
+            var phantom = JetTestBuilder.MakeTurnPrefab();
+            MakeScene(bf109, p51Turn, b17, spit, phantom);
             AssetDatabase.SaveAssets();
             Debug.Log("OODA: turn battle built. Press Play.");
         }
@@ -257,7 +258,7 @@ namespace Ooda.EditorTools
             return saved;
         }
 
-        static void MakeScene(GameObject enemyPrefab, GameObject wingmanPrefab, GameObject bomberPrefab)
+        static void MakeScene(GameObject enemyPrefab, GameObject wingmanPrefab, GameObject bomberPrefab, GameObject spitfirePrefab, GameObject phantomPrefab)
         {
             AssetDatabase.DeleteAsset(ScenePath);
             AssetDatabase.CopyAsset(TestWorldBuilder.ScenePath, ScenePath);
@@ -314,6 +315,9 @@ namespace Ooda.EditorTools
             tb.wingmanPrefab = wingmanPrefab;
             tb.enemyPrefab = enemyPrefab;
             tb.bomberPrefab = bomberPrefab;
+            // the dogfight's setup screen can put any of the four types on either side
+            tb.spitfirePrefab = spitfirePrefab;
+            tb.phantomPrefab = phantomPrefab;
             tb.flakSites = PlaceFlak();
             Physics.SyncTransforms();
             float clear = AlpineWorld.CheckEscortRoute(tb.terrain);

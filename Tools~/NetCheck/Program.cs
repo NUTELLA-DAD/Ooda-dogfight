@@ -140,6 +140,48 @@ static class Program
             Check(sv.Mine(0) && vs.side[0] == 1 && !sv.Mine(1), "after a swap (Tab) the seats follow the planes");
         }
 
+        Console.WriteLine("\nThe dogfight setup");
+        {
+            var setup = new DogfightSetup
+            {
+                ours = new[] { Craft.Spitfire, Craft.Phantom, Craft.Mustang }, theirs = new[] { Craft.Bf109, Craft.Mustang },
+                randomStart = true, range = DogfightSetup.Range.Far, height = DogfightSetup.Height.High, speed = DogfightSetup.Pace.Fast, easyAimOurs = false,
+            };
+            var fixedOne = setup.Resolved(new Random(5));
+            var back = DogfightSetup.FromBytes(fixedOne.ToBytes());
+            Check(!fixedOne.randomStart && back.ToBytes().SequenceEqual(fixedOne.ToBytes()) && back.ours.SequenceEqual(setup.ours) && back.theirs.SequenceEqual(setup.theirs),
+                  $"a setup survives the trip to bytes ({fixedOne.ToBytes().Length} bytes), its random start fixed ({fixedOne.start})");
+            var centre = new Vec3d(0, -26000, 0);
+            var a = Scenarios.Dogfight(fixedOne, centre, 3600, 300, 3000);
+            var b = Scenarios.Dogfight(back, centre, 3600, 300, 3000);
+            Check(Wire.Hash(a) == Wire.Hash(b), "the same bytes build the same battle on both machines");
+            bool types = a.Count == 5 && DogfightSetup.Of(a.planes[0].numbers) == Craft.Spitfire && DogfightSetup.Of(a.planes[1].numbers) == Craft.Bf109
+                      && DogfightSetup.Of(a.planes[2].numbers) == Craft.Phantom && DogfightSetup.Of(a.planes[3].numbers) == Craft.Mustang && DogfightSetup.Of(a.planes[4].numbers) == Craft.Mustang
+                      && a.side[2] == 0 && a.side[3] == 0 && a.side[4] == 1 && a.missiles[2] == 4;
+            Check(types, "each plane flies its own type, in the battle's order (you, their lead, your wingmen, their others), the F-4 with 4 missiles");
+            Check(Math.Abs(a.planes[0].state.pos.z - (3600 + 4400)) < 1500 && Math.Abs(a.planes[0].Kias - 380) < 2 && a.combat[3].hitRadiusFt < 20,
+                  $"high and fast: {a.planes[0].state.pos.z:F0} ft, {a.planes[0].Kias:F0} KIAS; no easy aim for side against side");
+            var easy = Scenarios.Dogfight(new DogfightSetup { ours = new[] { Craft.Bf109 }, theirs = new[] { Craft.Mustang }, randomStart = false }, centre);
+            Check(easy.combat[0].hitRadiusFt == 20 && easy.combat[1].hitRadiusFt < 20, "against the AI your guns get the easy aim whatever you fly, and an enemy P-51 doesn't");
+
+            // every start: the two leads apart, nobody on top of anybody, and each flies a few turns
+            bool allOk = true; string worst = "";
+            foreach (Scenarios.Start st in Enum.GetValues(typeof(Scenarios.Start)))
+                foreach (DogfightSetup.Range rg in Enum.GetValues(typeof(DogfightSetup.Range)))
+                {
+                    var s4 = new DogfightSetup { ours = DogfightSetup.Resize(new[] { Craft.Mustang }, 4), theirs = DogfightSetup.Resize(new[] { Craft.Phantom }, 4), randomStart = false, start = st, range = rg };
+                    var f = Scenarios.Dogfight(s4, centre, 3600, 300, 3000);
+                    double closest = double.MaxValue;
+                    for (int i = 0; i < f.Count; i++) for (int j = i + 1; j < f.Count; j++) closest = Math.Min(closest, (f.planes[i].state.pos - f.planes[j].state.pos).Length);
+                    double apart = (f.planes[0].state.pos - f.planes[1].state.pos).Length;
+                    for (int t = 0; t < 3; t++) f.Resolve(new TurnPlan?[f.Count], Scenarios.TurnSec, false);
+                    bool ok = closest > 250 && apart > 800 && Enumerable.Range(0, f.Count).All(i => !f.Out(i));
+                    if (!ok) { allOk = false; worst += $" {st}/{rg} (closest {closest:F0} ft, leads {apart:F0} ft)"; }
+                }
+            Check(allOk, $"all {Scenarios.StartCount} starts at every range, 4 v 4: nobody within 250 ft, the leads at least 800 ft apart, all still flying after 3 turns{worst}");
+            Check(Scenarios.StartCount == Enum.GetValues(typeof(Scenarios.Start)).Length, "a random start can be any of them");
+        }
+
         Console.WriteLine(fails == 0 ? "\nAll checks pass." : $"\n{fails} check(s) failed.");
         return fails;
     }

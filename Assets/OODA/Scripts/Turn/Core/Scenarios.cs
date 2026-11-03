@@ -24,35 +24,68 @@ namespace Ooda.Turn.Core
             return new Battle(mustang, CombatNumbers.P51D(), foe, CombatNumbers.Bf109G());
         }
 
-        /// <summary>The ways a one on one can begin.</summary>
-        public enum Start { HeadOn, Neutral, Offensive, Defensive }
+        /// <summary>The ways a dogfight can begin.</summary>
+        public enum Start { HeadOn, Neutral, Offensive, Defensive, Crossing, Perch, Bounced }
+
+        /// <summary>How many ways there are (a random start picks one of them).</summary>
+        public const int StartCount = 7;
 
         public static string Name(Start s) => s == Start.HeadOn ? "head-on" : s == Start.Neutral ? "neutral, side by side"
-                                            : s == Start.Offensive ? "you on their tail" : "them on your tail";
+                                            : s == Start.Offensive ? "you on their tail" : s == Start.Defensive ? "them on your tail"
+                                            : s == Start.Crossing ? "crossing, them from your right" : s == Start.Perch ? "you high, on the perch" : "them high, bouncing you";
+
+        /// <summary>The setup screen's short name for a start.</summary>
+        public static string Title(Start s) => s == Start.HeadOn ? "Head-on" : s == Start.Neutral ? "Side by side"
+                                             : s == Start.Offensive ? "On their six" : s == Start.Defensive ? "Them on your six"
+                                             : s == Start.Crossing ? "Crossing" : s == Start.Perch ? "High perch" : "Bounced";
 
         /// <summary>
-        /// A dogfight at 300 KIAS by how it begins: head-on 3 km apart; neutral, side by side 1,500 ft apart, both heading
-        /// north; offensive, the Mustang 3,000 ft behind the Bf 109 and a little to one side; defensive, the other way round.
-        /// ours and theirs (1 to 4 each) are the aircraft on each side: you and your P-51 wingmen, and the Bf 109s, each
-        /// side flying a finger-four on its leader (side by side, an echelon away from the other side instead).
-        /// Order: 0 you, 1 their leader, then your wingmen, then their others.
+        /// A dogfight at 300 KIAS by how it begins, ours P-51s and theirs Bf 109s (1 to 4 each). See the setup overload.
         /// </summary>
         public static Battle Dogfight(Start s, Vec3d centre, double altFt = 5000, double kias = 300, double gapM = 3000, int ours = 1, int theirs = 1)
         {
-            ours = Math.Max(1, Math.Min(MaxSide, ours));
-            theirs = Math.Max(1, Math.Min(MaxSide, theirs));
+            var setup = new DogfightSetup
+            {
+                ours = DogfightSetup.Resize(new[] { Craft.Mustang }, ours), theirs = DogfightSetup.Resize(new[] { Craft.Bf109 }, theirs),
+                randomStart = false, start = s,
+            };
+            return Dogfight(setup, centre, altFt, kias, gapM, false);
+        }
+
+        /// <summary>
+        /// A dogfight as the setup says (its start must be fixed: see DogfightSetup.Resolved; a random one flies head-on),
+        /// round centre (ft) at about altFt. With applySetup the setup's range, height and speed scale and shift gapM, altFt
+        /// and kias; without, they are used as given. The starts, before the range scales them:
+        /// head-on 3 km apart (gapM), 300 ft off to the side so flying straight is a pass; neutral, side by side 1,500 ft
+        /// apart, both heading north; offensive, you 3,000 ft behind them and a little to one side; defensive, the other
+        /// way round; crossing, them coming from your right at right angles, both about 1.5 km from where the paths cross;
+        /// perch, you 3,500 ft behind and 2,500 ft out to the side of them and 2,500 ft higher, the same way; bounced, the
+        /// other way round. Each side flies a finger-four on its leader (side by side, an echelon away from the other side).
+        /// Order: 0 you, 1 their leader, then your wingmen, then their others.
+        /// </summary>
+        public static Battle Dogfight(DogfightSetup setup, Vec3d centre, double altFt = 5000, double kias = 300, double gapM = 3000, bool applySetup = true)
+        {
+            int ours = Math.Max(1, Math.Min(MaxSide, setup.Ours));
+            int theirs = Math.Max(1, Math.Min(MaxSide, setup.Theirs));
+            double scale = applySetup ? setup.RangeScale : 1;
+            if (applySetup) { altFt += setup.HeightOffsetFt; kias = setup.Kias; gapM *= scale; }
+            var s = setup.randomStart ? Start.HeadOn : setup.start;
             double ktas = Atmosphere.IasToTasKt(kias, altFt);
             double half = gapM / 0.3048 / 2;
             Vec3d me, foe;
             double myHdg = Math.PI / 2, foeHdg = Math.PI / 2;
+            Vec3d At(double x, double y, double up) => new Vec3d(centre.x + x, centre.y + y, altFt + up);
             switch (s)
             {
-                case Start.HeadOn: me = new Vec3d(centre.x - 150, centre.y - half, altFt); foe = new Vec3d(centre.x + 150, centre.y + half, altFt); foeHdg = -Math.PI / 2; break;
-                case Start.Neutral: me = new Vec3d(centre.x - 750, centre.y, altFt); foe = new Vec3d(centre.x + 750, centre.y, altFt); break;
-                case Start.Offensive: me = new Vec3d(centre.x - 120, centre.y - 1500, altFt); foe = new Vec3d(centre.x + 120, centre.y + 1500, altFt + 100); break;
-                default: me = new Vec3d(centre.x + 120, centre.y + 1500, altFt + 100); foe = new Vec3d(centre.x - 120, centre.y - 1500, altFt); break;
+                case Start.HeadOn: me = At(-150, -half, 0); foe = At(150, half, 0); foeHdg = -Math.PI / 2; break;
+                case Start.Neutral: me = At(-750 * scale, 0, 0); foe = At(750 * scale, 0, 0); break;
+                case Start.Offensive: me = At(-120, -1500 * scale, 0); foe = At(120, 1500 * scale, 100); break;
+                case Start.Defensive: me = At(120, 1500 * scale, 100); foe = At(-120, -1500 * scale, 0); break;
+                case Start.Crossing: me = At(0, -half, 0); foe = At(half, 300, 0); foeHdg = Math.PI; break;
+                case Start.Perch: me = At(-2500 * scale, -1750 * scale, 1250 * scale); foe = At(0, 1750 * scale, -1250 * scale); break;
+                default: me = At(0, 1750 * scale, -1250 * scale); foe = At(-2500 * scale, -1750 * scale, 1250 * scale); break;
             }
-            FlightModel Make(AircraftNumbers n, Vec3d pos, double hdg) => new FlightModel(n, PointMass.Make(pos, ktas, hdg)) { throttle = 1 };
+            FlightModel Make(Craft c, Vec3d pos, double hdg) => new FlightModel(DogfightSetup.Numbers(c), PointMass.Make(pos, ktas, hdg)) { throttle = 1 };
             // the k-th aircraft's place on its leader: lateral (right positive), back, up, ft
             bool echelon = s == Start.Neutral;
             Vec3d Place(Vec3d lead, double hdg, int k, double away)
@@ -61,9 +94,11 @@ namespace Ooda.Turn.Core
                 var (lat, back, up) = echelon ? (500.0 * k * away, 300.0 * k, 50.0 * k) : FingerFour[k];
                 return lead + right * lat - dir * back + new Vec3d(0, 0, up);
             }
-            var battle = new Battle(Make(AircraftNumbers.P51D(), me, myHdg), CombatNumbers.P51D(), Make(AircraftNumbers.Bf109G(), foe, foeHdg), CombatNumbers.Bf109G());
-            for (int k = 1; k < ours; k++) battle.Add(Make(AircraftNumbers.P51D(), Place(me, myHdg, k, -1), myHdg), CombatNumbers.P51D(), 0);
-            for (int k = 1; k < theirs; k++) battle.Add(Make(AircraftNumbers.Bf109G(), Place(foe, foeHdg, k, 1), foeHdg), CombatNumbers.Bf109G(), 1);
+            bool easy = setup.easyAimOurs;
+            var battle = new Battle(Make(setup.ours[0], me, myHdg), DogfightSetup.Guns(setup.ours[0], easy),
+                                    Make(setup.theirs[0], foe, foeHdg), DogfightSetup.Guns(setup.theirs[0], false));
+            for (int k = 1; k < ours; k++) battle.Add(Make(setup.ours[k], Place(me, myHdg, k, -1), myHdg), DogfightSetup.Guns(setup.ours[k], easy), 0);
+            for (int k = 1; k < theirs; k++) battle.Add(Make(setup.theirs[k], Place(foe, foeHdg, k, 1), foeHdg), DogfightSetup.Guns(setup.theirs[k], false), 1);
             Formations.Organise(battle, 0, WideUnit, BomberUnit);
             return battle;
         }

@@ -14,6 +14,8 @@ namespace Ooda.Turn
     {
         public FlightModel Model { get; private set; }
         public bool Crashed { get; private set; }
+        /// <summary>War emergency power in: a jet's afterburner lit (for its JetBurner).</summary>
+        public bool Wep { get; private set; }
 
         [Tooltip("Where the smoke comes from (the engine); empty uses the aircraft's centre.")]
         public Transform smokePoint;
@@ -32,6 +34,7 @@ namespace Ooda.Turn
         public void ShowLive(FlightModel m)
         {
             Model.state = m.state; Model.g = m.g; Model.throttle = m.throttle; Model.rollRateDps = 0;
+            Wep = false;
             Place(m.state.pos, m.state.vel, m.state.up, m.AlphaDeg);
         }
 
@@ -45,6 +48,7 @@ namespace Ooda.Turn
             Model.state = new PointMass.State { pos = pos, vel = vel, up = up };
             Model.g = a.g + (b.g - a.g) * u;
             Model.throttle = b.throttle;
+            Wep = b.wep;
             Vector3 upU = UnityFrame.Dir(up);
             if (dt > 0 && lastUp != Vector3.zero)
                 Model.rollRateDps = Vector3.SignedAngle(lastUp, upU, UnityFrame.Dir(vel)) / dt * -1;
