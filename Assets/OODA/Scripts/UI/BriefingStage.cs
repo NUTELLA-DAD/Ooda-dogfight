@@ -49,12 +49,12 @@ namespace Ooda.UI
         static readonly Vector3 CamAt = new Vector3(0, 5.2f, -27f), CamLook = new Vector3(0, 3.2f, 20f);
         const float CamFov = 36f;
         /// <summary>Your lead's plane, and the step back and out to each wingman. The bandits mirror it.</summary>
-        static readonly Vector3 LeadAt = new Vector3(-7.5f, 0, 13f), Step = new Vector3(-6.6f, 0, 6.5f);
+        static readonly Vector3 LeadAt = new Vector3(-7.5f, 0, 13f), Step = new Vector3(-5.9f, 0, 6.5f);
         /// <summary>Where the pilot stands from his plane's centre, and which way the noses point (degrees from straight away, toward the middle).</summary>
-        static readonly Vector3 PilotFromPlane = new Vector3(-1.5f, 0, -7.2f);
+        static readonly Vector3 PilotFromPlane = new Vector3(-1.2f, 0, -5.2f);
         const float NoseYaw = 112f;
         /// <summary>A standing pilot from his feet to the base of his skull; the chibi heads add about half again.</summary>
-        const float PilotHeadHeight = 1.45f;
+        const float PilotHeadHeight = 1.95f;
 
         public static bool Taildragger(Craft c) => c == Craft.Mustang || c == Craft.Spitfire || c == Craft.Bf109;
 
@@ -174,7 +174,7 @@ namespace Ooda.UI
             strut = Mat(new Color(0.55f, 0.56f, 0.55f), 0.6f);
             gold = Mat(new Color(1f, 0.82f, 0.25f), 0.7f);
             glass = Mat(new Color(0.20f, 0.30f, 0.38f), 0.9f);
-            white = Mat(new Color(0.85f, 0.83f, 0.78f), 0.2f);
+            white = Mat(new Color(0.80f, 0.76f, 0.66f), 0.2f);
             yellow = Mat(new Color(0.95f, 0.75f, 0.15f), 0.2f);
             Textured = tex => { var m = Mat(Color.white); m.SetTexture("_BaseMap", tex); m.SetTexture("_MainTex", tex); return m; };
         }
@@ -224,11 +224,12 @@ namespace Ooda.UI
             Box("StopBar", new Vector3(0, 0.012f, 26f), new Vector3(16f, 0.02f, 0.45f), yellow);
 
             // the hangars, their doors toward the middle; the tower and its flag behind
-            Hangar(new Vector3(-46f, 0, 52f), 62f, Emblem(true));
-            Hangar(new Vector3(46f, 0, 52f), -62f, Emblem(false));
-            Hangar(new Vector3(-62f, 0, 88f), 75f, null);
-            Hangar(new Vector3(62f, 0, 88f), -75f, null);
+            Hangar(new Vector3(-40f, 0, 58f), -32f, Emblem(true));
+            Hangar(new Vector3(40f, 0, 58f), 32f, Emblem(false));
+            Hangar(new Vector3(-66f, 0, 84f), -22f, null);
+            Hangar(new Vector3(66f, 0, 84f), 22f, null);
             Box("Tower", new Vector3(4f, 6f, 98f), new Vector3(6f, 12f, 6f), white);
+            for (int i = 0; i < 3; i++) Box("TowerWindow", new Vector3(4f, 3f + i * 3.2f, 94.95f), new Vector3(1.2f, 1.4f, 0.1f), glass);
             Box("TowerCab", new Vector3(4f, 13.8f, 98f), new Vector3(7.5f, 3.6f, 7.5f), glass);
             Box("TowerRoof", new Vector3(4f, 15.85f, 98f), new Vector3(8.5f, 0.5f, 8.5f), dark);
             Box("TowerHut", new Vector3(12f, 2f, 98f), new Vector3(12f, 4f, 7f), white);
@@ -277,7 +278,7 @@ namespace Ooda.UI
             return g;
         }
 
-        /// <summary>A round-roofed hangar, its open door facing yaw degrees from straight away (toward the camera's side), with
+        /// <summary>A round-roofed hangar, its open door facing the camera turned yaw degrees (negative: toward the right), with
         /// an emblem over the door.</summary>
         void Hangar(Vector3 at, float yaw, Texture2D emblem)
         {
@@ -286,7 +287,7 @@ namespace Ooda.UI
             var g = new GameObject("Hangar");
             g.transform.SetParent(root, false);
             g.transform.localPosition = at;
-            g.transform.localRotation = Quaternion.Euler(0, 180f + yaw, 0);   // its door (local -z) toward the middle
+            g.transform.localRotation = Quaternion.Euler(0, yaw, 0);   // its door (local -z) toward the camera, turned yaw toward the middle
             var verts = new List<Vector3>();
             var norms = new List<Vector3>();
             var uvs = new List<Vector2>();
@@ -679,6 +680,7 @@ namespace Ooda.UI
             st.stance = stance;
             st.seed = UnityEngine.Random.value * 10f;
             st.handler = new HumanPoseHandler(anim.avatar, g.transform);
+            live.Add(st);
             st.handler.GetHumanPose(ref st.pose);
             st.baseMuscles = Stance(stance);
             st.Apply(0, 0);
@@ -771,14 +773,19 @@ namespace Ooda.UI
             transform.localPosition = home + Vector3.up * (picked ? 0.06f * Mathf.Abs(Mathf.Sin(t * 3f)) : 0f);
         }
 
-        static bool quitting;
+        // every live handler, so they are all let go at quit while their avatars are still there (a handler left to the
+        // finalizer after its avatar is gone can crash the player on the way out)
+        static readonly List<Standing> live = new List<Standing>();
         [RuntimeInitializeOnLoadMethod]
-        static void WatchQuit() => Application.quitting += () => quitting = true;
+        static void WatchQuit() => Application.quitting += () => { foreach (var s in live.ToArray()) s.Release(); };
 
-        void OnDestroy()
+        void Release()
         {
-            if (!quitting) handler?.Dispose();   // (at quit the avatar may already be gone: let the process take it)
+            handler?.Dispose();
             handler = null;
+            live.Remove(this);
         }
+
+        void OnDestroy() => Release();
     }
 }
