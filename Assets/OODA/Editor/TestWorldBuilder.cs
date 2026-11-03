@@ -173,7 +173,7 @@ namespace Ooda.EditorTools
             return m;
         }
 
-        static void MakeTransparent(Material m)
+        internal static void MakeTransparent(Material m)
         {
             m.SetFloat("_Surface", 1);
             m.SetFloat("_Blend", 0);

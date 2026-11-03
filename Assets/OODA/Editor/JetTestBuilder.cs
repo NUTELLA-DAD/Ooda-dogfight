@@ -3,6 +3,7 @@ using System.Linq;
 using Ooda.CameraSystem;
 using Ooda.Flight;
 using Ooda.Flight.Core;
+using Ooda.Pilot;
 using Ooda.UI;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -14,10 +15,11 @@ namespace Ooda.EditorTools
     /// <summary>
     /// OODA > Build Jet Test: a side test, away from the WW2 missions. The Phantom (Art/Phantom: the Hi3D model cut to about
     /// 50k triangles, 19.2 m long) in free flight over the alpine test world, with jet numbers (AircraftNumbers.Phantom)
-    /// and an afterburner on the WEP button. Saved as JetTest.unity and added to the build; the title's Jet Test button
+    /// and an afterburner on the WEP button, painted in SEA camo with a tiger and a wolf for its crew (JetTestBuilder.Paint,
+    /// .Crew). Saved as JetTest.unity and added to the build; the title's Jet Test button
     /// (or J) opens it. Run it after Build Test World (it starts from that scene) and Build Title.
     /// </summary>
-    public static class JetTestBuilder
+    public static partial class JetTestBuilder
     {
         const string Dir = "Assets/OODA/Art/Phantom";
         const string Obj = Dir + "/Phantom.obj";
@@ -37,6 +39,7 @@ namespace Ooda.EditorTools
             if (!File.Exists(TestWorldBuilder.ScenePath)) TestWorldBuilder.Build();
             Imports();
             var prefab = MakePrefab();
+            MakeTurnPrefab();   // the turn battle's Phantom gets the same paint and crew
             MakeScene(prefab);
             AssetDatabase.SaveAssets();
             Debug.Log("OODA: jet test built (JetTest.unity, in the build after the title). Title > Jet Test, or open the scene and press Play.");
@@ -87,7 +90,8 @@ namespace Ooda.EditorTools
             EditorUtility.SetDirty(perf);
             ac.performance = perf;
 
-            AddModel(root.transform);
+            var look = AddModel(root.transform);
+            if (look != null) look.aircraft = ac;
 
             var burner = root.AddComponent<JetBurner>();
             burner.aircraft = ac;
@@ -99,30 +103,37 @@ namespace Ooda.EditorTools
             return saved;
         }
 
-        /// <summary>The model, turned and scaled so its nose is +z, its fin up, and it is Length long, centred on its bounds; and the cockpit eye.</summary>
-        static void AddModel(Transform root)
+        /// <summary>The model (camo body and clear canopy), turned and scaled so its nose is +z, its fin up, and it is Length long, centred on its bounds; its crew; and the cockpit eye at the pilot's.</summary>
+        static PilotHeadLook AddModel(Transform root)
         {
-            var mesh = AssetDatabase.LoadAllAssetsAtPath(Obj).OfType<Mesh>().FirstOrDefault();
+            var (mesh, body, glass) = Paint();
             var model = new GameObject("Model");
             model.transform.SetParent(root, false);
             model.AddComponent<MeshFilter>().sharedMesh = mesh;
             var mr = model.AddComponent<MeshRenderer>();
-            mr.sharedMaterial = TestWorldBuilder.Textured("Phantom", BaseTex, MetalTex);
+            mr.sharedMaterials = new[] { body, glass };
             mr.shadowCastingMode = ShadowCastingMode.On;
-            if (mesh != null) Fit(model.transform, mesh);
-            else Debug.LogWarning("OODA: no mesh in " + Obj + ".");
+            if (mesh == null) return null;
+            var (turn, k, centre) = FitOf(mesh);
+            model.transform.localRotation = turn;
+            model.transform.localScale = Vector3.one * k;
+            model.transform.localPosition = -(turn * centre) * k;
+            Debug.Log($"OODA: the Phantom's mesh: {mesh.vertexCount} vertices, {mesh.triangles.Length / 3} triangles, scaled {k:F3} to {Length} m.");
 
-            // the eye for the C camera: just above and behind the canopy, looking over the nose
+            var look = AddCrew(root, mesh, model.transform);
+            // the eye for the C camera: the front pilot's (his head is hidden in that view)
             var eye = new GameObject("CockpitCamera").transform;
             eye.SetParent(root, false);
             eye.localPosition = new Vector3(0, 1.4f, 1.5f);
+            if (look != null) EyeAtHead(root, eye);
+            return look;
         }
 
         const string TurnPrefabPath = "Assets/OODA/Prefabs/PhantomTurn.prefab";
 
         /// <summary>
         /// The Phantom for the turn battle's dogfight (Build Turn Battle calls this): the same model and eye, flown by a
-        /// TurnAircraftView, with its afterburner flame following the turn view (lit when its WEP is in). No pilot yet.
+        /// TurnAircraftView, with its afterburner flame following the turn view (lit when its WEP is in), and its crew.
         /// </summary>
         public static GameObject MakeTurnPrefab()
         {
@@ -140,7 +151,7 @@ namespace Ooda.EditorTools
         /// Point the mesh's nose along +z and its fin up, whatever axes the OBJ came in with: the long axis is the fuselage,
         /// the end with the smaller cross-section is the nose, and the fin stands on the side the tail reaches furthest.
         /// </summary>
-        static void Fit(Transform model, Mesh mesh)
+        static (Quaternion turn, float k, Vector3 centre) FitOf(Mesh mesh)
         {
             var v = mesh.vertices;
             var b = mesh.bounds;
@@ -154,11 +165,7 @@ namespace Ooda.EditorTools
             // the fin: the tail's highest point should be up
             var tail = p.Where(x => x.z < -half * 0.75f).ToArray();
             if (tail.Length > 0 && -tail.Min(x => x.y) > tail.Max(x => x.y)) { turn = Quaternion.Euler(0, 0, 180) * turn; }
-            float k = Length / (2 * half);
-            model.localRotation = turn;
-            model.localScale = Vector3.one * k;
-            model.localPosition = -(turn * b.center) * k;
-            Debug.Log($"OODA: the Phantom's mesh: {mesh.vertexCount} vertices, {mesh.triangles.Length / 3} triangles, scaled {k:F3} to {Length} m.");
+            return (turn, Length / (2 * half), b.center);
         }
 
         static void MakeScene(GameObject prefab)
@@ -174,7 +181,7 @@ namespace Ooda.EditorTools
             if (rig == null) rig = cam.gameObject.AddComponent<CameraRig>();
             rig.aircraft = jet.GetComponent<AircraftController>();
             rig.cockpitEye = TestWorldBuilder.FindDeep(jet.transform, "CockpitCamera");
-            rig.pilot = null;
+            rig.pilot = jet.GetComponentInChildren<Ooda.Pilot.PilotHeadLook>();
             rig.distance = 32f;
             rig.height = 6f;
             rig.lookAhead = 45f;

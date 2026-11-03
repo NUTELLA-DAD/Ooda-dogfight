@@ -7,7 +7,7 @@ using UnityEngine;
 namespace Ooda.EditorTools
 {
     /// <summary>
-    /// OODA > Plane Shots: renders the P-51 and Spitfire prefabs, with their pilots posed (seated clip and IK), from a few
+    /// OODA > Plane Shots: renders the P-51, Spitfire, Bf 109 and F-4 prefabs, with their pilots posed (seated clip and IK), from a few
     /// angles to PNGs in the project's Shots~ folder, and logs the cockpit's measurements, for checking the models
     /// without pressing Play.
     /// </summary>
@@ -29,7 +29,7 @@ namespace Ooda.EditorTools
             var rt = new RenderTexture(1600, 1000, 24);
             cam.targetTexture = rt;
 
-            foreach (var (path, tag) in new[] { ("Assets/OODA/Prefabs/P51.prefab", "p51"), ("Assets/OODA/Prefabs/Spitfire.prefab", "spit"), ("Assets/OODA/Prefabs/Bf109.prefab", "bf109") })
+            foreach (var (path, tag, size) in new[] { ("Assets/OODA/Prefabs/P51.prefab", "p51", 1f), ("Assets/OODA/Prefabs/Spitfire.prefab", "spit", 1f), ("Assets/OODA/Prefabs/Bf109.prefab", "bf109", 1f), ("Assets/OODA/Prefabs/PhantomTurn.prefab", "f4", 2f) })
             {
                 var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
                 if (prefab == null) { Debug.LogWarning($"OODA shots: no {path}"); continue; }
@@ -44,8 +44,9 @@ namespace Ooda.EditorTools
                 cam.fieldOfView = 30f;
                 cam.nearClipPlane = 0.05f;
                 cam.farClipPlane = 1000f;
-                Shot(cam, rt, dir, tag + "_side", c + new Vector3(-16, 1, 0), c);
-                Shot(cam, rt, dir, tag + "_front34", c + new Vector3(-8, 2, 10), c + new Vector3(0, 0, 3));
+                Shot(cam, rt, dir, tag + "_side", c + new Vector3(-16, 1, 0) * size, c);
+                Shot(cam, rt, dir, tag + "_front34", c + new Vector3(-8, 2, 10) * size, c + new Vector3(0, 0, 3));
+                if (size > 1) { Shot(cam, rt, dir, tag + "_top", c + new Vector3(-6, 30, -8), c); Shot(cam, rt, dir, tag + "_below", c + new Vector3(-10, -22, 6), c); }
                 Shot(cam, rt, dir, tag + "_pilot", m + new Vector3(-3.2f, 1.6f, 2.6f), m + new Vector3(0, 0.6f, 0));
                 Shot(cam, rt, dir, tag + "_pilotfront", m + new Vector3(0.6f, 1.5f, 3.6f), m + new Vector3(0, 0.6f, 0));
                 Shot(cam, rt, dir, tag + "_pilotback", m + new Vector3(1.4f, 1.8f, -3.4f), m + new Vector3(0, 0.6f, 0));

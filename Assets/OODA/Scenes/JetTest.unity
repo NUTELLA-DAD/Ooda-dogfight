@@ -16981,9 +16981,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5a2cc63740bd438439313879b24bec09, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Ooda.CameraSystem.CameraRig
-  aircraft: {fileID: 1429899446}
-  cockpitEye: {fileID: 1429899447}
-  pilot: {fileID: 0}
+  aircraft: {fileID: 680308038}
+  cockpitEye: {fileID: 680308039}
+  pilot: {fileID: 680308040}
   mode: 0
   distance: 32
   height: 6
@@ -25962,6 +25962,90 @@ LODGroup:
     renderers:
     - renderer: {fileID: 51131457}
   m_Enabled: 1
+--- !u!1001 &680308037
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 188530261843693487, guid: 7e2c53d47c1f3cb44ac5c2de575b8a93, type: 3}
+      propertyPath: m_Name
+      value: Phantom
+      objectReference: {fileID: 0}
+    - target: {fileID: 7868366793415676584, guid: 7e2c53d47c1f3cb44ac5c2de575b8a93, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7868366793415676584, guid: 7e2c53d47c1f3cb44ac5c2de575b8a93, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 4300
+      objectReference: {fileID: 0}
+    - target: {fileID: 7868366793415676584, guid: 7e2c53d47c1f3cb44ac5c2de575b8a93, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -12000
+      objectReference: {fileID: 0}
+    - target: {fileID: 7868366793415676584, guid: 7e2c53d47c1f3cb44ac5c2de575b8a93, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7868366793415676584, guid: 7e2c53d47c1f3cb44ac5c2de575b8a93, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7868366793415676584, guid: 7e2c53d47c1f3cb44ac5c2de575b8a93, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7868366793415676584, guid: 7e2c53d47c1f3cb44ac5c2de575b8a93, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7868366793415676584, guid: 7e2c53d47c1f3cb44ac5c2de575b8a93, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7868366793415676584, guid: 7e2c53d47c1f3cb44ac5c2de575b8a93, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7868366793415676584, guid: 7e2c53d47c1f3cb44ac5c2de575b8a93, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 7e2c53d47c1f3cb44ac5c2de575b8a93, type: 3}
+--- !u!114 &680308038 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 4680965279751241706, guid: 7e2c53d47c1f3cb44ac5c2de575b8a93, type: 3}
+  m_PrefabInstance: {fileID: 680308037}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e8c31e8c05d0b39448fdbcdf29505526, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Ooda.Flight.AircraftController
+--- !u!4 &680308039 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 3336077827045082507, guid: 7e2c53d47c1f3cb44ac5c2de575b8a93, type: 3}
+  m_PrefabInstance: {fileID: 680308037}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &680308040 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 2393240242786319711, guid: 7e2c53d47c1f3cb44ac5c2de575b8a93, type: 3}
+  m_PrefabInstance: {fileID: 680308037}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6e1702bbb223d9844903ffec097272ba, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Ooda.Pilot.PilotHeadLook
 --- !u!1 &680961565
 GameObject:
   m_ObjectHideFlags: 0
@@ -53214,79 +53298,6 @@ Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: a42c9c59db228974c91c50e4cdf1fdc1, type: 3}
   m_PrefabInstance: {fileID: 1422009638}
   m_PrefabAsset: {fileID: 0}
---- !u!1001 &1429899445
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 0}
-    m_Modifications:
-    - target: {fileID: 188530261843693487, guid: 7e2c53d47c1f3cb44ac5c2de575b8a93, type: 3}
-      propertyPath: m_Name
-      value: Phantom
-      objectReference: {fileID: 0}
-    - target: {fileID: 7868366793415676584, guid: 7e2c53d47c1f3cb44ac5c2de575b8a93, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 7868366793415676584, guid: 7e2c53d47c1f3cb44ac5c2de575b8a93, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 4300
-      objectReference: {fileID: 0}
-    - target: {fileID: 7868366793415676584, guid: 7e2c53d47c1f3cb44ac5c2de575b8a93, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: -12000
-      objectReference: {fileID: 0}
-    - target: {fileID: 7868366793415676584, guid: 7e2c53d47c1f3cb44ac5c2de575b8a93, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 7868366793415676584, guid: 7e2c53d47c1f3cb44ac5c2de575b8a93, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 7868366793415676584, guid: 7e2c53d47c1f3cb44ac5c2de575b8a93, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 7868366793415676584, guid: 7e2c53d47c1f3cb44ac5c2de575b8a93, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 7868366793415676584, guid: 7e2c53d47c1f3cb44ac5c2de575b8a93, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 7868366793415676584, guid: 7e2c53d47c1f3cb44ac5c2de575b8a93, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 7868366793415676584, guid: 7e2c53d47c1f3cb44ac5c2de575b8a93, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: 7e2c53d47c1f3cb44ac5c2de575b8a93, type: 3}
---- !u!114 &1429899446 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 4680965279751241706, guid: 7e2c53d47c1f3cb44ac5c2de575b8a93, type: 3}
-  m_PrefabInstance: {fileID: 1429899445}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e8c31e8c05d0b39448fdbcdf29505526, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Ooda.Flight.AircraftController
---- !u!4 &1429899447 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: 3336077827045082507, guid: 7e2c53d47c1f3cb44ac5c2de575b8a93, type: 3}
-  m_PrefabInstance: {fileID: 1429899445}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &1430134778
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -80233,4 +80244,4 @@ SceneRoots:
   - {fileID: 556741694}
   - {fileID: 737802687}
   - {fileID: 1021256765}
-  - {fileID: 1429899445}
+  - {fileID: 680308037}
