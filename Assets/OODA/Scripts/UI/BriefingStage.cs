@@ -8,7 +8,7 @@ namespace Ooda.UI
 {
     /// <summary>
     /// The squadron briefing's 3D set: an apron of concrete at the south end of the town's runway, looking north up it to
-    /// the mountains, with a hangar either side (a Swiss cross over ours, a black cross over theirs), the tower and its
+    /// the mountains, with a hangar either side (the Allied star-and-bar over ours, a black cross over theirs), the tower and its
     /// flag behind. Your flight parks on the left, the bandits on the right, each plane on its wheels and its pilot standing
     /// in front of it, lead nearest and the wingmen stepping back away from the middle. A gold ring marks the one picked.
     /// Built when the briefing opens, taken down when it closes; Sync puts the setup's planes and pilots on it, rebuilding
