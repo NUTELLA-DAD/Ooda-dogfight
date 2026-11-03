@@ -245,7 +245,7 @@ namespace Ooda.Turn
                     ShowHolo(spreadHolos[k - 1], fr[end], true, hc);
                 }
             }
-            if (!LeadShown || phase != Phase.Planning) return;
+            if (!LeadShown || !showLeadRing || phase != Phase.Planning) return;
             // the reticle: a ring and four ticks where on its path the rounds can meet it, facing the camera
             Vector3 p = UnityFrame.Pos(read.leadPoint);
             Vector3 right = view != null ? view.Cam.transform.right : Vector3.right, up = view != null ? view.Cam.transform.up : Vector3.up;
@@ -285,7 +285,7 @@ namespace Ooda.Turn
             if (read != null)
             {
                 int j = read.target;
-                if (read.spread != null && showProjection && j >= 0 && j < battle.Count && !battle.Out(j) && preview != null)
+                if (read.spread != null && showProjection && !SightViewOn && j >= 0 && j < battle.Count && !battle.Out(j) && preview != null)
                 {
                     var pr = read.pred[j];
                     tag.normal.textColor = projectionColor;
@@ -296,7 +296,7 @@ namespace Ooda.Turn
                         if (g != null) Shadow(new Rect(g.Value.x + 14, g.Value.y - 22, 80, 20), $"{pr.chance[k] * 100:F0}%", tag);
                     }
                 }
-                if (LeadShown && phase == Phase.Planning)
+                if (LeadShown && showLeadRing && phase == Phase.Planning)
                 {
                     var g = GuiPoint(UnityFrame.Pos(read.leadPoint));
                     tag.normal.textColor = LeadHit ? leadOnColor : LinedUp ? leadLinedColor : leadColor;

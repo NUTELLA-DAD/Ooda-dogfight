@@ -348,7 +348,12 @@ namespace Ooda.Turn
         void BeginPlanning()
         {
             phase = Phase.Planning;
+            sightAuto = true;
             FlightTurnStarts();
+            // with only one fighter of yours, it is always yours to fly: it never flies itself on its AI pilot's plan
+            int fighters = 0;
+            for (int i = 0; i < battle.Count; i++) if (battle.side[i] == battle.side[0] && battle.routes[i] == null && !battle.Out(i)) fighters++;
+            if (fighters <= 1 && battle.orders[0] == Order.AutoFight) battle.orders[0] = Order.YouControl;
             var m = battle.planes[0];
             env = Envelope.Compute(m, turnSec);
             plan.aim = m.Forward;
@@ -524,12 +529,14 @@ namespace Ooda.Turn
 
         void Update()
         {
+            if (view != null) view.sightPose = false;   // set again below while the gunsight view is up
             if (MenuUpdate()) return;   // Esc: the menu is open and the battle waits
             if (replaying) { ReplayUpdate(); return; }
             if (briefing) { UpdateBriefing(); return; }
             if (reading != null && reading.IsCompleted) FinishReading();
             if (thinking != null && thinking.IsCompleted) FinishCommit();
             HandleInput();
+            SightCamera();
             WatchOrders();
             SquadShotsCheck();
             BotUpdate();
@@ -816,6 +823,7 @@ namespace Ooda.Turn
             if (Pressed(Key.F) || (pad != null && pad.rightShoulder.wasPressedThisFrame)) FireAtPredicted();
             if (Pressed(Key.G)) ArmMissile(!plan.missile);
             ExtrasInput(kb, pad);
+            FunnelInput(kb, dt);
 
             if (dirty) RunPreview();
             // the what-if-it-breaks check, once the plan has settled (not while dragging or every frame)
@@ -968,7 +976,7 @@ namespace Ooda.Turn
             if (preview == null) return;
             if (dirty || gunPreview == null) RunPreview();
             var times = gunPreview.hits.Where(h => h.shooter == 0).Select(h => h.fireTime - gunPreview.startTime).ToList();
-            if (times.Count == 0) { Notice("No hits predicted on this path against the bright ghost. Steer your tracers onto the lead ring."); plan.burstStart = plan.burstEnd = 0; }
+            if (times.Count == 0) { Notice("No hits predicted on this path against the bright ghost. Steer until it sits in the gun funnel."); plan.burstStart = plan.burstEnd = 0; }
             else { plan.burstStart = Math.Max(0, times.Min() - 0.15); plan.burstEnd = Math.Min(turnSec, times.Max() + 0.15); }
             dirty = true;
             RunPreview();
@@ -1127,8 +1135,12 @@ namespace Ooda.Turn
             if (preview == null) return;
             int end = preview.FrameCount - 1;
             bool badPath = previewDeparts || previewCrashes;
-            DrawRibbon(preview.frames[0], end, badPath ? overpullColor : ghostColor);
-            DrawPath(preview.frames[0], end, badPath ? overpullColor : ghostColor, holoMine == null, false);
+            bool sightView = SightViewOn;   // from your ghost's seat: only the funnel, the others and the ground, nothing of your own in the way
+            if (!sightView)
+            {
+                DrawRibbon(preview.frames[0], end, badPath ? overpullColor : ghostColor);
+                DrawPath(preview.frames[0], end, badPath ? overpullColor : ghostColor, holoMine == null, false);
+            }
             for (int i = 1; i < battle.Count; i++)
             {
                 if (battle.Out(i)) continue;
@@ -1137,14 +1149,18 @@ namespace Ooda.Turn
                 else if (battle.side[i] != 0) { if (showProjection) DrawPath(preview.frames[i], end, projectionColor, noGhost); }
                 else DrawPath(preview.frames[i], end, wingmanColor, noGhost);
             }
-            ShowHolo(holoMine, preview.frames[0][end], true, badPath ? overpullColor : holoColor);
+            // lined up behind it, your ghost shows where it is at the funnel's moment
+            ShowHolo(holoMine, preview.frames[0][sightView ? Mathf.Min(end, FunnelFrame()) : end], true, badPath ? overpullColor : holoColor);
             for (int i = 1; i < holos.Length; i++)
             {
                 bool hitByMe = i < burstHits.Length && burstHits[i] && battle.side[i] != battle.side[0];
-                ShowHolo(holos[i], preview.frames[i][end], !battle.Out(i) && (battle.side[i] == 0 || showProjection),
+                ShowHolo(holos[i], preview.frames[i][end], !battle.Out(i) && (battle.side[i] == 0 || showProjection) && !(sightView && battle.side[i] != battle.side[0]),   // lined up, only the funnel's target shows (ShowFunnelTarget)
                          battle.side[i] == 0 ? holoFriendColor : hitByMe ? holoTargetHitColor : holoEnemyColor);
             }
-            DrawSpreadAndLead();
+            if (sightView) ShowFunnelTarget();   // lined up: the target's likely moves as models at the funnel's moment
+            else DrawSpreadAndLead();
+            DrawFunnel();
+            if (!sightView)
             foreach (var tr in preview.traces)
             {
                 if (tr.owner != 0 && !showProjection) continue;
@@ -1152,7 +1168,7 @@ namespace Ooda.Turn
                 DrawPreviewTrace(tr, OutcomeColor(tr, TracerColor(tr.owner)), tr.hit ? 0.5f : 0.35f, tr.hit ? 0.5f : 0.1f);
             }
             // The gun line: where a burst would go, faint, until a burst is set
-            if (showGunLine && gunPreview != null && plan.burstEnd == plan.burstStart)
+            if (showGunLine && !sightView && gunPreview != null && plan.burstEnd == plan.burstStart)
                 foreach (var tr in gunPreview.traces)
                 {
                     if (tr.owner != 0 || tr.missile) continue;
@@ -1533,15 +1549,16 @@ namespace Ooda.Turn
             if (showHelp)
             {
                 float hy = helpTop;
-                Rect help = new Rect(10, hy, 440, 300);
+                Rect help = new Rect(10, hy, 440, 320);
                 GUI.Box(help, GUIContent.none);
                 guiRects.Add(help);
-                GUI.Label(new Rect(20, hy + 6, 425, 290),
+                GUI.Label(new Rect(20, hy + 6, 425, 310),
                     $"Plan where your nose points when the {turnSec:0.#} s turn ends. O: OODA, short turns.\n" +
                     "Drag the corner stick to steer (down pulls). It shakes near your hardest turn;\n" +
                     "harder means overpull: stall, maybe spin. F1: reach rings.\n" +
                     "Blue: your path. Red: where the enemy may go, the bright one likeliest.\n" +
-                    "Orange ring on its path: hit it there. Steer your tracers onto it, F.\n" +
+                    "Green funnel: your rounds at the moment you hover on the burst bar.\n" +
+                    "Fire when the target's wings fit across it. K funnel, L the old lead ring.\n" +
                     (Bombing ? "Green: the bombers' course. Keep the Bf 109s off them; flak fires orange.\n" : "") +
                     "Your rounds: red hits, yellow just misses, orange misses. Lead the target.\n" +
                     "Drag on the timeline to fire; F fires where hits are predicted.\n\n" +
@@ -1554,6 +1571,7 @@ namespace Ooda.Turn
                     "RB fire at predicted hits, Y projection, B replay, right stick look,\n" +
                     "d-pad right rocket, left speed brake, View button your next plane.", small);
             }
+            if (planning) SightGUI(sw, sh);   // after the help, so the glass sits on top of it
         }
 
         void PlanningPanel(float sw, float sh)

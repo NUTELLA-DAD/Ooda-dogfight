@@ -17,6 +17,12 @@ namespace Ooda.Turn
         public float minDistance = 15f, maxDistance = 4000f;
         public float sharpness = 8f;
 
+        /// <summary>Set by the battle while it shows the gunsight view: the camera sits at sightPos looking along sightRot.</summary>
+        public bool sightPose;
+        public Vector3 sightPos;
+        public Quaternion sightRot = Quaternion.identity;
+        public float sightFov = 55f;
+
         Camera cam;
         Vector3 centre;
         bool placed;
@@ -61,6 +67,14 @@ namespace Ooda.Turn
 
         void LateUpdate()
         {
+            if (sightPose)
+            {
+                Cam.nearClipPlane = 0.3f;
+                Cam.fieldOfView = Mathf.Lerp(Cam.fieldOfView, sightFov, 1 - Mathf.Exp(-10f * Time.unscaledDeltaTime));
+                float k = 1 - Mathf.Exp(-12f * Time.unscaledDeltaTime);   // eases onto the gun line rather than jumping
+                transform.SetPositionAndRotation(Vector3.Lerp(transform.position, sightPos, k), Quaternion.Slerp(transform.rotation, sightRot, k));
+                return;
+            }
             if (player == null) return;
             if (focus == Focus.Cockpit && cockpitEye != null)
             {

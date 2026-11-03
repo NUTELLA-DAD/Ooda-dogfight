@@ -26,6 +26,12 @@ Build it with **OODA > Build Turn Battle** (after Build Test World), open `Asset
 | Camera (player, Spitfire, both, cockpit) | View button | V | Right stick press |
 | Enemy projection on or off | Projection button | P | Y |
 
+### The gun funnel
+
+Hover over the burst bar while planning and the chase camera eases round to sit straight behind your ghost at that moment of the turn, lined up with its guns. A gun cross marks the middle and the gun funnel shows your rounds in the air then (as if the trigger were held all turn) as they look from the seat: two thick green lines a wingspan apart, wide close in and narrowing with range, bending away from your turn, with a rung every 1,000 ft and a horizon line. The enemy's likely moves show as red ghost models where each would be at that moment, the likeliest solid and the others fainter by their chance, each with its %; one turns bright red with ON TARGET when your rounds are on it then. Fit its wings across the funnel and set your burst there (F still fires at the likeliest move's hits). Your blue ghost sits low in front of you. The view holds a moment after the mouse leaves the bar, then eases back; there is no funnel in the normal chase view. **K** steps the funnel through hover (the default), lined up all the time, and off. The old lead ring on the target's path is now a toggle, **L**, off at first. It is all in `TurnBattle.Funnel.cs`.
+
+With only one fighter of yours, it is always yours to fly: it starts each turn on your control (straight ahead), never on its AI pilot's plan.
+
 ### Dogfight: up to 4 v 4, the side controls, the rocket and the speed brake
 
 Pick **Dogfight** on the title screen and choose how many P-51s are yours and how many Bf 109s you face, 1 to 4 each (the buttons, or the up and down arrows for yours and Page Up and Page Down for theirs). You fly every one of yours: **Tab** (Shift+Tab back, the roster buttons along the top, or the pad's View button) moves you to your next plane, which becomes the one the stick, the ghost and the lead ring work on. A plane you visit in a turn flies the plan you leave it with, starting from what its AI pilot would do; one you never visit flies itself. Each turn starts back on your lead. When the plane you are in goes down you carry on in another; the fight is lost only when your whole flight is. **N** picks which enemy you are after (red brackets mark it). Under the hood, switching planes is `Battle.Swap(0, k)`: aircraft k becomes aircraft 0 everywhere, taking its route, slot and runway place with it (`TurnBattle.Flight.cs`).
