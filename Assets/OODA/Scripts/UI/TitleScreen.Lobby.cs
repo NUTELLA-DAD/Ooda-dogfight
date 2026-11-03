@@ -19,6 +19,8 @@ namespace Ooda.UI
         bool lobbyOpen;
         string joinAddress, myName, lobbyError;
         bool lobbyVersus;
+        /// <summary>The dogfight's briefing is open for the online fight: Fly starts it for both of you.</summary>
+        bool setupOnline;
 
         NetSession Lobby => NetSession.Current;
 
@@ -32,8 +34,11 @@ namespace Ooda.UI
             if (h < 0 && j < 0) return false;
             OpenLobby();
             int sd = System.Array.IndexOf(args, "-netsides");
-            if (sd >= 0 && sd + 2 < args.Length && int.TryParse(args[sd + 1], out int o) && int.TryParse(args[sd + 2], out int t)) { ChosenOurs = Mathf.Clamp(o, 1, 4); ChosenTheirs = Mathf.Clamp(t, 1, 4); }
-            else { ChosenOurs = 2; ChosenTheirs = 2; }
+            int o = 2, t = 2;
+            if (sd >= 0 && sd + 2 < args.Length) { int.TryParse(args[sd + 1], out o); int.TryParse(args[sd + 2], out t); }
+            var dog = DogfightSetupScreen.Chosen;
+            dog.ours = DogfightSetup.Resize(dog.ours, Mathf.Clamp(o, 1, 4));
+            dog.theirs = DogfightSetup.Resize(dog.theirs, Mathf.Clamp(t, 1, 4));
             lobbyVersus = System.Array.IndexOf(args, "-netversus") >= 0;
             autoStart = h >= 0;
             if (h >= 0) HostGame();
@@ -77,15 +82,23 @@ namespace Ooda.UI
             NetSession.Current = NetSession.Join(host, port, GameVersion, myName);
         }
 
-        /// <summary>The host starts the fight: tell the friend, then both load the battle.</summary>
+        /// <summary>The host picks the planes and the start on the dogfight's briefing; its Fly starts the online fight.</summary>
+        void OpenOnlineBriefing()
+        {
+            if (Lobby == null || !Lobby.Online || !Lobby.IsHost) return;
+            setup.open = true;
+            setupOnline = true;
+        }
+
+        /// <summary>The host starts the fight: the briefing's setup, its random start fixed, to the friend; then both load the battle.</summary>
         void StartOnline()
         {
             var s = Lobby;
             if (s == null || !s.Online || !s.IsHost) return;
-            s.setup = new SetupMsg
-            {
-                start = Random.Range(0, 4), ours = ChosenOurs, theirs = ChosenTheirs, versus = lobbyVersus, fight = 1,
-            };
+            var dog = DogfightSetupScreen.Chosen.Copy();
+            if (lobbyVersus) dog.easyAimOurs = false;   // no easy aim when the other side is a person too
+            dog = dog.Resolved(new System.Random());
+            s.setup = new SetupMsg { dogfight = dog.ToBytes(), versus = lobbyVersus, fight = 1 };
             s.Send(Msg.Setup, s.setup);
             ChosenMission = 2;
             SceneManager.LoadScene(battleScene);
@@ -96,28 +109,21 @@ namespace Ooda.UI
         {
             if (!lobbyOpen) return false;
             var kb = Keyboard.current;
-            if (kb != null && kb.escapeKey.wasPressedThisFrame) { CloseLobby(); return true; }
             var s = Lobby;
+            s?.Pump();
+            if (setup.open) { SetupKeys(setup.Keys()); return true; }   // the briefing for the online fight
+            if (kb != null && kb.escapeKey.wasPressedThisFrame) { CloseLobby(); return true; }
             if (s == null) return true;
-            s.Pump();
             while (s.TryNext(out var type, out var data))
             {
                 if (type != Msg.Setup || s.IsHost) continue;
                 s.setup = NetSession.Read<SetupMsg>(data);
                 ChosenMission = 2;
-                ChosenOurs = s.setup.ours; ChosenTheirs = s.setup.theirs;
                 SceneManager.LoadScene(battleScene);
                 return true;
             }
             if (autoStart && s.IsHost && s.Online) { autoStart = false; StartOnline(); return true; }
-            if (s.IsHost && s.Online && kb != null)
-            {
-                if (kb.upArrowKey.wasPressedThisFrame) ChosenOurs = Mathf.Min(4, ChosenOurs + 1);
-                if (kb.downArrowKey.wasPressedThisFrame) ChosenOurs = Mathf.Max(1, ChosenOurs - 1);
-                if (kb.pageUpKey.wasPressedThisFrame) ChosenTheirs = Mathf.Min(4, ChosenTheirs + 1);
-                if (kb.pageDownKey.wasPressedThisFrame) ChosenTheirs = Mathf.Max(1, ChosenTheirs - 1);
-                if (kb.enterKey.wasPressedThisFrame || kb.numpadEnterKey.wasPressedThisFrame) StartOnline();
-            }
+            if (s.IsHost && s.Online && kb != null && (kb.enterKey.wasPressedThisFrame || kb.numpadEnterKey.wasPressedThisFrame)) OpenOnlineBriefing();
             return true;
         }
 
@@ -167,9 +173,9 @@ namespace Ooda.UI
                 if (GUI.Button(new Rect(x + 40, y, 300, 44), (lobbyVersus ? "" : "▶ ") + "Co-op: both of you vs the AI", lobbyVersus ? button : picked)) lobbyVersus = false;
                 if (GUI.Button(new Rect(x + 380, y, 300, 44), (lobbyVersus ? "▶ " : "") + $"Versus: you vs {s.friendName}", lobbyVersus ? picked : button)) lobbyVersus = true;
                 y += 60;
-                SidePicker(sw, y, lobbyVersus ? "Your P-51s" : "P-51s (shared)", lobbyVersus ? $"{s.friendName}'s Bf 109s" : "Bf 109s (AI)");
-                y += 112;
-                if (GUI.Button(new Rect((sw - 300) / 2, y, 300, 56), "Start the fight", picked)) StartOnline();
+                Shadowed(new Rect(x - 100, y, w + 200, 30), lobbyVersus ? $"Your flight is yours, the enemy flight is {s.friendName}'s." : $"You share your flight with {s.friendName}; the enemy flight is the AI's.", hint);
+                y += 40;
+                if (GUI.Button(new Rect((sw - 360) / 2, y, 360, 56), "Pick the planes and fly", picked)) OpenOnlineBriefing();
                 y += 64;
             }
             if (s != null && GUI.Button(new Rect((sw - 200) / 2, sh - 80, 200, 44), "Leave", button)) { s.Close(); lobbyError = null; }

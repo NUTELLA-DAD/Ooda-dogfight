@@ -629,7 +629,7 @@ namespace Ooda.Turn
             Destroy(tex);
         }
 
-        static byte[] Bmp(Texture2D tex)
+        internal static byte[] Bmp(Texture2D tex)
         {
             int w = tex.width, h = tex.height, row = (w * 3 + 3) & ~3;
             var px = tex.GetPixels32();   // bottom row first, as a BMP wants

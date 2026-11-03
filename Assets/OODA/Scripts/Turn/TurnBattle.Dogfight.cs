@@ -53,26 +53,52 @@ namespace Ooda.Turn
 
         bool Dogfighting => Playing == Mission.Dogfight;
 
-        void MakeSpreadHolos()
+        void MakeSpreadHolos() => RemakeSpreadHolos(enemy.gameObject);
+
+        GameObject spreadSource;
+
+        /// <summary>The fainter ghosts made again from another model (the dogfight's enemy lead may be any type).</summary>
+        void RemakeSpreadHolos(GameObject source)
         {
+            if (source == null || source == spreadSource) return;
+            spreadSource = source;
+            foreach (var h in spreadHolos) if (h != null) Destroy(h);
+            foreach (var m in spreadMats) if (m != null) { holoMats.Remove(m); Destroy(m); }
+            spreadMats.Clear();
+            int before = holoMats.Count;
             spreadHolos = new GameObject[Mathf.Max(0, spreadCount - 1)];
-            for (int k = 0; k < spreadHolos.Length; k++) spreadHolos[k] = MakeHolo(enemy.gameObject, holoEnemyColor, $"GhostEnemy {k + 2}");
+            for (int k = 0; k < spreadHolos.Length; k++) spreadHolos[k] = MakeHolo(source, holoEnemyColor, $"GhostEnemy {k + 2}");
+            for (int k = before; k < holoMats.Count; k++) spreadMats.Add(holoMats[k]);
         }
+
+        readonly List<Material> spreadMats = new List<Material>();
 
         void HideSpread() { foreach (var h in spreadHolos) if (h != null) h.SetActive(false); }
 
-        /// <summary>The one on one, begun one of the four ways at random.</summary>
+        /// <summary>The dogfight as the setup screen set it up; a random start is a new one each time.</summary>
         Battle DogfightBattle()
         {
-            dogStart = net != null ? (Scenarios.Start)net.setup.start : botStart ?? (Scenarios.Start)startDice.Next(4);
-            return Scenarios.Dogfight(dogStart, UnityFrame.Pos(startCentre), startAltFt, startKias, startGapM, dogOurs, dogTheirs);
+            var s = dogSetup.Copy();
+            if (botStart != null) { s.randomStart = false; s.start = botStart.Value; }
+            s = s.Resolved(startDice);
+            dogStart = s.start;
+            dogCraft = new Craft[s.Ours + s.Theirs];   // in the battle's order: you, their lead, your wingmen, their others
+            dogCraft[0] = s.ours[0]; dogCraft[1] = s.theirs[0];
+            for (int k = 1; k < s.Ours; k++) dogCraft[1 + k] = s.ours[k];
+            for (int k = 1; k < s.Theirs; k++) dogCraft[s.Ours + k] = s.theirs[k];
+            return Scenarios.Dogfight(s, UnityFrame.Pos(startCentre), startAltFt, startKias, startGapM);
         }
 
-        /// <summary>The sides: your planes and the enemy's, 1 to 4 each (from the title screen, or -dogfightsides N M).</summary>
-        int dogOurs = 1, dogTheirs = 1;
+        /// <summary>The fight's setup: from the setup screen (or -dogfightsides N M for the bot).</summary>
+        DogfightSetup dogSetup = new DogfightSetup();
+        /// <summary>The aircraft each plane flies, by its index when the fight began (null outside the dogfight).</summary>
+        Craft[] dogCraft;
+        int dogOurs => dogSetup.Ours;
+        int dogTheirs => dogSetup.Theirs;
 
-        string DogfightNotice => dogOurs == 1 && dogTheirs == 1 ? $"Dogfight: you and the Bf 109, {Scenarios.Name(dogStart)}."
-            : $"Dogfight {dogOurs} v {dogTheirs}, {Scenarios.Name(dogStart)}. Tab: your next plane, N: next target.";
+        string DogfightNotice => dogOurs == 1 && dogTheirs == 1
+            ? $"Dogfight: your {DogfightSetup.Short(dogSetup.ours[0])} against a {DogfightSetup.Short(dogSetup.theirs[0])}, {Scenarios.Name(dogStart)}."
+            : $"Dogfight {dogOurs} v {dogTheirs}: {DogfightSetup.Describe(dogSetup.ours)} against {DogfightSetup.Describe(dogSetup.theirs)}, {Scenarios.Name(dogStart)}. Tab: your next plane, N: next target.";
 
         // ---------- reading the enemy ----------
 
@@ -418,7 +444,19 @@ namespace Ooda.Turn
             s = Array.IndexOf(args, "-dogfightshots");
             if (s >= 0 && s + 1 < args.Length) { botShots = args[s + 1]; Directory.CreateDirectory(botShots); }
             s = Array.IndexOf(args, "-dogfightsides");
-            if (s >= 0 && s + 2 < args.Length && int.TryParse(args[s + 1], out int o) && int.TryParse(args[s + 2], out int t)) { dogOurs = o; dogTheirs = t; }
+            if (s >= 0 && s + 2 < args.Length && int.TryParse(args[s + 1], out int o) && int.TryParse(args[s + 2], out int t))
+            { dogSetup.ours = DogfightSetup.Resize(dogSetup.ours, o); dogSetup.theirs = DogfightSetup.Resize(dogSetup.theirs, t); }
+            // -dogfightcraft Mustang,Spitfire Bf109,Phantom: the aircraft on each side (and so how many)
+            s = Array.IndexOf(args, "-dogfightcraft");
+            if (s >= 0 && s + 2 < args.Length && ParseSide(args[s + 1], out var mine) && ParseSide(args[s + 2], out var theirs)) { dogSetup.ours = mine; dogSetup.theirs = theirs; }
+        }
+
+        static bool ParseSide(string list, out Craft[] side)
+        {
+            var parts = list.Split(',');
+            side = new Craft[Math.Min(parts.Length, Scenarios.MaxSide)];
+            for (int k = 0; k < side.Length; k++) if (!Enum.TryParse(parts[k], true, out side[k])) return false;
+            return side.Length > 0;
         }
 
         void BotUpdate()

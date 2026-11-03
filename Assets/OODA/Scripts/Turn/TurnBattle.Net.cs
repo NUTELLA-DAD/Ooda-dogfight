@@ -41,8 +41,7 @@ namespace Ooda.Turn
             net = s;
             Application.runInBackground = true;   // keep the turn going while the window is behind another
             mission = Mission.Dogfight;
-            dogOurs = Mathf.Clamp(s.setup.ours, 1, Scenarios.MaxSide);
-            dogTheirs = Mathf.Clamp(s.setup.theirs, 1, Scenarios.MaxSide);
+            dogSetup = DogfightSetup.FromBytes(s.setup.dogfight);   // the host's, its start already fixed
         }
 
         /// <summary>The side this machine's player flies: the Bf 109s for the friend in a versus fight.</summary>
@@ -64,7 +63,11 @@ namespace Ooda.Turn
                 NetNotice($"{Friend} starts the next fight.");
                 return false;
             }
-            net.setup.start = startDice.Next(4);
+            // the next fight: the same planes, and a new start if the briefing asked for a random one
+            var next = dogSetup.Copy();
+            next.randomStart = Ooda.UI.DogfightSetupScreen.Chosen.randomStart;
+            dogSetup = next.Resolved(startDice);
+            net.setup.dogfight = dogSetup.ToBytes();
             net.setup.fight++;
             net.Send(Msg.Setup, net.setup);
             return true;
@@ -82,11 +85,28 @@ namespace Ooda.Turn
         {
             if (net == null) return;
             int first = net.seating.FirstMine();
-            if (first > 0) SwapAll(0, first);
+            if (first > 0)
+            {
+                // the ghost colours were laid out for aircraft 0 being yours: the plane there now and your own swap colours
+                NetRecolourGhost(0, battle.side[0] == MySide ? holoFriendColor : holoEnemyColor);
+                NetRecolourGhost(first, holoColor);
+                SwapAll(0, first);
+            }
             netStarted = true;
             if (Dogfighting)
-                NetNotice(net.setup.versus ? $"Online against {Friend}: your {Plural(MySide == 0 ? "P-51" : "Bf 109", MineCount())} against theirs."
-                                            : $"Online with {Friend}: you fly {MineCount()} of the {Plural("P-51", SideCount())}, {Friend} the rest.");
+                NetNotice(net.setup.versus ? $"Online against {Friend}: your {Plural("plane", MineCount())} against theirs."
+                                            : $"Online with {Friend}: you fly {MineCount()} of your flight's {SideCount()}, {Friend} the rest.");
+        }
+
+        void NetRecolourGhost(int i, Color c)
+        {
+            if (i < 0 || i >= views.Length || views[i] == null) return;
+            if (holos[i] != null) { if (holos[i] == homeHolo) homeHolo.SetActive(false); else Destroy(holos[i]); }
+            int before = holoMats.Count;
+            holos[i] = MakeHolo(views[i].gameObject, c, $"Ghost {i}");
+            if (holos[i] != null) spawned.Add(holos[i]);
+            for (int k = before; k < holoMats.Count; k++) spawnedHoloMats.Add(holoMats[k]);
+            holoMats.RemoveRange(before, holoMats.Count - before);
         }
 
         int MineCount() => Enumerable.Range(0, battle.Count).Count(i => net.seating.Mine(i));
@@ -183,6 +203,7 @@ namespace Ooda.Turn
             {
                 case Msg.Setup when !net.IsHost:
                     net.setup = NetSession.Read<SetupMsg>(data);
+                    dogSetup = DogfightSetup.FromBytes(net.setup.dogfight);
                     netRestartFromHost = true;
                     try { Restart(); } finally { netRestartFromHost = false; }
                     break;
@@ -283,14 +304,12 @@ namespace Ooda.Turn
         string NetOutcome()
         {
             int foes = 0, foesDown = 0, ours = 0, oursDown = 0;
-            string foeKind = null, ourKind = null;
             for (int i = 0; i < battle.Count; i++)
             {
-                string kind = battle.planes[i].numbers.name.StartsWith("P-51") ? "P-51" : "Bf 109";
-                if (battle.side[i] != SideOf0) { foes++; foeKind = kind; if (battle.Out(i)) foesDown++; }
-                else { ours++; ourKind = kind; if (battle.Out(i)) oursDown++; }
+                if (battle.side[i] != SideOf0) { foes++; if (battle.Out(i)) foesDown++; }
+                else { ours++; if (battle.Out(i)) oursDown++; }
             }
-            string tally = $" {foesDown} of {foes} {Plural(foeKind, foes)} down, {oursDown} of {ours} {Plural(ourKind, ours)} lost.";
+            string tally = $" {foesDown} of their {foes} down, {oursDown} of your {ours} lost.";
             if (foesDown == foes && oursDown == ours) return "Everyone went down. A draw." + tally;
             if (foesDown == foes) return (net.setup.versus ? $"You beat {Friend}!" : $"The sky is clear. You and {Friend} win!") + tally;
             return (net.setup.versus ? $"{Friend} wins: your side is down." : "Your whole flight is down.") + tally;

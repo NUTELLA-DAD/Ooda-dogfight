@@ -16,8 +16,8 @@ namespace Ooda.Net
     public class SetupMsg
     {
         public int mission = 2;        // TurnBattle.Mission: Dogfight
-        public int start;              // Scenarios.Start
-        public int ours = 1, theirs = 1;
+        /// <summary>The dogfight's setup (DogfightSetup.ToBytes): every plane's type, the start (fixed, never random), range, height, speed.</summary>
+        public byte[] dogfight;
         /// <summary>Side against side (the host the P-51s, the friend the Bf 109s); false, both of you on the P-51s against the AI.</summary>
         public bool versus;
         public int fight;              // counts up with each new fight, so a late message from the last one is ignored

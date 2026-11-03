@@ -157,11 +157,12 @@ static class Program
 
             foreach (bool versus in new[] { false, true })
             {
-                var setup = new SetupMsg { start = (int)Scenarios.Start.Neutral, ours = 3, theirs = 3, versus = versus, fight = versus ? 2 : 1 };
+                var dog = new DogfightSetup { ours = new[] { Craft.Mustang, Craft.Spitfire, Craft.Phantom }, theirs = new[] { Craft.Bf109, Craft.Bf109, Craft.Mustang }, randomStart = true, easyAimOurs = !versus }.Resolved(new Random(versus ? 3 : 4));
+                var setup = new SetupMsg { dogfight = dog.ToBytes(), versus = versus, fight = versus ? 2 : 1 };
                 host.Send(Msg.Setup, setup);
                 Check(Until(() => { friend.Pump(); if (friend.TryNext(out var ty, out var d) && ty == Msg.Setup) friend.setup = NetSession.Read<SetupMsg>(d); else if (ty != 0) Console.WriteLine("got " + ty); return friend.setup != null && friend.setup.fight == setup.fight; }), $"the friend gets the {(versus ? "versus" : "co-op")} fight's setup");
                 host.setup = setup;
-                Battle Build(SetupMsg st) => Scenarios.Dogfight((Scenarios.Start)st.start, new Vec3d(0, 0, 0), ours: st.ours, theirs: st.theirs);
+                Battle Build(SetupMsg st) => Scenarios.Dogfight(DogfightSetup.FromBytes(st.dogfight), new Vec3d(0, 0, 0));
                 var hb = Build(host.setup); var fb = Build(friend.setup);
                 host.SeatFor(hb); friend.SeatFor(fb);
                 // the friend sits in its own first plane, as the battle screen does
@@ -193,7 +194,7 @@ static class Program
                     same &= friend.seating.Hash(fb) == tm.hash;
                     turns++;
                 }
-                Check(same && turns > 3, $"{(versus ? "versus" : "co-op")} 3 v 3: {turns} turns through the sockets, the friend's hash matches the host's every turn");
+                Check(same && turns > 3, $"{(versus ? "versus" : "co-op")} 3 v 3 of mixed types ({dog.start}): {turns} turns through the sockets, the friend's hash matches the host's every turn");
                 Check(ordersCame, "the friend's orders for its planes reach the host's battle");
             }
 
@@ -224,6 +225,48 @@ static class Program
             var nobody = NetSession.Join("127.0.0.1", 1, "test", "Sam");
             Check(Until(() => nobody.link.Lost, 12), $"joining where no one hosts gives up with a reason: \"{nobody.Problem}\"");
             Check(NetLink.ParseAddress("100.64.1.2:9000", out var hh, out var pp) && hh == "100.64.1.2" && pp == 9000 && NetLink.ParseAddress("kenny-pc", out hh, out pp) && pp == NetLink.DefaultPort, "addresses with and without a port");
+        }
+
+        Console.WriteLine("\nThe dogfight setup");
+        {
+            var setup = new DogfightSetup
+            {
+                ours = new[] { Craft.Spitfire, Craft.Phantom, Craft.Mustang }, theirs = new[] { Craft.Bf109, Craft.Mustang },
+                randomStart = true, range = DogfightSetup.Range.Far, height = DogfightSetup.Height.High, speed = DogfightSetup.Pace.Fast, easyAimOurs = false,
+            };
+            var fixedOne = setup.Resolved(new Random(5));
+            var back = DogfightSetup.FromBytes(fixedOne.ToBytes());
+            Check(!fixedOne.randomStart && back.ToBytes().SequenceEqual(fixedOne.ToBytes()) && back.ours.SequenceEqual(setup.ours) && back.theirs.SequenceEqual(setup.theirs),
+                  $"a setup survives the trip to bytes ({fixedOne.ToBytes().Length} bytes), its random start fixed ({fixedOne.start})");
+            var centre = new Vec3d(0, -26000, 0);
+            var a = Scenarios.Dogfight(fixedOne, centre, 3600, 300, 3000);
+            var b = Scenarios.Dogfight(back, centre, 3600, 300, 3000);
+            Check(Wire.Hash(a) == Wire.Hash(b), "the same bytes build the same battle on both machines");
+            bool types = a.Count == 5 && DogfightSetup.Of(a.planes[0].numbers) == Craft.Spitfire && DogfightSetup.Of(a.planes[1].numbers) == Craft.Bf109
+                      && DogfightSetup.Of(a.planes[2].numbers) == Craft.Phantom && DogfightSetup.Of(a.planes[3].numbers) == Craft.Mustang && DogfightSetup.Of(a.planes[4].numbers) == Craft.Mustang
+                      && a.side[2] == 0 && a.side[3] == 0 && a.side[4] == 1 && a.missiles[2] == 4;
+            Check(types, "each plane flies its own type, in the battle's order (you, their lead, your wingmen, their others), the F-4 with 4 missiles");
+            Check(Math.Abs(a.planes[0].state.pos.z - (3600 + 4400)) < 1500 && Math.Abs(a.planes[0].Kias - 380) < 2 && a.combat[3].hitRadiusFt < 20,
+                  $"high and fast: {a.planes[0].state.pos.z:F0} ft, {a.planes[0].Kias:F0} KIAS; no easy aim for side against side");
+            var easy = Scenarios.Dogfight(new DogfightSetup { ours = new[] { Craft.Bf109 }, theirs = new[] { Craft.Mustang }, randomStart = false }, centre);
+            Check(easy.combat[0].hitRadiusFt == 20 && easy.combat[1].hitRadiusFt < 20, "against the AI your guns get the easy aim whatever you fly, and an enemy P-51 doesn't");
+
+            // every start: the two leads apart, nobody on top of anybody, and each flies a few turns
+            bool allOk = true; string worst = "";
+            foreach (Scenarios.Start st in Enum.GetValues(typeof(Scenarios.Start)))
+                foreach (DogfightSetup.Range rg in Enum.GetValues(typeof(DogfightSetup.Range)))
+                {
+                    var s4 = new DogfightSetup { ours = DogfightSetup.Resize(new[] { Craft.Mustang }, 4), theirs = DogfightSetup.Resize(new[] { Craft.Phantom }, 4), randomStart = false, start = st, range = rg };
+                    var f = Scenarios.Dogfight(s4, centre, 3600, 300, 3000);
+                    double closest = double.MaxValue;
+                    for (int i = 0; i < f.Count; i++) for (int j = i + 1; j < f.Count; j++) closest = Math.Min(closest, (f.planes[i].state.pos - f.planes[j].state.pos).Length);
+                    double apart = (f.planes[0].state.pos - f.planes[1].state.pos).Length;
+                    for (int t = 0; t < 3; t++) f.Resolve(new TurnPlan?[f.Count], Scenarios.TurnSec, false);
+                    bool ok = closest > 250 && apart > 800 && Enumerable.Range(0, f.Count).All(i => !f.Out(i));
+                    if (!ok) { allOk = false; worst += $" {st}/{rg} (closest {closest:F0} ft, leads {apart:F0} ft)"; }
+                }
+            Check(allOk, $"all {Scenarios.StartCount} starts at every range, 4 v 4: nobody within 250 ft, the leads at least 800 ft apart, all still flying after 3 turns{worst}");
+            Check(Scenarios.StartCount == Enum.GetValues(typeof(Scenarios.Start)).Length, "a random start can be any of them");
         }
 
         Console.WriteLine(fails == 0 ? "\nAll checks pass." : $"\n{fails} check(s) failed.");
