@@ -181,6 +181,7 @@ namespace Ooda.Turn.Core
                 r.hits[k] = h;
             }
             foreach (var tr in r.traces) { tr.owner = Map(tr.owner); tr.closestTarget = Map(tr.closestTarget); }
+            foreach (var tr in r.mines) tr.owner = Map(tr.owner);
             return r;
         }
 

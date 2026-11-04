@@ -112,6 +112,7 @@ namespace Ooda.Turn
             if (Pressed(Key.Digit1) || Pressed(Key.Numpad1) || (pad != null && dpadFree && pad.dpad.right.wasPressedThisFrame)) ToggleRocket();
             if (Pressed(Key.Digit2) || Pressed(Key.Numpad2) || (pad != null && dpadFree && pad.dpad.left.wasPressedThisFrame)) ToggleBrake();
             if (Pressed(Key.Digit3) || Pressed(Key.Numpad3)) ToggleFlares();
+            SpecialsInput(kb);
             if (Pressed(Key.N)) CycleTarget();
             if (Pressed(Key.Tab) || (pad != null && pad.selectButton.wasPressedThisFrame))
                 NextPlane(kb != null && (kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed) ? -1 : 1);
@@ -123,7 +124,7 @@ namespace Ooda.Turn
             var list = new List<int>();
             for (int pass = 0; pass < 2; pass++)
                 for (int i = 1; i < battle.Count; i++)
-                    if (battle.side[i] != battle.side[0] && !battle.Out(i) && (battle.routes[i] != null) == (pass == 1)) list.Add(i);
+                    if (battle.side[i] != battle.side[0] && !battle.Out(i) && !HiddenFromMe(i) && (battle.routes[i] != null) == (pass == 1)) list.Add(i);
             return list;
         }
 
@@ -155,7 +156,7 @@ namespace Ooda.Turn
         /// <summary>Brackets round the enemy you are after, so you can tell which one it is in a crowd.</summary>
         void DrawTargetBracket()
         {
-            if (focus < 0 || focus >= views.Length || views[focus] == null || battle.Out(focus) || LiveEnemies().Count < 2) return;
+            if (focus < 0 || focus >= views.Length || views[focus] == null || battle.Out(focus) || HiddenFromMe(focus) || LiveEnemies().Count < 2) return;
             Vector3 p = views[focus].transform.position;
             Vector3 right = view != null ? view.Cam.transform.right : Vector3.right, up = view != null ? view.Cam.transform.up : Vector3.up;
             float r = Mathf.Max(12f, W(p) * 24f), l = r * 0.4f;
@@ -173,6 +174,8 @@ namespace Ooda.Turn
         void DrawExtras(IList<TurnAircraftView> vs, TurnResult r, int now)
         {
             DrawFlares(r, now);
+            DrawMines(r, now);
+            DrawSpecialFrames(vs, r, now);
             for (int k = 0; k < vs.Count && k < r.frames.Length; k++)
             {
                 if (vs[k] == null || r.frames[k] == null) continue;
