@@ -82,7 +82,9 @@ namespace Ooda.Turn
                 t.crashedAfter[map[i]] = battle.crashed[i];
             }
             foreach (var tr in last.traces)
-                r.traces.Add(new Trace { owner = tr.owner >= 0 && tr.owner < n ? map[tr.owner] : tr.owner, startFrame = tr.startFrame, points = tr.points, hit = tr.hit, missile = tr.missile });
+                r.traces.Add(new Trace { owner = tr.owner >= 0 && tr.owner < n ? map[tr.owner] : tr.owner, startFrame = tr.startFrame, points = tr.points, hit = tr.hit, missile = tr.missile, age0 = tr.age0 });
+            foreach (var tr in last.flares)
+                r.flares.Add(new Trace { owner = tr.owner >= 0 && tr.owner < n ? map[tr.owner] : tr.owner, startFrame = tr.startFrame, points = tr.points, age0 = tr.age0 });
             foreach (var h in last.hits)
             {
                 var c = h;

@@ -11,6 +11,8 @@ namespace Ooda.Turn.Core
         public AircraftFrame[][] frames;
         public List<Trace> traces = new List<Trace>();
         public List<HitEvent> hits = new List<HitEvent>();
+        /// <summary>The flares' paths (kept apart from the rounds' traces: they hit nothing), age0 their age at startFrame.</summary>
+        public List<Trace> flares = new List<Trace>();
         public int FrameCount => frames[0].Length;
     }
 
@@ -38,6 +40,8 @@ namespace Ooda.Turn.Core
         public double[] health = new double[0];
         public double[] ammo = new double[0];        // seconds of trigger left
         public int[] missiles = new int[0];          // missiles left
+        public int[] flares = new int[0];            // flares left
+        int nextFlareId = 1;
         public bool[] down = new bool[0];            // shot down or collided: out of the fight, falling
         public bool[] crashed = new bool[0];         // hit the ground or sea: stopped
         public bool[] hitObstacle = new bool[0];     // crashed into an obstacle (a cable, a bridge, a building) rather than the ground
@@ -79,6 +83,7 @@ namespace Ooda.Turn.Core
             Array.Resize(ref health, n + 1); health[n] = c.health;
             Array.Resize(ref ammo, n + 1); ammo[n] = c.ammoSec;
             Array.Resize(ref missiles, n + 1); missiles[n] = c.missiles;
+            Array.Resize(ref flares, n + 1); flares[n] = c.flares;
             Array.Resize(ref down, n + 1);
             Array.Resize(ref crashed, n + 1);
             Array.Resize(ref hitObstacle, n + 1);
@@ -122,7 +127,7 @@ namespace Ooda.Turn.Core
             void S<T>(T[] arr) { var t = arr[a]; arr[a] = arr[b]; arr[b] = t; }
             int Map(int i) => i == a ? b : i == b ? a : i;
             side = (int[])side.Clone(); combat = (CombatNumbers[])combat.Clone();   // new arrays: clones share these two
-            S(planes); S(combat); S(side); S(routes); S(flightOf); S(number); S(orders); S(health); S(ammo); S(missiles); S(down); S(crashed); S(hitObstacle); S(fireClock);
+            S(planes); S(combat); S(side); S(routes); S(flightOf); S(number); S(orders); S(health); S(ammo); S(missiles); S(flares); S(down); S(crashed); S(hitObstacle); S(fireClock);
             foreach (var bl in bullets)
             {
                 if (bl.owner >= 0) bl.owner = Map(bl.owner);
@@ -153,7 +158,7 @@ namespace Ooda.Turn.Core
             for (int i = 0; i < Count; i++) { c.planes[i] = planes[i].Clone(); c.routes[i] = routes[i]?.Copy(); }
             c.flightOf = (int[])flightOf.Clone(); c.number = (int[])number.Clone(); c.orders = (Order[])orders.Clone();
             c.flights = flights.ConvertAll(f => f.Copy());
-            c.health = (double[])health.Clone(); c.ammo = (double[])ammo.Clone(); c.missiles = (int[])missiles.Clone();
+            c.health = (double[])health.Clone(); c.ammo = (double[])ammo.Clone(); c.missiles = (int[])missiles.Clone(); c.flares = (int[])flares.Clone();
             c.down = (bool[])down.Clone(); c.crashed = (bool[])crashed.Clone(); c.hitObstacle = (bool[])hitObstacle.Clone();
             c.fireClock = (double[])fireClock.Clone();
             c.flak = new FlakSite[flak.Length];
@@ -257,6 +262,9 @@ namespace Ooda.Turn.Core
                     if (record) StartTrace(res, traceOf, ms, k);
                 }
 
+                // Flares: a seeker on someone closing inside FlareWarnFt makes them let go a pair, unless they hold them
+                DropFlares(plans, res, traceOf, k);
+
                 // Rounds: gravity and drag, then a check against each other aircraft over the step
                 for (int bi = bullets.Count - 1; bi >= 0; bi--)
                 {
@@ -266,8 +274,29 @@ namespace Ooda.Turn.Core
                     if (record) traceOf.TryGetValue(b, out bt);
                     if (b is Missile ms)
                     {
-                        bool ok = ms.target >= 0 && ms.target < n && !Out(ms.target);
-                        ms.Step(ok ? planes[ms.target].state.pos : default, ok ? planes[ms.target].state.vel : default, ok, StepSec);
+                        if (ms.decoy >= 0)
+                        {
+                            var fl = FlareById(ms.decoy);
+                            ms.Step(fl != null ? fl.pos : default, fl != null ? fl.vel : default, fl != null, StepSec);
+                        }
+                        else
+                        {
+                            bool ok = ms.target >= 0 && ms.target < n && !Out(ms.target);
+                            ms.Step(ok ? planes[ms.target].state.pos : default, ok ? planes[ms.target].state.vel : default, ok, StepSec);
+                        }
+                    }
+                    else if (b is Flare)
+                    {
+                        // a flare: it falls away and slows, burns out, and hits nothing
+                        double decay = Math.Exp(-b.dragPerSec * StepSec);
+                        Vec3d vAir = b.vel;
+                        b.vel = new Vec3d(vAir.x * decay, vAir.y * decay, vAir.z * decay - Atmosphere.GFtps2 * StepSec);
+                        b.pos = b.pos + (vAir + b.vel) * (StepSec / 2);
+                        b.age += StepSec;
+                        if (b.age > b.lifeSec || b.pos.z < groundFt(b.pos.x, b.pos.y)) b.alive = false;
+                        if (bt != null) bt.points.Add(b.pos);
+                        if (!b.alive) bullets.RemoveAt(bi);
+                        continue;
                     }
                     else
                     {
@@ -330,10 +359,51 @@ namespace Ooda.Turn.Core
 
         static void StartTrace(TurnResult res, Dictionary<Bullet, Trace> traceOf, Bullet b, int frame)
         {
-            var tr = new Trace { owner = b.owner, startFrame = frame, missile = b is Missile };
+            var tr = new Trace { owner = b.owner, startFrame = frame, missile = b is Missile, age0 = b.age };
             tr.points.Add(b.pos);
             traceOf[b] = tr;
-            res.traces.Add(tr);
+            if (b is Flare) res.flares.Add(tr); else res.traces.Add(tr);
+        }
+
+        Flare FlareById(int id)
+        {
+            foreach (var b in bullets) if (b is Flare f && f.id == id) return f;
+            return null;
+        }
+
+        /// <summary>
+        /// Each step: for every seeker still on its target and closing inside FlareWarnFt, the target lets go a flare (if it has
+        /// any and isn't holding them), up to FlaresPerMissile for that missile, FlareGapSec apart. Each flare has one chance
+        /// (Heat.Lure, against how hot the target looks to that seeker) to pull every seeker on that target, close by, off onto itself.
+        /// </summary>
+        void DropFlares(TurnPlan[] plans, TurnResult res, Dictionary<Bullet, Trace> traceOf, int k)
+        {
+            for (int bi = 0; bi < bullets.Count; bi++)
+            {
+                if (!(bullets[bi] is Missile ms) || ms.target < 0 || ms.target >= Count) continue;
+                int i = ms.target;
+                if (Out(i) || plans[i].holdFlares || flares[i] <= 0) continue;
+                if (ms.flaresDrawn >= Heat.FlaresPerMissile || time + 1e-9 < ms.nextFlareAt) continue;
+                if ((planes[i].state.pos - ms.pos).Length > Heat.FlareWarnFt) continue;
+                var m = planes[i];
+                // out behind and below, kicked off the airflow
+                double kick = (nextFlareId % 2 == 0 ? 1 : -1) * 15;   // left, then right
+                var f = Flare.Make(nextFlareId++, i, side[i], m.state.pos - m.Forward * 15 - m.Up * 3,
+                                   m.state.vel * 0.85 - m.Up * 40 + m.Right * kick, time + StepSec);
+                bullets.Add(f);
+                flares[i]--;
+                if (traceOf != null) StartTrace(res, traceOf, f, k);
+                // the flare's one chance on every seeker after this aircraft, close enough to see the flare beside it
+                foreach (var b in bullets)
+                {
+                    if (!(b is Missile mm) || mm.target != i) continue;
+                    if ((m.state.pos - mm.pos).Length > Heat.FlareWarnFt * 1.5) continue;
+                    mm.flaresDrawn++;
+                    mm.nextFlareAt = time + Heat.FlareGapSec;
+                    double seen = Heat.Of(m, combat[i], mm.pos);
+                    if (rng.Next() < Heat.Lure(seen)) { mm.target = -1; mm.decoy = f.id; }
+                }
+            }
         }
 
         Bullet Fire(int i, double late)
@@ -418,7 +488,7 @@ namespace Ooda.Turn.Core
                 if (side[j] == side[i] || Out(j)) continue;
                 Vec3d r = planes[j].state.pos - m.state.pos;
                 double range = r.Length;
-                if (range < Missile.MinRangeFt || range > Missile.MaxRangeFt) continue;
+                if (range < Missile.MinRangeFt || range > Heat.LockRangeFt(Heat.Of(planes[j], combat[j], m.state.pos))) continue;   // a hot one locks from farther
                 double c = Vec3d.Dot(r * (1 / range), m.Forward);
                 if (c < cos) continue;
                 if (Vec3d.Dot(r * (-1 / range), planes[j].Forward) > Math.Cos(Missile.NoLockNoseDeg * Math.PI / 180)) continue;   // head-on: no heat to see
@@ -486,13 +556,13 @@ namespace Ooda.Turn.Core
             var c = (Battle)MemberwiseClone();
             int n = keep.Length;
             c.planes = new FlightModel[n]; c.combat = new CombatNumbers[n]; c.side = new int[n]; c.routes = new Route[n];
-            c.health = new double[n]; c.ammo = new double[n]; c.missiles = new int[n]; c.down = new bool[n]; c.crashed = new bool[n]; c.hitObstacle = new bool[n]; c.fireClock = new double[n];
+            c.health = new double[n]; c.ammo = new double[n]; c.missiles = new int[n]; c.flares = new int[n]; c.down = new bool[n]; c.crashed = new bool[n]; c.hitObstacle = new bool[n]; c.fireClock = new double[n];
             var map = new Dictionary<int, int>();
             for (int j = 0; j < n; j++)
             {
                 int i = keep[j]; map[i] = j;
                 c.planes[j] = planes[i].Clone(); c.combat[j] = combat[i]; c.side[j] = side[i]; c.routes[j] = routes[i]?.Copy();
-                c.health[j] = health[i]; c.ammo[j] = ammo[i]; c.missiles[j] = missiles[i]; c.down[j] = down[i]; c.crashed[j] = crashed[i]; c.hitObstacle[j] = hitObstacle[i]; c.fireClock[j] = fireClock[i];
+                c.health[j] = health[i]; c.ammo[j] = ammo[i]; c.missiles[j] = missiles[i]; c.flares[j] = flares[i]; c.down[j] = down[i]; c.crashed[j] = crashed[i]; c.hitObstacle[j] = hitObstacle[i]; c.fireClock[j] = fireClock[i];
             }
             c.flightOf = new int[n]; c.number = new int[n]; c.orders = new Order[n];
             for (int j = 0; j < n; j++) { c.flightOf[j] = flightOf[keep[j]]; c.number[j] = number[keep[j]]; c.orders[j] = orders[keep[j]]; }

@@ -22,6 +22,12 @@ namespace Ooda.Turn.Core
         public double dragPerSec = 0.3;     // the round's speed falls by this share each second (exponential)
         public double health = 12;          // damage the airframe takes before it goes down
         public int missiles = 2;             // heat-seekers carried (a game liberty: no WW2 fighter had them)
+        public int flares = 6;               // flares to decoy a heat-seeker with (the same liberty)
+        /// <summary>
+        /// The engines' heat as a seeker sees it from dead astern (see Heat): at idle, at full throttle, and the factor for
+        /// WEP (a jet's afterburner). A piston fighter at full throttle is 1, the yardstick for the seeker's lock range.
+        /// </summary>
+        public double heatIdle = 0.5, heatFull = 1, heatWep = 1.2;
 
         public CombatNumbers Copy() => (CombatNumbers)MemberwiseClone();
 
@@ -50,7 +56,7 @@ namespace Ooda.Turn.Core
         public static CombatNumbers P38L() => new CombatNumbers
         {
             guns = "20 mm + 4 x .50 cal", muzzleFps = 2850, damage = 1.35, ammoSec = 15, spreadMil = 2.5, dragPerSec = 0.32,
-            health = 15, sizeFt = 3,
+            health = 15, sizeFt = 3, heatIdle = 0.75, heatFull = 1.5,
         };
 
         /// <summary>
@@ -61,7 +67,8 @@ namespace Ooda.Turn.Core
         public static CombatNumbers Phantom() => new CombatNumbers
         {
             guns = "M61 20 mm", muzzleFps = 3380, damage = 1.3, ammoSec = 7, spreadMil = 3.5, dragPerSec = 0.3,
-            health = 16, sizeFt = 6, missiles = 4,
+            health = 16, sizeFt = 6, missiles = 4, flares = 8,
+            heatIdle = 1.2, heatFull = 2.4, heatWep = 2.4,   // two J79s: hot, and blazing in afterburner
         };
 
         /// <summary>
@@ -70,7 +77,8 @@ namespace Ooda.Turn.Core
         /// </summary>
         public static CombatNumbers B17G() => new CombatNumbers
         {
-            guns = "gunners (see FlakSite.B17Gunner)", ammoSec = 0, sizeFt = 22, health = 36, missiles = 0,
+            guns = "gunners (see FlakSite.B17Gunner)", ammoSec = 0, sizeFt = 22, health = 36, missiles = 0, flares = 0,
+            heatIdle = 1.5, heatFull = 3,   // four radials
         };
     }
 
@@ -110,7 +118,14 @@ namespace Ooda.Turn.Core
     public class Missile : Bullet
     {
         public int target = -1;
+        /// <summary>The flare (its id) the seeker has been pulled onto instead of its target; -1 none.</summary>
+        public int decoy = -1;
+        /// <summary>How many flares its target has let go at it, and when the next may go (battle time): a pair at most.</summary>
+        public int flaresDrawn;
+        public double nextFlareAt;
         public double burnSec = 2.5, thrustFps2 = 700, maxG = 20, gimbalDeg = 40, nav = 4;
+        /// <summary>Still guided: on its target or on a flare.</summary>
+        public bool Tracking => target >= 0 || decoy >= 0;
 
         /// <summary>Launch envelope: the target within this cone off the shooter's nose, between these ranges.</summary>
         public const double LockConeDeg = 30, MinRangeFt = 1200, MaxRangeFt = 9000;
@@ -123,17 +138,20 @@ namespace Ooda.Turn.Core
             damage = 8, hitRadiusFt = 30, dragPerSec = 0.05, lifeSec = 9,
         };
 
-        /// <summary>One step of flight: steer at the target (if still held), the motor while it burns, drag and gravity.</summary>
+        /// <summary>
+        /// One step of flight: steer at what the seeker holds (the target, or the flare it was decoyed onto) if it still
+        /// holds it, the motor while it burns, drag and gravity.
+        /// </summary>
         public void Step(Vec3d targetPos, Vec3d targetVel, bool targetOk, double dt)
         {
             double speed = Math.Max(1, vel.Length);
             Vec3d dir = vel * (1 / speed);
             Vec3d acc = new Vec3d(0, 0, -Atmosphere.GFtps2);
-            if (target >= 0 && targetOk)
+            if (Tracking && targetOk)
             {
                 Vec3d r = targetPos - pos;
                 double range = Math.Max(1, r.Length);
-                if (Vec3d.Dot(r * (1 / range), dir) < Math.Cos(gimbalDeg * Math.PI / 180)) target = -1;   // off the seeker: lost
+                if (Vec3d.Dot(r * (1 / range), dir) < Math.Cos(gimbalDeg * Math.PI / 180)) target = decoy = -1;   // off the seeker: lost
                 else
                 {
                     Vec3d vr = targetVel - vel;
@@ -146,13 +164,81 @@ namespace Ooda.Turn.Core
                     acc = acc + a;
                 }
             }
-            else if (target >= 0) target = -1;
+            else if (Tracking) target = decoy = -1;
             if (age < burnSec) acc = acc + dir * thrustFps2;
             Vec3d v0 = vel;
             vel = (vel + acc * dt) * Math.Exp(-dragPerSec * dt);
             pos = pos + (v0 + vel) * (dt / 2);
             age += dt;
         }
+    }
+
+    /// <summary>
+    /// A flare: a magnesium candle let go behind an aircraft to decoy a heat-seeker. It burns far hotter than an engine for a
+    /// few seconds while it slows and falls away; it hits nothing. Each one has one chance to pull a seeker off: see Heat.Lure.
+    /// </summary>
+    public class Flare : Bullet
+    {
+        public int id;
+        public static Flare Make(int id, int owner, int side, Vec3d pos, Vec3d vel, double time) => new Flare
+        {
+            id = id, owner = owner, side = side, pos = pos, vel = vel, fireTime = time,
+            damage = 0, hitRadiusFt = 0, dragPerSec = 1.2, lifeSec = Heat.FlareBurnSec,
+        };
+    }
+
+    /// <summary>
+    /// Heat as the missile's seeker sees it, in one unit: a piston fighter's engine at full throttle seen from dead astern is 1.
+    /// The seeker's lock range grows with the square root of the heat it sees (an inverse-square sensor); a flare is hotter
+    /// than an engine, so it can pull the seeker off, the more likely the cooler the aircraft looks. The IR view draws the same numbers.
+    /// </summary>
+    public static class Heat
+    {
+        public const double FlareHeat = 1.6, FlareBurnSec = 3.5;
+        /// <summary>The motor while it burns, and the hot body after.</summary>
+        public const double MissileBurnHeat = 3, MissileCoastHeat = 0.5;
+        /// <summary>A seeker on someone within this range makes its target's flares go (unless they are held), two, this far apart.</summary>
+        public const double FlareWarnFt = 3000, FlareGapSec = 0.35;
+        public const int FlaresPerMissile = 2;
+        /// <summary>The best chance a single flare has of pulling a seeker off (against a cold target).</summary>
+        public const double LureMax = 0.9;
+
+        /// <summary>How much of the engine heat shows from a direction: all of it from astern, a quarter from ahead.</summary>
+        /// <param name="fwd">The aircraft's nose (unit).</param><param name="toEye">From the aircraft toward the seeker (unit).</param>
+        public static double Aspect(Vec3d fwd, Vec3d toEye)
+        {
+            double behind = (1 - Vec3d.Dot(fwd, toEye)) / 2;   // 1 dead astern, 0 dead ahead
+            return 0.25 + 0.75 * behind * behind;
+        }
+
+        /// <summary>The engines' heat from astern for a throttle, WEP (the afterburner) and the rocket.</summary>
+        public static double Engine(CombatNumbers c, double throttle, bool wep, bool rocket)
+        {
+            double t = Math.Max(0, Math.Min(1, throttle));
+            return (c.heatIdle + (c.heatFull - c.heatIdle) * t) * (wep ? c.heatWep : 1) + (rocket ? 2 : 0);
+        }
+
+        /// <summary>An aircraft's heat as seen from eye.</summary>
+        public static double Of(FlightModel m, CombatNumbers c, Vec3d eye)
+        {
+            Vec3d r = eye - m.state.pos;
+            double len = r.Length;
+            double asp = len < 1 ? 1 : Aspect(m.Forward, r * (1 / len));
+            return Engine(c, m.throttle, m.wepOn, m.RocketBurning) * asp;
+        }
+
+        /// <summary>A flare's heat at an age: flaring up in a tenth of a second, then fading as it burns down.</summary>
+        public static double Flare(double age) => age < 0 || age > FlareBurnSec ? 0
+            : FlareHeat * Math.Min(1, age / 0.1) * (1 - 0.6 * age / FlareBurnSec);
+
+        /// <summary>A missile's heat at an age.</summary>
+        public static double Missile(double age, double burnSec) => age < burnSec ? MissileBurnHeat : MissileCoastHeat;
+
+        /// <summary>The seeker's lock range on something this hot (Missile.MaxRangeFt for a heat of 1).</summary>
+        public static double LockRangeFt(double heat) => Ooda.Turn.Core.Missile.MaxRangeFt * Math.Max(0.6, Math.Min(1.5, Math.Sqrt(Math.Max(0, heat))));
+
+        /// <summary>The chance a fresh flare pulls a seeker off a target that looks this hot to it.</summary>
+        public static double Lure(double targetHeat) => LureMax * FlareHeat / (FlareHeat + Math.Max(0, targetHeat));
     }
 
     /// <summary>A packet that struck: where on the target (its own frame: x right, y forward, z up, ft) for hit locations later.</summary>
@@ -183,6 +269,7 @@ namespace Ooda.Turn.Core
         public System.Collections.Generic.List<Vec3d> points = new System.Collections.Generic.List<Vec3d>();
         public bool hit;
         public bool missile;      // a missile's smoke trail rather than a tracer
+        public double age0;       // how old the round (missile, flare) was at startFrame, s
         /// <summary>
         /// Recorded runs only: the closest the packet came to an opposing aircraft (ft), against the target it came
         /// nearest to hitting (closestTarget, -1 none), and that pass's hit distance (the round's hit radius plus the target's size).

@@ -20,6 +20,8 @@ namespace Ooda.Turn.Core
         /// <summary>Fire one missile this turn, the first moment a target is inside the lock cone and range (missileTarget, or the nearest).</summary>
         public bool missile;
         public int missileTarget;  // aircraft index; -1 any (the one nearest the nose)
+        /// <summary>Hold the flares this turn. By default they go by themselves, a pair at each heat-seeker that closes in.</summary>
+        public bool holdFlares;
         public bool hold;          // fly on with the stick where it is instead (the "keeps doing what it's doing" projection)
         public double overpull;    // 0..1: the arrow past the ring; the stick goes that far beyond the stall line toward full aft
         /// <summary>The turn's timeline instead of the arrow: points that each change some settings from their time on (see Mark, StateAt).</summary>

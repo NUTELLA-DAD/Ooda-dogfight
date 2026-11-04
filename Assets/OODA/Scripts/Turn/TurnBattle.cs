@@ -1514,6 +1514,7 @@ namespace Ooda.Turn
             // under the menu the screen is drawn but takes no clicks or keys
             var ev = Event.current.type;
             if (!menuOpen || ev == EventType.Repaint || ev == EventType.Layout) BattleGUI(sw, sh);
+            IrGui(sw, sh);
             if (menuOpen) MenuGUI(sw, sh);
         }
 
@@ -1545,7 +1546,7 @@ namespace Ooda.Turn
             string extra = me.RocketBurning ? "   ROCKET" : me.brakeOut ? "   BRAKE" : "";
             GUI.Label(new Rect(20, 42, 290, 22), $"{me.Kias:F0} KIAS   {me.AltFt:F0} ft   {me.g:F1} G{extra}", label);
             Bar(new Rect(20, 68, 270, 14), shownHp[0] / battle.combat[0].health, new Color(0.3f, 0.9f, 0.3f), "Airframe");
-            Bar(new Rect(20, 88, 270, 14), battle.ammo[0] / battle.combat[0].ammoSec, new Color(0.9f, 0.75f, 0.2f), $"Ammo {battle.ammo[0]:F1} s   Missiles {battle.missiles[0]}");
+            Bar(new Rect(20, 88, 270, 14), battle.ammo[0] / battle.combat[0].ammoSec, new Color(0.9f, 0.75f, 0.2f), $"Ammo {battle.ammo[0]:F1} s   Missiles {battle.missiles[0]}   Flares {battle.flares[0]}");
             Vec3d los = them.state.pos - me.state.pos;
             double range = los.Length;
             double ata = Envelope.Angle(me.Forward, los) * 180 / Math.PI;
@@ -1655,7 +1656,7 @@ namespace Ooda.Turn
                     "Your rounds: red hits, yellow just misses, orange misses. Lead the target.\n" +
                     "Drag on the timeline to fire; F fires where hits are predicted.\n\n" +
                     "Keys: WASD arrow (S pulls up, like the stick), Shift/Ctrl throttle,\n" +
-                    "Space WEP, 1 rocket, 2 speed brake, Tab your next plane, N next target,\n" +
+                    "Space WEP, 1 rocket, 2 speed brake, 3 hold flares, I IR view, Tab next plane, N next target,\n" +
                     "B bursts, G missile, T timeline, " +
                     "Enter fly, R replay, P projection, V view, X straight, M mission, H help.\n" +
                     "Drag the view or right-drag to look; wheel zooms. F2: the old arrow.\n" +
@@ -1675,6 +1676,7 @@ namespace Ooda.Turn
             Rect advRect = new Rect(px + pw - 230, (showMoves || plan.HasMarks) ? py - 236 : py - 40, 230, 24);
             guiRects.Add(advRect);
             if (GUI.Button(advRect, adv)) showMoves = !showMoves;
+            HeatButtons(px, advRect.y);
             Rect panel = new Rect(px - 10, py - 10, pw + 20, 178);
             GUI.Box(panel, GUIContent.none);
             guiRects.Add(panel);
@@ -1731,7 +1733,7 @@ namespace Ooda.Turn
             bool lockedNow = battle.LockTarget(0, focus) >= 0;
             string mText;
             if (left <= 0) mText = "Missiles: none left";
-            else if (!plan.missile) mText = $"Missiles: {left} left.  {(lockedNow ? "Seeker has a lock now." : "No lock: get behind one, 1,200 to 9,000 ft, within 30\u00B0 of your nose.")}";
+            else if (!plan.missile) mText = $"Missiles: {left} left.  {(lockedNow ? "Seeker has a lock now." : "No lock: get behind one, 1,200 to 9,000 ft (farther on a hot one), within 30\u00B0 of your nose.")}";
             else
             {
                 var mt = preview?.traces.FirstOrDefault(tr => tr.missile && tr.owner == 0);
