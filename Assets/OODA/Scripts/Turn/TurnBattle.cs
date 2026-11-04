@@ -1270,15 +1270,31 @@ namespace Ooda.Turn
         /// <summary>A preview tracer's colour by what it does: red if it hits, yellow if it passes close, else the normal colour.</summary>
         Color OutcomeColor(Trace tr, Color normal) => tr.hit ? hitTracer : tr.Near ? nearTracer : normal;
 
-        /// <summary>A missile in playback: a white smoke trail behind it, fading, and a bright head.</summary>
-        void DrawMissile(Trace tr, int now)
+        /// <summary>
+        /// A missile in playback at frame now: its motor a small orange glow, and behind it a trail of light toon smoke
+        /// (Fx.ToonFx) that billows out and lingers a couple of seconds after it hits.
+        /// </summary>
+        void DrawMissile(Trace tr, int index, int now, float dt)
         {
-            var pts = new List<Vector3>();
-            for (int f = Mathf.Max(tr.startFrame, now - 60); f <= now; f += 3) { var p = tr.At(f); if (p != null) pts.Add(UnityFrame.Pos(p.Value)); }
+            int last = tr.startFrame + tr.points.Count - 1;
+            if (now < tr.startFrame || dt <= 0f) return;
+            int smokeFrames = Mathf.CeilToInt(Ooda.Fx.ToonFx.MissileSmokeLife / dt);
+            if (now - last > smokeFrames) return;
+            var fx = Ooda.Fx.ToonFx.Get();
+            int seed = index * 7919 + tr.startFrame * 31 + tr.owner + 17;
             var head = tr.At(now);
-            if (head != null) pts.Add(UnityFrame.Pos(head.Value));
-            if (pts.Count >= 2) lines.Strip(pts, 1.6f, new Color(0.95f, 0.95f, 0.95f, 0.75f), false, new Color(0.9f, 0.9f, 0.9f, 0f));
-            if (head != null) { Vector3 h = UnityFrame.Pos(head.Value); lines.Line(h, h + (h - pts[Mathf.Max(0, pts.Count - 2)]).normalized * 3f, 1.2f, new Color(1f, 0.85f, 0.4f)); }
+            if (head != null)
+            {
+                Vector3 h = UnityFrame.Pos(head.Value), back = UnityFrame.Pos(tr.At(now - 2) ?? tr.points[0]);
+                Vector3 dir = (h - back).sqrMagnitude > 1e-4f ? (h - back).normalized : Vector3.forward;
+                fx.Tracer(h - dir * 5f, h, new Color(1f, 0.6f, 0.2f, 1f), seed);
+            }
+            // a puff every other frame back along its path (newest first; on even frames, so each puff stays put)
+            smokePath.Clear();
+            int k0 = Mathf.Min(now, last);
+            k0 -= k0 & 1;
+            for (int k = k0; k >= tr.startFrame && k > now - smokeFrames; k -= 2) smokePath.Add(UnityFrame.Pos(tr.points[k - tr.startFrame]));
+            fx.MissileSmoke(smokePath, (now - k0) * dt, 2f * dt, seed, 60000 + index, k0, 2);
         }
 
         Color TracerColor(int owner) => owner == 0 ? myTracer
@@ -1407,14 +1423,11 @@ namespace Ooda.Turn
 
             DrawLastPaths(now);
             DrawExtras(now);
-            foreach (var tr in last.traces)
+            for (int ti = 0; ti < last.traces.Count; ti++)
             {
-                var p1 = tr.At(now);
-                if (p1 == null) continue;
-                if (tr.missile) { DrawMissile(tr, now); continue; }
-                var p0 = tr.At(now - 3) ?? tr.points[0];
-                Vector3 a = UnityFrame.Pos(p0), b = UnityFrame.Pos(p1.Value);
-                lines.Line(a, b, 0.6f, TracerColor(tr.owner));
+                var tr = last.traces[ti];
+                if (tr.missile) { DrawMissile(tr, ti, now, (float)last.dt); continue; }
+                GlowTracer(tr, ti, now, (float)last.dt, TracerColor(tr.owner));
             }
 
             // Hits: a flash where they land, and the damage so far shown as smoke
@@ -1466,6 +1479,29 @@ namespace Ooda.Turn
             shownHp = (double[])hp.Clone();
             for (int i = 0; i < battle.Count && i < views.Length; i++)
                 if (views[i] != null) views[i].SetSmoke(down[i] ? 2 : hp[i] < battle.combat[i].health * 0.5 ? 1 : 0);
+        }
+
+        readonly List<Vector3> smokePath = new List<Vector3>(32);
+
+        /// <summary>
+        /// A round in playback at frame now, as a toon effect (Fx.ToonFx): a glowing streak over its last three frames,
+        /// and behind it a faint smoke trail of puffs where it was, which stays a moment after the round hits or is spent.
+        /// </summary>
+        void GlowTracer(Trace tr, int index, int now, float dt, Color col)
+        {
+            int last = tr.startFrame + tr.points.Count - 1;
+            if (now < tr.startFrame || dt <= 0f) return;
+            int smokeFrames = Mathf.CeilToInt(Ooda.Fx.ToonFx.TracerSmokeLife / dt);
+            if (now - last > smokeFrames) return;
+            var fx = Ooda.Fx.ToonFx.Get();
+            int seed = index * 7919 + tr.startFrame * 31 + tr.owner;
+            var p1 = tr.At(now);
+            if (p1 != null) fx.Tracer(UnityFrame.Pos(tr.At(now - 3) ?? tr.points[0]), UnityFrame.Pos(p1.Value), col, seed);
+            // the smoke: one puff a frame back along its path (newest first), every one aged from when the round was there
+            smokePath.Clear();
+            int k0 = Mathf.Min(now, last);
+            for (int k = k0; k >= tr.startFrame && k > now - smokeFrames; k--) smokePath.Add(UnityFrame.Pos(tr.points[k - tr.startFrame]));
+            fx.TracerSmoke(smokePath, (now - k0) * dt, dt, seed, 50000 + tr.owner, k0);
         }
 
         /// <summary>A hit lands: a toon star and sparks; the hit that kills blows the aircraft up.</summary>

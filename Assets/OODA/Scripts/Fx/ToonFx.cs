@@ -11,7 +11,8 @@ namespace Ooda.Fx
     ///   of puffs shooting up in a V, a ring of brick-red puffs at its base, a shock ring, sparks and dark chunks flung out,
     ///   then a grey-black plume that rises and thins away;
     /// - a hit: a star, sparks, a chip or two and a wisp;
-    /// - smoke trails (a hurt aircraft's grey, a falling one's black) and smoke columns rising from a wreck or a target.
+    /// - smoke trails (a hurt aircraft's grey, a falling one's black) and smoke columns rising from a wreck or a target;
+    /// - tracers: a white-hot core in a soft glow of its side's colour, trailing a faint wisp of the same puffs.
     /// Everything animates in stepped keys (15 a second) and is placed by stable hashes, so a replay looks the same.
     /// One mesh, rebuilt each frame: the whole sky of effects is one draw call.
     /// </summary>
@@ -69,6 +70,7 @@ namespace Ooda.Fx
             for (int i = 0; i < MaxShards; i++) shards[i].On = false;
             for (int i = 0; i < MaxFlashes; i++) flashes[i].On = false;
             for (int i = 0; i < MaxColumns; i++) columns[i].On = false;
+            tracerQ.Clear(); wispQ.Clear();
         }
 
         // ---------------------------------------------------------------------------------------------------------
@@ -209,6 +211,171 @@ namespace Ooda.Fx
         }
 
         // ---------------------------------------------------------------------------------------------------------
+        // Tracers: drawn fresh each frame, like the lines they replace (call Tracer and TracerSmoke every frame the
+        // round is in the air; what was asked for last frame is dropped). The round is a hot white core in a soft glow
+        // of its colour, brightest at the head; behind it a faint trail of the smoke's own puffs, pale and see-through,
+        // swelling and rising a little as they age and gone in about half a second. Placed from the round's recorded
+        // path and its age, never from a running pool, so a replay or a scrub back looks the same.
+
+        struct TracerReq { public Vector3 Tail, Head; public Color C; public int Seed; }
+        struct WispReq { public Vector3 P; public float Age, Life, R; public int Seed, Cluster; public bool Thick; }
+        readonly List<TracerReq> tracerQ = new List<TracerReq>(256);
+        readonly List<WispReq> wispQ = new List<WispReq>(2048);
+        int tracerFrame = -1;
+        const int MaxWisps = 1800;
+        /// <summary>How long a tracer's smoke lasts, s.</summary>
+        public const float TracerSmokeLife = 0.5f;
+        /// <summary>How long a missile's smoke lasts, s.</summary>
+        public const float MissileSmokeLife = 2.4f;
+
+        void TracerFrame()
+        {
+            if (tracerFrame == Time.frameCount) return;
+            tracerFrame = Time.frameCount;
+            tracerQ.Clear(); wispQ.Clear();
+        }
+
+        /// <summary>A round in flight this frame: its glowing streak from tail to head, in its side's colour.</summary>
+        public void Tracer(Vector3 tail, Vector3 head, Color color, int seed)
+        {
+            TracerFrame();
+            tracerQ.Add(new TracerReq { Tail = tail, Head = head, C = color, Seed = seed });
+        }
+
+        /// <summary>
+        /// A tracer's smoke this frame: path[i] is where the round was age0 + i * dt seconds ago (newest first), at the
+        /// round's recorded frame frame0 - i * frameStep (which keeps each puff's own shape as it ages). Puffs of one
+        /// cluster (one aircraft's guns) are drawn as one soft mass.
+        /// </summary>
+        public void TracerSmoke(IList<Vector3> path, float age0, float dt, int seed, int cluster, int frame0, int frameStep = 1)
+            => Wisps(path, age0, dt, seed, cluster, frame0, frameStep, TracerSmokeLife, 0.7f, false);
+
+        /// <summary>
+        /// A missile's smoke this frame, as TracerSmoke: a fuller trail of light puffs, white with a cool lavender shade
+        /// and no dark ink, in a soft haze like the cloud banks; bigger and slower to go, billowing out as it ages.
+        /// </summary>
+        public void MissileSmoke(IList<Vector3> path, float age0, float dt, int seed, int cluster, int frame0, int frameStep = 1)
+            => Wisps(path, age0, dt, seed, cluster, frame0, frameStep, MissileSmokeLife, 1.3f, true);
+
+        void Wisps(IList<Vector3> path, float age0, float dt, int seed, int cluster, int frame0, int frameStep, float life, float r, bool thick)
+        {
+            TracerFrame();
+            for (int i = 0; i < path.Count && wispQ.Count < MaxWisps; i++)
+            {
+                float age = age0 + i * dt;
+                if (age >= life) break;
+                wispQ.Add(new WispReq { P = path[i], Age = age, Life = life, R = r, Thick = thick, Seed = seed * 131 + frame0 - i * frameStep, Cluster = cluster });
+            }
+        }
+
+        // pale see-through smoke: fills paling with age, a soft grey line
+        static readonly Color[] WispFill = { new Color(0.93f, 0.91f, 0.95f, 0.5f), new Color(0.86f, 0.84f, 0.89f, 0.38f), new Color(0.79f, 0.77f, 0.83f, 0.24f) };
+        static readonly Color WispLine = new Color(0.55f, 0.52f, 0.6f, 0.3f);
+        static readonly Color[] MissileFill = { new Color(0.98f, 0.97f, 0.99f, 0.92f), new Color(0.92f, 0.91f, 0.94f, 0.78f), new Color(0.85f, 0.84f, 0.88f, 0.5f) };
+        static readonly Color MissileLine = new Color(0.79f, 0.76f, 0.85f, 0.6f), MissileHaze = new Color(1f, 1f, 1f, 0.22f);
+        readonly Dictionary<int, int> wispGroups = new Dictionary<int, int>(16);
+
+        void TracerWisps()
+        {
+            if (tracerFrame != Time.frameCount && ClockOverride < 0f) return;   // (nobody asked this frame)
+            wispGroups.Clear();
+            for (int i = 0; i < wispQ.Count; i++)
+            {
+                var w = wispQ[i];
+                if (w.Age < 0.04f) continue;   // (the glow covers its first few metres)
+                // stepped like every other puff: one size a key
+                float t = Mathf.Floor(w.Age * KeysPerSec) / KeysPerSec, u = t / w.Life;
+                float s = u < 0.15f ? 0.6f + 0.4f * (u / 0.15f) : 1f + (w.Thick ? 2.6f : 1.6f) * (u - 0.15f) / 0.85f;
+                if (u > 0.7f) s *= Mathf.Max(0f, 1f - (u - 0.7f) / 0.3f);
+                if (s <= 0f) continue;
+                if (!wispGroups.TryGetValue(w.Cluster, out int g))
+                {
+                    var line = Mul(w.Thick ? MissileLine : WispLine, tint);
+                    Group(line, line, 1f);
+                    wispGroups[w.Cluster] = curGroup;
+                }
+                else curGroup = g;
+                Vector3 p = w.P + Vector3.up * ((w.Thick ? 0.6f : 0.9f) * t) + right * Rng(w.Seed, 1, -0.25f, 0.25f) * t * (w.Thick ? 2f : 1f);
+                var fills = w.Thick ? MissileFill : WispFill;
+                var fill = Mul(u < 0.3f ? fills[0] : u < 0.6f ? fills[1] : fills[2], tint);
+                // (a missile's: a swirl now and then, like the other trails)
+                float r = w.R * s * Rng(w.Seed, 2, 0.8f, 1.2f);
+                Add(p, r, fill, w.Thick && (w.Seed & 15) == 0, w.Seed, 3 + (w.Seed % 3));
+                // (a missile's sits in a soft white haze, like the cloud banks, drawn under the puffs)
+                if (w.Thick && (w.Seed & 1) == 0 && Vector3.Dot(p - camPos, camFwd) > 0.5f)
+                    SoftDisc(p, r * 2f, Mul(new Color(MissileHaze.r, MissileHaze.g, MissileHaze.b, MissileHaze.a * fill.a), tint), 14);
+            }
+        }
+
+        void DrawTracers(float now)
+        {
+            if (tracerFrame != Time.frameCount && ClockOverride < 0f) return;
+            int key = Mathf.FloorToInt(now * KeysPerSec);
+            for (int i = 0; i < tracerQ.Count; i++)
+            {
+                var q = tracerQ[i];
+                float dh = Vector3.Dot(q.Head - camPos, camFwd), dt = Vector3.Dot(q.Tail - camPos, camFwd);
+                if (dh < 0.5f && dt < 0.5f) continue;
+                Vector3 head = q.Head, tail = q.Tail;
+                // (clip the end behind the camera, so the strip never turns inside out)
+                if (dh < 0.5f) head = Vector3.Lerp(tail, head, (dt - 0.5f) / Mathf.Max(1e-3f, dt - dh));
+                else if (dt < 0.5f) tail = Vector3.Lerp(head, tail, (dh - 0.5f) / Mathf.Max(1e-3f, dh - dt));
+                dh = Mathf.Max(0.5f, dh); dt = Mathf.Max(0.5f, dt);
+                float mh = dh / pxPerM1, mt = dt / pxPerM1;   // (metres a pixel, at each end)
+                float flick = 0.85f + 0.3f * R01(q.Seed, key);   // (a little shimmer, stepped)
+                Color c = q.C;
+                Color glow = new Color(c.r, c.g, c.b, 0.32f * flick), inner = new Color(c.r, c.g, c.b, 0.6f);
+                Color hot = Color.Lerp(new Color(c.r, c.g, c.b, 1f), new Color(1f, 0.98f, 0.9f, 1f), 0.6f);
+                float haloH = Mathf.Max(1.1f, 10f * mh) * flick, haloT = Mathf.Max(0.5f, 4f * mt);
+                float coreH = Mathf.Max(0.2f, 2.4f * mh), coreT = Mathf.Max(0.05f, 0.8f * mt);
+                // the wide soft glow along the streak, then a tighter brighter one, then the hard white-hot core
+                SoftStroke(tail, head, haloT, haloH, glow);
+                SoftStroke(Vector3.Lerp(tail, head, 0.4f), head, haloT * 0.3f, haloH * 0.45f, inner);
+                pts.Clear(); pts.Add(tail); pts.Add(Vector3.Lerp(tail, head, 0.7f)); pts.Add(head);
+                Stroke(pts, coreT, coreH, hot);
+                // the head: a round soft bloom and a white spot
+                SoftDisc(head, haloH * 0.85f, new Color(c.r, c.g, c.b, 0.45f * flick), 16);
+                Circle(head, right, up, coreH * 0.75f, 10, new Color(1f, 0.99f, 0.94f, 1f));
+            }
+        }
+
+        // a soft band from a to b, flat to the camera: full colour down its middle, clear at its edges; its width goes
+        // from w0 to w1
+        void SoftStroke(Vector3 a, Vector3 b, float w0, float w1, Color col)
+        {
+            Vector3 side = Vector3.Cross(b - a, toCam);
+            if (side.sqrMagnitude < 1e-8f) return;
+            side.Normalize();
+            Color clear = new Color(col.r, col.g, col.b, 0f);
+            int m = verts.Count;
+            verts.Add(a - side * (w0 * 0.5f)); cols.Add(clear);
+            verts.Add(a); cols.Add(col);
+            verts.Add(a + side * (w0 * 0.5f)); cols.Add(clear);
+            verts.Add(b - side * (w1 * 0.5f)); cols.Add(clear);
+            verts.Add(b); cols.Add(col);
+            verts.Add(b + side * (w1 * 0.5f)); cols.Add(clear);
+            for (int k = 0; k < 2; k++)
+            {
+                int p = m + k, q = m + 3 + k;
+                tris.Add(p); tris.Add(q); tris.Add(p + 1); tris.Add(p + 1); tris.Add(q); tris.Add(q + 1);
+            }
+        }
+
+        // a round glow facing the camera: full colour at its middle, clear at its rim
+        void SoftDisc(Vector3 c, float r, Color col, int segs)
+        {
+            Color clear = new Color(col.r, col.g, col.b, 0f);
+            int m = verts.Count;
+            verts.Add(c); cols.Add(col);
+            for (int i = 0; i < segs; i++)
+            {
+                float a = i * Mathf.PI * 2f / segs;
+                verts.Add(c + (right * Mathf.Cos(a) + up * Mathf.Sin(a)) * r); cols.Add(clear);
+            }
+            for (int i = 0; i < segs; i++) { tris.Add(m); tris.Add(m + 1 + i); tris.Add(m + 1 + (i + 1) % segs); }
+        }
+
+        // ---------------------------------------------------------------------------------------------------------
         // drawing, each frame
 
         Camera cam;
@@ -235,6 +402,7 @@ namespace Ooda.Fx
                 DrawShards(now);
                 Columns(now);
                 PoolPuffs(now);
+                TracerWisps();
                 blastOrder.Clear();
                 for (int i = 0; i < MaxFlashes; i++) if (flashes[i].On && flashes[i].K == FK.Blast && flashes[i].T0 <= now) blastOrder.Add(i);
                 blastOrder.Sort((x, y) => flashes[y].T0.CompareTo(flashes[x].T0));   // (newest first)
@@ -245,6 +413,7 @@ namespace Ooda.Fx
                     else if (Key(now, f.T0) > BlastKeys) f.On = false;
                 }
                 DrawGroups();
+                DrawTracers(now);
                 DrawFlashes(now);
             }
             if (mesh == null) return;
