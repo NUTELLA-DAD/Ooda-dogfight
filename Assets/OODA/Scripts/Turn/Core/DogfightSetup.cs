@@ -46,6 +46,8 @@ namespace Ooda.Turn.Core
         public int arena = 0;
         /// <summary>Side 0's guns get the forgiving hit radius and the tighter cone (a game liberty for the player against the AI). Off for side against side.</summary>
         public bool easyAimOurs = true;
+        /// <summary>Arcade: every fighter carries the specials (the balloon mine, the heat blade, stealth: see Specials).</summary>
+        public bool arcade = true;
 
         public int Ours => ours.Length;
         public int Theirs => theirs.Length;
@@ -155,9 +157,9 @@ namespace Ooda.Turn.Core
 
         // ---------- over the wire ----------
 
-        // 2 added the pilots, 3 the arena; an older setup (kept from an older build) still reads, everyone with the usual
-        // pilot over a random arena
-        const byte Version = 3;
+        // 2 added the pilots, 3 the arena, 4 arcade; an older setup (kept from an older build) still reads, everyone with the
+        // usual pilot over a random arena, with arcade on
+        const byte Version = 4;
 
         public byte[] ToBytes()
         {
@@ -171,6 +173,7 @@ namespace Ooda.Turn.Core
                 for (int k = 0; k < ours.Length; k++) w.Write((byte)PilotOf(true, k));
                 for (int k = 0; k < theirs.Length; k++) w.Write((byte)PilotOf(false, k));
                 w.Write(randomArena); w.Write((byte)arena);
+                w.Write(arcade);
                 w.Flush();
                 return ms.ToArray();
             }
@@ -197,6 +200,7 @@ namespace Ooda.Turn.Core
                     for (int k = 0; k < s.theirs.Length; k++) s.theirsPilots[k] = (PilotKind)r.ReadByte();
                 }
                 if (version >= 3) { s.randomArena = r.ReadBoolean(); s.arena = r.ReadByte(); }
+                if (version >= 4) s.arcade = r.ReadBoolean();
                 if (s.arena >= Arenas.Count) s.arena = 0;
                 return s;
             }

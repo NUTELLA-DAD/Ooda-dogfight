@@ -72,6 +72,8 @@ namespace Ooda.Turn
         /// <summary>The three specials' buttons in a row (over the IR and flare buttons).</summary>
         void SpecialButtons(float x, float y, float w)
         {
+            var load = battle.combat[0];
+            if (load.balloonMines + load.heatBlades + load.stealths <= 0) return;   // Arcade off (or a mission without them)
             float bw = Mathf.Min(150, (w - 16) / 3);
             Rect row = new Rect(x, y, bw * 3 + 16, 24);
             guiRects.Add(row);

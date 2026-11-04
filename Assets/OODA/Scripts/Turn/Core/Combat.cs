@@ -23,8 +23,8 @@ namespace Ooda.Turn.Core
         public double health = 12;          // damage the airframe takes before it goes down
         public int missiles = 2;             // heat-seekers carried (a game liberty: no WW2 fighter had them)
         public int flares = 6;               // flares to decoy a heat-seeker with (the same liberty)
-        /// <summary>The arcade specials carried (see Specials): balloon mines, heat-blade charges and stealth charges.</summary>
-        public int balloonMines = 2, heatBlades = 1, stealths = 1;
+        /// <summary>The arcade specials carried (see Specials): balloon mines, heat-blade charges and stealth charges. None unless Specials.Arm gives them (a dogfight with Arcade on).</summary>
+        public int balloonMines, heatBlades, stealths;
         /// <summary>
         /// The engines' heat as a seeker sees it from dead astern (see Heat): at idle, at full throttle, and the factor for
         /// WEP (a jet's afterburner). A piston fighter at full throttle is 1, the yardstick for the seeker's lock range.
@@ -80,7 +80,6 @@ namespace Ooda.Turn.Core
         public static CombatNumbers B17G() => new CombatNumbers
         {
             guns = "gunners (see FlakSite.B17Gunner)", ammoSec = 0, sizeFt = 22, health = 36, missiles = 0, flares = 0,
-            balloonMines = 0, heatBlades = 0, stealths = 0,
             heatIdle = 1.5, heatFull = 3,   // four radials
         };
     }

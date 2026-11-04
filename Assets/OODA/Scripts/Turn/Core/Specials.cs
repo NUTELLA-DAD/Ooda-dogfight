@@ -10,6 +10,8 @@ namespace Ooda.Turn.Core
     /// off on the first enemy that passes within FuseFt, for MineDamage (most of a fighter). It hangs there for LifeSec, so a
     /// tailer who planned to follow you straight flies into it, and anyone can fly into it later.
     ///
+    /// They come only with Arcade on in the dogfight setup (DogfightSetup.arcade): Arm gives a fighter its load.
+    ///
     /// Heat blade: the airframe glows red hot for the whole turn and the guns stay cold. Any enemy you pass within
     /// BladeReachFt of is cut in half (down at once) and you fly on; two blades meeting both go down. It makes you the hottest
     /// thing in the sky (BladeHeat on top of the engine): every heat-seeker locks you from farther and flares hardly help.
@@ -23,6 +25,15 @@ namespace Ooda.Turn.Core
         public const double ArmSec = 0.6, LifeSec = 15, FuseFt = 70, MineDamage = 10, MineDragPerSec = 2.5, MineRiseFps = 4;
         public const double BladeReachFt = 45, BladeHeat = 4;
         public const double CloakSec = 6;
+        /// <summary>What each fighter carries with Arcade on.</summary>
+        public const int Mines = 2, Blades = 1, Stealths = 1;
+
+        /// <summary>Give a fighter its arcade load (the same numbers, changed in place, returned for chaining).</summary>
+        public static CombatNumbers Arm(CombatNumbers c)
+        {
+            c.balloonMines = Mines; c.heatBlades = Blades; c.stealths = Stealths;
+            return c;
+        }
     }
 
     /// <summary>A balloon mine hanging in the air (see Specials). It hits like a round, once armed, and hits nothing of its own side.</summary>

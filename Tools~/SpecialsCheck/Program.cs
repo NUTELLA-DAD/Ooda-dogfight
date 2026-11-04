@@ -20,11 +20,11 @@ static class Program
 
     /// <summary>A P-51 (0) ahead and a 109 (1) on its tail, gap ft behind, both heading north.</summary>
     static Battle Tail(double gap, double kias = 300) =>
-        new Battle(At(AircraftNumbers.P51D(), 0, gap, kias), CombatNumbers.P51D(), At(AircraftNumbers.Bf109G(), 0, 0, kias), CombatNumbers.Bf109G());
+        new Battle(At(AircraftNumbers.P51D(), 0, gap, kias), Specials.Arm(CombatNumbers.P51D()), At(AircraftNumbers.Bf109G(), 0, 0, kias), Specials.Arm(CombatNumbers.Bf109G()));
 
     /// <summary>A P-51 (0) heading north and a 109 (1) heading south straight at it, gap ft apart.</summary>
     static Battle HeadOn(double gap) =>
-        new Battle(At(AircraftNumbers.P51D(), 0, 0, 300), CombatNumbers.P51D(), At(AircraftNumbers.Bf109G(), 0, gap, 300, South), CombatNumbers.Bf109G());
+        new Battle(At(AircraftNumbers.P51D(), 0, 0, 300), Specials.Arm(CombatNumbers.P51D()), At(AircraftNumbers.Bf109G(), 0, gap, 300, South), Specials.Arm(CombatNumbers.Bf109G()));
 
     static TurnPlan Ahead(Battle b, int i) => TurnPlan.Straight(b.planes[i]);
 
@@ -35,7 +35,7 @@ static class Program
             var b = Tail(1200);
             var drop = Ahead(b, 0); drop.mine = true;
             var r = b.Resolve(new TurnPlan?[] { drop, Ahead(b, 1) }, 3);
-            Check(b.balloonMines[0] == CombatNumbers.P51D().balloonMines - 1 && r.mines.Count == 1, $"one goes, {b.balloonMines[0]} left, its drift recorded");
+            Check(b.balloonMines[0] == Specials.Mines - 1 && r.mines.Count == 1, $"one goes, {b.balloonMines[0]} left, its drift recorded");
             var mine = b.bullets.OfType<Mine>().FirstOrDefault();
             bool caught = r.hits.Any(h => h.shooter == 0 && h.target == 1 && h.damage == Specials.MineDamage);
             for (int t = 0; t < 3 && !caught; t++)
@@ -79,7 +79,7 @@ static class Program
             Check(b.down[1] && !b.down[0], "with it lit: the 109 is cut in half and the P-51 flies on");
             Check(r.hits.Any(h => h.shooter == 0 && h.target == 1) && b.health[1] <= 0, "recorded as a kill for the P-51");
             Check(b.ammo[0] == ammo && r.traces.Count == 0, "the guns stay cold while it glows");
-            Check(b.heatBlades[0] == CombatNumbers.P51D().heatBlades - 1 && r.frames[0].Skip(1).All(f => f.ram), "it uses a charge and glows all turn");
+            Check(b.heatBlades[0] == Specials.Blades - 1 && r.frames[0].Skip(1).All(f => f.ram), "it uses a charge and glows all turn");
             Check(!b.ramOn[0], "and cools when the turn ends");
 
             var miss = HeadOn(2500);
@@ -126,7 +126,7 @@ static class Program
             c.Resolve(new TurnPlan?[] { cloak, Ahead(c, 1) }, 3);
             var fire = Ahead(c, 0); fire.burstStart = 1; fire.burstEnd = 1.5;
             c.Resolve(new TurnPlan?[] { fire, Ahead(c, 1) }, 3);
-            Check(!c.Cloaked(0) && c.stealths[0] == CombatNumbers.P51D().stealths - 1, "firing the guns shows you at once");
+            Check(!c.Cloaked(0) && c.stealths[0] == Specials.Stealths - 1, "firing the guns shows you at once");
         }
 
         Console.WriteLine("\nThe AI pilots use them");
@@ -171,6 +171,22 @@ static class Program
             var pl = new TurnPlan { mine = true, ram = true, cloak = true };
             var pd = Wire.Decode<TurnPlan>(Wire.Encode(pl));
             Check(pd.mine && pd.ram && pd.cloak, "a plan with all three survives the trip to bytes");
+        }
+
+        Console.WriteLine("\nThe Arcade switch");
+        {
+            var on = new DogfightSetup { randomStart = false, ours = new[] { Craft.Mustang, Craft.Phantom }, theirs = new[] { Craft.Bf109 } };
+            var b = Scenarios.Dogfight(on, Vec3d.Zero);
+            Check(Enumerable.Range(0, b.Count).All(i => b.balloonMines[i] == Specials.Mines && b.heatBlades[i] == Specials.Blades && b.stealths[i] == Specials.Stealths),
+                  "a dogfight with Arcade on: every fighter carries the specials");
+            var off = on.Copy(); off.arcade = false;
+            var c = Scenarios.Dogfight(off, Vec3d.Zero);
+            Check(Enumerable.Range(0, c.Count).All(i => c.balloonMines[i] == 0 && c.heatBlades[i] == 0 && c.stealths[i] == 0), "with Arcade off: none");
+            var drop = TurnPlan.Straight(c.planes[0]); drop.mine = drop.ram = drop.cloak = true;
+            c.Resolve(new TurnPlan?[] { drop, TurnPlan.Straight(c.planes[1]) }, 3);
+            Check(!c.bullets.Any(x => x is Mine) && !c.Cloaked(0), "and planning one does nothing");
+            Check(!DogfightSetup.FromBytes(off.ToBytes()).arcade && DogfightSetup.FromBytes(on.ToBytes()).arcade, "the switch survives the trip to bytes (for the friend over the network)");
+            Check(new CombatNumbers().balloonMines == 0 && CombatNumbers.P51D().stealths == 0, "the other missions carry none");
         }
 
         Console.WriteLine(fails == 0 ? "\nAll checks pass." : $"\n{fails} check(s) FAILED.");
