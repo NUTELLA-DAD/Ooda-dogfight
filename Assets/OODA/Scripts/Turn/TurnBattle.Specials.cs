@@ -1,0 +1,208 @@
+using System;
+using System.Collections.Generic;
+using Ooda.Flight;
+using Ooda.Flight.Core;
+using Ooda.Turn.Core;
+using UnityEngine;
+using UnityEngine.InputSystem;
+
+namespace Ooda.Turn
+{
+    /// <summary>
+    /// The arcade specials (the rules are Turn/Core/Specials.cs), planned like the rocket for the start of the turn:
+    ///
+    /// 4, Balloon mine: a red spiked balloon let go behind you. It hangs where it was dropped, blinks once armed, and goes
+    /// off on the first enemy that flies within its fuse (the faint red ring round it while planning). Ideal for a tailer.
+    ///
+    /// 5, Heat blade: the plane glows red hot all turn and its guns stay cold; fly through an enemy and it is cut in half.
+    /// You are the brightest thing in the IR view while it glows: every heat-seeker locks you from farther.
+    ///
+    /// 6, Stealth: two turns unseen. A stealthy enemy vanishes from your screen with its ghosts and projection (only its
+    /// heat shows, in the IR view, and a heat-seeker still locks it); yours shimmers cyan. Firing shows you again.
+    /// </summary>
+    public partial class TurnBattle
+    {
+        [Header("Specials")]
+        public Color mineColor = new Color(0.92f, 0.16f, 0.12f, 1f);
+        public Color bladeColor = new Color(1f, 0.32f, 0.06f, 0.95f);
+        public Color stealthColor = new Color(0.55f, 0.95f, 1f, 0.7f);
+
+        /// <summary>An enemy you can't see now: stealthy, on the other side.</summary>
+        bool HiddenFromMe(int i) => battle != null && i >= 0 && i < battle.Count && battle.side[i] != battle.side[0] && battle.Cloaked(i);
+
+        // ---------- planning ----------
+
+        void ToggleMine()
+        {
+            if (!plan.mine && battle.balloonMines[0] <= 0) { Notice("No balloon mines left."); return; }
+            plan.mine = !plan.mine;
+            if (plan.mine) Notice("Balloon mine: let go behind you as the turn starts. It hangs there and catches whoever follows.");
+            dirty = true;
+        }
+
+        void ToggleBlade()
+        {
+            if (!plan.ram && battle.heatBlades[0] <= 0) { Notice("The heat blade is spent."); return; }
+            plan.ram = !plan.ram;
+            if (plan.ram) Notice(plan.burstEnd > plan.burstStart
+                ? "Heat blade lit: your guns stay cold this turn. Fly through an enemy to cut it in half."
+                : "Heat blade lit: fly through an enemy to cut it in half. Every heat-seeker can see you.");
+            dirty = true;
+        }
+
+        void ToggleCloak()
+        {
+            if (!plan.cloak && battle.stealths[0] <= 0) { Notice("No stealth left."); return; }
+            plan.cloak = !plan.cloak;
+            if (plan.cloak) Notice(plan.burstEnd > plan.burstStart || plan.missile
+                ? "Stealth: but firing this turn will show you again at once."
+                : "Stealth: two turns unseen. Heat-seekers still lock you; firing shows you.");
+            dirty = true;
+        }
+
+        /// <summary>4 balloon mine, 5 heat blade, 6 stealth.</summary>
+        void SpecialsInput(Keyboard kb)
+        {
+            bool Pressed(Key k) => kb != null && kb[k].wasPressedThisFrame;
+            if (Pressed(Key.Digit4) || Pressed(Key.Numpad4)) ToggleMine();
+            if (Pressed(Key.Digit5) || Pressed(Key.Numpad5)) ToggleBlade();
+            if (Pressed(Key.Digit6) || Pressed(Key.Numpad6)) ToggleCloak();
+        }
+
+        /// <summary>The three specials' buttons in a row (over the IR and flare buttons).</summary>
+        void SpecialButtons(float x, float y, float w)
+        {
+            var load = battle.combat[0];
+            if (load.balloonMines + load.heatBlades + load.stealths <= 0) return;   // Arcade off (or a mission without them)
+            float bw = Mathf.Min(150, (w - 16) / 3);
+            Rect row = new Rect(x, y, bw * 3 + 16, 24);
+            guiRects.Add(row);
+            void Button(int k, bool on, int left, string name, string key, string active, Color col, Action toggle)
+            {
+                var s = new GUIStyle(GUI.skin.button) { fontSize = 13, fontStyle = on ? FontStyle.Bold : FontStyle.Normal };
+                if (on) s.normal.textColor = s.hover.textColor = col;
+                GUI.enabled = on || left > 0;
+                string text = on ? $"{active} ({key})" : left <= 0 ? $"{name}: none" : $"{name} {left} ({key})";
+                if (GUI.Button(new Rect(x + k * (bw + 8), y, bw, 24), text, s)) toggle();
+                GUI.enabled = true;
+            }
+            Button(0, plan.mine, battle.balloonMines[0], "Mine", "4", "MINE: drop", mineColor, ToggleMine);
+            Button(1, plan.ram, battle.heatBlades[0], "Heat blade", "5", "BLADE: hot", bladeColor, ToggleBlade);
+            bool cloakedNow = battle.Cloaked(0);
+            Button(2, plan.cloak, battle.stealths[0], cloakedNow ? "Stealthy" : "Stealth", "6", "STEALTH: on", stealthColor, ToggleCloak);
+        }
+
+        // ---------- drawing ----------
+
+        /// <summary>The balloon mines hanging in the air now (planning): each with its fuse ring, and where a planned one would go.</summary>
+        void DrawLiveMines()
+        {
+            foreach (var b in battle.bullets)
+                if (b is Mine mn) Balloon(UnityFrame.Pos(mn.pos), mn.Armed, true, mn.side == battle.side[0]);
+            if (preview != null)
+                foreach (var tr in preview.mines)
+                    if (tr.owner == 0 && tr.startFrame <= 1 && tr.points.Count > 0)
+                    {
+                        // the one you're planning to let go: faint, where it ends the turn
+                        var pts = new List<Vector3>();
+                        for (int i = 0; i < tr.points.Count; i += 4) pts.Add(UnityFrame.Pos(tr.points[i]));
+                        if (pts.Count >= 2) lines.Strip(pts, 0.4f, new Color(mineColor.r, mineColor.g, mineColor.b, 0.35f));
+                        Balloon(UnityFrame.Pos(tr.points[tr.points.Count - 1]), false, true, true, 0.5f);
+                    }
+        }
+
+        /// <summary>The balloon mines at frame now of a turn being played back; one that went off is gone (its flash is the hit's).</summary>
+        void DrawMines(TurnResult r, int now)
+        {
+            if (r == null || r.mines == null) return;
+            foreach (var tr in r.mines)
+            {
+                var head = tr.At(now);
+                if (head == null) continue;
+                double age = tr.age0 + (now - tr.startFrame) * r.dt;
+                Balloon(UnityFrame.Pos(head.Value), age >= Specials.ArmSec, false, tr.owner >= 0 && tr.owner < battle.Count && battle.side[tr.owner] == battle.side[0]);
+            }
+        }
+
+        /// <summary>A spiked red balloon on a short dangling line, its light blinking once armed; with ring, the fuse's reach round it.</summary>
+        void Balloon(Vector3 p, bool armed, bool ring, bool ours, float alpha = 1f)
+        {
+            Vector3 right = view != null ? view.Cam.transform.right : Vector3.right, up = view != null ? view.Cam.transform.up : Vector3.up;
+            float r = Mathf.Max(1.6f, W(p) * 7f);
+            var red = mineColor; red.a *= alpha;
+            var dark = new Color(0.25f, 0.05f, 0.05f, 0.9f * alpha);
+            lines.Line(p, p + Vector3.down * r * 2.5f, 0.25f, new Color(0.85f, 0.85f, 0.8f, 0.8f * alpha));   // the line it hangs from (a mine on a string)
+            for (int k = 0; k < 8; k++)
+            {
+                float a = k * Mathf.PI / 4;
+                Vector3 d = right * Mathf.Cos(a) + up * Mathf.Sin(a);
+                lines.Line(p + d * r * 0.8f, p + d * r * 1.35f, 0.5f, dark);   // the spikes
+            }
+            lines.Line(p - up * r * 0.55f, p + up * r * 0.55f, 5.5f, red);   // the ball
+            lines.Line(p + up * r * 0.2f - right * r * 0.25f, p + up * r * 0.35f - right * r * 0.15f, 1.6f, new Color(1f, 0.7f, 0.65f, 0.8f * alpha));   // its shine
+            if (armed && Mathf.Repeat(Time.time * 1.6f, 1f) < 0.3f)
+                lines.Line(p + up * r * 0.9f, p + up * r * 1.15f, 2.2f, ours ? new Color(0.5f, 1f, 0.5f, alpha) : new Color(1f, 0.9f, 0.3f, alpha));
+            if (!ring) return;
+            float fuse = (float)(Specials.FuseFt * Atmosphere.MPerFt);
+            var pts = new List<Vector3>(24);
+            for (int k = 0; k < 24; k++) { float a = k * Mathf.PI / 12; pts.Add(p + (right * Mathf.Cos(a) + up * Mathf.Sin(a)) * fuse); }
+            lines.Strip(pts, 0.35f, new Color(mineColor.r, mineColor.g, mineColor.b, (ours ? 0.25f : 0.5f) * alpha), true);
+        }
+
+        /// <summary>
+        /// The heat blade's glow and the stealth shimmer on the aircraft at frame now. In the turn's playback a stealthy enemy
+        /// is hidden; in the replay you see everyone, the stealthy ones shimmering.
+        /// </summary>
+        void DrawSpecialFrames(IList<TurnAircraftView> vs, TurnResult r, int now)
+        {
+            for (int k = 0; k < vs.Count && k < r.frames.Length; k++)
+            {
+                if (vs[k] == null || r.frames[k] == null) continue;
+                var f = r.frames[k][Mathf.Min(now, r.frames[k].Length - 1)];
+                bool enemy = !replaying && k < battle.Count && battle.side[k] != battle.side[0];
+                Stealth(vs[k], f.cloaked && !f.down, enemy, k);
+                if (f.ram && !f.down) BladeLook(vs[k].transform, k);
+            }
+        }
+
+        /// <summary>While planning: hide the stealthy enemies, shimmer your own, and glow your ghost if the blade is lit.</summary>
+        void SpecialsPlanning()
+        {
+            for (int k = 0; k < views.Length && k < battle.Count; k++)
+                if (views[k] != null) Stealth(views[k], battle.Cloaked(k), battle.side[k] != battle.side[0], k);
+            if (plan.ram && holoMine != null && holoMine.activeSelf) BladeLook(holoMine.transform, 0);
+            DrawLiveMines();
+        }
+
+        /// <summary>Everyone shown again (the fight is over, or no one is stealthy).</summary>
+        void RevealAll()
+        {
+            foreach (var v in views) if (v != null) v.SetVisible(true);
+        }
+
+        void Stealth(TurnAircraftView v, bool cloaked, bool enemy, int k)
+        {
+            if (!cloaked) { v.SetVisible(true); return; }
+            if (enemy) { v.SetVisible(false); return; }
+            // yours: there, but only just: it blinks out now and then, with a cyan shimmer along it
+            v.SetVisible(Mathf.Repeat(Time.time * 2.3f + k * 0.37f, 1f) > 0.22f);
+            var t = v.transform;
+            float flick = 0.6f + 0.4f * Mathf.Sin(Time.time * 9f + k);
+            var c = stealthColor; c.a *= flick;
+            lines.Line(t.position - t.right * 5.5f, t.position + t.right * 5.5f, 0.6f, c);
+            lines.Line(t.position + t.forward * 4.5f, t.position - t.forward * 4.5f, 0.6f, c);
+        }
+
+        /// <summary>Red hot: the wings and the fuselage glowing orange to white, flickering, with a heat haze trailing.</summary>
+        void BladeLook(Transform t, int k)
+        {
+            float flick = 0.8f + 0.2f * Mathf.Sin(Time.time * 31f + k * 1.3f);
+            Vector3 p = t.position, rgt = t.right, fwd = t.forward;
+            lines.Line(p - rgt * 6f, p + rgt * 6f, 2.4f * flick, bladeColor);
+            lines.Line(p - rgt * 5f, p + rgt * 5f, 0.9f, new Color(1f, 0.9f, 0.6f, 0.95f));
+            lines.Line(p + fwd * 4.5f, p - fwd * 4.5f, 2.0f * flick, bladeColor);
+            var haze = bladeColor; haze.a = 0.35f;
+            lines.Line(p - fwd * 4.5f, p - fwd * 16f, 1.6f, haze);
+        }
+    }
+}

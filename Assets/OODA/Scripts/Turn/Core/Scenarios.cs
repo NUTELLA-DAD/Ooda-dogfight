@@ -100,10 +100,11 @@ namespace Ooda.Turn.Core
                 return lead + right * lat - dir * back + new Vec3d(0, 0, up);
             }
             bool easy = setup.easyAimOurs;
-            var battle = new Battle(Make(setup.ours[0], me, myHdg), DogfightSetup.Guns(setup.ours[0], easy),
-                                    Make(setup.theirs[0], foe, foeHdg), DogfightSetup.Guns(setup.theirs[0], false));
-            for (int k = 1; k < ours; k++) battle.Add(Make(setup.ours[k], Place(me, myHdg, k, -1), myHdg), DogfightSetup.Guns(setup.ours[k], easy), 0);
-            for (int k = 1; k < theirs; k++) battle.Add(Make(setup.theirs[k], Place(foe, foeHdg, k, 1), foeHdg), DogfightSetup.Guns(setup.theirs[k], false), 1);
+            CombatNumbers Guns(Craft c, bool e) { var g = DogfightSetup.Guns(c, e); return setup.arcade ? Specials.Arm(g) : g; }
+            var battle = new Battle(Make(setup.ours[0], me, myHdg), Guns(setup.ours[0], easy),
+                                    Make(setup.theirs[0], foe, foeHdg), Guns(setup.theirs[0], false));
+            for (int k = 1; k < ours; k++) battle.Add(Make(setup.ours[k], Place(me, myHdg, k, -1), myHdg), Guns(setup.ours[k], easy), 0);
+            for (int k = 1; k < theirs; k++) battle.Add(Make(setup.theirs[k], Place(foe, foeHdg, k, 1), foeHdg), Guns(setup.theirs[k], false), 1);
             Formations.Organise(battle, 0, WideUnit, BomberUnit);
             return battle;
         }

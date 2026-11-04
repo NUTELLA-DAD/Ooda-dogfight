@@ -60,6 +60,25 @@ namespace Ooda.Turn
             Place(pos, vel, up, alpha);
         }
 
+        Renderer[] rends;
+        bool[] wasEnabled;
+        bool hidden;
+
+        /// <summary>Show or hide the whole model, its pilot with it (stealth). Each part comes back as it was when hidden.</summary>
+        public void SetVisible(bool on)
+        {
+            if (on != hidden) return;   // already so
+            if (rends == null) rends = GetComponentsInChildren<Renderer>(true);
+            if (!on)
+            {
+                wasEnabled = new bool[rends.Length];
+                for (int k = 0; k < rends.Length; k++) if (rends[k] != null) { wasEnabled[k] = rends[k].enabled; rends[k].enabled = false; }
+            }
+            else if (wasEnabled != null)
+                for (int k = 0; k < rends.Length; k++) if (rends[k] != null) rends[k].enabled = wasEnabled[k];
+            hidden = !on;
+        }
+
         void Place(Vec3d pos, Vec3d vel, Vec3d up, double alphaDeg) => Pose(transform, pos, vel, up, alphaDeg);
 
         /// <summary>Put any transform where an aircraft is: on its path, its up, nose raised by the angle of attack.</summary>

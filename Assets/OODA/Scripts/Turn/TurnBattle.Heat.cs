@@ -207,14 +207,15 @@ namespace Ooda.Turn
                     int bi = Array.IndexOf(battle.planes, tapePlanes[s]);
                     bool down = r != null && s < r.frames.Length && r.frames[s] != null && r.frames[s][Mathf.Min(now, r.frames[s].Length - 1)].down;
                     bool rocket = r != null && s < r.frames.Length && r.frames[s] != null && r.frames[s][Mathf.Min(now, r.frames[s].Length - 1)].rocket;
-                    AircraftGlow(tapeViews[s], bi >= 0 ? battle.combat[bi] : null, down, rocket);
+                    bool ram = r != null && s < r.frames.Length && r.frames[s] != null && r.frames[s][Mathf.Min(now, r.frames[s].Length - 1)].ram;
+                    AircraftGlow(tapeViews[s], bi >= 0 ? battle.combat[bi] : null, down, rocket, ram);
                 }
             else
                 for (int k = 0; k < views.Length && k < battle.Count; k++)
                 {
                     bool live = r == null || k >= r.frames.Length || r.frames[k] == null;
                     var f = live ? default : r.frames[k][Mathf.Min(now, r.frames[k].Length - 1)];
-                    AircraftGlow(views[k], battle.combat[k], live ? battle.down[k] : f.down, live ? battle.planes[k].RocketBurning : f.rocket);
+                    AircraftGlow(views[k], battle.combat[k], live ? battle.down[k] : f.down, live ? battle.planes[k].RocketBurning : f.rocket, !live && f.ram);
                 }
 
             // Missiles and flares
@@ -265,7 +266,7 @@ namespace Ooda.Turn
         static readonly Vector3[] FourWing = { new Vector3(3.8f, 0.4f, 2.4f), new Vector3(-3.8f, 0.4f, 2.4f), new Vector3(7.8f, 0.4f, 1.6f), new Vector3(-7.8f, 0.4f, 1.6f) };
         static readonly Vector3[] JetTail = { new Vector3(0.65f, 0f, -8.2f), new Vector3(-0.65f, 0f, -8.2f) };
 
-        void AircraftGlow(TurnAircraftView v, CombatNumbers c, bool down, bool rocket)
+        void AircraftGlow(TurnAircraftView v, CombatNumbers c, bool down, bool rocket, bool ram = false)
         {
             if (v == null || c == null || !v.isActiveAndEnabled || v.Crashed || v.Model == null) return;
             var t = v.transform;
@@ -275,8 +276,9 @@ namespace Ooda.Turn
             double aspect = Heat.Aspect(fwd, eye);
             // the airframe is warm all over: a faint glow the size of the plane, so it shows as a shape
             float span = v.Model.numbers != null && v.Model.numbers.name != null && v.Model.numbers.name.Contains("B-17") ? 16f : 6f;
-            Glow(t.position, span + Vector3.Distance(irCamPos, t.position) * 0.003f, 0.16f);
+            Glow(t.position, span + Vector3.Distance(irCamPos, t.position) * 0.003f, ram ? 0.7f : 0.16f);
             if (down) { HeatGlow(t.position, 1.5); return; }   // burning
+            if (ram) HeatGlow(t.position, Specials.BladeHeat);   // the heat blade: red hot all over, from every side
             double heat = Heat.Engine(c, v.Model.throttle, v.Wep, rocket) * aspect;
             var spots = EngineSpots(v.Model.numbers?.name);
             double each = heat / spots.Length;
