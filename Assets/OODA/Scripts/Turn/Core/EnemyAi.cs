@@ -61,7 +61,7 @@ namespace Ooda.Turn.Core
         /// to land on, likeliest first, each with that chance and its burst planned. Plan made afterwards on the same
         /// battle picks from these same tries, so the chances are the real ones.
         /// </summary>
-        public Prediction Predict(Battle battle, double turnSec, int most = 4, double least = 0.04)
+        public Prediction Predict(Battle battle, double turnSec, int most = 4, double least = 0.02, int always = 3)
         {
             var tries = Tries(battle, turnSec, out var sub, out int them);
             if (tries == null) return new Prediction { pilot = me, plans = new[] { TurnPlan.Straight(battle.planes[me]) }, chance = new[] { 1.0 } };
@@ -79,21 +79,34 @@ namespace Ooda.Turn.Core
                 }
                 wins[pick]++;
             }
-            var order = new List<int>();
-            for (int k = 0; k < tries.Count; k++) if (wins[k] > 0) order.Add(k);
-            order.Sort((a, b) => wins[b].CompareTo(wins[a]));
-            var plans = new List<TurnPlan>(); var chance = new List<double>();
-            foreach (int k in order)
+            // One ghost per kind of move (a climb, a dive, a hard turn each way...): that kind's likeliest try (its best
+            // scored when none won), with the chance of any try of that kind, so the spread shows the different things it
+            // might do, not one turn four ways. The first `always` kinds it found are shown however unlikely (their
+            // chance is still the real one, faint and often under 1%); more only when at least `least` likely.
+            var kinds = new Dictionary<MoveKind, (int best, int wins, List<Vec3d> aims)>();
+            for (int k = 0; k < tries.Count; k++)
             {
-                double c = (double)wins[k] / draws;
-                if (plans.Count >= most || plans.Count > 0 && c < least) break;
-                plans.Add(Finish(battle, sub, them, tries[k].plan, turnSec, tries));
-                chance.Add(c);
+                var kind = tries[k].kind;
+                if (!kinds.TryGetValue(kind, out var g)) g = (k, 0, new List<Vec3d>());
+                if (wins[k] > wins[g.best] || wins[k] == wins[g.best] && tries[k].score > tries[g.best].score) g.best = k;
+                g.wins += wins[k]; g.aims.Add(tries[k].plan.aim);
+                kinds[kind] = g;
             }
-            return new Prediction { pilot = me, plans = plans.ToArray(), chance = chance.ToArray() };
+            var order = new List<(int best, int wins, List<Vec3d> aims, MoveKind kind)>();
+            foreach (var kv in kinds) order.Add((kv.Value.best, kv.Value.wins, kv.Value.aims, kv.Key));
+            order.Sort((a, b) => a.wins != b.wins ? b.wins.CompareTo(a.wins) : tries[b.best].score.CompareTo(tries[a.best].score));
+            var plans = new List<TurnPlan>(); var chance = new List<double>(); var kindList = new List<MoveKind>(); var members = new List<Vec3d[]>();
+            foreach (var o in order)
+            {
+                double c = (double)o.wins / draws;
+                if (plans.Count >= most || plans.Count >= always && c < least) break;
+                plans.Add(Finish(battle, sub, them, tries[o.best].plan, turnSec, tries));
+                chance.Add(c); kindList.Add(o.kind); members.Add(o.aims.ToArray());
+            }
+            return new Prediction { pilot = me, plans = plans.ToArray(), chance = chance.ToArray(), kinds = kindList.ToArray(), members = members.ToArray() };
         }
 
-        struct Try { public TurnPlan plan; public double score; }
+        struct Try { public TurnPlan plan; public double score; public MoveKind kind; }
 
         /// <summary>Drop the tries kept from the last look (after the battle's aircraft have been renumbered, as by Battle.Swap).</summary>
         public void Forget() { lock (this) { cachedTries = null; cachedFor = cachedSub = null; } }
@@ -120,8 +133,15 @@ namespace Ooda.Turn.Core
                 sub.flak = near.ToArray();
                 // and only the ground and gunners' rounds already in the air that could reach it
                 sub.bullets.RemoveAll(b => b.owner < 0 && (b.pos - m.state.pos).Length > 8000);
+                // and none of its own side's (they cannot hit it, and its score is about what happens to it)
+                int mySide = sub.side[0];
+                sub.bullets.RemoveAll(b => b.side == mySide);
+                // and no gun round too far away to reach it before it falls or the turn ends
+                double myFps = m.state.vel.Length;
+                sub.bullets.RemoveAll(b => !(b is Missile) && (b.pos - m.state.pos).Length > (b.vel.Length + myFps) * Math.Min(turnSec, Math.Max(0, b.lifeSec - b.age)) + 300);
                 var env = Envelope.Compute(m, turnSec);
                 bool slow = m.Kias < 220;
+                turner = TurnerWeight(m, sub.planes[1]);
 
                 var tries = new List<Try>();
                 foreach (var fraction in new[] { 0.0, 0.35, 0.7, 1.0 })
@@ -135,7 +155,8 @@ namespace Ooda.Turn.Core
                             aim = fraction == 0 ? m.Forward : env.Direction(phi, env.MaxAngle(phi) * fraction),
                             throttle = 1, wep = slow,
                         };
-                        tries.Add(new Try { plan = plan, score = Score(sub, plan, turnSec) });
+                        double score = Score(sub, plan, turnSec, out Vec3d endVel);
+                        tries.Add(new Try { plan = plan, score = score, kind = Kind(m.state.vel, endVel) });
                     }
                 }
                 cachedTries = tries; cachedFor = battle; cachedSub = sub; cachedTime = battle.time; cachedTurnSec = turnSec; cachedThem = them;
@@ -202,9 +223,44 @@ namespace Ooda.Turn.Core
             return best;
         }
 
-        /// <summary>How good a plan is, flown in the small battle (me 0, target 1).</summary>
-        double Score(Battle sub, TurnPlan plan, double turnSec)
+        /// <summary>
+        /// How much this pilot wants a turning fight (1) rather than an up-and-down one (0), from its own aircraft against
+        /// its target's at this height: the better it holds a turn against the other, the more it turns; out-turned, it
+        /// goes vertical, the more so the better it climbs. Set each look, before the tries are scored.
+        /// </summary>
+        double turner = 0.5;
+
+        public static double TurnerWeight(FlightModel mine, FlightModel theirs)
         {
+            double alt = 0.5 * (mine.AltFt + theirs.AltFt);
+            double turn = Math.Log(Math.Max(1, mine.numbers.SustainedTurnDps(alt, true)) / Math.Max(1, theirs.numbers.SustainedTurnDps(alt, true)));
+            double climb = Math.Log(Math.Max(100, mine.numbers.ClimbFpm(alt, true)) / Math.Max(100, theirs.numbers.ClimbFpm(alt, true)));
+            // the turn decides it (out-turned, it has to go vertical); a climb edge only leans it further up
+            return Math.Max(0, Math.Min(1, 0.5 + 4 * turn - climb));
+        }
+
+        /// <summary>What kind of move a flown try was, from the flight path at its start and end: for the spread of ghosts.</summary>
+        public static MoveKind Kind(Vec3d v0, Vec3d v1)
+        {
+            const double D = 180 / Math.PI;
+            double path0 = Math.Asin(Math.Max(-1, Math.Min(1, v0.z / Math.Max(1e-6, v0.Length)))) * D;
+            double path1 = Math.Asin(Math.Max(-1, Math.Min(1, v1.z / Math.Max(1e-6, v1.Length)))) * D;
+            double turn = (Math.Atan2(v0.x, v0.y) - Math.Atan2(v1.x, v1.y)) * D;     // + to the left (heading measured clockwise from north)
+            while (turn > 180) turn -= 360;
+            while (turn < -180) turn += 360;
+            if (path1 - path0 > 25 && path1 > 15) return MoveKind.Climb;
+            if (path1 - path0 < -25 && path1 < -15) return MoveKind.Dive;
+            if (Math.Abs(turn) >= 60) return turn > 0 ? MoveKind.HardLeft : MoveKind.HardRight;
+            if (Math.Abs(turn) >= 20) return turn > 0 ? MoveKind.Left : MoveKind.Right;
+            return MoveKind.Straight;
+        }
+
+        double Score(Battle sub, TurnPlan plan, double turnSec) => Score(sub, plan, turnSec, out _);
+
+        /// <summary>How good a plan is, flown in the small battle (me 0, target 1).</summary>
+        double Score(Battle sub, TurnPlan plan, double turnSec, out Vec3d endVel)
+        {
+            endVel = sub.planes[0].state.vel;
             var sim = sub.Clone();
             sim.dispersion = false;
             double minClear = double.PositiveInfinity, shotBonus = 0;
@@ -219,6 +275,7 @@ namespace Ooda.Turn.Core
                     if (r < 2500 && Envelope.Angle(Battle.GunLine(a), los) < 4 * Math.PI / 180) shotBonus = 1;
                 }
             });
+            endVel = sim.planes[0].state.vel;
             if (sim.crashed[0] || sim.down[0]) return -100;
 
             var mine = sim.planes[0];
@@ -240,7 +297,16 @@ namespace Ooda.Turn.Core
             }
             // damage taken flying it (flak, rounds already in the air)
             score -= 2 * (sub.health[0] - sim.health[0]) / Math.Max(1, sub.combat[0].health) * 10;
-            score += 0.5 * (mine.Kias - 250) / 200 + 0.2 * (mine.AltFt - sub.planes[0].AltFt) / 1000;
+            // Energy, by its own aircraft: below corner speed it turns slower and wider, so that always costs. A turner
+            // wants to sit at corner speed (faster only widens its turn); an up-and-down fighter wants energy in hand,
+            // speed and height together, to climb away and dive back in.
+            var start = sub.planes[0];
+            double corner = mine.numbers.CornerKias;
+            score -= 0.75 * Math.Max(0, corner - mine.Kias) / 200;
+            score -= turner * 0.15 * Math.Max(0, mine.Kias - corner) / 200;
+            double vEnd = mine.state.vel.Length, vStart = start.state.vel.Length;
+            double energyGain = (mine.AltFt - start.AltFt + (vEnd * vEnd - vStart * vStart) / (2 * Atmosphere.GFtps2)) / 1000;
+            score += (1 - turner) * 0.4 * energyGain + turner * 0.2 * (mine.AltFt - start.AltFt) / 1000;
             if (minClear < safeClearFt) score -= (safeClearFt - minClear) / 200;
             // where it is heading after the turn: straight on for lookSec, is the ground (a valley wall) in the way?
             double ahead = double.PositiveInfinity;
@@ -361,11 +427,34 @@ namespace Ooda.Turn.Core
         }
     }
 
-    /// <summary>What an AI pilot might do this turn: its likeliest plans first, each with the chance it flies it.</summary>
+    /// <summary>The kinds of move the ghosts are spread across.</summary>
+    public enum MoveKind { Straight, Left, Right, HardLeft, HardRight, Climb, Dive }
+
+    /// <summary>
+    /// What an AI pilot might do this turn: one plan per kind of move, likeliest first, each with the chance it flies
+    /// any move of that kind (members holds the aims of every try of that kind).
+    /// </summary>
     public class Prediction
     {
         public int pilot;
         public TurnPlan[] plans;
         public double[] chance;
+        public MoveKind[] kinds;
+        public Vec3d[][] members;
+
+        /// <summary>A chance as the ghosts' label: a whole percent, or "<1%" for a kind it almost never picks.</summary>
+        public static string Percent(double c) => c < 0.005 ? "<1%" : $"{c * 100:F0}%";
+
+        /// <summary>Which ghost a flown plan belongs to (its kind), or -1 when it was none of them.</summary>
+        public int Rank(TurnPlan flown)
+        {
+            for (int k = 0; k < plans.Length; k++)
+            {
+                if (Vec3d.Dot(flown.aim, plans[k].aim) > 0.99999) return k;
+                if (members != null && k < members.Length)
+                    foreach (var a in members[k]) if (Vec3d.Dot(flown.aim, a) > 0.99999) return k;
+            }
+            return -1;
+        }
     }
 }

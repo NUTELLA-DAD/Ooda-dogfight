@@ -338,7 +338,7 @@ namespace Ooda.Turn
                     {
                         var f = k == 0 ? preview.frames[j][preview.FrameCount - 1] : read.spread[k][read.spread[k].Length - 1];
                         var g = GuiPoint(UnityFrame.Pos(f.pos));
-                        if (g != null) Shadow(new Rect(g.Value.x + 14, g.Value.y - 22, 80, 20), $"{pr.chance[k] * 100:F0}%", tag);
+                        if (g != null) Shadow(new Rect(g.Value.x + 14, g.Value.y - 22, 80, 20), Prediction.Percent(pr.chance[k]), tag);
                     }
                 }
                 if (LeadShown && showLeadRing && phase == Phase.Planning)
@@ -413,8 +413,7 @@ namespace Ooda.Turn
                 Vec3d bright = rd.spread[0][rd.spread[0].Length - 1].pos;
                 double miss = (actual - bright).Length, holdMiss = (actual - rd.holdEnd.pos).Length;
                 int rank = -1;
-                if (plans[j] is TurnPlan chosen)
-                    for (int k = 0; k < pr.plans.Length; k++) if (Vec3d.Dot(chosen.aim, pr.plans[k].aim) > 0.99999) { rank = k; break; }
+                if (plans[j] is TurnPlan chosen) rank = pr.Rank(chosen);
                 string name = battle.planes[j].numbers.name.Replace(" G-6", "");
                 ghostReport = battle.Out(j) ? null
                     : rank == 0 ? $"Last turn the {name} flew the bright ghost: it ended {miss:F0} ft from it."

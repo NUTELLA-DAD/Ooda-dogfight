@@ -14,10 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Ooda.Flight.AircraftPerformance
   numbers:
     name: F-4 Phantom II
-    maxG: 7.5
+    maxG: 7.33
     minG: -3
-    stallKias: 140
-    negStallKias: 175
+    stallKias: 150
+    negStallKias: 188
     vneKias: 750
     rollPerKtasDps: 0.55
     maxRollRateDps: 200
@@ -35,7 +35,7 @@ MonoBehaviour:
     maxStaticThrustPerWeight: 99
     wepFactor: 1.75
     dragA: 0.00000092
-    dragB: 3300
+    dragB: 5000
     ramPerMach2: 0.35
     waveRise: 1.5
     waveMcrit: 0.85
