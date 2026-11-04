@@ -298,7 +298,7 @@ namespace Ooda.Turn
             {
                 var tr = r.traces[ti];
                 if (tr.missile) { DrawMissile(tr, ti, now, (float)r.dt); continue; }
-                GlowTracer(tr, ti, now, (float)r.dt, TapeTracerColor(tr.owner));
+                GlowTracer(tr, ti, now, TapeTracerColor(tr.owner));
             }
 
             double t0 = r.startTime;

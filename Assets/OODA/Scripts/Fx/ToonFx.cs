@@ -12,7 +12,7 @@ namespace Ooda.Fx
     ///   then a grey-black plume that rises and thins away;
     /// - a hit: a star, sparks, a chip or two and a wisp;
     /// - smoke trails (a hurt aircraft's grey, a falling one's black) and smoke columns rising from a wreck or a target;
-    /// - tracers: a white-hot core in a soft glow of its side's colour, trailing a faint wisp of the same puffs.
+    /// - tracers: a white-hot core in a soft glow of its side's colour; a missile's light, cloud-like smoke.
     /// Everything animates in stepped keys (15 a second) and is placed by stable hashes, so a replay looks the same.
     /// One mesh, rebuilt each frame: the whole sky of effects is one draw call.
     /// </summary>
@@ -211,20 +211,18 @@ namespace Ooda.Fx
         }
 
         // ---------------------------------------------------------------------------------------------------------
-        // Tracers: drawn fresh each frame, like the lines they replace (call Tracer and TracerSmoke every frame the
-        // round is in the air; what was asked for last frame is dropped). The round is a hot white core in a soft glow
-        // of its colour, brightest at the head; behind it a faint trail of the smoke's own puffs, pale and see-through,
-        // swelling and rising a little as they age and gone in about half a second. Placed from the round's recorded
-        // path and its age, never from a running pool, so a replay or a scrub back looks the same.
+        // Tracers and missile smoke: drawn fresh each frame, like the lines they replace (call Tracer and MissileSmoke
+        // every frame; what was asked for last frame is dropped). A round is a hot white core in a soft glow of its
+        // colour, brightest at the head. A missile leaves light puffs that billow and linger. Placed from the recorded
+        // paths and their ages, never from a running pool, so a replay or a scrub back looks the same.
 
         struct TracerReq { public Vector3 Tail, Head; public Color C; public int Seed; }
-        struct WispReq { public Vector3 P; public float Age, Life, R; public int Seed, Cluster; public bool Thick; }
+        struct WispReq { public Vector3 P; public float Age; public int Seed, Cluster; }
         readonly List<TracerReq> tracerQ = new List<TracerReq>(256);
         readonly List<WispReq> wispQ = new List<WispReq>(2048);
         int tracerFrame = -1;
         const int MaxWisps = 3000;
-        /// <summary>How long a tracer's smoke lasts, s.</summary>
-        public const float TracerSmokeLife = 0.5f;
+        const float MissilePuffR = 1.8f;
         /// <summary>How long a missile's smoke lasts, s.</summary>
         public const float MissileSmokeLife = 2.4f;
 
@@ -243,70 +241,56 @@ namespace Ooda.Fx
         }
 
         /// <summary>
-        /// A tracer's smoke this frame: path[i] is where the round was age0 + i * dt seconds ago (newest first), at the
-        /// round's recorded frame frame0 - i * frameStep (which keeps each puff's own shape as it ages). Puffs of one
-        /// cluster (one aircraft's guns) are drawn as one soft mass.
-        /// </summary>
-        public void TracerSmoke(IList<Vector3> path, float age0, float dt, int seed, int cluster, int frame0, int frameStep = 1)
-            => Wisps(path, age0, dt, seed, cluster, frame0, frameStep, TracerSmokeLife, 1.0f, false);
-
-        /// <summary>
-        /// A missile's smoke this frame, as TracerSmoke: a fuller trail of light puffs, white with a cool lavender shade
-        /// and no dark ink, in a soft haze like the cloud banks; bigger and slower to go, billowing out as it ages.
+        /// A missile's smoke this frame: path[i] is where it was age0 + i * dt seconds ago (newest first), at its recorded
+        /// frame frame0 - i * frameStep (which keeps each puff's own shape as it ages). A trail of light puffs, white with
+        /// a cool lavender shade and no dark ink, in a soft haze like the cloud banks, billowing out as it ages.
         /// </summary>
         public void MissileSmoke(IList<Vector3> path, float age0, float dt, int seed, int cluster, int frame0, int frameStep = 1)
-            => Wisps(path, age0, dt, seed, cluster, frame0, frameStep, MissileSmokeLife, 1.8f, true);
-
-        void Wisps(IList<Vector3> path, float age0, float dt, int seed, int cluster, int frame0, int frameStep, float life, float r, bool thick)
         {
             TracerFrame();
             // (a puff at each point and one halfway to the next, so the trail reads as one stream, not beads)
             for (int i = 0; i < path.Count && wispQ.Count < MaxWisps; i++)
             {
                 float age = age0 + i * dt;
-                if (age >= life) break;
+                if (age >= MissileSmokeLife) break;
                 int f = frame0 - i * frameStep;
-                wispQ.Add(new WispReq { P = path[i], Age = age, Life = life, R = r, Thick = thick, Seed = seed * 131 + 2 * f, Cluster = cluster });
-                if (i + 1 < path.Count && age + 0.5f * dt < life)
-                    wispQ.Add(new WispReq { P = Vector3.Lerp(path[i], path[i + 1], 0.5f), Age = age + 0.5f * dt, Life = life, R = r, Thick = thick, Seed = seed * 131 + 2 * f - 1, Cluster = cluster });
+                wispQ.Add(new WispReq { P = path[i], Age = age, Seed = seed * 131 + 2 * f, Cluster = cluster });
+                if (i + 1 < path.Count && age + 0.5f * dt < MissileSmokeLife)
+                    wispQ.Add(new WispReq { P = Vector3.Lerp(path[i], path[i + 1], 0.5f), Age = age + 0.5f * dt, Seed = seed * 131 + 2 * f - 1, Cluster = cluster });
             }
         }
 
-        // pale see-through smoke: fills paling with age, a soft grey line
-        static readonly Color[] WispFill = { new Color(0.93f, 0.91f, 0.95f, 0.5f), new Color(0.86f, 0.84f, 0.89f, 0.38f), new Color(0.79f, 0.77f, 0.83f, 0.24f) };
-        static readonly Color WispLine = new Color(0.55f, 0.52f, 0.6f, 0.3f);
+        // a missile's smoke: white puffs paling and thinning with age, a soft lavender line
         static readonly Color[] MissileFill = { new Color(0.98f, 0.97f, 0.99f, 0.92f), new Color(0.92f, 0.91f, 0.94f, 0.78f), new Color(0.85f, 0.84f, 0.88f, 0.5f) };
         static readonly Color MissileLine = new Color(0.79f, 0.76f, 0.85f, 0.6f), MissileHaze = new Color(1f, 1f, 1f, 0.22f);
         readonly Dictionary<int, int> wispGroups = new Dictionary<int, int>(16);
 
-        void TracerWisps()
+        void MissileWisps()
         {
             if (tracerFrame != Time.frameCount && ClockOverride < 0f) return;   // (nobody asked this frame)
             wispGroups.Clear();
             for (int i = 0; i < wispQ.Count; i++)
             {
                 var w = wispQ[i];
-                if (w.Age < 0.04f) continue;   // (the glow covers its first few metres)
+                if (w.Age < 0.04f) continue;   // (the motor's glow covers its first few metres)
                 // stepped like every other puff: one size a key
-                float t = Mathf.Floor(w.Age * KeysPerSec) / KeysPerSec, u = t / w.Life;
-                float s = u < 0.15f ? 0.6f + 0.4f * (u / 0.15f) : 1f + (w.Thick ? 2.6f : 1.6f) * (u - 0.15f) / 0.85f;
+                float t = Mathf.Floor(w.Age * KeysPerSec) / KeysPerSec, u = t / MissileSmokeLife;
+                float s = u < 0.15f ? 0.6f + 0.4f * (u / 0.15f) : 1f + 2.6f * (u - 0.15f) / 0.85f;
                 if (u > 0.7f) s *= Mathf.Max(0f, 1f - (u - 0.7f) / 0.3f);
                 if (s <= 0f) continue;
                 if (!wispGroups.TryGetValue(w.Cluster, out int g))
                 {
-                    var line = Mul(w.Thick ? MissileLine : WispLine, tint);
+                    var line = Mul(MissileLine, tint);
                     Group(line, line, 1f);
                     wispGroups[w.Cluster] = curGroup;
                 }
                 else curGroup = g;
-                Vector3 p = w.P + Vector3.up * ((w.Thick ? 0.6f : 0.9f) * t) + right * Rng(w.Seed, 1, -0.25f, 0.25f) * t * (w.Thick ? 2f : 1f);
-                var fills = w.Thick ? MissileFill : WispFill;
-                var fill = Mul(u < 0.3f ? fills[0] : u < 0.6f ? fills[1] : fills[2], tint);
-                // (a missile's: a swirl now and then, like the other trails)
-                float r = w.R * s * Rng(w.Seed, 2, 0.8f, 1.2f);
-                Add(p, r, fill, w.Thick && (w.Seed & 15) == 0, w.Seed, 3 + (w.Seed % 3));
-                // (a missile's sits in a soft white haze, like the cloud banks, drawn under the puffs)
-                if (w.Thick && (w.Seed & 1) == 0 && Vector3.Dot(p - camPos, camFwd) > 0.5f)
+                Vector3 p = w.P + Vector3.up * (0.6f * t) + right * Rng(w.Seed, 1, -0.5f, 0.5f) * t;
+                var fill = Mul(u < 0.3f ? MissileFill[0] : u < 0.6f ? MissileFill[1] : MissileFill[2], tint);
+                float r = MissilePuffR * s * Rng(w.Seed, 2, 0.8f, 1.2f);
+                Add(p, r, fill, (w.Seed & 15) == 0, w.Seed, 3 + (w.Seed & 1) + ((w.Seed >> 1) & 1));   // (a swirl now and then)
+                // (each sits in a soft white haze, like the cloud banks, drawn under the puffs)
+                if ((w.Seed & 1) == 0 && Vector3.Dot(p - camPos, camFwd) > 0.5f)
                     SoftDisc(p, r * 2f, Mul(new Color(MissileHaze.r, MissileHaze.g, MissileHaze.b, MissileHaze.a * fill.a), tint), 14);
             }
         }
@@ -406,7 +390,7 @@ namespace Ooda.Fx
                 DrawShards(now);
                 Columns(now);
                 PoolPuffs(now);
-                TracerWisps();
+                MissileWisps();
                 blastOrder.Clear();
                 for (int i = 0; i < MaxFlashes; i++) if (flashes[i].On && flashes[i].K == FK.Blast && flashes[i].T0 <= now) blastOrder.Add(i);
                 blastOrder.Sort((x, y) => flashes[y].T0.CompareTo(flashes[x].T0));   // (newest first)

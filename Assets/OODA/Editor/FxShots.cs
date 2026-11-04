@@ -67,19 +67,15 @@ namespace Ooda.EditorTools
 
             // 2b. a burst of tracers going past, and a missile's smoke, as playback lays them (frames 0.02 s apart)
             fx.Clear();
-            var path = new System.Collections.Generic.List<Vector3>();
             const float Dt = 0.02f;
             for (int j = 0; j < 8; j++)   // a packet every 0.05 s, 880 m/s, the oldest furthest on
             {
                 float age = j * 0.05f;
                 Vector3 origin = sky - fwd * 120f + side * 8f + Vector3.up * 3f;
                 Vector3 Pos(float a) => origin + fwd * (880f * (age - a + 0.06f)) + Vector3.down * (4.9f * (age - a) * (age - a));
-                path.Clear();
-                for (int k = 0; k * Dt <= age && k * Dt < ToonFx.TracerSmokeLife; k++) path.Add(Pos(k * Dt));
                 fx.Tracer(Pos(3 * Dt), Pos(0f), new Color(1f, 0.75f, 0.2f, 0.9f), 100 + j);
-                fx.TracerSmoke(path, 0f, Dt, 100 + j, 50000, 1000 - j * 3);
             }
-            path.Clear();
+            var path = new System.Collections.Generic.List<Vector3>();
             for (int k = 0; k * Dt < ToonFx.MissileSmokeLife; k++) path.Add(sky + Vector3.up * 30f + fwd * (60f - k * Dt * 320f) + side * (0.0005f * k * k));
             fx.Tracer(path[0] - fwd * 5f, path[0], new Color(1f, 0.6f, 0.2f, 1f), 900);
             fx.MissileSmoke(path, 0f, Dt, 900, 60000, 1000);

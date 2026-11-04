@@ -1426,7 +1426,7 @@ namespace Ooda.Turn
             {
                 var tr = last.traces[ti];
                 if (tr.missile) { DrawMissile(tr, ti, now, (float)last.dt); continue; }
-                GlowTracer(tr, ti, now, (float)last.dt, TracerColor(tr.owner));
+                GlowTracer(tr, ti, now, TracerColor(tr.owner));
             }
 
             // Hits: a flash where they land, and the damage so far shown as smoke
@@ -1482,25 +1482,13 @@ namespace Ooda.Turn
 
         readonly List<Vector3> smokePath = new List<Vector3>(32);
 
-        /// <summary>
-        /// A round in playback at frame now, as a toon effect (Fx.ToonFx): a glowing streak over its last three frames,
-        /// and behind it a faint smoke trail of puffs where it was, which stays a moment after the round hits or is spent.
-        /// </summary>
-        void GlowTracer(Trace tr, int index, int now, float dt, Color col)
+        /// <summary>A round in playback at frame now, as a toon effect (Fx.ToonFx): a glowing streak over its last three frames.</summary>
+        void GlowTracer(Trace tr, int index, int now, Color col)
         {
-            int last = tr.startFrame + tr.points.Count - 1;
-            if (now < tr.startFrame || dt <= 0f) return;
-            int smokeFrames = Mathf.CeilToInt(Ooda.Fx.ToonFx.TracerSmokeLife / dt);
-            if (now - last > smokeFrames) return;
-            var fx = Ooda.Fx.ToonFx.Get();
-            int seed = index * 7919 + tr.startFrame * 31 + tr.owner;
             var p1 = tr.At(now);
-            if (p1 != null) fx.Tracer(UnityFrame.Pos(tr.At(now - 3) ?? tr.points[0]), UnityFrame.Pos(p1.Value), col, seed);
-            // the smoke: one puff a frame back along its path (newest first), every one aged from when the round was there
-            smokePath.Clear();
-            int k0 = Mathf.Min(now, last);
-            for (int k = k0; k >= tr.startFrame && k > now - smokeFrames; k--) smokePath.Add(UnityFrame.Pos(tr.points[k - tr.startFrame]));
-            fx.TracerSmoke(smokePath, (now - k0) * dt, dt, seed, 50000 + tr.owner, k0);
+            if (p1 == null) return;
+            int seed = index * 7919 + tr.startFrame * 31 + tr.owner;
+            Ooda.Fx.ToonFx.Get().Tracer(UnityFrame.Pos(tr.At(now - 3) ?? tr.points[0]), UnityFrame.Pos(p1.Value), col, seed);
         }
 
         /// <summary>A hit lands: a toon star and sparks; the hit that kills blows the aircraft up.</summary>
