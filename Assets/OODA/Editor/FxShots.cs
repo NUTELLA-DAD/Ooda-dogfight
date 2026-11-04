@@ -10,7 +10,7 @@ namespace Ooda.EditorTools
     /// <summary>
     /// OODA > Effects Shots: opens the TurnBattle scene, wakes its scripts by hand (batch mode has no play loop) and
     /// stages the toon effects (ToonFx) at known ages on a held clock: a blast in the air as it goes from white-hot to
-    /// smoke, a hit, a hurt and a falling aircraft's trails, a wreck burning on the ground and a bombed factory's
+    /// smoke, a hit, tracers and a missile's smoke, a hurt and a falling aircraft's trails, a wreck burning on the ground and a bombed factory's
     /// columns. PNGs go to Shots~ (fx_*.png).
     /// </summary>
     public static class FxShots
@@ -64,6 +64,23 @@ namespace Ooda.EditorTools
             for (int k = 0; k < 4; k++) fx.Hit(sky + fwd * (k * 6f) + Vector3.up * (k * 1.5f), 1f, T - k * 0.07f);
             Look(cam, sky - side * 30f + fwd * 9f, sky + fwd * 9f);
             Save(fx, cam, rt, dir, "fx_hits");
+
+            // 2b. a burst of tracers going past, and a missile's smoke, as playback lays them (frames 0.02 s apart)
+            fx.Clear();
+            const float Dt = 0.02f;
+            for (int j = 0; j < 8; j++)   // a packet every 0.05 s, 880 m/s, the oldest furthest on
+            {
+                float age = j * 0.05f;
+                Vector3 origin = sky - fwd * 120f + side * 8f + Vector3.up * 3f;
+                Vector3 Pos(float a) => origin + fwd * (880f * (age - a + 0.06f)) + Vector3.down * (4.9f * (age - a) * (age - a));
+                fx.Tracer(Pos(3 * Dt), Pos(0f), new Color(1f, 0.75f, 0.2f, 0.9f), 100 + j);
+            }
+            var path = new System.Collections.Generic.List<Vector3>();
+            for (int k = 0; k * Dt < ToonFx.MissileSmokeLife; k++) path.Add(sky + Vector3.up * 30f + fwd * (60f - k * Dt * 320f) + side * (0.0005f * k * k));
+            fx.Tracer(path[0] - fwd * 5f, path[0], new Color(1f, 0.6f, 0.2f, 1f), 900);
+            fx.MissileSmoke(path, 0f, Dt, 900, 60000, 1000);
+            Look(cam, sky - side * 120f + Vector3.up * 15f, sky + Vector3.up * 12f);
+            Save(fx, cam, rt, dir, "fx_tracers");
 
             // 3. trails: a hurt aircraft's grey, a falling one's black, laid down as the view does at 150 m/s
             fx.Clear();
