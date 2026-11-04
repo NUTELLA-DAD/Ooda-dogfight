@@ -276,7 +276,7 @@ namespace Ooda.Turn
             HideSpread();
             if (read == null) return;
             int j = read.target;
-            if (read.spread != null && showProjection && j >= 0 && j < battle.Count && !battle.Out(j))
+            if (read.spread != null && showProjection && j >= 0 && j < battle.Count && !battle.Out(j) && !HiddenFromMe(j))
             {
                 var pr = read.pred[j];
                 for (int k = 1; k < read.spread.Length && k - 1 < spreadHolos.Length; k++)

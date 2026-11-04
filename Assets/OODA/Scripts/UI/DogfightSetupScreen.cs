@@ -91,6 +91,7 @@ namespace Ooda.UI
             }
             if (Kb(k => k.enterKey) || Kb(k => k.numpadEnterKey) || Pad(p => p.buttonSouth) || Pad(p => p.startButton)) return Result.Fly;
             if (Kb(k => k.mKey) || Pad(p => p.selectButton)) mission = !mission;
+            if (Kb(k => k.gKey) || Pad(p => p.leftStickButton)) Chosen.arcade = !Chosen.arcade;
             if (mission) return Result.None;
             if (Kb(k => k.leftArrowKey) || Kb(k => k.aKey) || Pad(p => p.dpad.left)) MoveSel(-1);
             if (Kb(k => k.rightArrowKey) || Kb(k => k.dKey) || Pad(p => p.dpad.right)) MoveSel(1);
@@ -310,8 +311,12 @@ namespace Ooda.UI
             Counter(new Rect(w * 0.25f - 90, bannerY + 60, 180, 30), true);
             Counter(new Rect(w * 0.75f - 90, bannerY + 60, 180, 30), false);
 
-            // VS between them
+            // VS between them, and the Arcade switch under it
             Badge(new Vector2(w / 2, TopH + 96));
+            var arc = new GUIStyle(s.arcade ? tagPicked : tag) { fontSize = 15 };
+            if (GUI.Button(new Rect(w / 2 - 95, TopH + 162, 190, 32), s.arcade ? "ARCADE: ON (G)" : "ARCADE: OFF (G)", arc)) s.arcade = !s.arcade;
+            GUI.DrawTexture(new Rect(w / 2 - 150, TopH + 196, 300, 22), shade);
+            GUI.Label(new Rect(w / 2 - 150, TopH + 197, 300, 20), s.arcade ? "BALLOON MINES · HEAT BLADE · STEALTH" : "STRAIGHT DOGFIGHT: NO SPECIALS", tagSub);
 
             // the name plates: a row above the foot bar in the order they stand, lead nearest the middle (under each
             // pilot's feet they crowd together as the wingmen step back)
@@ -354,7 +359,7 @@ namespace Ooda.UI
             if (GUI.Button(new Rect(w - 268, by + 8, 240, BotH - 16), "READY", ready)) result = Result.Fly;
             GUI.DrawTexture(new Rect(0, by - 26, w, 26), shade);
             Shadow(new Rect(0, by - 25, w, 24), mission ? "Esc closes the mission panel  ·  Enter flies"
-                : "← → pick a pilot  ·  P change pilot  ·  C change aircraft  ·  + − planes on that side  ·  M mission  ·  Enter ready", hint);
+                : "← → pick a pilot  ·  P change pilot  ·  C change aircraft  ·  + − planes on that side  ·  M mission  ·  G arcade  ·  Enter ready", hint);
 
             if (mission) MissionPanel(new Rect(w / 2 - 560, TopH + 20, 1120, by - TopH - 56), s);
             else if (Event.current.type == EventType.MouseDown && Event.current.button == 0)

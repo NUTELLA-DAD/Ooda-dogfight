@@ -82,7 +82,9 @@ namespace Ooda.Turn
                 t.crashedAfter[map[i]] = battle.crashed[i];
             }
             foreach (var tr in last.traces)
-                r.traces.Add(new Trace { owner = tr.owner >= 0 && tr.owner < n ? map[tr.owner] : tr.owner, startFrame = tr.startFrame, points = tr.points, hit = tr.hit, missile = tr.missile });
+                r.traces.Add(new Trace { owner = tr.owner >= 0 && tr.owner < n ? map[tr.owner] : tr.owner, startFrame = tr.startFrame, points = tr.points, hit = tr.hit, missile = tr.missile, age0 = tr.age0 });
+            foreach (var tr in last.flares)
+                r.flares.Add(new Trace { owner = tr.owner >= 0 && tr.owner < n ? map[tr.owner] : tr.owner, startFrame = tr.startFrame, points = tr.points, age0 = tr.age0 });
             foreach (var h in last.hits)
             {
                 var c = h;
@@ -294,13 +296,11 @@ namespace Ooda.Turn
                 DrawPath(r.frames[s], Mathf.Min(now, r.frames[s].Length - 1), col * new Color(1, 1, 1, 0.6f), false);
             }
             DrawExtras(tapeViews, r, now);
-            foreach (var tr in r.traces)
+            for (int ti = 0; ti < r.traces.Count; ti++)
             {
-                var p1 = tr.At(now);
-                if (p1 == null) continue;
-                if (tr.missile) { DrawMissile(tr, now); continue; }
-                var p0 = tr.At(now - 3) ?? tr.points[0];
-                lines.Line(UnityFrame.Pos(p0), UnityFrame.Pos(p1.Value), 0.6f, TapeTracerColor(tr.owner));
+                var tr = r.traces[ti];
+                if (tr.missile) { DrawMissile(tr, ti, now, (float)r.dt); continue; }
+                GlowTracer(tr, ti, now, TapeTracerColor(tr.owner));
             }
 
             double t0 = r.startTime;

@@ -415,6 +415,7 @@ namespace Ooda.Turn
             plan.marks = null;
             plan.missile = false;
             plan.rocket = plan.brake = false;
+            plan.mine = plan.ram = plan.cloak = false;
             markT = 0;
             burstPreset = 0;
             OrdersTurnStarts();
@@ -439,12 +440,12 @@ namespace Ooda.Turn
             int best = -1; double bestR = double.PositiveInfinity;
             for (int i = 1; i < battle.Count; i++)
             {
-                if (battle.side[i] == battle.side[0] || battle.Out(i)) continue;
+                if (battle.side[i] == battle.side[0] || battle.Out(i) || HiddenFromMe(i)) continue;
                 double r = (battle.planes[i].state.pos - battle.planes[0].state.pos).Length + (battle.routes[i] != null ? 1e6 : 0);
                 if (r < bestR) { bestR = r; best = i; }
             }
             focus = best >= 0 ? best : 1;
-            if (pinnedFocus >= 0 && pinnedFocus < battle.Count && !battle.Out(pinnedFocus) && battle.side[pinnedFocus] != battle.side[0]) focus = pinnedFocus;
+            if (pinnedFocus >= 0 && pinnedFocus < battle.Count && !battle.Out(pinnedFocus) && battle.side[pinnedFocus] != battle.side[0] && !HiddenFromMe(pinnedFocus)) focus = pinnedFocus;
             else pinnedFocus = -1;
             var t = views.Length > focus && views[focus] != null ? views[focus].transform : enemy.transform;
             if (view != null) view.enemy = t;
@@ -622,7 +623,7 @@ namespace Ooda.Turn
             lines.Begin();
             if (phase == Phase.Playing) Playback();
             else if (phase == Phase.Planning || phase == Phase.Thinking) DrawPlanning();
-            else DrawLastPaths(last != null ? last.FrameCount - 1 : 0);
+            else { DrawLastPaths(last != null ? last.FrameCount - 1 : 0); RevealAll(); }
             lines.End();
             tip.gameObject.SetActive((phase == Phase.Planning || phase == Phase.Thinking) && !plan.HasMarks && ArrowShown);
             if (phase != Phase.Planning && phase != Phase.Thinking)
@@ -1148,6 +1149,7 @@ namespace Ooda.Turn
         void DrawPlanning()
         {
             ShowAllLive();
+            if (preview == null) SpecialsPlanning();   // (with a preview it is done at the end, over the paths)
             Vector3 c = PlayerPos;
 
             // The reach: a clear middle out to a thin white ring (the hardest clean turn), then a band shaded from white
@@ -1220,7 +1222,7 @@ namespace Ooda.Turn
             }
             for (int i = 1; i < battle.Count; i++)
             {
-                if (battle.Out(i)) continue;
+                if (battle.Out(i) || HiddenFromMe(i)) continue;   // a stealthy enemy: no path, no ghost
                 bool noGhost = i >= holos.Length || holos[i] == null;
                 if (battle.routes[i] != null) DrawPath(preview.frames[i], end, bomberColor, noGhost);
                 else if (battle.side[i] != 0) { if (showProjection) DrawPath(preview.frames[i], end, projectionColor, noGhost); }
@@ -1231,7 +1233,7 @@ namespace Ooda.Turn
             for (int i = 1; i < holos.Length; i++)
             {
                 bool hitByMe = i < burstHits.Length && burstHits[i] && battle.side[i] != battle.side[0];
-                ShowHolo(holos[i], preview.frames[i][end], !battle.Out(i) && (battle.side[i] == 0 || showProjection) && !(sightView && battle.side[i] != battle.side[0]),   // lined up, only the funnel's target shows (ShowFunnelTarget)
+                ShowHolo(holos[i], preview.frames[i][end], !battle.Out(i) && !HiddenFromMe(i) && (battle.side[i] == 0 || showProjection) && !(sightView && battle.side[i] != battle.side[0]),   // lined up, only the funnel's target shows (ShowFunnelTarget)
                          battle.side[i] == 0 ? holoFriendColor : hitByMe ? holoTargetHitColor : holoEnemyColor);
             }
             if (sightView) ShowFunnelTarget();   // lined up: the target's likely moves as models at the funnel's moment
@@ -1240,7 +1242,7 @@ namespace Ooda.Turn
             if (!sightView)
             foreach (var tr in preview.traces)
             {
-                if (tr.owner != 0 && !showProjection) continue;
+                if (tr.owner != 0 && !showProjection || HiddenFromMe(tr.owner)) continue;
                 if (tr.missile) { DrawPreviewTrace(tr, new Color(1f, 1f, 1f, 0.8f), 1.0f, 0.3f); continue; }
                 DrawPreviewTrace(tr, OutcomeColor(tr, TracerColor(tr.owner)), tr.hit ? 0.5f : 0.35f, tr.hit ? 0.5f : 0.1f);
             }
@@ -1254,6 +1256,7 @@ namespace Ooda.Turn
                     DrawPreviewTrace(tr, col, 0.3f, col.a * 0.3f);
                 }
             DrawHazards();
+            SpecialsPlanning();
         }
 
         /// <summary>A preview tracer's whole path; fading to tailAlpha at its far end.</summary>
@@ -1270,15 +1273,30 @@ namespace Ooda.Turn
         /// <summary>A preview tracer's colour by what it does: red if it hits, yellow if it passes close, else the normal colour.</summary>
         Color OutcomeColor(Trace tr, Color normal) => tr.hit ? hitTracer : tr.Near ? nearTracer : normal;
 
-        /// <summary>A missile in playback: a white smoke trail behind it, fading, and a bright head.</summary>
-        void DrawMissile(Trace tr, int now)
+        /// <summary>
+        /// A missile in playback at frame now: its motor a small orange glow, and behind it a trail of light toon smoke
+        /// (Fx.ToonFx) that billows out and lingers a couple of seconds after it hits.
+        /// </summary>
+        void DrawMissile(Trace tr, int index, int now, float dt)
         {
-            var pts = new List<Vector3>();
-            for (int f = Mathf.Max(tr.startFrame, now - 60); f <= now; f += 3) { var p = tr.At(f); if (p != null) pts.Add(UnityFrame.Pos(p.Value)); }
+            int last = tr.startFrame + tr.points.Count - 1;
+            if (now < tr.startFrame || dt <= 0f) return;
+            int smokeFrames = Mathf.CeilToInt(Ooda.Fx.ToonFx.MissileSmokeLife / dt);
+            if (now - last > smokeFrames) return;
+            var fx = Ooda.Fx.ToonFx.Get();
+            int seed = index * 7919 + tr.startFrame * 31 + tr.owner + 17;
             var head = tr.At(now);
-            if (head != null) pts.Add(UnityFrame.Pos(head.Value));
-            if (pts.Count >= 2) lines.Strip(pts, 1.6f, new Color(0.95f, 0.95f, 0.95f, 0.75f), false, new Color(0.9f, 0.9f, 0.9f, 0f));
-            if (head != null) { Vector3 h = UnityFrame.Pos(head.Value); lines.Line(h, h + (h - pts[Mathf.Max(0, pts.Count - 2)]).normalized * 3f, 1.2f, new Color(1f, 0.85f, 0.4f)); }
+            if (head != null)
+            {
+                Vector3 h = UnityFrame.Pos(head.Value), back = UnityFrame.Pos(tr.At(now - 2) ?? tr.points[0]);
+                Vector3 dir = (h - back).sqrMagnitude > 1e-4f ? (h - back).normalized : Vector3.forward;
+                fx.Tracer(h - dir * 5f, h, new Color(1f, 0.6f, 0.2f, 1f), seed);
+            }
+            // its puffs back along its path (newest first)
+            smokePath.Clear();
+            int k0 = Mathf.Min(now, last);
+            for (int k = k0; k >= tr.startFrame && k > now - smokeFrames; k--) smokePath.Add(UnityFrame.Pos(tr.points[k - tr.startFrame]));
+            fx.MissileSmoke(smokePath, (now - k0) * dt, dt, seed, 60000 + index, k0);
         }
 
         Color TracerColor(int owner) => owner == 0 ? myTracer
@@ -1407,14 +1425,11 @@ namespace Ooda.Turn
 
             DrawLastPaths(now);
             DrawExtras(now);
-            foreach (var tr in last.traces)
+            for (int ti = 0; ti < last.traces.Count; ti++)
             {
-                var p1 = tr.At(now);
-                if (p1 == null) continue;
-                if (tr.missile) { DrawMissile(tr, now); continue; }
-                var p0 = tr.At(now - 3) ?? tr.points[0];
-                Vector3 a = UnityFrame.Pos(p0), b = UnityFrame.Pos(p1.Value);
-                lines.Line(a, b, 0.6f, TracerColor(tr.owner));
+                var tr = last.traces[ti];
+                if (tr.missile) { DrawMissile(tr, ti, now, (float)last.dt); continue; }
+                GlowTracer(tr, ti, now, TracerColor(tr.owner));
             }
 
             // Hits: a flash where they land, and the damage so far shown as smoke
@@ -1455,7 +1470,9 @@ namespace Ooda.Turn
             for (int i = 1; i < last.frames.Length; i++)
             {
                 var col = battle.routes[i] != null ? bomberColor : battle.side[i] != 0 ? projectionColor : wingmanColor;
-                DrawPath(last.frames[i], upTo, col * new Color(1, 1, 1, 0.6f), false);
+                var fr = last.frames[i];
+                if (fr != null && fr.Length > 0 && fr[Mathf.Min(upTo, fr.Length - 1)].cloaked && i < battle.Count && battle.side[i] != battle.side[0]) continue;   // a stealthy enemy leaves no path
+                DrawPath(fr, upTo, col * new Color(1, 1, 1, 0.6f), false);
             }
         }
 
@@ -1466,6 +1483,17 @@ namespace Ooda.Turn
             shownHp = (double[])hp.Clone();
             for (int i = 0; i < battle.Count && i < views.Length; i++)
                 if (views[i] != null) views[i].SetSmoke(down[i] ? 2 : hp[i] < battle.combat[i].health * 0.5 ? 1 : 0);
+        }
+
+        readonly List<Vector3> smokePath = new List<Vector3>(32);
+
+        /// <summary>A round in playback at frame now, as a toon effect (Fx.ToonFx): a glowing streak over its last three frames.</summary>
+        void GlowTracer(Trace tr, int index, int now, Color col)
+        {
+            var p1 = tr.At(now);
+            if (p1 == null) return;
+            int seed = index * 7919 + tr.startFrame * 31 + tr.owner;
+            Ooda.Fx.ToonFx.Get().Tracer(UnityFrame.Pos(tr.At(now - 3) ?? tr.points[0]), UnityFrame.Pos(p1.Value), col, seed);
         }
 
         /// <summary>A hit lands: a toon star and sparks; the hit that kills blows the aircraft up.</summary>
@@ -1491,6 +1519,7 @@ namespace Ooda.Turn
             // under the menu the screen is drawn but takes no clicks or keys
             var ev = Event.current.type;
             if (!menuOpen || ev == EventType.Repaint || ev == EventType.Layout) BattleGUI(sw, sh);
+            IrGui(sw, sh);
             if (menuOpen) MenuGUI(sw, sh);
         }
 
@@ -1522,7 +1551,7 @@ namespace Ooda.Turn
             string extra = me.RocketBurning ? "   ROCKET" : me.brakeOut ? "   BRAKE" : "";
             GUI.Label(new Rect(20, 42, 290, 22), $"{me.Kias:F0} KIAS   {me.AltFt:F0} ft   {me.g:F1} G{extra}", label);
             Bar(new Rect(20, 68, 270, 14), shownHp[0] / battle.combat[0].health, new Color(0.3f, 0.9f, 0.3f), "Airframe");
-            Bar(new Rect(20, 88, 270, 14), battle.ammo[0] / battle.combat[0].ammoSec, new Color(0.9f, 0.75f, 0.2f), $"Ammo {battle.ammo[0]:F1} s   Missiles {battle.missiles[0]}");
+            Bar(new Rect(20, 88, 270, 14), battle.ammo[0] / battle.combat[0].ammoSec, new Color(0.9f, 0.75f, 0.2f), $"Ammo {battle.ammo[0]:F1} s   Missiles {battle.missiles[0]}   Flares {battle.flares[0]}");
             Vec3d los = them.state.pos - me.state.pos;
             double range = los.Length;
             double ata = Envelope.Angle(me.Forward, los) * 180 / Math.PI;
@@ -1632,8 +1661,8 @@ namespace Ooda.Turn
                     "Your rounds: red hits, yellow just misses, orange misses. Lead the target.\n" +
                     "Drag on the timeline to fire; F fires where hits are predicted.\n\n" +
                     "Keys: WASD arrow (S pulls up, like the stick), Shift/Ctrl throttle,\n" +
-                    "Space WEP, 1 rocket, 2 speed brake, Tab your next plane, N next target,\n" +
-                    "B bursts, G missile, T timeline, " +
+                    "Space WEP, 1 rocket, 2 speed brake, 3 hold flares, I IR view, Tab next plane, N next target,\n" +
+                    "4 mine, 5 heat blade, 6 stealth, B bursts, G missile, T timeline,\n" +
                     "Enter fly, R replay, P projection, V view, X straight, M mission, H help.\n" +
                     "Drag the view or right-drag to look; wheel zooms. F2: the old arrow.\n" +
                     "Pad: left stick arrow, triggers throttle, A fly, X bursts,\n" +
@@ -1652,6 +1681,8 @@ namespace Ooda.Turn
             Rect advRect = new Rect(px + pw - 230, (showMoves || plan.HasMarks) ? py - 236 : py - 40, 230, 24);
             guiRects.Add(advRect);
             if (GUI.Button(advRect, adv)) showMoves = !showMoves;
+            HeatButtons(px, advRect.y);
+            SpecialButtons(px, advRect.y - 30, pw - 240);
             Rect panel = new Rect(px - 10, py - 10, pw + 20, 178);
             GUI.Box(panel, GUIContent.none);
             guiRects.Add(panel);
@@ -1708,7 +1739,7 @@ namespace Ooda.Turn
             bool lockedNow = battle.LockTarget(0, focus) >= 0;
             string mText;
             if (left <= 0) mText = "Missiles: none left";
-            else if (!plan.missile) mText = $"Missiles: {left} left.  {(lockedNow ? "Seeker has a lock now." : "No lock: get behind one, 1,200 to 9,000 ft, within 30\u00B0 of your nose.")}";
+            else if (!plan.missile) mText = $"Missiles: {left} left.  {(lockedNow ? "Seeker has a lock now." : "No lock: get behind one, 1,200 to 9,000 ft (farther on a hot one), within 30\u00B0 of your nose.")}";
             else
             {
                 var mt = preview?.traces.FirstOrDefault(tr => tr.missile && tr.owner == 0);

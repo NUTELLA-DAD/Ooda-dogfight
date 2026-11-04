@@ -53,7 +53,7 @@ namespace Ooda.Turn.Core
                 double score = tries[k].score + sloppiness * rng.Gauss();
                 if (score > bestScore) { bestScore = score; pick = k; }
             }
-            return Finish(battle, sub, them, tries[pick].plan, turnSec);
+            return Finish(battle, sub, them, tries[pick].plan, turnSec, tries);
         }
 
         /// <summary>
@@ -100,7 +100,7 @@ namespace Ooda.Turn.Core
             {
                 double c = (double)o.wins / draws;
                 if (plans.Count >= most || plans.Count >= always && c < least) break;
-                plans.Add(Finish(battle, sub, them, tries[o.best].plan, turnSec));
+                plans.Add(Finish(battle, sub, them, tries[o.best].plan, turnSec, tries));
                 chance.Add(c); kindList.Add(o.kind); members.Add(o.aims.ToArray());
             }
             return new Prediction { pilot = me, plans = plans.ToArray(), chance = chance.ToArray(), kinds = kindList.ToArray(), members = members.ToArray() };
@@ -165,16 +165,18 @@ namespace Ooda.Turn.Core
         }
 
         /// <summary>The chosen arrow with its burst, and a missile when the target might come into the seeker's cone.</summary>
-        TurnPlan Finish(Battle battle, Battle sub, int them, TurnPlan best, double turnSec)
+        TurnPlan Finish(Battle battle, Battle sub, int them, TurnPlan best, double turnSec, List<Try> tries)
         {
             var m = battle.planes[me];
+            if (Blade(sub, tries, turnSec, out var cut)) return cut;   // a pass that cuts the target in half: nothing else this turn
             Extras(sub, ref best, turnSec);
             PlanBurst(sub, ref best, turnSec);
+            Defend(sub, ref best);
             // a missile at the target whenever it might come into the seeker's cone this turn (it launches only once locked)
             if (battle.missiles[me] > 0 && battle.routes[me] == null)
             {
                 Vec3d r = battle.planes[them].state.pos - m.state.pos;
-                if (r.Length < Missile.MaxRangeFt * 1.2 && Vec3d.Dot(r.Normalized, m.Forward) > Math.Cos(60 * Math.PI / 180))
+                if (!best.cloak && r.Length < Heat.LockRangeFt(battle.HeatOf(them, m.state.pos)) * 1.2 && Vec3d.Dot(r.Normalized, m.Forward) > Math.Cos(60 * Math.PI / 180))
                 { best.missile = true; best.missileTarget = them; }
             }
             return best;
@@ -187,7 +189,7 @@ namespace Ooda.Turn.Core
             var others = new List<(double r, int i)>();
             Vec3d at = battle.planes[me].state.pos;
             for (int j = 0; j < battle.Count; j++)
-                if (j != me && j != them && !battle.Out(j)) others.Add(((battle.planes[j].state.pos - at).Length, j));
+                if (j != me && j != them && !battle.Out(j) && !(battle.side[j] != battle.side[me] && battle.Cloaked(j))) others.Add(((battle.planes[j].state.pos - at).Length, j));
             others.Sort((a, b) => a.r.CompareTo(b.r));
             for (int k = 0; k < others.Count && k < awareOf; k++) if (others[k].r < 9000) keep.Add(others[k].i);
             return keep.ToArray();
@@ -195,7 +197,7 @@ namespace Ooda.Turn.Core
 
         public int Target(Battle battle)
         {
-            if (target >= 0 && !battle.Out(target)) return target;
+            if (target >= 0 && !battle.Out(target) && !battle.Cloaked(target)) return target;
             int mySide = battle.side[me];
             Vec3d at = battle.planes[me].state.pos;
             // where my own side's bombers are, for an escort
@@ -207,7 +209,7 @@ namespace Ooda.Turn.Core
             int best = -1; double bestCost = double.PositiveInfinity;
             for (int j = 0; j < battle.Count; j++)
             {
-                if (battle.side[j] == mySide || battle.Out(j)) continue;
+                if (battle.side[j] == mySide || battle.Out(j) || battle.Cloaked(j)) continue;   // a stealthy one isn't there, as far as it knows
                 bool bomber = battle.routes[j] != null;
                 double cost = (battle.planes[j].state.pos - at).Length;
                 switch (role)
@@ -347,6 +349,53 @@ namespace Ooda.Turn.Core
                 double s = Score(sub, b, turnSec);
                 if (s > baseScore + brakeMargin) plan = b;
             }
+        }
+
+        /// <summary>
+        /// The heat blade: with a charge and the target close, each try flown again red hot; if one cuts the target in half
+        /// (against its projection) and leaves this pilot flying, it takes the best scored of those. Guns cold that turn.
+        /// </summary>
+        bool Blade(Battle sub, List<Try> tries, double turnSec, out TurnPlan cut)
+        {
+            cut = default;
+            if (tries == null || sub.heatBlades[0] <= 0 || sub.routes[0] != null || sub.planes[0].Departed) return false;
+            if ((sub.planes[1].state.pos - sub.planes[0].state.pos).Length > 4500) return false;
+            double bestScore = double.NegativeInfinity; bool found = false;
+            foreach (var t in tries)
+            {
+                var p = t.plan; p.ram = true;
+                var sim = sub.Clone();
+                sim.dispersion = false;
+                sim.Resolve(new TurnPlan?[] { p }, turnSec, false);
+                if (!sim.down[1] || sub.down[1] || sim.down[0] || sim.crashed[0]) continue;
+                if (t.score > bestScore) { bestScore = t.score; cut = p; found = true; }
+            }
+            return found;
+        }
+
+        /// <summary>
+        /// Someone on its tail with guns on it: a balloon mine let go in their path; with no mine left (or hurt), stealth,
+        /// unless it is firing this turn (that would show it again at once).
+        /// </summary>
+        void Defend(Battle sub, ref TurnPlan plan)
+        {
+            if (sub.routes[0] != null) return;
+            var me0 = sub.planes[0];
+            bool tailed = false;
+            for (int j = 0; j < sub.Count; j++)
+            {
+                if (sub.side[j] == sub.side[0] || sub.Out(j)) continue;
+                Vec3d l = me0.state.pos - sub.planes[j].state.pos;   // from them to me
+                double r = l.Length;
+                if (r > 3000 || r < 1) continue;
+                bool theirNoseOnMe = Envelope.Angle(sub.planes[j].Forward, l) < 25 * Math.PI / 180;
+                bool theyreBehind = Envelope.Angle(me0.Forward, l) < 60 * Math.PI / 180;
+                if (theirNoseOnMe && theyreBehind) { tailed = true; break; }
+            }
+            if (!tailed) return;
+            if (sub.balloonMines[0] > 0) { plan.mine = true; return; }
+            bool hurt = sub.health[0] < 0.7 * sub.combat[0].health;
+            if (sub.stealths[0] > 0 && hurt && plan.burstEnd <= plan.burstStart && !plan.missile) plan.cloak = true;
         }
 
         /// <summary>Fire across the part of the turn whose rounds would hit the projected target, if any.</summary>
