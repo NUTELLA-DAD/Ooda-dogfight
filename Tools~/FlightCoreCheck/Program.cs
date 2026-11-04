@@ -94,7 +94,40 @@ static class Program
         var fast = new FlightModel(p, PointMass.Make(new Vec3d(0, 0, 10000), 300, Math.PI / 2));
         for (int i = 0; i < 150; i++) fast.Step(new FlightControls { throttle = 1, pitch = 1 }, 0.02);
         Console.WriteLine($"  full aft at 300 KTAS, 3 s (fast, should not depart yet): {fast.departure}, {fast.g:F1} G, {fast.Kias:F0} KIAS");
+        fails += TurnTable();
         fails += TurnChecks.Run();
+        return fails;
+    }
+
+    // Each fighter's turn, fitted to the wartime figures: sustained (no speed or height lost, WEP), the quickest and
+    // tightest (the G limit at corner speed), and the climb. The order is the historical one.
+    static int TurnTable()
+    {
+        int fails = 0;
+        void Check(bool ok, string what) { if (!ok) fails++; Console.WriteLine($"  {(ok ? "ok  " : "FAIL")} {what}"); }
+        var planes = new[] { AircraftNumbers.SpitfireIX(), AircraftNumbers.Bf109G(), AircraftNumbers.P51D(), AircraftNumbers.P38L(), AircraftNumbers.Phantom() };
+        Console.WriteLine("\nTurn performance (WEP or afterburner)");
+        foreach (double alt in new[] { 0.0, 10000 })
+        {
+            Console.WriteLine($"  at {alt:F0} ft:");
+            foreach (var p in planes)
+            {
+                double s = p.SustainedTurnDps(alt, true, out double at);
+                Console.WriteLine($"    {p.name,-22} sustained {s,5:F1} deg/s ({360 / s,4:F1} s a circle) at {at,3:F0} KIAS; corner {p.CornerKias,3:F0} KIAS: {p.MaxTurnDps(alt),4:F1} deg/s, radius {p.MinTurnRadiusFt(alt),5:F0} ft; climb {p.ClimbFpm(alt, true),5:F0} ft/min");
+            }
+        }
+        double S(AircraftNumbers p) => 360 / p.SustainedTurnDps(0, true);
+        var spit = planes[0]; var bf = planes[1]; var p51 = planes[2]; var p38 = planes[3]; var f4 = planes[4];
+        Check(Math.Abs(S(spit) - 18.5) < 0.6 && Math.Abs(S(bf) - 20.5) < 0.6 && Math.Abs(S(p51) - 22) < 0.6 && Math.Abs(S(p38) - 22) < 0.6,
+            "sea-level circles near the wartime times: Spitfire 18.5 s, Bf 109 20.5 s, Mustang and P-38 22 s");
+        Check(spit.SustainedTurnDps(0, true) > bf.SustainedTurnDps(0, true) && bf.SustainedTurnDps(0, true) > p51.SustainedTurnDps(0, true),
+            "the Spitfire holds a turn best, then the Bf 109, then the Mustang");
+        Check(p38.CornerKias > 230 && p38.MinTurnRadiusFt(0) > p51.MinTurnRadiusFt(0) && spit.MinTurnRadiusFt(0) < p51.MinTurnRadiusFt(0),
+            "the Spitfire turns tightest; the P-38 corners wider than the Mustang");
+        Check(Math.Abs(f4.SustainedTurnDps(0, true) - 14) < 1 && f4.MaxTurnDps(0) > 18 && f4.MaxTurnDps(0) < 21,
+            "the F-4 sustains about 14 deg/s low down and turns about 19.5 deg/s at corner speed");
+        Check(p38.ClimbFpm(0, true) > p51.ClimbFpm(0, true) && spit.ClimbFpm(0, true) > bf.ClimbFpm(0, true),
+            "the P-38 and the Spitfire out-climb the Mustang and the Bf 109");
         return fails;
     }
 }

@@ -123,19 +123,32 @@ static class TurnChecks
             Check(b.crashed[0] && furthest < 1000, "a bridge in the way stops the aircraft and the rounds");
         }
 
+        // Which fight each AI pilot picks, by its aircraft against the other's: turn when it out-turns, go vertical when it out-climbs
+        {
+            FlightModel At(AircraftNumbers n) => new FlightModel(n, PointMass.Make(new Vec3d(0, 0, 8000), Atmosphere.IasToTasKt(280, 8000), 0));
+            var spit = At(AircraftNumbers.SpitfireIX()); var bf = At(AircraftNumbers.Bf109G()); var p51 = At(AircraftNumbers.P51D()); var p38 = At(AircraftNumbers.P38L());
+            Console.WriteLine($"  turning fight wanted (1 turn, 0 vertical): Spitfire v 109 {EnemyAi.TurnerWeight(spit, bf):F2}, 109 v Spitfire {EnemyAi.TurnerWeight(bf, spit):F2}, 109 v Mustang {EnemyAi.TurnerWeight(bf, p51):F2}, Mustang v 109 {EnemyAi.TurnerWeight(p51, bf):F2}, P-38 v Spitfire {EnemyAi.TurnerWeight(p38, spit):F2}, Spitfire v Spitfire {EnemyAi.TurnerWeight(spit, spit):F2}");
+            Check(EnemyAi.TurnerWeight(spit, bf) > 0.5 && EnemyAi.TurnerWeight(bf, spit) < 0.5 && EnemyAi.TurnerWeight(p38, spit) < 0.5 && Math.Abs(EnemyAi.TurnerWeight(spit, spit) - 0.5) < 1e-9,
+                "the Spitfire turns with a 109; the 109 and the P-38 go vertical on a Spitfire; a mirror match is even");
+        }
+
         // Two AI pilots fight from the head-on start
         {
             var fight = Scenarios.HeadOn(new Vec3d(0, -19685, 0));
             var ai0 = new EnemyAi { me = 0, rng = new Lcg(5) };
             var ai1 = new EnemyAi { me = 1 };
             var sw = Stopwatch.StartNew(); double worst = 0;
-            int turn = 0;
+            int turn = 0, ghostTurns = 0, ghosts = 0, spreadTurns = 0, distinctTurns = 0, inSpread = 0; double chanceSum = 0;
             for (; turn < 60 && !fight.Over; turn++)
             {
                 var t0 = sw.Elapsed.TotalMilliseconds;
                 var p0 = ai0.Plan(fight, Scenarios.TurnSec);
+                var pred = ai1.Predict(fight, Scenarios.TurnSec);
                 var p1 = ai1.Plan(fight, Scenarios.TurnSec);
                 worst = Math.Max(worst, (sw.Elapsed.TotalMilliseconds - t0) / 2);
+                ghostTurns++; ghosts += pred.plans.Length; if (pred.plans.Length >= 2) spreadTurns++;
+                if (pred.kinds != null && pred.kinds.Distinct().Count() == pred.kinds.Length) distinctTurns++;
+                int rank = pred.Rank(p1); if (rank >= 0) { inSpread++; chanceSum += pred.chance[rank]; }
                 var r = fight.Resolve(p0, p1, Scenarios.TurnSec);
                 var a = fight.planes[0]; var e = fight.planes[1];
                 double range = (e.state.pos - a.state.pos).Length;
@@ -146,6 +159,9 @@ static class TurnChecks
             string end = fight.crashed[0] ? "P-51 crashed" : fight.crashed[1] ? "Spitfire crashed" : fight.down[0] && fight.down[1] ? "both down" : fight.down[0] ? "P-51 shot down" : fight.down[1] ? "Spitfire shot down" : "no result";
             Console.WriteLine($"  AI vs AI: {end} after {turn} turns; slowest AI plan {worst:F0} ms");
             Check(worst < 1500, "an AI plan takes well under the time a player spends planning");
+            Console.WriteLine($"  the Spitfire's ghosts: {ghosts / (double)ghostTurns:F1} a turn, two or more kinds of move on {spreadTurns} of {ghostTurns} turns; it flew one of them {inSpread} times, at {chanceSum / Math.Max(1, inSpread) * 100:F0}% on average");
+            Check(distinctTurns == ghostTurns && spreadTurns * 2 >= ghostTurns && inSpread == ghostTurns,
+                "each ghost is a different kind of move, most turns show at least two, and the pilot always flies one of them");
         }
         // Escort: the B-17 flies its route up a valley and bends with it; the Spitfire goes for it
         {
@@ -287,20 +303,17 @@ static class TurnChecks
             {
                 var t0 = sw.Elapsed.TotalMilliseconds;
                 var plans = new TurnPlan?[n];
-                bool wasFormed = !fight.formationBroken;
-                fight.CheckBreak();
-                if (wasFormed && fight.formationBroken) Console.WriteLine($"    turn {turn + 1}: the formation breaks, nearest foe {Nearest(fight):F0} ft; widest gap from a slot so far {worstSlot:F0} ft");
-                if (!fight.formationBroken)
-                    for (int i = 0; i < n; i++)
-                        if (fight.slots[i] != null && !fight.Out(i))
-                        {
-                            var sl = fight.slots[i]; var l = fight.planes[sl.leader];
-                            worstSlot = Math.Max(worstSlot, (sl.Where(l.state.pos, l.state.vel) - fight.planes[i].state.pos).Length);
-                        }
+                for (int i = 0; i < n; i++)
+                    if (fight.InFormation(i))
+                    {
+                        var sl = fight.FormationSlot(i); var l = fight.planes[sl.leader];
+                        worstSlot = Math.Max(worstSlot, (sl.Where(l.state.pos, l.state.vel) - fight.planes[i].state.pos).Length);
+                    }
                 System.Threading.Tasks.Parallel.For(0, n, i => { if (ais[i] != null && !fight.Out(i) && !fight.InFormation(i)) plans[i] = ais[i].Plan(fight, Scenarios.TurnSec); });
                 worstTurn = Math.Max(worstTurn, sw.Elapsed.TotalMilliseconds - t0);
                 var wasDown = (bool[])fight.down.Clone(); var hpBefore = (double[])fight.health.Clone();
-                if (!fight.formationBroken) formedTurns++;
+                bool anyFormed = false; for (int i = 0; i < n; i++) anyFormed |= fight.InFormation(i);
+                if (anyFormed) formedTurns++;
                 var r = fight.Resolve(plans, Scenarios.TurnSec);
                 flakHits += r.hits.Count(h => h.shooter < 0); flakOnBombers += r.hits.Count(h => h.shooter < 0 && fight.routes[h.target] != null);
                 for (int i = 0; i < n; i++)

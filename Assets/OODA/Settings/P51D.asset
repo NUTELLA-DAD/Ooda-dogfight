@@ -16,7 +16,7 @@ MonoBehaviour:
     name: P-51D Mustang
     maxG: 8
     minG: -4
-    stallKias: 90
+    stallKias: 88
     negStallKias: 115
     vneKias: 440
     rollPerKtasDps: 0.45
@@ -28,13 +28,13 @@ MonoBehaviour:
     rudderSideG: 0.35
     rudderFullKias: 180
     sideslipDragPerG: 0.05
-    thrustK: 76.4
-    thrustV0Kt: 40
+    thrustK: 86.14
+    thrustV0Kt: 17.9
     thrustDensityExp: 0.9
     thrustFlatSigma: 0.553
     maxStaticThrustPerWeight: 0.45
     wepFactor: 1.15
-    dragA: 0.000001399
-    dragB: 843.6
+    dragA: 0.00000151
+    dragB: 1287
     alphaZeroLiftDeg: -1
     alphaStallDeg: 16

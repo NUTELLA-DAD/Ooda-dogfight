@@ -121,26 +121,93 @@ namespace Ooda.Flight.Core
             return dragA * k * k + dragB * g * g / (k * k);
         }
 
+        /// <summary>The corner speed: the slowest speed that reaches the G limit, so the tightest and quickest turn (KIAS).</summary>
+        public double CornerKias => stallKias * Math.Sqrt(Math.Max(1, maxG));
+
+        /// <summary>Excess power / weight at full throttle (WEP if asked): thrust less drag, at a true airspeed, height and G.</summary>
+        public double ExcessPerWeight(double ktas, double altFt, double g, bool wep)
+        {
+            double kias = Atmosphere.TasToIasKt(ktas, altFt);
+            return (wep ? wepFactor : 1) * ThrustPerWeight(ktas, altFt) - DragPerWeight(kias, g) - WaveDragPerWeight(ktas, altFt, kias);
+        }
+
+        /// <summary>
+        /// The best turn it can hold without losing speed or height at full power (deg/s), over every speed: at each, the G
+        /// where thrust just meets drag, held under the stall line and the G limit. Usually found a little above the stall.
+        /// </summary>
+        public double SustainedTurnDps(double altFt, bool wep, out double atKias)
+        {
+            double best = 0; atKias = stallKias;
+            for (double kias = stallKias + 1; kias < vneKias; kias += 2)
+            {
+                double ktas = Atmosphere.IasToTasKt(kias, altFt);
+                double spare = ExcessPerWeight(ktas, altFt, 0, wep);    // thrust less the zero-lift drag
+                if (spare <= 0) continue;
+                double k = Math.Max(kias, 20), g = Math.Min(Math.Sqrt(spare * k * k / dragB), AvailableG(kias));
+                if (g <= 1) continue;
+                double rate = Math.Sqrt(g * g - 1) * Atmosphere.GFtps2 / (ktas * Atmosphere.KtToFtps) * 180 / Math.PI;
+                if (rate > best) { best = rate; atKias = kias; }
+            }
+            return best;
+        }
+
+        public double SustainedTurnDps(double altFt, bool wep) => SustainedTurnDps(altFt, wep, out _);
+
+        /// <summary>The quickest turn at all (deg/s): the G limit at corner speed, bleeding speed as it goes.</summary>
+        public double MaxTurnDps(double altFt)
+        {
+            double g = Math.Max(1, maxG), v = Atmosphere.IasToTasKt(CornerKias, altFt) * Atmosphere.KtToFtps;
+            return Math.Sqrt(g * g - 1) * Atmosphere.GFtps2 / v * 180 / Math.PI;
+        }
+
+        /// <summary>The tightest turn (ft): the G limit at corner speed.</summary>
+        public double MinTurnRadiusFt(double altFt)
+        {
+            double g = Math.Max(1, maxG), v = Atmosphere.IasToTasKt(CornerKias, altFt) * Atmosphere.KtToFtps;
+            return v * v / (Atmosphere.GFtps2 * Math.Sqrt(g * g - 1));
+        }
+
+        /// <summary>The best climb at full power (ft/min), over every speed.</summary>
+        public double ClimbFpm(double altFt, bool wep)
+        {
+            double best = 0;
+            for (double kias = stallKias + 5; kias < vneKias; kias += 2)
+            {
+                double ktas = Atmosphere.IasToTasKt(kias, altFt);
+                best = Math.Max(best, ExcessPerWeight(ktas, altFt, 1, wep) * ktas * Atmosphere.KtToFtps * 60);
+            }
+            return best;
+        }
+
         /// <summary>
         /// The P-51D Mustang, clean, about 9,200 lb. Seeded from public figures (233 sq ft wing, aspect ratio 5.86,
         /// Cd0 about 0.0163, Oswald e about 0.75, Merlin V-1650-7 1,490 hp military and about 1,720 hp WEP, prop
-        /// efficiency about 0.85, +8/-4 G, stall about 100 mph, peak roll about 100 deg/s). Estimates to tune.
+        /// efficiency about 0.85, +8/-4 G, stall about 100 mph, peak roll about 100 deg/s).
+        /// Turning, top speed and climb are then fitted to the wartime figures (with WEP, at sea level): a 360 in about
+        /// 22 s, 375 mph low down and 437 mph at 25,000 ft, about 3,900 ft/min. The induced drag is an effective one,
+        /// Oswald e near 0.5: the drag polar climbs past the parabola close to the stall, where a sustained turn sits.
         /// </summary>
-        public static AircraftNumbers P51D() => new AircraftNumbers { name = "P-51D Mustang" };
+        public static AircraftNumbers P51D() => new AircraftNumbers
+        {
+            name = "P-51D Mustang",
+            stallKias = 88,
+            thrustK = 86.14, thrustV0Kt = 17.9, dragA = 1.51e-6, dragB = 1287,
+        };
 
         /// <summary>
         /// The Spitfire LF IX, clean, about 7,400 lb. Seeded from public figures (242 sq ft wing, aspect ratio 5.6,
         /// Cd0 about 0.021, Oswald e about 0.8, Merlin 66 about 1,580 hp, about 404 mph at 21,000 ft, stall about
         /// 90 mph, 450 mph IAS dive limit, ailerons heavy at speed so a lower roll cap). Estimates to tune.
         /// It turns tighter and climbs better than the Mustang and is a little slower; the Mustang rolls and dives better.
+        /// Fitted (WEP, sea level) to a 360 in about 18.5 s, 336 mph low down and 404 mph at 21,000 ft, about 4,700 ft/min.
         /// </summary>
         public static AircraftNumbers SpitfireIX() => new AircraftNumbers
         {
             name = "Spitfire IX",
-            maxG = 8, minG = -4, stallKias = 81, negStallKias = 105, vneKias = 390,
+            maxG = 8, minG = -4, stallKias = 76, negStallKias = 99, vneKias = 390,
             rollPerKtasDps = 0.4, maxRollRateDps = 80,
-            thrustK = 98.9, thrustV0Kt = 40, thrustDensityExp = 0.9, thrustFlatSigma = 0.53,
-            maxStaticThrustPerWeight = 0.45, dragA = 2.294e-6, dragB = 650.6,
+            thrustK = 103.85, thrustV0Kt = 13, thrustDensityExp = 0.9, thrustFlatSigma = 0.53,
+            maxStaticThrustPerWeight = 0.45, dragA = 2.47e-6, dragB = 1239,
             alphaStallDeg = 15,
         };
 
@@ -148,16 +215,17 @@ namespace Ooda.Flight.Core
         /// The Bf 109 G-6, clean, about 6,940 lb. Seeded from public figures (173 sq ft wing, aspect ratio 6.1,
         /// Cd0 about 0.024, Oswald e about 0.75, DB 605A about 1,455 hp held to about 18,700 ft, prop efficiency about
         /// 0.8, about 386 mph at 22,600 ft, slats so a clean stall near 105 mph, 750 km/h IAS dive limit, light
-        /// ailerons slow but heavy at high speed). Estimates to tune. It climbs well and is fast low down; the
-        /// Mustang is faster high up, rolls better at speed and out-turns it a little.
+        /// ailerons slow but heavy at high speed). Fitted (WEP, sea level) to a 360 in about 20.5 s, 330 mph low down
+        /// and 386 mph at 22,600 ft, about 3,800 ft/min. It climbs well and holds a turn a little better than the
+        /// Mustang; the Mustang is faster, above all high up, and rolls better at speed.
         /// </summary>
         public static AircraftNumbers Bf109G() => new AircraftNumbers
         {
             name = "Bf 109 G-6",
-            maxG = 7.5, minG = -3.5, stallKias = 90, negStallKias = 112, vneKias = 405,
+            maxG = 7.5, minG = -3.5, stallKias = 88, negStallKias = 110, vneKias = 405,
             rollPerKtasDps = 0.42, maxRollRateDps = 90,
-            thrustK = 92.2, thrustV0Kt = 40, thrustDensityExp = 0.9, thrustFlatSigma = 0.56,
-            maxStaticThrustPerWeight = 0.45, dragA = 2.026e-6, dragB = 824,
+            thrustK = 92.2, thrustV0Kt = 31.5, thrustDensityExp = 0.9, thrustFlatSigma = 0.56,
+            maxStaticThrustPerWeight = 0.45, dragA = 2.33e-6, dragB = 1058,
             alphaStallDeg = 17,
         };
 
@@ -166,19 +234,19 @@ namespace Ooda.Flight.Core
         /// Cd0 about 0.025, Oswald e about 0.8, two Allison V-1710s at 1,425 hp military and about 1,600 hp WEP each,
         /// turbo-supercharged so the power holds to about 25,000 ft, prop efficiency about 0.85, about 414 mph at
         /// 25,000 ft, stall about 105 mph, a low dive limit from compressibility, boosted ailerons but a big heavy
-        /// airframe so a slower roll and G onset). Estimates to tune. A little slower than the Mustang low down and
-        /// faster high up; it climbs well, turns wide and rolls slowly; the counter-rotating propellers make it docile
-        /// in a stall.
+        /// airframe so a slower roll and G onset). Fitted (WEP, sea level) to a 360 in about 22 s, 350 mph low down and
+        /// 414 mph at 25,000 ft, about 4,750 ft/min. It climbs best of the four, holds a turn about as well as the
+        /// Mustang but corners wider and rolls slowly; the counter-rotating propellers make it docile in a stall.
         /// </summary>
         public static AircraftNumbers P38L() => new AircraftNumbers
         {
             name = "P-38L Lightning",
-            maxG = 7, minG = -3.5, stallKias = 95, negStallKias = 120, vneKias = 375,
+            maxG = 7, minG = -3.5, stallKias = 91, negStallKias = 115, vneKias = 375,
             rollPerKtasDps = 0.36, maxRollRateDps = 75, rollFullRateSec = 0.4,
             gOnsetGps = 5, gOnsetAccelGps2 = 20,
             rudderSideG = 0.3,
-            thrustK = 92.9, thrustV0Kt = 40, thrustDensityExp = 0.9, thrustFlatSigma = 0.448,
-            maxStaticThrustPerWeight = 0.4, wepFactor = 1.12, dragA = 1.584e-6, dragB = 760.2,
+            thrustK = 147.15, thrustV0Kt = 33.4, thrustDensityExp = 0.9, thrustFlatSigma = 0.4536,
+            maxStaticThrustPerWeight = 0.4, wepFactor = 1.12, dragA = 2.77e-6, dragB = 1436,
             alphaStallDeg = 16,
             departureSec = 1.0, spinRateDps = 120,
         };
@@ -209,17 +277,19 @@ namespace Ooda.Flight.Core
         /// afterburner, +7.3 G, clean stall about 150 kt, about Mach 1.1 at sea level and Mach 2.2 high up), then made a
         /// little livelier to fly. Jet thrust hardly falls with speed (the big thrustV0Kt), rises with ram and thins with
         /// height; WEP is the afterburner (wepFactor). Estimates to tune by feel: it tops out near 630 kt dry and 705 kt
-        /// in afterburner at sea level, and reaches Mach 2 in about seven minutes of afterburner at 36,000 ft.
+        /// in afterburner at sea level, and reaches Mach 2 in about seven minutes of afterburner at 36,000 ft. Turning is
+        /// fitted to the usual F-4E figures: +7.33 G, a clean stall near 150 KIAS so a corner near 405 KIAS and about
+        /// 19.5 deg/s there at sea level, and about 14 deg/s sustained in afterburner low down (effective Oswald e near 0.5).
         /// </summary>
         public static AircraftNumbers Phantom() => new AircraftNumbers
         {
             name = "F-4 Phantom II",
-            maxG = 7.5, minG = -3, stallKias = 140, negStallKias = 175, vneKias = 750,
+            maxG = 7.33, minG = -3, stallKias = 150, negStallKias = 188, vneKias = 750,
             rollPerKtasDps = 0.55, maxRollRateDps = 200, rollFullRateSec = 0.35,
             gOnsetGps = 8, gOnsetAccelGps2 = 32,
             rudderSideG = 0.3, rudderFullKias = 250,
             thrustK = 2200, thrustV0Kt = 4000, thrustDensityExp = 0.8, thrustFlatSigma = 1.0,
-            maxStaticThrustPerWeight = 99, wepFactor = 1.75, dragA = 9.2e-7, dragB = 3300,
+            maxStaticThrustPerWeight = 99, wepFactor = 1.75, dragA = 9.2e-7, dragB = 5000,
             ramPerMach2 = 0.35, waveRise = 1.5,
             rocketG = 0, brakeG = 1.0,
             alphaZeroLiftDeg = -1, alphaStallDeg = 20,

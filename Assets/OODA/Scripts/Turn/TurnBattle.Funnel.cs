@@ -354,7 +354,7 @@ namespace Ooda.Turn
                 var st = new GUIStyle(tag);
                 st.normal.textColor = on ? hitTracer : new Color(1f, 0.55f, 0.45f, 0.9f);
                 var ga = GuiPoint(UnityFrame.Pos(alt.pos) + shift);
-                if (ga != null) Shadow(new Rect(ga.Value.x + 16, ga.Value.y + 8, 240, 20), on ? $"ON TARGET  {pr.chance[k] * 100:F0}%" : $"{pr.chance[k] * 100:F0}%", st);
+                if (ga != null) Shadow(new Rect(ga.Value.x + 16, ga.Value.y + 8, 240, 20), on ? $"ON TARGET  {Prediction.Percent(pr.chance[k])}" : Prediction.Percent(pr.chance[k]), st);
             }
         }
     }
