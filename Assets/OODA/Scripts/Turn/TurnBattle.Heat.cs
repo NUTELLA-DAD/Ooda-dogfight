@@ -237,7 +237,7 @@ namespace Ooda.Turn
                 foreach (var b in battle.bullets)
                 {
                     if (b is Missile ms) HeatGlow(UnityFrame.Pos(ms.pos), Heat.Missile(ms.age, ms.burnSec));
-                    else if (b is Flare) HeatGlow(UnityFrame.Pos(b.pos), Heat.Flare(b.age));
+                    else if (b is Core.Flare) HeatGlow(UnityFrame.Pos(b.pos), Heat.Flare(b.age));
                 }
 
             irGlowMesh.Clear();
