@@ -80,9 +80,9 @@ namespace Ooda.EditorTools
                 fx.TracerSmoke(path, 0f, Dt, 100 + j, 50000, 1000 - j * 3);
             }
             path.Clear();
-            for (int k = 0; k * 2 * Dt < ToonFx.MissileSmokeLife; k++) path.Add(sky + Vector3.up * 30f + fwd * (60f - k * 2 * Dt * 320f) + side * (0.002f * k * k));
+            for (int k = 0; k * Dt < ToonFx.MissileSmokeLife; k++) path.Add(sky + Vector3.up * 30f + fwd * (60f - k * Dt * 320f) + side * (0.0005f * k * k));
             fx.Tracer(path[0] - fwd * 5f, path[0], new Color(1f, 0.6f, 0.2f, 1f), 900);
-            fx.MissileSmoke(path, 0f, 2 * Dt, 900, 60000, 1000, 2);
+            fx.MissileSmoke(path, 0f, Dt, 900, 60000, 1000);
             Look(cam, sky - side * 120f + Vector3.up * 15f, sky + Vector3.up * 12f);
             Save(fx, cam, rt, dir, "fx_tracers");
 

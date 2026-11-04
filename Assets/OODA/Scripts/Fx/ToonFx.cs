@@ -222,7 +222,7 @@ namespace Ooda.Fx
         readonly List<TracerReq> tracerQ = new List<TracerReq>(256);
         readonly List<WispReq> wispQ = new List<WispReq>(2048);
         int tracerFrame = -1;
-        const int MaxWisps = 1800;
+        const int MaxWisps = 3000;
         /// <summary>How long a tracer's smoke lasts, s.</summary>
         public const float TracerSmokeLife = 0.5f;
         /// <summary>How long a missile's smoke lasts, s.</summary>
@@ -248,23 +248,27 @@ namespace Ooda.Fx
         /// cluster (one aircraft's guns) are drawn as one soft mass.
         /// </summary>
         public void TracerSmoke(IList<Vector3> path, float age0, float dt, int seed, int cluster, int frame0, int frameStep = 1)
-            => Wisps(path, age0, dt, seed, cluster, frame0, frameStep, TracerSmokeLife, 0.7f, false);
+            => Wisps(path, age0, dt, seed, cluster, frame0, frameStep, TracerSmokeLife, 1.0f, false);
 
         /// <summary>
         /// A missile's smoke this frame, as TracerSmoke: a fuller trail of light puffs, white with a cool lavender shade
         /// and no dark ink, in a soft haze like the cloud banks; bigger and slower to go, billowing out as it ages.
         /// </summary>
         public void MissileSmoke(IList<Vector3> path, float age0, float dt, int seed, int cluster, int frame0, int frameStep = 1)
-            => Wisps(path, age0, dt, seed, cluster, frame0, frameStep, MissileSmokeLife, 1.3f, true);
+            => Wisps(path, age0, dt, seed, cluster, frame0, frameStep, MissileSmokeLife, 1.8f, true);
 
         void Wisps(IList<Vector3> path, float age0, float dt, int seed, int cluster, int frame0, int frameStep, float life, float r, bool thick)
         {
             TracerFrame();
+            // (a puff at each point and one halfway to the next, so the trail reads as one stream, not beads)
             for (int i = 0; i < path.Count && wispQ.Count < MaxWisps; i++)
             {
                 float age = age0 + i * dt;
                 if (age >= life) break;
-                wispQ.Add(new WispReq { P = path[i], Age = age, Life = life, R = r, Thick = thick, Seed = seed * 131 + frame0 - i * frameStep, Cluster = cluster });
+                int f = frame0 - i * frameStep;
+                wispQ.Add(new WispReq { P = path[i], Age = age, Life = life, R = r, Thick = thick, Seed = seed * 131 + 2 * f, Cluster = cluster });
+                if (i + 1 < path.Count && age + 0.5f * dt < life)
+                    wispQ.Add(new WispReq { P = Vector3.Lerp(path[i], path[i + 1], 0.5f), Age = age + 0.5f * dt, Life = life, R = r, Thick = thick, Seed = seed * 131 + 2 * f - 1, Cluster = cluster });
             }
         }
 
@@ -324,17 +328,17 @@ namespace Ooda.Fx
                 float mh = dh / pxPerM1, mt = dt / pxPerM1;   // (metres a pixel, at each end)
                 float flick = 0.85f + 0.3f * R01(q.Seed, key);   // (a little shimmer, stepped)
                 Color c = q.C;
-                Color glow = new Color(c.r, c.g, c.b, 0.32f * flick), inner = new Color(c.r, c.g, c.b, 0.6f);
+                Color glow = new Color(c.r, c.g, c.b, 0.4f * flick), inner = new Color(c.r, c.g, c.b, 0.7f);
                 Color hot = Color.Lerp(new Color(c.r, c.g, c.b, 1f), new Color(1f, 0.98f, 0.9f, 1f), 0.6f);
-                float haloH = Mathf.Max(1.1f, 10f * mh) * flick, haloT = Mathf.Max(0.5f, 4f * mt);
-                float coreH = Mathf.Max(0.2f, 2.4f * mh), coreT = Mathf.Max(0.05f, 0.8f * mt);
+                float haloH = Mathf.Max(1.6f, 16f * mh) * flick, haloT = Mathf.Max(0.6f, 5f * mt);
+                float coreH = Mathf.Max(0.25f, 3f * mh), coreT = Mathf.Max(0.05f, 0.8f * mt);
                 // the wide soft glow along the streak, then a tighter brighter one, then the hard white-hot core
                 SoftStroke(tail, head, haloT, haloH, glow);
                 SoftStroke(Vector3.Lerp(tail, head, 0.4f), head, haloT * 0.3f, haloH * 0.45f, inner);
                 pts.Clear(); pts.Add(tail); pts.Add(Vector3.Lerp(tail, head, 0.7f)); pts.Add(head);
                 Stroke(pts, coreT, coreH, hot);
                 // the head: a round soft bloom and a white spot
-                SoftDisc(head, haloH * 0.85f, new Color(c.r, c.g, c.b, 0.45f * flick), 16);
+                SoftDisc(head, haloH * 1.1f, new Color(c.r, c.g, c.b, 0.55f * flick), 16);
                 Circle(head, right, up, coreH * 0.75f, 10, new Color(1f, 0.99f, 0.94f, 1f));
             }
         }

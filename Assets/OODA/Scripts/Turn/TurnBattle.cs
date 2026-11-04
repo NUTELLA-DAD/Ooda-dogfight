@@ -1289,12 +1289,11 @@ namespace Ooda.Turn
                 Vector3 dir = (h - back).sqrMagnitude > 1e-4f ? (h - back).normalized : Vector3.forward;
                 fx.Tracer(h - dir * 5f, h, new Color(1f, 0.6f, 0.2f, 1f), seed);
             }
-            // a puff every other frame back along its path (newest first; on even frames, so each puff stays put)
+            // its puffs back along its path (newest first)
             smokePath.Clear();
             int k0 = Mathf.Min(now, last);
-            k0 -= k0 & 1;
-            for (int k = k0; k >= tr.startFrame && k > now - smokeFrames; k -= 2) smokePath.Add(UnityFrame.Pos(tr.points[k - tr.startFrame]));
-            fx.MissileSmoke(smokePath, (now - k0) * dt, 2f * dt, seed, 60000 + index, k0, 2);
+            for (int k = k0; k >= tr.startFrame && k > now - smokeFrames; k--) smokePath.Add(UnityFrame.Pos(tr.points[k - tr.startFrame]));
+            fx.MissileSmoke(smokePath, (now - k0) * dt, dt, seed, 60000 + index, k0);
         }
 
         Color TracerColor(int owner) => owner == 0 ? myTracer
