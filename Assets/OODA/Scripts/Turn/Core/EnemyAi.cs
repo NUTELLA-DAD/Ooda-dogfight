@@ -153,7 +153,7 @@ namespace Ooda.Turn.Core
             if (battle.missiles[me] > 0 && battle.routes[me] == null)
             {
                 Vec3d r = battle.planes[them].state.pos - m.state.pos;
-                if (r.Length < Missile.MaxRangeFt * 1.2 && Vec3d.Dot(r.Normalized, m.Forward) > Math.Cos(60 * Math.PI / 180))
+                if (r.Length < Heat.LockRangeFt(Heat.Of(battle.planes[them], battle.combat[them], m.state.pos)) * 1.2 && Vec3d.Dot(r.Normalized, m.Forward) > Math.Cos(60 * Math.PI / 180))
                 { best.missile = true; best.missileTarget = them; }
             }
             return best;

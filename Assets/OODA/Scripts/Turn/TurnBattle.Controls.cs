@@ -111,6 +111,7 @@ namespace Ooda.Turn
             bool dpadFree = !showMoves;   // the d-pad scrubs the timeline while it is open
             if (Pressed(Key.Digit1) || Pressed(Key.Numpad1) || (pad != null && dpadFree && pad.dpad.right.wasPressedThisFrame)) ToggleRocket();
             if (Pressed(Key.Digit2) || Pressed(Key.Numpad2) || (pad != null && dpadFree && pad.dpad.left.wasPressedThisFrame)) ToggleBrake();
+            if (Pressed(Key.Digit3) || Pressed(Key.Numpad3)) ToggleFlares();
             if (Pressed(Key.N)) CycleTarget();
             if (Pressed(Key.Tab) || (pad != null && pad.selectButton.wasPressedThisFrame))
                 NextPlane(kb != null && (kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed) ? -1 : 1);
@@ -171,6 +172,7 @@ namespace Ooda.Turn
 
         void DrawExtras(IList<TurnAircraftView> vs, TurnResult r, int now)
         {
+            DrawFlares(r, now);
             for (int k = 0; k < vs.Count && k < r.frames.Length; k++)
             {
                 if (vs[k] == null || r.frames[k] == null) continue;
