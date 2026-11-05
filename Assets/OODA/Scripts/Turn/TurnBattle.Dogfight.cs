@@ -326,7 +326,7 @@ namespace Ooda.Turn
         {
             if (phase != Phase.Planning && phase != Phase.Thinking) return;
             var tag = new GUIStyle(small) { fontStyle = FontStyle.Bold };
-            if (reading != null && read == null) Shadow(new Rect(sw / 2 - 120, sh * 0.16f, 240, 22), "Reading the enemy...", new GUIStyle(label) { alignment = TextAnchor.MiddleCenter });
+            if (reading != null && read == null) Shadow(new Rect(sw / 2 - 120, Mathf.Max(sh * 0.16f, ordersBottom + 30), 240, 22), "Reading the enemy...", new GUIStyle(label) { alignment = TextAnchor.MiddleCenter });
             if (read != null)
             {
                 int j = read.target;

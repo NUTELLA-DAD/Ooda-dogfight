@@ -348,6 +348,7 @@ namespace Ooda.Turn
         }
 
         bool ordersOpen;   // the flight's orders and formations folded out under the roster
+        float ordersBottom;   // where the orders bar (and what is folded out of it) ends this frame, 0 when not shown
 
         /// <summary>
         /// Under the roster: one bar for the flight you're in, with a little picture of its formation, its order and its
@@ -356,6 +357,7 @@ namespace Ooda.Turn
         /// </summary>
         void OrdersGUI(float sw)
         {
+            ordersBottom = 0;
             if (phase != Phase.Planning || flight.Count < 2 || battle.Out(0)) return;
             int f = battle.flightOf[0];
             bool hasFlight = f >= 0 && f < battle.flights.Count;
@@ -366,22 +368,25 @@ namespace Ooda.Turn
             var amber = new Color(1f, 0.85f, 0.2f);
 
             // the folded bar
-            float y = 74, barW = 320;
+            var bs = new GUIStyle(small) { alignment = TextAnchor.MiddleLeft, fontStyle = FontStyle.Bold };
+            bs.normal.textColor = Color.white;
+            string name = hasFlight ? $"{battle.flights[f].name} flight" : CallSign(0);
+            string what = Formations.Name(battle.orders[0]) + (hasFlight ? $"  \u00B7  {Formations.Name(battle.flights[f].shape)}" : "");
+            string barText = $"{name}:  {what}";
+            int planes = Mathf.Clamp(inFlight, 2, 4);
+            float y = 74, barW = Mathf.Max(280, bs.CalcSize(new GUIContent(barText)).x + (hasFlight ? 42 : 10) + 30);
             Rect bar = new Rect((sw - barW) / 2, y, barW, 30);
             guiRects.Add(bar);
             if (GUI.Button(bar, GUIContent.none)) ordersOpen = !ordersOpen;
             float tx = bar.x + 10;
             if (hasFlight)
             {
-                FormationPic(new Rect(bar.x + 6, bar.y + 3, 30, 24), battle.flights[f].shape, amber, Color.white);
+                FormationPic(new Rect(bar.x + 6, bar.y + 3, 30, 24), battle.flights[f].shape, planes, amber, Color.white);
                 tx = bar.x + 42;
             }
-            string name = hasFlight ? $"{battle.flights[f].name} flight" : CallSign(0);
-            string what = Formations.Name(battle.orders[0]) + (hasFlight ? $"  \u00B7  {Formations.Name(battle.flights[f].shape)}" : "");
-            var bs = new GUIStyle(small) { alignment = TextAnchor.MiddleLeft, fontStyle = FontStyle.Bold };
-            bs.normal.textColor = Color.white;
-            GUI.Label(new Rect(tx, bar.y, bar.xMax - tx - 24, bar.height), $"{name}:  {what}", bs);
+            GUI.Label(new Rect(tx, bar.y, bar.xMax - tx - 24, bar.height), barText, bs);
             GUI.Label(new Rect(bar.xMax - 22, bar.y, 18, bar.height), ordersOpen ? "\u25BE" : "\u25B8", bs);
+            ordersBottom = bar.yMax;
             if (!ordersOpen) return;
 
             // folded out: the orders
@@ -403,6 +408,7 @@ namespace Ooda.Turn
                 }
                 x += bw + gap;
             }
+            ordersBottom = y + 30;
             if (!shapes) return;
 
             // and the formations, the flight you lead: a tile each, the shape from above (the lead in amber) over its name
@@ -411,36 +417,42 @@ namespace Ooda.Turn
             total = Formations.All.Length * tw + (Formations.All.Length - 1) * gap;
             x = (sw - total) / 2;
             guiRects.Add(new Rect(x - 6, y - 4, total + 12, th + 8));
-            var ns = new GUIStyle(small) { fontSize = 11, alignment = TextAnchor.MiddleCenter };
+            ordersBottom = y + th;
+            var ns = new GUIStyle(small) { fontSize = 10, alignment = TextAnchor.MiddleCenter, clipping = TextClipping.Clip };
             foreach (var shape in Formations.All)
             {
                 bool now = battle.flights[f].shape == shape;
                 Rect t = new Rect(x, y, tw, th);
                 if (GUI.Button(t, GUIContent.none, now ? on : off)) SetFormation(shape);
                 if (now) { Fill(new Rect(t.x, t.y, t.width, 2), amber); Fill(new Rect(t.x, t.yMax - 2, t.width, 2), amber); }
-                FormationPic(new Rect(t.x + 8, t.y + 4, t.width - 16, th - 22), shape, amber, now ? Color.white : new Color(0.8f, 0.85f, 0.8f));
+                FormationPic(new Rect(t.x + 8, t.y + 4, t.width - 16, th - 22), shape, planes, amber, now ? Color.white : new Color(0.8f, 0.85f, 0.8f));
                 ns.normal.textColor = now ? amber : Color.white;
                 GUI.Label(new Rect(t.x, t.yMax - 18, t.width, 16), Formations.Name(shape), ns);
                 x += tw + gap;
             }
         }
 
-        /// <summary>A formation seen from above, fitted into r: four little planes, the lead (amber) at the front.</summary>
-        static void FormationPic(Rect r, Formation shape, Color lead, Color others)
+        /// <summary>
+        /// A formation seen from above and a little behind, fitted into r: a little plane for each of the flight's planes
+        /// (the lead amber, at the front). The height shows as a lift up the picture, so a stepped-up box and a flat
+        /// diamond don't look the same.
+        /// </summary>
+        static void FormationPic(Rect r, Formation shape, int planes, Color lead, Color others)
         {
             double minX = 0, maxX = 0, minY = 0, maxY = 0;
-            for (int n = 2; n <= 4; n++)
+            Vector2 At(int n) { var q = Formations.Spot(shape, n); return new Vector2((float)q.x, (float)(q.y - q.z * 0.35)); }
+            for (int n = 2; n <= planes; n++)
             {
-                var p = Formations.Spot(shape, n);
+                var p = At(n);
                 minX = System.Math.Min(minX, p.x); maxX = System.Math.Max(maxX, p.x); minY = System.Math.Min(minY, p.y); maxY = System.Math.Max(maxY, p.y);
             }
             const float plane = 8;   // room each little plane needs
             double spanX = System.Math.Max(1e-3, maxX - minX), spanY = System.Math.Max(1e-3, maxY - minY);
             float k = (float)System.Math.Min((r.width - plane) / spanX, (r.height - plane) / spanY);
             float ox = r.center.x - (float)((minX + maxX) / 2) * k, oy = r.center.y - (float)((minY + maxY) / 2) * k;
-            for (int n = 4; n >= 1; n--)
+            for (int n = planes; n >= 1; n--)
             {
-                var p = Formations.Spot(shape, n);
+                var p = At(n);
                 float cx = ox + (float)p.x * k, cy = oy + (float)p.y * k;   // right is right, back is down the picture
                 Color c = n == 1 ? lead : others;
                 Fill(new Rect(cx - 4, cy - 1, 8, 2), c);   // wings
