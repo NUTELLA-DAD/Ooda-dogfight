@@ -5,8 +5,8 @@ using UnityEngine;
 namespace Ooda.Turn
 {
     /// <summary>
-    /// The bottom of the screen as a cockpit: a gunmetal instrument panel that wraps round you, its padded coaming
-    /// curving up at the sides and dipping in the middle where the stick stands in front of it; and round dials set in
+    /// The bottom of the screen as a cockpit: a gunmetal instrument panel shaped as a trapezoid, its padded coaming
+    /// flat across the middle (the stick stands in front of it) and sloping down to the bottom corners; and round dials set in
     /// it either side of the stick: the airspeed indicator and the altimeter on the left, the G meter on the right.
     /// While planning they read where the turn starts; during playback they follow the plane.
     /// </summary>
@@ -17,19 +17,17 @@ namespace Ooda.Turn
         float shownKias, shownAlt, shownG = 1;
         GUIStyle dialNum, dialName;
 
-        /// <summary>The panel behind the controls: its top at the sides, and how far it dips in the middle.</summary>
+        /// <summary>The panel behind the controls: a trapezoid, its flat top just under the stick's grip across the middle half, its sides sloping down to the bottom corners.</summary>
         void CockpitPanel(float sw, float sh)
         {
             if (!ctl.pictures) return;
-            float side = ctl.panelTop, mid = ctl.stick.y + ctl.stick.height * 0.55f;
-            if (mid <= side + 4) mid = side + 4;
-            float dip = Mathf.Round((mid - side) / (sh - side) * 50f) / 50f;   // the shape, a texture made again only when it changes
-            if (panelTex == null || Mathf.Abs(dip - panelTexDip) > 1e-3f) { MakePanelTexture(dip); panelTexDip = dip; }
-            GUI.DrawTexture(new Rect(0, side, sw, sh - side), panelTex, ScaleMode.StretchToFill, true);
+            float top = ctl.stick.y + ctl.stick.height * 0.1f;
+            if (panelTex == null || panelTexDip != 1) { MakePanelTexture(); panelTexDip = 1; }
+            GUI.DrawTexture(new Rect(0, top, sw, sh - top), panelTex, ScaleMode.StretchToFill, true);
         }
 
-        /// <summary>The panel's picture: transparent above the coaming's curve, a dark padded rim along it, gunmetal below.</summary>
-        static void MakePanelTexture(float dip)
+        /// <summary>The panel's picture: transparent above the coaming, a dark padded rim along it, gunmetal below.</summary>
+        static void MakePanelTexture()
         {
             const int W = 512, H = 160;
             if (panelTex == null) panelTex = new Texture2D(W, H, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
@@ -41,7 +39,11 @@ namespace Ooda.Turn
                 for (int x = 0; x < W; x++)
                 {
                     float u = x / (float)(W - 1) * 2 - 1;
-                    float edge = dip * (1 - u * u);       // the coaming: high at the sides, dipping in the middle
+                    // the coaming: flat across the middle half, sloping straight down to near the bottom corners, the bends eased
+                    float a = Mathf.Abs(u), t = Mathf.Clamp01((a - 0.5f) / 0.5f);
+                    float bend = 0.06f;
+                    float slope = a < 0.5f - bend ? 0 : a > 0.5f + bend ? t : Mathf.Pow((a - (0.5f - bend)) / (2 * bend), 2) * bend / 0.5f;
+                    float edge = slope * 0.85f;
                     float d = (v - edge) * H;              // pixels below the edge
                     Color c;
                     if (d < 0) c = new Color(0, 0, 0, Mathf.Clamp01(1 + d));
