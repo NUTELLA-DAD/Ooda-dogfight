@@ -262,7 +262,11 @@ namespace Ooda.Turn.Core
         public bool firing, stalled, departed, down;
         public bool rocket, brake;   // the rocket burning, the speed brake out
         public bool wep;             // war emergency power in (a jet's afterburner lit)
-        public bool ram, cloaked;    // the heat blade glowing; stealthy (unseen by the other side)
+        public bool ram, cloaked;
+        /// <summary>Where the nose points (it leaves the path in vertical flight: a tail slide, a hammerhead); zero in an old recording: along vel.</summary>
+        public Vec3d nose;
+        /// <summary>The nose along vel when it isn't recorded.</summary>
+        public Vec3d Nose => nose.Length > 0.5 ? nose : vel.Normalized;    // the heat blade glowing; stealthy (unseen by the other side)
     }
 
     /// <summary>One packet's path through a turn, for drawing tracers: a point for each frame from startFrame.</summary>

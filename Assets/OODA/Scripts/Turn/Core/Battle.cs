@@ -447,7 +447,7 @@ namespace Ooda.Turn.Core
             {
                 time = time, pos = m.state.pos, vel = m.state.vel, up = m.state.up,
                 alphaDeg = m.AlphaDeg, g = m.g, throttle = m.throttle, firing = firing, stalled = m.stalled, departed = m.Departed, down = down[i],
-                rocket = m.RocketBurning, brake = m.brakeOut, wep = m.wepOn, ram = ramOn[i] && !down[i], cloaked = Cloaked(i),
+                rocket = m.RocketBurning, brake = m.brakeOut, wep = m.wepOn, ram = ramOn[i] && !down[i], cloaked = Cloaked(i), nose = m.Forward,
             };
         }
 

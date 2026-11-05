@@ -38,7 +38,7 @@ namespace Ooda.Turn
         {
             Model.state = m.state; Model.g = m.g; Model.throttle = m.throttle; Model.rollRateDps = 0;
             Wep = false;
-            Place(m.state.pos, m.state.vel, m.state.up, m.AlphaDeg);
+            Place(m.state.pos, m.Forward, m.state.up, m.AlphaDeg);   // the nose (in a tail slide it isn't along the path)
         }
 
         /// <summary>Show a moment between two recorded frames (u from 0 to 1).</summary>
@@ -46,6 +46,7 @@ namespace Ooda.Turn
         {
             Vec3d pos = a.pos + (b.pos - a.pos) * u;
             Vec3d vel = a.vel + (b.vel - a.vel) * u;
+            Vec3d nose = (a.Nose + (b.Nose - a.Nose) * u).Normalized;
             Vec3d up = (a.up + (b.up - a.up) * u).Normalized;
             double alpha = a.alphaDeg + (b.alphaDeg - a.alphaDeg) * u;
             Model.state = new PointMass.State { pos = pos, vel = vel, up = up };
@@ -57,7 +58,7 @@ namespace Ooda.Turn
                 Model.rollRateDps = Vector3.SignedAngle(lastUp, upU, UnityFrame.Dir(vel)) / dt * -1;
             lastUp = upU;
             Crashed = crashed;
-            Place(pos, vel, up, alpha);
+            Place(pos, nose, up, alpha);
         }
 
         Renderer[] rends;

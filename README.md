@@ -63,6 +63,16 @@ With **Arcade** on (the switch under the VS badge in the squadron briefing, or *
 
 The AI pilots use them: a mine when someone is on their tail with guns on them, the jammer when they're out of mines, stealth when they are hurt and out of both (and not firing), and the blade when one of their tries would fly through their target. `Tools~/SpecialsCheck` (`dotnet run`) checks each of them against the battle core, the AI using them, and that they survive a clone, a subset, a swap and a snapshot.
 
+### Rudder pedals, tail slides and hammerheads
+
+There is no stunt button: these come out of the flight model. The **rudder pedals** are the bar above the corner stick (drag it, or hold **Z**/**C**; **X** centres them with the stick). At speed the rudder only skids the nose a little. Pull straight up and let the speed bleed off: below about 120 ft/s with the nose over 50 degrees up the wing has nothing left and the plane flies on its prop and its tail (`FlightModel.StepVertical`). Then:
+
+- **Tail slide**: hold the stick and pedals centred. The plane stops, slides backwards, and the tail weathervanes the nose over and down; at 150 ft/s with the nose along the flight path it flies again.
+- **Hammerhead**: kick a pedal near the top. The prop blast over the rudder swings the nose sideways over the top and straight down, with no slide back. The power matters: a prop's slipstream gives the rudder bite even at a standstill, a jet's doesn't (`propWash`), so the Phantom swings over slower.
+- **Barrel roll**: the stick pulled to a diagonal with the pedal the same way, or bank points on the timeline while pulling.
+
+`Tools~/VerticalCheck` (`dotnet run`) flies each of them through the battle core.
+
 ### The island
 
 The island is 20 km across in three zones. The north is snowy peaks: about 70 copies of the snowy mountain model (`Art/Mountain`), each turned, stretched and sometimes mirrored and overlapping into massifs, with canyons between them. The middle is pine valleys and the chalet lake. The south is farmland (a patchwork of wheat, pasture and meadow with hedgerows), the factory town and the coast. Copies of the grass hill model (`Art/Foothill`) are the foothills and the farmland's swells. The ground under each model is raised to just under it, so the ground check, the AI, the clouds and the trees all treat it as ground.
