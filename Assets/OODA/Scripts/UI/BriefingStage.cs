@@ -56,10 +56,10 @@ namespace Ooda.UI
         /// <summary>A standing pilot from his feet to the base of his skull; the chibi heads add about half again.</summary>
         const float PilotHeadHeight = 1.95f;
 
-        public static bool Taildragger(Craft c) => c == Craft.Mustang || c == Craft.Spitfire || c == Craft.Bf109;
+        public static bool Taildragger(Craft c) => c == Craft.Mustang || c == Craft.Spitfire || c == Craft.Bf109 || c == Craft.Zero;
 
-        /// <summary>The pilot a type usually carries: the wolf in the Spitfire and the Bf 109, the tiger in the rest.</summary>
-        public static PilotKind UsualOf(Craft c) => c == Craft.Spitfire || c == Craft.Bf109 ? PilotKind.Wolf : PilotKind.Tiger;
+        /// <summary>The pilot a type usually carries: the wolf in the Spitfire and the Bf 109, the fox in the Zero, the tiger in the rest.</summary>
+        public static PilotKind UsualOf(Craft c) => c == Craft.Spitfire || c == Craft.Bf109 ? PilotKind.Wolf : c == Craft.Zero ? PilotKind.Fox : PilotKind.Tiger;
 
         // ---------- the set ----------
 

@@ -30,6 +30,9 @@ CFG = {
     # the P-38's long bubble (p38.py splits it off as the canopy): a roomy tub, the tiger well forward under the old arch
     'P38': dict(body='P38_Body', box='P38_Cockpit', canopy='P38_Canopy', a=0.72, y0=-4.62, y1=-1.85, zcut=0.42, floor=-0.25,
                 mount=(0, -3.0, 0.06), scale=1.55, lift=-0.40, interior='p51_green', seat='seat_p51', grip='pistol'),
+    # the Zero's long greenhouse (zero.py splits it off as the canopy): the pilot under its front frames
+    'Zero': dict(body='Zero_Body', box='Zero_Cockpit', canopy='Zero_Canopy', a=0.68, y0=-2.45, y1=0.75, zcut=0.36, floor=-0.30,
+                 mount=(0, -0.95, 0.04), scale=1.55, lift=-0.40, interior='p51_green', seat='seat_p51', grip='pistol'),
 }
 C = CFG[PLANE]
 bpy.ops.wm.open_mainfile(filepath=SRC)

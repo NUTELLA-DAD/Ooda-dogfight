@@ -261,6 +261,25 @@ namespace Ooda.Flight.Core
         };
 
         /// <summary>
+        /// The A6M2 Zero (Model 21), clean, about 5,300 lb. Seeded from public figures (241.5 sq ft wing, aspect ratio 6.4,
+        /// Cd0 about 0.024, Oswald e about 0.8, one Sakae 12 at 940 hp held to about 14,000 ft, no boost to speak of so
+        /// no WEP, prop efficiency about 0.8, stall about 73 mph, a 340 KIAS dive limit, light ailerons that stiffen
+        /// fast so a low roll cap, and a light airframe without armour). Fitted (sea level) to a 360 in about 16 s,
+        /// 290 mph low down and 331 mph at 15,000 ft, about 3,100 ft/min. It out-turns everything and corners slowest
+        /// and tightest; everything else out-runs, out-dives and out-rolls it at speed, and it can't take hits.
+        /// </summary>
+        public static AircraftNumbers A6M2() => new AircraftNumbers
+        {
+            name = "A6M2 Zero",
+            maxG = 7, minG = -3.5, stallKias = 64, negStallKias = 85, vneKias = 340,
+            rollPerKtasDps = 0.45, maxRollRateDps = 70,
+            gOnsetGps = 6.5, gOnsetAccelGps2 = 26,
+            thrustK = 72.0, thrustV0Kt = 22.7, thrustDensityExp = 0.9, thrustFlatSigma = 0.656,
+            maxStaticThrustPerWeight = 0.45, wepFactor = 1.0, dragA = 2.641e-6, dragB = 738,
+            alphaStallDeg = 16,
+        };
+
+        /// <summary>
         /// The B-17G Flying Fortress at a combat weight of about 55,000 lb. Seeded from public figures (1,420 sq ft
         /// wing, aspect ratio 7.6, Cd0 about 0.026 with the turrets, Oswald e about 0.75, four Wright R-1820s at
         /// 1,200 hp each, turbo-supercharged so the power holds to about 25,000 ft, prop efficiency about 0.8, stall

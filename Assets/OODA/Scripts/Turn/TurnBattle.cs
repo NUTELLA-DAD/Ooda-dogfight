@@ -58,8 +58,8 @@ namespace Ooda.Turn
         [Header("Squadron")]
         [Tooltip("Turn-view prefabs (each with a TurnAircraftView) for the extra aircraft: P-51 wingmen, Bf 109s and B-17s.")]
         public GameObject wingmanPrefab, enemyPrefab, bomberPrefab;
-        [Tooltip("The dogfight's other aircraft (the setup screen picks any type for either side): the Spitfire, the F-4 Phantom and the P-38, each with a TurnAircraftView. The P-51 is wingmanPrefab, the Bf 109 enemyPrefab.")]
-        public GameObject spitfirePrefab, phantomPrefab, p38Prefab;
+        [Tooltip("The dogfight's other aircraft (the setup screen picks any type for either side): the Spitfire, the F-4 Phantom, the P-38 and the Zero, each with a TurnAircraftView. The P-51 is wingmanPrefab, the Bf 109 enemyPrefab.")]
+        public GameObject spitfirePrefab, phantomPrefab, p38Prefab, zeroPrefab;
         [Tooltip("Where the flak guns stand; their positions are read at the start.")]
         public Transform[] flakSites;
         public int squadronFighters = 8, squadronBombers = 3;
@@ -389,7 +389,7 @@ namespace Ooda.Turn
         string WepName => battle != null && battle.planes[0].numbers.thrustV0Kt > 1000 ? "BURNER" : "WEP";
 
         /// <summary>The turn view for an aircraft type in the dogfight, or null if the scene has none for it (then the side's usual one stands in).</summary>
-        GameObject CraftPrefab(Craft c) => c == Craft.Spitfire ? spitfirePrefab : c == Craft.Phantom ? phantomPrefab : c == Craft.P38 ? p38Prefab : c == Craft.Bf109 ? enemyPrefab : wingmanPrefab;
+        GameObject CraftPrefab(Craft c) => c == Craft.Spitfire ? spitfirePrefab : c == Craft.Phantom ? phantomPrefab : c == Craft.P38 ? p38Prefab : c == Craft.Zero ? zeroPrefab : c == Craft.Bf109 ? enemyPrefab : wingmanPrefab;
 
         TurnAircraftView Spawn(GameObject prefab, int i)
         {
