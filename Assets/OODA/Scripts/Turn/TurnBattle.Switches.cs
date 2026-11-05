@@ -62,8 +62,8 @@ namespace Ooda.Turn
                 Fill(new Rect(cx - 5, mid - 2, 10, 4), SwShade);
                 float len = (bottom - top) / 2 - 1;
                 Color bat = Color.Lerp(SwPlate, SwMetal, dim);
-                if (on) { Fill(new Rect(cx - 2, mid - len, 4, len), bat); Fill(new Rect(cx - 3, mid - len - 1, 6, 4), Color.white * new Color(1, 1, 1, dim)); }
-                else { Fill(new Rect(cx - 2, mid, 4, len), bat); Fill(new Rect(cx - 3, mid + len - 3, 6, 4), Color.white * new Color(1, 1, 1, dim)); }
+                if (on) { Fill(new Rect(cx - 3, mid - len, 6, len), bat); Fill(new Rect(cx - 5, mid - len - 2, 10, 6), Color.white * new Color(1, 1, 1, dim)); }
+                else { Fill(new Rect(cx - 3, mid, 6, len), bat); Fill(new Rect(cx - 5, mid + len - 4, 10, 6), Color.white * new Color(1, 1, 1, dim)); }
                 if (kind == SwitchKind.Guarded)
                 {
                     if (on) Fill(new Rect(cx - 10, top - 3, 20, 3), SwGuard);   // the guard flipped up out of the way
@@ -71,8 +71,8 @@ namespace Ooda.Turn
                     {
                         // the guard down over the switch, striped
                         Rect g = new Rect(cx - 10, top, 20, bottom - top);
-                        Fill(g, new Color(SwGuard.r, SwGuard.g, SwGuard.b, 0.88f * (enabled ? 1f : 0.6f)));
-                        for (float yy = g.y + 3; yy < g.yMax - 1; yy += 6) Fill(new Rect(g.x + 2, yy, g.width - 4, 2), new Color(0.35f, 0.02f, 0.02f, 0.9f));
+                        Fill(g, new Color(SwGuard.r, SwGuard.g, SwGuard.b, 0.6f * (enabled ? 1f : 0.6f)));   // see-through: the switch shows under it
+                        Fill(new Rect(g.x, g.y, g.width, 2), SwGuard); Fill(new Rect(g.x, g.yMax - 2, g.width, 2), SwGuard); Fill(new Rect(g.x, g.y, 2, g.height), SwGuard); Fill(new Rect(g.xMax - 2, g.y, 2, g.height), SwGuard);
                     }
                 }
             }

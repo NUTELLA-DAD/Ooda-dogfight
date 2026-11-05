@@ -218,7 +218,7 @@ MonoBehaviour:
   overpullColor: {r: 1, g: 0.15, b: 0.1, a: 1}
   textureHeight: 512
   stickCamera: {x: 0, y: 1.1, z: -2.28}
-  throttleCamera: {x: -0.33, y: 1.2, z: -2.65}
+  throttleCamera: {x: 1.89, y: 1.2, z: -1.89}
   lookAt: {x: 0, y: 0.5, z: 0}
   fieldOfView: 25
 --- !u!1 &4892307559992949718

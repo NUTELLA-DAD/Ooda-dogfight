@@ -1842,7 +1842,7 @@ namespace Ooda.Turn
             // the fire button and the missile's guarded arm switch, at the right of the box
             SwitchRow(px + pw - 2 * 60 - SwitchGap, ty - 2, 2 * 60 + SwitchGap, new List<SwitchSpec>
             {
-                Sw("FIRE", "F  at hits", false, true, LampRed, FireAtPredicted, SwitchKind.Push),
+                Sw("FIRE", "F", false, true, LampRed, FireAtPredicted, SwitchKind.Push),
                 Sw("MISSILE", $"G  ({left})", plan.missile, left > 0, LampRed, () => ArmMissile(!plan.missile), SwitchKind.Guarded),
             });
         }
