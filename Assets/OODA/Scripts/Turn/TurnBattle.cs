@@ -688,6 +688,8 @@ namespace Ooda.Turn
             public Rect weapons;                     // the gun MFD, bottom right; the switch row sits above it
             public float weaponsRowW;                // how wide the switch row over it may be (right-aligned)
             public float stickTop;                   // the top of the middle (the stick's caption), for text and the timeline above it
+            public Rect asi, alt, gmeter;            // the dials in the panel (zero when there is no room for them)
+            public float panelTop;                   // the cockpit panel's top at the sides
         }
 
         ControlsLayout ctl;
@@ -716,6 +718,19 @@ namespace Ooda.Turn
                 float ww = Mathf.Min(mw, side);
                 c.weapons = new Rect(sw - CtlMargin - ww, sh - CtlBottom - mh, ww, mh);
                 c.stickTop = c.stick.y - 20;
+                c.panelTop = Mathf.Min(Mathf.Min(c.throttle.y - 20, c.quadrant.y), c.weapons.y - SwitchH - 6) - 12;
+                // the dials either side of the stick: airspeed and altitude on the left, the G meter on the right
+                float lx0 = c.quadrant.xMax + 14, lx1 = Mathf.Min(c.stick.x, c.pedals.x) - 14;
+                float rx0 = Mathf.Max(c.stick.xMax, c.pedals.xMax) + 14, rx1 = c.weapons.x - 14;
+                float d = Mathf.Min(130f, (lx1 - lx0 - 10) / 2, rx1 - rx0, h * 0.55f);
+                if (d >= 60)
+                {
+                    float dy = sh - CtlBottom - 14 - d;
+                    float lmid = (lx0 + lx1) / 2;
+                    c.asi = new Rect(lmid - d - 5, dy, d, d);
+                    c.alt = new Rect(lmid + 5, dy, d, d);
+                    c.gmeter = new Rect((rx0 + rx1) / 2 - d / 2, dy, d, d);
+                }
                 return c;
             }
             // no room for the pictures: the quadrant bottom left, the weapons beside it, and the arrow to steer
@@ -733,6 +748,8 @@ namespace Ooda.Turn
             ctl = LayoutControls(sw, sh, gauge != null && gauge.StickTexture != null);
             stickRect = pedalRect = throttleRect = Rect.zero;
             if (!ctl.pictures || !gauge.Visible) return;
+            CockpitPanel(sw, sh);
+            Instruments();
             Rect left = ctl.throttle, mid = ctl.stick;
             float sk = gauge.Shake;   // the shaker rattles the stick's picture too, harder the deeper you pull
             float jig = sk * 9f;
