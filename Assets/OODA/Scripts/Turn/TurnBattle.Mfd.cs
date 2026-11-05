@@ -170,6 +170,7 @@ namespace Ooda.Turn
         /// </summary>
         void MfdFunnel(Rect v)
         {
+            Rect clip = new Rect(v.x, v.y, v.width, v.height - 14);   // the lines stop above the range line along the bottom
             var c = new Vector2(v.center.x, v.y + v.height * 0.42f);   // the gun cross a little high, like a gunsight's
             float k = Mathf.Min(v.width, v.height) * 0.5f / Mathf.Tan(5f * Mathf.Deg2Rad);   // px per unit of angle: ±5° fills it, like a gunsight
             // the gun cross
@@ -201,7 +202,7 @@ namespace Ooda.Turn
                 if (h0 != null && h1 != null)
                 {
                     Vector2 a = h0.Value, b = h1.Value;
-                    for (float t = 0; t < 1; t += 0.08f) MfdLine(Vector2.Lerp(a, b, t), Vector2.Lerp(a, b, t + 0.05f), 1, MfdDim, v);
+                    for (float t = 0; t < 1; t += 0.08f) MfdLine(Vector2.Lerp(a, b, t), Vector2.Lerp(a, b, t + 0.05f), 1, MfdDim, clip);
                 }
             }
 
@@ -235,8 +236,8 @@ namespace Ooda.Turn
             {
                 Vector2? a0 = P(stream[i - 1].at - right * half), a1 = P(stream[i].at - right * half);
                 Vector2? b0 = P(stream[i - 1].at + right * half), b1 = P(stream[i].at + right * half);
-                if (a0 != null && a1 != null) MfdLine(a0.Value, a1.Value, 2, col, v);
-                if (b0 != null && b1 != null) MfdLine(b0.Value, b1.Value, 2, col, v);
+                if (a0 != null && a1 != null) MfdLine(a0.Value, a1.Value, 2, col, clip);
+                if (b0 != null && b1 != null) MfdLine(b0.Value, b1.Value, 2, col, clip);
             }
             foreach (double tick in new[] { 1000.0, 2000.0 })
             {
@@ -244,8 +245,8 @@ namespace Ooda.Turn
                 if (i <= 0) continue;
                 Vector2? a = P(stream[i].at - right * half), b = P(stream[i].at + right * half);
                 if (a == null || b == null) continue;
-                MfdLine(a.Value, b.Value, 1, new Color(col.r, col.g, col.b, 0.8f), v);
-                if (v.Contains(b.Value)) GUI.Label(new Rect(b.Value.x + 3, b.Value.y - 6, 20, 12), (tick / 1000).ToString("0"), dim);
+                MfdLine(a.Value, b.Value, 1, new Color(col.r, col.g, col.b, 0.8f), clip);
+                if (clip.Contains(b.Value)) GUI.Label(new Rect(b.Value.x + 3, b.Value.y - 6, 20, 12), (tick / 1000).ToString("0"), dim);
             }
 
             // the target where it is then: its wings across, its fin up
@@ -263,10 +264,10 @@ namespace Ooda.Turn
                         // never smaller than a little plane mark, so a far one still shows
                         Vector2 half2 = (w1.Value - w0.Value) / 2;
                         if (half2.magnitude < 6) half2 = half2.magnitude < 1e-3f ? new Vector2(6, 0) : half2.normalized * 6;
-                        MfdLine(mid.Value - half2, mid.Value + half2, 2, tc, v);
+                        MfdLine(mid.Value - half2, mid.Value + half2, 2, tc, clip);
                         Vector2 finV = fin != null ? fin.Value - mid.Value : Vector2.zero;
                         if (finV.magnitude < 4) finV = new Vector2(-half2.y, half2.x).normalized * 4 * (finV.y > 0 ? 1 : -1);
-                        MfdLine(mid.Value, mid.Value + finV, 2, tc, v);
+                        MfdLine(mid.Value, mid.Value + finV, 2, tc, clip);
                     }
                     double range = (them.pos - me.pos).Length;
                     bool inside = mid != null && v.Contains(mid.Value);
