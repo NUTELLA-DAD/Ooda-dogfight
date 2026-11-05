@@ -1883,6 +1883,18 @@ namespace Ooda.Turn
             Fill(new Rect(0, 0, sw, sh), new Color(0.4f, 0.4f, 0.4f, a * 0.35f));
         }
 
+        /// <summary>
+        /// The cockpit annunciator's lamp k (0 engine, 1 fuel, 2 controls, 3 wings) for the plane you fly: its colour as the
+        /// systems lights show it, and the fuel lamp's countdown while the tanks leak.
+        /// </summary>
+        void SystemLightState(int k, ref Color lamp, ref string text)
+        {
+            if (battle == null) return;
+            var s = Shown(0); var id = (SystemId)k;
+            lamp = s.IsOut(id) || id == SystemId.Engine && s.EngineDead ? sysOut : s.IsDamaged(id) ? sysHurt : sysOk;
+            if (id == SystemId.Fuel && s.Leaking && !s.IsOut(id) && !battle.Out(0)) text = $"FUEL {s.leakLeftSec:F0}";
+        }
+
         Systems Shown(int i) => i >= 0 && i < shownSys.Length ? shownSys[i] : battle.SystemsOf(i);
 
         GUIStyle sysText, sysPale;
