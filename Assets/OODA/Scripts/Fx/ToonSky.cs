@@ -171,7 +171,7 @@ namespace Ooda.Fx
         /// </summary>
         static Mesh BankMesh(List<Bounds> pieces, int seed, Kind kind, bool tall, out int count)
         {
-            var verts = new List<Vector3>(512); var uv0 = new List<Vector4>(512); var uv1 = new List<Vector4>(512); var uv2 = new List<Vector4>(512);
+            var verts = new List<Vector3>(512); var uv0 = new List<Vector4>(512); var uv1 = new List<Vector4>(512); var uv2 = new List<Vector4>(512); var uv3 = new List<Vector3>(512);
             var tris = new List<int>(768);
             float top = float.MinValue, maxR = 0f, bankBase = float.MaxValue, widest = 0f;
             foreach (var p in pieces)
@@ -338,6 +338,7 @@ namespace Ooda.Fx
             for (int i = 0; i < verts.Count; i += 4) if (uv1[i].w < 3.5f) far = Mathf.Max(far, Vector3.Distance(verts[i], heart));
             for (int i = 0; i < verts.Count; i++)
             {
+                uv3.Add(heart);
                 var v = uv2[i];
                 v.z = uv1[i].w > 3.5f ? 0f : Vector3.Distance(verts[i], heart) / far;
                 uv2[i] = v;
@@ -350,6 +351,7 @@ namespace Ooda.Fx
             mesh.SetUVs(0, uv0);
             mesh.SetUVs(1, uv1);
             mesh.SetUVs(2, uv2);
+            mesh.SetUVs(3, uv3);
             mesh.SetTriangles(tris, 0, false);
             box.Expand(maxR * 2f);
             float span = KindDrift[kind == Kind.Rain ? 1 : (int)kind].y;

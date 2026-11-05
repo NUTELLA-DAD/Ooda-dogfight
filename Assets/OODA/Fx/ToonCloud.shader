@@ -41,8 +41,8 @@ Shader "Ooda/ToonCloud"
 
         // the puff's centre in POSITION (all four corners the same);
         // uv0: corner (-1/+1, -1/+1), radius, seed (0-1); uv1: the base it is cut flat at, the bank's top, lobes, kind;
-        // uv2: stretch across, the bank's phase (0-1), how far out from the bank's heart (0-1)
-        struct Attributes { float4 positionOS : POSITION; float4 uv0 : TEXCOORD0; float4 uv1 : TEXCOORD1; float4 uv2 : TEXCOORD2; };
+        // uv2: stretch across, the bank's phase (0-1), how far out from the bank's heart (0-1); uv3: the bank's heart
+        struct Attributes { float4 positionOS : POSITION; float4 uv0 : TEXCOORD0; float4 uv1 : TEXCOORD1; float4 uv2 : TEXCOORD2; float3 uv3 : TEXCOORD3; };
         struct Varyings
         {
             float4 positionCS : SV_POSITION;
@@ -66,14 +66,19 @@ Shader "Ooda/ToonCloud"
             float4 drift = _KindDrift[ki];
             float u = frac(t * drift.x / drift.y + phase);
             float life = smoothstep(0.0, 0.14, u) * (1.0 - smoothstep(0.86, 1.0, u));
-            float3 cw = TransformObjectToWorld(a.positionOS.xyz) + float3(_ToonWind.x, 0, _ToonWind.z) * ((u - 0.5) * drift.y);
+            float3 cw = TransformObjectToWorld(a.positionOS.xyz);
             float R = a.uv0.z;
             if (!rain)
             {
-                // (it forms from its heart outward and dissolves from its edges in: uv2.z is how far out this puff is)
+                // a forming bank is the whole cloud small, grown about its heart (its puffs still overlapping), its outer
+                // puffs swelling in last; dissolving, the same backwards
+                float g = lerp(0.2, 1.0, smoothstep(0.0, 1.0, life));
+                float3 heart = TransformObjectToWorld(a.uv3);
+                cw = heart + (cw - heart) * g;
                 float lifeP = saturate((life * 1.6 - a.uv2.z * 0.6) * 1.5);
-                R *= lifeP * (1.0 + drift.w * sin(t * drift.z + seed * 40.0));
+                R *= g * lerp(0.5, 1.0, lifeP) * step(0.02, life) * (1.0 + drift.w * sin(t * drift.z + seed * 40.0));
             }
+            cw += float3(_ToonWind.x, 0, _ToonWind.z) * ((u - 0.5) * drift.y);
             float3 cv = TransformWorldToView(cw);
             float dist = max(-cv.z, 0.01);
             float mPerPx = dist / (abs(UNITY_MATRIX_P[1][1]) * 0.5 * _ScreenParams.y);
@@ -104,7 +109,7 @@ Shader "Ooda/ToonCloud"
             float under = smoothstep(0.25, 0.5, normalize(cw - GetCameraPositionWS()).y);
             float baseY = a.uv1.x - under * 4.0 * R;
             // fly into a puff and it thins away (dithered) rather than filling the screen; a rain shaft fades with its storm
-            float fade = rain ? life : saturate((length(cv) - R * 0.55) / (R * 0.5));
+            float fade = rain ? life : saturate((length(cv) - R * 0.6) / (R * 0.9));
             o.d = float4(baseY, a.uv1.y, a.uv1.z, fade);
             // the lit tone sits toward the sun, always a little up (light from above even with the sun behind you)
             float3 s = mul((float3x3)UNITY_MATRIX_V, _ToonSunDir.xyz);
