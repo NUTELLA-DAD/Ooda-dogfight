@@ -93,7 +93,7 @@ namespace Ooda.UI
         void MakePedals()
         {
             var model = Resources.Load<GameObject>("Pedals");
-            var tex = Resources.Load<Texture2D>("Pedals_BaseColor");
+            var tex = Resources.Load<Texture2D>("Pedals_BaseColor") ?? Resources.Load("Pedals_BaseColor") as Texture2D;
             if (model == null || stick == null) return;
             // a big OBJ comes in as several meshes (Unity splits it at 65k vertices): take every part
             var parts = model.GetComponentsInChildren<MeshFilter>(true);
@@ -115,6 +115,7 @@ namespace Ooda.UI
                 body.AddComponent<MeshFilter>().sharedMesh = part.sharedMesh;
                 body.AddComponent<MeshRenderer>().sharedMaterial = mat;
             }
+            Debug.Log($"OODA: pedals: {parts.Length} mesh parts, {(tex != null ? $"colour map {tex.width}x{tex.height}" : "NO colour map (Resources/Pedals_BaseColor)")}, shader {mat.shader.name}");
             pedalsRoot = root.transform;
             pedalsCam = MakeCamera("PedalsCamera", pedalsRoot, pedalsCamera, out var pt, PedalsAspect, pedalsLookAt);
             PedalsTexture = pt;

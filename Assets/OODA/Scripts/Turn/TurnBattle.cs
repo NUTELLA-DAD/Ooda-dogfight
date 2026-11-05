@@ -1691,21 +1691,24 @@ namespace Ooda.Turn
             string themName = EnemyName(focus);
 
             // Left: the player's aircraft
-            Rect panel = new Rect(10, 10, 300, 170);
+            // the player's own systems row, unless they're the lamps along the dash; the rows under it close up
+            bool ownRow = !ctl.pictures || ctl.lights.width <= 0;
+            float u = ownRow ? 0 : 20;
+            Rect panel = new Rect(10, 10, 300, 170 - u);
             guiRects.Add(panel);
             GUI.Box(panel, GUIContent.none);
             GUI.Label(new Rect(20, 14, 290, 26), $"{(flight.Count > 1 ? FlightName(0) : DogfightSetup.Short(DogfightSetup.Of(battle.planes[0].numbers)))}   Turn {battle.turn + (phase == Phase.Planning ? 1 : 0)}", title);
             string extra = me.RocketBurning ? "   ROCKET" : me.brakeOut ? "   BRAKE" : "";
             GUI.Label(new Rect(20, 42, 290, 22), $"{me.Kias:F0} KIAS   {me.AltFt:F0} ft   {me.g:F1} G{extra}", label);
-            if (!ctl.pictures || ctl.lights.width <= 0) SystemsRow(new Rect(20, 68, 270, 14), Shown(0), battle.Out(0));   // in the cockpit they're the lamps along the dash
-            Bar(new Rect(20, 88, 270, 14), battle.ammo[0] / battle.combat[0].ammoSec, new Color(0.9f, 0.75f, 0.2f), $"Ammo {battle.ammo[0]:F1} s   Missiles {battle.missiles[0]}   Flares {battle.flares[0]}");
+            if (ownRow) SystemsRow(new Rect(20, 68, 270, 14), Shown(0), battle.Out(0));
+            Bar(new Rect(20, 88 - u, 270, 14), battle.ammo[0] / battle.combat[0].ammoSec, new Color(0.9f, 0.75f, 0.2f), $"Ammo {battle.ammo[0]:F1} s   Missiles {battle.missiles[0]}   Flares {battle.flares[0]}");
             Vec3d los = them.state.pos - me.state.pos;
             double range = los.Length;
             double ata = Envelope.Angle(me.Forward, los) * 180 / Math.PI;
             double aa = Envelope.Angle(them.Forward, los) * 180 / Math.PI;
-            GUI.Label(new Rect(20, 108, 290, 22), $"{themName} {range:F0} ft, {ata:F0}° off your nose", label);
-            GUI.Label(new Rect(20, 128, 290, 22), $"You are {aa:F0}° off its tail ({(aa < 45 ? "behind it" : aa > 135 ? "in front of it" : "beside it")})", label);
-            SystemsRow(new Rect(20, 152, 270, 14), Shown(focus), battle.Out(focus), themName);
+            GUI.Label(new Rect(20, 108 - u, 290, 22), $"{themName} {range:F0} ft, {ata:F0}° off your nose", label);
+            GUI.Label(new Rect(20, 128 - u, 290, 22), $"You are {aa:F0}° off its tail ({(aa < 45 ? "behind it" : aa > 135 ? "in front of it" : "beside it")})", label);
+            SystemsRow(new Rect(20, 152 - u, 270, 14), Shown(focus), battle.Out(focus), themName);
             if (Bombing)
             {
                 var bi = Enumerable.Range(0, battle.Count).Where(i => battle.routes[i] != null).ToList();
@@ -1716,18 +1719,18 @@ namespace Ooda.Turn
                     if (battle.side[i] == 0) { oursAll++; if (!battle.Out(i)) ours++; } else { theirsAll++; if (!battle.Out(i)) theirs++; }
                 }
                 float bh = 48 + 20 * bi.Count;
-                Rect bp = new Rect(10, 184, 300, bh);
+                Rect bp = new Rect(10, 184 - u, 300, bh);
                 guiRects.Add(bp);
                 GUI.Box(bp, GUIContent.none);
                 var lead = bi.FirstOrDefault(i => !battle.Out(i));
                 var route = battle.routes[lead];
                 string togo = route.Done ? "through" : $"waypoint {route.next} of {route.points.Length - 1}";
-                GUI.Label(new Rect(20, 188, 290, 22), $"P-51s {ours}/{oursAll}   Bf 109s {theirs}/{theirsAll}   {togo}", label);
+                GUI.Label(new Rect(20, 188 - u, 290, 22), $"P-51s {ours}/{oursAll}   Bf 109s {theirs}/{theirsAll}   {togo}", label);
                 for (int k = 0; k < bi.Count; k++)
-                    SystemsRow(new Rect(20, 214 + 20 * k, 270, 14), Shown(bi[k]), battle.Out(bi[k]), $"B-17 {k + 1}");
-                helpTop = 184 + bh + 6;
+                    SystemsRow(new Rect(20, 214 - u + 20 * k, 270, 14), Shown(bi[k]), battle.Out(bi[k]), $"B-17 {k + 1}");
+                helpTop = 184 - u + bh + 6;
             }
-            else helpTop = 190;
+            else helpTop = 190 - u;
             StrikePanel(sw);
 
             // Right: buttons
