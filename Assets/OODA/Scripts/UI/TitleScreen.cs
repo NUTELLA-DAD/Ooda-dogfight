@@ -13,7 +13,7 @@ namespace Ooda.UI
     /// <summary>
     /// The opening screen: the squadron's close formation (the P-51s' two finger-fours over the B-17 vic, laid out as
     /// Scenarios.Squadron lays them out) flying up the valley route on rails, a camera that cuts between slow cinematic
-    /// shots every few seconds, and the title with a mission picker. Enter, Space or pad A starts the chosen mission in
+    /// shots every few seconds, and the title with a mission picker (Dogfight, the default, or Squadron Battle). Enter, Space or pad A starts the chosen mission in
     /// the turn battle, which reads it from ChosenMission.
     /// </summary>
     public partial class TitleScreen : MonoBehaviour
@@ -38,16 +38,13 @@ namespace Ooda.UI
         [Tooltip("The squadron's spacing, scaled down for the camera: tighter than the battle flies it.")]
         public float formationScale = 0.65f;
 
-        static readonly string[] Missions = { "Squadron", "Escort", "Dogfight", "Valley Run", "Town Strike" };
-        static readonly string[] MissionNotes =
-        {
-            "8 P-51s and 3 B-17s against 8 Bf 109s and the flak",
-            "you and one B-17 against a Bf 109",
-            "dogfight",
-            "you and a wingman low in the valley after two Bf 109s, among the wires and balloons",
-            "plan a hidden path to the factory in the town, past the radar and the patrol",
-        };
-        int pick;
+        // The menu offers two missions: the dogfight (the default) and the squadron battle. The others (Escort, Valley Run,
+        // Town Strike) are still in the battle, M cycles to them there, and the self-tests below can start them.
+        static readonly int[] Menu = { 2, 0 };   // TurnBattle.Mission numbers, left to right
+        static readonly string[] MenuNames = { "Dogfight", "Squadron Battle" };
+        const string SquadronNote = "8 P-51s and 3 B-17s against 8 Bf 109s and the flak";
+        int pick = 2;   // a TurnBattle.Mission number: the dogfight by default
+        int MenuIndex => Mathf.Max(0, System.Array.IndexOf(Menu, pick));
 
         struct Member { public Transform t; public Vector3 offset; public float phase; }   // offset: right, up, back from the lead bomber (m)
         readonly List<Member> members = new List<Member>();
@@ -160,8 +157,8 @@ namespace Ooda.UI
             if (setup.open) { SetupKeys(setup.Keys()); return; }   // the dogfight's briefing has the keys while it is up
             if (kb != null && kb.oKey.wasPressedThisFrame) { OpenLobby(); return; }
             if (kb != null && kb.tKey.wasPressedThisFrame) { PlayTutorial(); return; }
-            if ((kb != null && (kb.leftArrowKey.wasPressedThisFrame || kb.aKey.wasPressedThisFrame)) || (pad != null && pad.dpad.left.wasPressedThisFrame)) pick = (pick + Missions.Length - 1) % Missions.Length;
-            if ((kb != null && (kb.rightArrowKey.wasPressedThisFrame || kb.dKey.wasPressedThisFrame)) || (pad != null && pad.dpad.right.wasPressedThisFrame)) pick = (pick + 1) % Missions.Length;
+            if ((kb != null && (kb.leftArrowKey.wasPressedThisFrame || kb.aKey.wasPressedThisFrame)) || (pad != null && pad.dpad.left.wasPressedThisFrame)) pick = Menu[(MenuIndex + Menu.Length - 1) % Menu.Length];
+            if ((kb != null && (kb.rightArrowKey.wasPressedThisFrame || kb.dKey.wasPressedThisFrame)) || (pad != null && pad.dpad.right.wasPressedThisFrame)) pick = Menu[(MenuIndex + 1) % Menu.Length];
             if (pick == 2)
             {
                 // the dogfight's sides: up and down yours, page up and down (or the bumpers) theirs (the briefing sets the rest)
@@ -315,12 +312,12 @@ namespace Ooda.UI
             if (lobbyOpen) { LobbyGUI(sw, sh); return; }
             if (GUI.Button(new Rect(24, sh - 72, 212, 48), "Online (O)", button)) OpenLobby();
             if (GUI.Button(new Rect(24, sh - 128, 212, 48), "Training (T)", picked)) PlayTutorial();   // new players start here
-            float bw = 190, gap = 16, total = Missions.Length * bw + (Missions.Length - 1) * gap;
+            float bw = 260, gap = 16, total = Menu.Length * bw + (Menu.Length - 1) * gap;
             float x = (sw - total) / 2, y = sh - 230;
-            for (int i = 0; i < Missions.Length; i++)
-                if (GUI.Button(new Rect(x + i * (bw + gap), y, bw, 48), (i == pick ? "▶ " : "") + Missions[i], i == pick ? picked : button)) pick = i;
+            for (int i = 0; i < Menu.Length; i++)
+                if (GUI.Button(new Rect(x + i * (bw + gap), y, bw, 48), (Menu[i] == pick ? "▶ " : "") + MenuNames[i], Menu[i] == pick ? picked : button)) pick = Menu[i];
             var dog = DogfightSetupScreen.Chosen;
-            string what = pick != 2 ? MissionNotes[pick]
+            string what = pick != 2 ? SquadronNote
                 : $"{dog.Ours} v {dog.Theirs}: {DogfightSetup.Describe(dog.ours)} against {DogfightSetup.Describe(dog.theirs)}. Play to set it up.";
             Shadowed(new Rect(0, y + 56, sw, 30), what, note);
             if (Application.CanStreamedLevelBeLoaded(jetScene) && GUI.Button(new Rect(sw - 236, sh - 72, 212, 48), "Jet Test (J)", button)) PlayJet();
