@@ -32,7 +32,7 @@ namespace Ooda.Fx
         /// <summary>The wind the banks ride (they all drift this way).</summary>
         public static readonly Vector3 Wind = new Vector3(0.8f, 0f, 0.6f);
         // per kind: drift speed (m/s), the span it drifts over while it forms and dissolves (m), billow rate, billow size
-        static readonly Vector4[] KindDrift = { new Vector4(7f, 1800f, 0.45f, 0.07f), new Vector4(4f, 1200f, 0.8f, 0.09f), new Vector4(18f, 5000f, 0.3f, 0.04f), new Vector4(3f, 700f, 0.35f, 0.06f) };
+        static readonly Vector4[] KindDrift = { new Vector4(9f, 3500f, 0.45f, 0.07f), new Vector4(6f, 2500f, 0.8f, 0.09f), new Vector4(24f, 9000f, 0.3f, 0.04f), new Vector4(4f, 1200f, 0.35f, 0.06f) };
 
         // heights (m) the kinds live at: AlpineWorld.MakeClouds puts the low banks a few hundred metres over the low ground,
         // and the three bands at 2600-3300, 3500-4200 and 4600-5400
@@ -181,25 +181,37 @@ namespace Ooda.Fx
                 widest = Mathf.Max(widest, Mathf.Max(p.extents.x, p.extents.z));
             }
             // a storm is its own shape, far bigger than the bank it grew from: a tower several times as tall as it is wide
-            float T = widest * 1.3f, towerH = T * 5.5f;
+            float T = widest * 2.6f, towerH = T * 5.5f;
             if (kind == Kind.Storm) top = bankBase + towerH;
             else if (kind == Kind.Cumulus && tall) top = bankBase + (top - bankBase) * 1.6f;
-            var box = pieces[0];
+            Vector3 mid0 = Vector3.zero;
+            foreach (var p in pieces) mid0 += p.center;
+            mid0 /= pieces.Count;
+            // how much bigger it is drawn: across, and up
+            Vector2 grow = kind == Kind.Cumulus ? Vector2.one * (tall ? 3.5f : 3f) : kind == Kind.Low ? new Vector2(2.5f, 1.6f) : kind == Kind.Cirrus ? new Vector2(4f, 2f) : Vector2.one;
+            float topOut = bankBase + (top - bankBase) * grow.y;
+            var box = new Bounds(new Vector3(mid0.x, bankBase, mid0.z), Vector3.one);
             float phase = R01(seed, 7);
             int made = 0;
             Vector3 wind = Wind.normalized;
 
             // (one flat base for the whole bank: cut at each piece's own height, a bank seen from below is a stack of slices)
+            // (the layouts work at the size of the cloud model's copies; the clouds are drawn several times bigger, as big as
+            // the mountains: grown about the middle of the bank's base, wider than tall for the flat kinds)
             void Puff(Vector3 c, float r, int s, Kind k, float stretch = 1f, float cut = float.NaN)
             {
                 int m = verts.Count;
                 float shape = R01(s, 1), lobes = 3 + (int)(R01(s, 2) * 2.99f);
                 float baseY = float.IsNaN(cut) ? bankBase : cut;
+                c = new Vector3(mid0.x + (c.x - mid0.x) * grow.x, bankBase + (c.y - bankBase) * grow.y, mid0.z + (c.z - mid0.z) * grow.x);
+                if (cut > float.MinValue) baseY = bankBase + (baseY - bankBase) * grow.y;
+                r *= grow.y;
+                stretch *= grow.x / grow.y;
                 for (int i = 0; i < 4; i++)
                 {
                     verts.Add(c);
                     uv0.Add(new Vector4(i == 0 || i == 3 ? -1 : 1, i < 2 ? -1 : 1, r, shape));
-                    uv1.Add(new Vector4(baseY, top, lobes, (float)k));
+                    uv1.Add(new Vector4(baseY, topOut, lobes, (float)k));
                     uv2.Add(new Vector4(stretch, phase, 0, 0));
                 }
                 tris.Add(m); tris.Add(m + 2); tris.Add(m + 1); tris.Add(m); tris.Add(m + 3); tris.Add(m + 2);

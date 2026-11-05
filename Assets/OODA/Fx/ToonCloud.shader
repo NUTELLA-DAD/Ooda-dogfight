@@ -103,7 +103,7 @@ Shader "Ooda/ToonCloud"
             float under = smoothstep(0.25, 0.5, normalize(cw - GetCameraPositionWS()).y);
             float baseY = a.uv1.x - under * 4.0 * R;
             // fly into a puff and it thins away (dithered) rather than filling the screen; a rain shaft fades with its storm
-            float fade = rain ? life : saturate((length(cv) - R * 0.7) / (R * 0.9));
+            float fade = rain ? life : saturate((length(cv) - R * 0.55) / (R * 0.5));
             o.d = float4(baseY, a.uv1.y, a.uv1.z, fade);
             // the lit tone sits toward the sun, always a little up (light from above even with the sun behind you)
             float3 s = mul((float3x3)UNITY_MATRIX_V, _ToonSunDir.xyz);
