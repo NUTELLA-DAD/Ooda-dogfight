@@ -23,7 +23,7 @@ namespace Ooda.Turn
         int lessonNo, stepNo;
         bool lessonDone;
         int stepTurnStart, hardTurns;
-        double foeHpAtStep;
+        double foeWearAtStep;
         bool hardAtCommit;
         bool coachFolded;
         GUIStyle coachHead, coachBody, coachDim, coachGoal, coachDone, coachNow, coachNext;
@@ -72,7 +72,7 @@ namespace Ooda.Turn
         {
             stepTurnStart = battle.turn;
             hardTurns = 0;
-            foeHpAtStep = battle.Count > 1 ? battle.health[1] : 0;
+            foeWearAtStep = battle.Count > 1 ? battle.SystemsOf(1).Total : 0;
         }
 
         /// <summary>At Fly turn: whether this turn was planned with a hard pull, out of the red.</summary>
@@ -119,7 +119,7 @@ namespace Ooda.Turn
             var look = new Tutorial.Look
             {
                 battle = battle, plan = plan, env = env, planning = phase == Phase.Planning, burstHits = burstHits,
-                turns = battle.turn - stepTurnStart, hardTurns = hardTurns, foeHealthAtStep = foeHpAtStep, foe = 1,
+                turns = battle.turn - stepTurnStart, hardTurns = hardTurns, foeWearAtStep = foeWearAtStep, foe = 1,
             };
             if (!Tutorial.Met(step, look)) return;
             stepNo++;

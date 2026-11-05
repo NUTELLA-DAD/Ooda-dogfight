@@ -79,8 +79,8 @@ namespace Ooda.Turn.Core
             public double sloppiness = 0.5;
             /// <summary>For an armed foe: its rounds' damage, as a share of the real thing.</summary>
             public double damageScale = 1;
-            /// <summary>The foe's airframe (0: its usual). The drone is flimsy so the guns lesson doesn't drag.</summary>
-            public double foeHealth;
+            /// <summary>The foe's toughness (0: its usual; see CombatNumbers.toughness). The drone is flimsy so the guns lesson doesn't drag.</summary>
+            public double foeToughness;
             /// <summary>Where your throttle starts (the dogfight starts at full).</summary>
             public double throttle = 1;
             /// <summary>The foe's throttle (held all fight for the drone; where the AI starts): below full it is slower, and easier to catch.</summary>
@@ -160,7 +160,7 @@ namespace Ooda.Turn.Core
                 foe = Foe.Drone,
                 start = Scenarios.Start.Offensive,
                 range = DogfightSetup.Range.Close,
-                foeHealth = 5,
+                foeToughness = 5,
                 foeThrottle = 0.3,
                 steps = new[]
                 {
@@ -199,7 +199,7 @@ namespace Ooda.Turn.Core
                 start = Scenarios.Start.HeadOn,
                 sloppiness = 0.3,
                 damageScale = 0.6,
-                foeHealth = 8,
+                foeToughness = 8,
                 arcade = true,
                 steps = new[]
                 {
@@ -236,11 +236,10 @@ namespace Ooda.Turn.Core
                 var c = b.combat[i].Copy();
                 if (l.foe != Foe.Armed) c.ammoSec = 0;
                 c.damage *= l.damageScale;
-                if (l.foeHealth > 0) c.health = l.foeHealth;
+                if (l.foeToughness > 0) c.toughness = l.foeToughness;
                 c.missiles = 0;
                 c.balloonMines = c.heatBlades = c.stealths = 0;
                 b.combat[i] = c;
-                b.health[i] = c.health;
                 b.ammo[i] = c.ammoSec;
                 b.missiles[i] = 0;
                 b.balloonMines[i] = b.heatBlades[i] = b.stealths[i] = 0;
@@ -272,8 +271,8 @@ namespace Ooda.Turn.Core
             public int turns;
             /// <summary>Turns flown since this step began that were planned with a hard pull out of the red.</summary>
             public int hardTurns;
-            /// <summary>The foe's airframe when this step began.</summary>
-            public double foeHealthAtStep;
+            /// <summary>The harm to the foe's systems when this step began (Systems.Total).</summary>
+            public double foeWearAtStep;
             /// <summary>The foe (the plane the coach means), usually 1.</summary>
             public int foe;
         }
@@ -317,7 +316,7 @@ namespace Ooda.Turn.Core
                 case Goal.FullPower: return k.planning && k.plan.throttle >= 0.99 && k.plan.wep;
                 case Goal.OnSix: return k.planning && OnSix(b, 0, k.foe, out _, out _, out _);
                 case Goal.BurstOnTarget: return k.planning && k.plan.burstEnd > k.plan.burstStart && k.burstHits > 0;
-                case Goal.HitTarget: return b.health[k.foe] < k.foeHealthAtStep || b.Out(k.foe);
+                case Goal.HitTarget: return b.SystemsOf(k.foe).Total > k.foeWearAtStep + 1e-9 || b.Out(k.foe);
                 case Goal.KillTarget: return alive && b.Out(k.foe);
                 case Goal.Escape: return k.planning && (PullsHard(k.plan, k.env) || k.plan.brake || k.plan.rocket || k.plan.mine);
                 case Goal.Survive: return alive && k.turns >= s.turns;

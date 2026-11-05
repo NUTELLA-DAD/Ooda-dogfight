@@ -40,7 +40,7 @@ static class Program
             bool caught = r.hits.Any(h => h.shooter == 0 && h.target == 1 && h.damage == Specials.MineDamage);
             for (int t = 0; t < 3 && !caught; t++)
                 caught = b.Resolve(new TurnPlan?[] { Ahead(b, 0), Ahead(b, 1) }, 3).hits.Any(h => h.shooter == 0 && h.target == 1 && h.damage == Specials.MineDamage);
-            Check(caught, $"a 109 following 1,200 ft behind flies into it ({b.health[1]:F1} of {b.combat[1].health} left)");
+            Check(caught, $"a 109 following 1,200 ft behind flies into it (its worst system {b.SystemsOf(1).Worst:F2} worn)");
             Check(mine == null || mine.vel.Length < 60, $"it hangs nearly still in the air ({(mine == null ? 0 : mine.vel.Length):F0} ft/s)");
 
             var c = Tail(1200);
@@ -58,7 +58,7 @@ static class Program
             d.side[1] = 0;   // a wingman behind, not an enemy
             d.Resolve(new TurnPlan?[] { drop, Ahead(d, 1) }, 3);
             for (int t = 0; t < 3; t++) d.Resolve(new TurnPlan?[] { Ahead(d, 0), Ahead(d, 1) }, 3);
-            Check(d.health[1] == d.combat[1].health, "a wingman flies through it unharmed");
+            Check(!d.SystemsOf(1).Hurt, "a wingman flies through it unharmed");
 
             var e = Tail(1200);
             e.balloonMines[0] = 0;
@@ -77,7 +77,7 @@ static class Program
             double ammo = b.ammo[0];
             var r = b.Resolve(new TurnPlan?[] { ram, Ahead(b, 1) }, 3);
             Check(b.down[1] && !b.down[0], "with it lit: the 109 is cut in half and the P-51 flies on");
-            Check(r.hits.Any(h => h.shooter == 0 && h.target == 1) && b.health[1] <= 0, "recorded as a kill for the P-51");
+            Check(r.hits.Any(h => h.shooter == 0 && h.target == 1) && b.SystemsOf(1).Lost, "recorded as a kill for the P-51");
             Check(b.ammo[0] == ammo && r.traces.Count == 0, "the guns stay cold while it glows");
             Check(b.heatBlades[0] == Specials.Blades - 1 && r.frames[0].Skip(1).All(f => f.ram), "it uses a charge and glows all turn");
             Check(!b.ramOn[0], "and cools when the turn ends");
@@ -163,7 +163,7 @@ static class Program
             b.balloonMines[0] = 0; ai.Forget();
             p = ai.Plan(b, 3);
             Check(p.jam && !p.mine, "no mines left: it sets off the jammer");
-            b.jammers[0] = 0; b.health[0] = 5; ai.Forget();
+            b.jammers[0] = 0; b.planes[0].systems.Wear(SystemId.Controls, 0.6); ai.Forget();
             p = ai.Plan(b, 3);
             Check(p.cloak && !p.mine && !p.jam, "no mines or jammer left, and hurt: it goes stealthy");
 

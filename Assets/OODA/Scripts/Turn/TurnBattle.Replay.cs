@@ -34,7 +34,7 @@ namespace Ooda.Turn
         class TapeTurn
         {
             public TurnResult result;     // frames, traces and hits, by tape index
-            public double[] hpBefore;      // by tape index
+            public Systems[] sysBefore;    // by tape index
             public bool[] crashedAfter;    // by tape index
             public float Sec => (float)((result.FrameCount - 1) * result.dt);
         }
@@ -44,12 +44,11 @@ namespace Ooda.Turn
         readonly List<TurnAircraftView> tapeViews = new List<TurnAircraftView>();
         readonly List<int> tapeSide = new List<int>();
         readonly List<bool> tapeBomber = new List<bool>();
-        readonly List<double> tapeMaxHp = new List<double>();
 
         /// <summary>At a restart, once the views are laid out: an empty tape, in this order.</summary>
         void TapeStarts()
         {
-            tape.Clear(); tapePlanes.Clear(); tapeViews.Clear(); tapeSide.Clear(); tapeBomber.Clear(); tapeMaxHp.Clear();
+            tape.Clear(); tapePlanes.Clear(); tapeViews.Clear(); tapeSide.Clear(); tapeBomber.Clear();
             for (int i = 0; i < battle.Count; i++) TapeIndex(i);
         }
 
@@ -61,11 +60,10 @@ namespace Ooda.Turn
             tapeViews.Add(i < views.Length ? views[i] : null);
             tapeSide.Add(battle.side[i]);
             tapeBomber.Add(battle.routes[i] != null);
-            tapeMaxHp.Add(battle.combat[i].health);
             return tapePlanes.Count - 1;
         }
 
-        /// <summary>Right after a turn is resolved (healthBefore is the health it started with): a copy of it on the tape.</summary>
+        /// <summary>Right after a turn is resolved (systemsBefore holds the systems it started with): a copy of it on the tape.</summary>
         void RecordTurn()
         {
             if (last == null) return;
@@ -74,11 +72,11 @@ namespace Ooda.Turn
             for (int i = 0; i < n; i++) map[i] = TapeIndex(i);
             int m = tapePlanes.Count;
             var r = new TurnResult { startTime = last.startTime, dt = last.dt, frames = new AircraftFrame[m][] };
-            var t = new TapeTurn { result = r, hpBefore = new double[m], crashedAfter = new bool[m] };
+            var t = new TapeTurn { result = r, sysBefore = new Systems[m], crashedAfter = new bool[m] };
             for (int i = 0; i < n && i < last.frames.Length; i++) r.frames[map[i]] = last.frames[i];
             for (int i = 0; i < n; i++)
             {
-                t.hpBefore[map[i]] = i < healthBefore.Length ? healthBefore[i] : battle.health[i];
+                t.sysBefore[map[i]] = i < systemsBefore.Length ? systemsBefore[i] : battle.SystemsOf(i);
                 t.crashedAfter[map[i]] = battle.crashed[i];
             }
             foreach (var tr in last.traces)
@@ -154,7 +152,7 @@ namespace Ooda.Turn
                     tapeViews[s].ShowFrame(fr[Mathf.Max(0, e - 1)], fr[e], 1, 0, fr[e].down && r.crashedAfter[s]);
                 }
             }
-            UpdateSmoke(battle.health, battle.down);
+            UpdateSmoke(battle.AllSystems(), battle.down);
             FocusNearest();
         }
 
@@ -304,19 +302,20 @@ namespace Ooda.Turn
             }
 
             double t0 = r.startTime;
-            var hp = (double[])t.hpBefore.Clone();
+            var sys = (Systems[])t.sysBefore.Clone();
             foreach (var h in r.hits)
             {
                 double ht = h.time - t0;
-                if (h.target >= 0 && h.target < hp.Length && ht <= rT) hp[h.target] -= h.damage;
+                bool on = h.target >= 0 && h.target < sys.Length;
+                if (on && ht <= rT) Battle.Apply(ref sys[h.target], h);
                 if (ht > rPrevT && ht <= rT)
                 {
-                    Flash(UnityFrame.Pos(h.pos), h.target >= 0 && h.target < hp.Length && hp[h.target] <= 0 && hp[h.target] + h.damage > 0);
-                    if (h.target >= 0 && h.target < hp.Length) TapeReact(h, hp[h.target] <= 0);
+                    Flash(UnityFrame.Pos(h.pos), h.downed);
+                    if (on) TapeReact(h, sys[h.target].Lost);
                 }
             }
             for (int s = 0; s < tapeViews.Count; s++)
-                if (tapeViews[s] != null) tapeViews[s].SetSmoke(down[s] ? 2 : s < hp.Length && hp[s] < tapeMaxHp[s] * 0.5 ? 1 : 0);
+                if (tapeViews[s] != null) tapeViews[s].SetSmoke(down[s] ? 2 : s < sys.Length && sys[s].AnyDamaged ? 1 : 0);
             if (rT > rPrevT) StrikePlayback(t0 + rPrevT, t0 + rT);
         }
 

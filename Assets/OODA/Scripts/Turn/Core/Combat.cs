@@ -4,7 +4,7 @@ using Ooda.Flight.Core;
 namespace Ooda.Turn.Core
 {
     /// <summary>
-    /// An aircraft's guns and how much it takes to bring down. Rounds fly as "packets", one every packetSec,
+    /// An aircraft's guns and how tough it is (see Systems). Rounds fly as "packets", one every packetSec,
     /// each standing for the guns' combined fire in that slice of time. Estimates to tune by feel.
     /// </summary>
     [Serializable]
@@ -20,7 +20,8 @@ namespace Ooda.Turn.Core
         public double ammoSec = 18;         // seconds of trigger
         public double lifeSec = 2.5;        // packets are gone after this (spent, out of range)
         public double dragPerSec = 0.3;     // the round's speed falls by this share each second (exponential)
-        public double health = 12;          // damage the airframe takes before it goes down
+        /// <summary>How much the airframe takes: each system (Systems) is knocked out by Battle.SystemShare of it, the wings by WingsShare.</summary>
+        public double toughness = 12;
         public int missiles = 2;             // heat-seekers carried (a game liberty: no WW2 fighter had them)
         public int flares = 6;               // flares to decoy a heat-seeker with (the same liberty)
         /// <summary>The arcade specials carried (see Specials): balloon mines, heat-blade charges and stealth charges. None unless Specials.Arm gives them (a dogfight with Arcade on).</summary>
@@ -58,7 +59,7 @@ namespace Ooda.Turn.Core
         public static CombatNumbers P38L() => new CombatNumbers
         {
             guns = "20 mm + 4 x .50 cal", muzzleFps = 2850, damage = 1.35, ammoSec = 15, spreadMil = 2.5, dragPerSec = 0.32,
-            health = 15, sizeFt = 3, heatIdle = 0.75, heatFull = 1.5,
+            toughness = 15, sizeFt = 3, heatIdle = 0.75, heatFull = 1.5,
         };
 
         /// <summary>
@@ -69,7 +70,7 @@ namespace Ooda.Turn.Core
         public static CombatNumbers Phantom() => new CombatNumbers
         {
             guns = "M61 20 mm", muzzleFps = 3380, damage = 1.3, ammoSec = 7, spreadMil = 3.5, dragPerSec = 0.3,
-            health = 16, sizeFt = 6, missiles = 4, flares = 8,
+            toughness = 16, sizeFt = 6, missiles = 4, flares = 8,
             heatIdle = 1.2, heatFull = 2.4, heatWep = 2.4,   // two J79s: hot, and blazing in afterburner
         };
 
@@ -79,7 +80,7 @@ namespace Ooda.Turn.Core
         /// </summary>
         public static CombatNumbers B17G() => new CombatNumbers
         {
-            guns = "gunners (see FlakSite.B17Gunner)", ammoSec = 0, sizeFt = 22, health = 36, missiles = 0, flares = 0,
+            guns = "gunners (see FlakSite.B17Gunner)", ammoSec = 0, sizeFt = 22, toughness = 36, missiles = 0, flares = 0,
             heatIdle = 1.5, heatFull = 3,   // four radials
         };
     }
@@ -243,12 +244,19 @@ namespace Ooda.Turn.Core
         public static double Lure(double targetHeat) => LureMax * FlareHeat / (FlareHeat + Math.Max(0, targetHeat));
     }
 
-    /// <summary>A packet that struck: where on the target (its own frame: x right, y forward, z up, ft) for hit locations later.</summary>
+    /// <summary>
+    /// A packet that struck: where it entered the target's hit sphere (its own frame: x right, y forward, z up, ft), the
+    /// system it struck (a SystemId, or -1 for a blast that wears them all), how much it wore it (wear, a share of the
+    /// system), and whether it brought the target down.
+    /// </summary>
     public struct HitEvent
     {
         public double time;
         public int shooter, target;   // shooter: an aircraft, or -1 - k for flak site k
         public double damage;
+        public int system;
+        public double wear;
+        public bool downed;
         public Vec3d pos, local;
         public double fireTime;
     }
@@ -263,6 +271,12 @@ namespace Ooda.Turn.Core
         public bool rocket, brake;   // the rocket burning, the speed brake out
         public bool wep;             // war emergency power in (a jet's afterburner lit)
         public bool ram, cloaked;
+        /// <summary>The pilot's G stress, 0 to 1 (1 blacked out: G-LOC); see FlightModel.GreyOut.</summary>
+        public double greyOut;
+        /// <summary>The pilot has bailed out: when (battle time; meaningless while bailed is false), from where and how fast.</summary>
+        public bool bailed;
+        public double bailAt;
+        public Vec3d bailPos, bailVel;
         /// <summary>Where the nose points (it leaves the path in vertical flight: a tail slide, a hammerhead); zero in an old recording: along vel.</summary>
         public Vec3d nose;
         /// <summary>The nose along vel when it isn't recorded.</summary>
