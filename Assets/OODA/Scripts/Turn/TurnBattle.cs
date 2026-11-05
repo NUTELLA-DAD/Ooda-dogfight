@@ -685,20 +685,22 @@ namespace Ooda.Turn
             public bool pictures;                    // the stick and throttle pictures fit; false: the arrow comes back
             public Rect stick, pedals, throttle;     // the pictures and the pedal bar (zero without pictures)
             public Rect quadrant;                    // the engine buttons beside the throttle
-            public Rect weapons;                     // the weapons box; its button rows sit above it
+            public Rect weapons;                     // the gun MFD, bottom right; the switch row sits above it
+            public float weaponsRowW;                // how wide the switch row over it may be (right-aligned)
             public float stickTop;                   // the top of the middle (the stick's caption), for text and the timeline above it
         }
 
         ControlsLayout ctl;
 
         const float CtlMargin = 10, CtlBottom = 8, PedalH = 26, QuadW = 160, QuadRow = 30,
-                    WeaponsMinW = 400, WeaponsMaxW = 580, WeaponsH = 146;
+                    WeaponsMinW = 400, WeaponsMaxW = 580;
 
         /// <summary>The pictures as big as the room allows: shrink them until the quadrant and the weapons fit beside the stick.</summary>
         public static ControlsLayout LayoutControls(float sw, float sh, bool havePictures)
         {
             var c = new ControlsLayout();
             float qh = 2 * QuadRow + SwitchH;   // the throttle, its slider, and the engine's switches
+            float mh = Mathf.Clamp(sh * 0.34f, 220f, 280f), mw = mh * 1.3f;   // the gun MFD
             for (float h = Mathf.Min(260f, sh * 0.3f); havePictures && h >= 110; h -= 10)
             {
                 float w = h * 0.9f, pw = Mathf.Max(w * 1.1f, 240f);
@@ -710,15 +712,17 @@ namespace Ooda.Turn
                 c.stick = new Rect((sw - w) / 2, c.pedals.y - 4 - h, w, h);
                 c.throttle = new Rect(CtlMargin, sh - CtlBottom - th, tw, th);
                 c.quadrant = new Rect(c.throttle.xMax + 8, sh - CtlBottom - qh, QuadW, qh);
-                float ww = Mathf.Min(WeaponsMaxW, side);
-                c.weapons = new Rect(sw - CtlMargin - ww, sh - CtlBottom - WeaponsH, ww, WeaponsH);
+                c.weaponsRowW = Mathf.Min(WeaponsMaxW, side);
+                float ww = Mathf.Min(mw, side);
+                c.weapons = new Rect(sw - CtlMargin - ww, sh - CtlBottom - mh, ww, mh);
                 c.stickTop = c.stick.y - 20;
                 return c;
             }
             // no room for the pictures: the quadrant bottom left, the weapons beside it, and the arrow to steer
             c.quadrant = new Rect(CtlMargin, sh - CtlBottom - qh, QuadW, qh);
-            float rw = Mathf.Min(WeaponsMaxW, sw - QuadW - 3 * CtlMargin);
-            c.weapons = new Rect(sw - CtlMargin - rw, sh - CtlBottom - WeaponsH, rw, WeaponsH);
+            c.weaponsRowW = Mathf.Min(WeaponsMaxW, sw - QuadW - 3 * CtlMargin);
+            float rw = Mathf.Min(mw, c.weaponsRowW);
+            c.weapons = new Rect(sw - CtlMargin - rw, sh - CtlBottom - mh, rw, mh);
             c.stickTop = Mathf.Min(c.quadrant.y, c.weapons.y - SwitchH - 8);
             return c;
         }
@@ -1771,80 +1775,20 @@ namespace Ooda.Turn
         }
 
         /// <summary>
-        /// Planning: the engine buttons beside the throttle (left), and the weapons panel (right) with the IR, flare,
-        /// specials and timeline buttons in rows over it. The timeline itself opens above the stick.
+        /// Planning: the engine switches beside the throttle (left), and the gun MFD (right) with the flare and specials
+        /// switches over it. The timeline itself opens above the stick.
         /// </summary>
         void PlanningPanel(float sw, float sh)
         {
             QuadrantGUI(ctl.quadrant);
             Rect wp = ctl.weapons;
-            float px = wp.x + 10, pw = wp.width - 20, py = wp.y + 8;
 
-            // the switches over the box: IR, flares, the specials, the ring, the funnel and the timeline; the timeline opens over the stick
+            // the switches over the gun MFD (flares, the specials), and the MFD; the timeline opens over the stick
             float mw = Mathf.Min(640, sw - 40);
             if (showMoves || plan.HasMarks) MovesPanel((sw - mw) / 2, ctl.stickTop - 196 - 4, mw);
             else movesRect = Rect.zero;
-            WeaponSwitches(wp.x, wp.y - SwitchH - 6, wp.width);
-            GUI.Box(wp, GUIContent.none);
-            guiRects.Add(wp);
-
-            // The burst timeline
-            GUI.Label(new Rect(px, py, pw, 20), plan.burstEnd > plan.burstStart
-                ? $"Guns: fire {plan.burstStart:F2} to {plan.burstEnd:F2} s   (drag on the bar, tap to clear)"
-                : "Guns: hold fire   (drag on the bar to set a burst)", small);
-            burstRect = new Rect(px, py + 22, pw, 26);
-            GUI.Box(burstRect, GUIContent.none);
-            if (plan.burstEnd != plan.burstStart)
-            {
-                double a = Math.Min(plan.burstStart, plan.burstEnd), b = Math.Max(plan.burstStart, plan.burstEnd);
-                Fill(new Rect(burstRect.x + (float)(a / turnSec) * pw, burstRect.y + 3, (float)((b - a) / turnSec) * pw, burstRect.height - 6), new Color(1f, 0.6f, 0.1f, 0.85f));
-            }
-            // The hit window: when rounds fired would connect on the bright ghost (from the gun line), over the whole bar
-            foreach (var w in hitWindows)
-                Fill(new Rect(burstRect.x + (float)(w.a / turnSec) * pw, burstRect.y, Mathf.Max(2f, (float)((w.b - w.a) / turnSec) * pw), burstRect.height),
-                     new Color(hitTracer.r, hitTracer.g, hitTracer.b, 0.35f));
-            int predicted = 0;
-            if (preview != null)
-                foreach (var h in preview.hits)
-                {
-                    if (h.shooter == 0) predicted++;
-                    float x = burstRect.x + (float)((h.fireTime - preview.startTime) / turnSec) * pw;
-                    if (h.shooter != 0 && h.target != 0) continue;
-                    Fill(new Rect(x - 1, burstRect.y, 2, burstRect.height), h.shooter == 0 ? Color.white : new Color(1f, 0.3f, 0.3f));
-                }
-            for (int s = 0; s <= (int)turnSec; s++)
-                GUI.Label(new Rect(burstRect.x + s / turnSec * pw - (s == 0 ? 0 : 8), burstRect.yMax, 40, 18), $"{s}s", small);
-            int theirs = preview == null ? 0 : preview.hits.Count(h => h.target == 0);
-            float ty = py + 70, tw = pw - 2 * 60 - SwitchGap - 10;
-            if (predicted > 0)
-            {
-                var hitStyle = new GUIStyle(small) { fontStyle = FontStyle.Bold, wordWrap = true };
-                hitStyle.normal.textColor = hitTracer;
-                string sure = confidencePct >= 0 ? $"  (chance {confidencePct}%)" : confidenceHits >= 0 ? $"  (hits in {confidenceHits} of {confidenceOf})" : confidencePending ? "  (checking...)" : "";
-                string hitBack = theirs > 0 ? $"  you get hit {theirs}" : "";
-                GUI.Label(new Rect(px, ty, tw, 32), $"HITS: {predicted} on the bright ghost{sure}{hitBack}", hitStyle);
-            }
-            else GUI.Label(new Rect(px, ty, tw, 32), $"On the bright ghost: you hit {predicted}, you get hit {theirs}", new GUIStyle(small) { wordWrap = true });
-
-            // The missile: armed, it leaves the first moment the seeker locks this turn
-            int left = battle.missiles[0];
-            bool lockedNow = battle.LockTarget(0, focus) >= 0;
-            string mText;
-            if (left <= 0) mText = "Missiles: none left";
-            else if (!plan.missile) mText = $"Missiles: {left} left.  {(lockedNow ? "Seeker has a lock now." : "No lock: get behind one, 1,200 to 9,000 ft (farther on a hot one), within 30\u00B0 of your nose.")}";
-            else
-            {
-                var mt = preview?.traces.FirstOrDefault(tr => tr.missile && tr.owner == 0);
-                mText = mt == null ? "Missile armed: no lock on this path, it stays on the rail" : mt.hit ? "Missile armed: it hits the bright ghost" : "Missile armed: it launches, but misses the bright ghost";
-            }
-            GUI.Label(new Rect(px, ty + 30, tw, 36), mText, new GUIStyle(small) { wordWrap = true });
-
-            // the fire button and the missile's guarded arm switch, at the right of the box
-            SwitchRow(px + pw - 2 * 60 - SwitchGap, ty - 2, 2 * 60 + SwitchGap, new List<SwitchSpec>
-            {
-                Sw("FIRE", "F", false, true, LampRed, FireAtPredicted, SwitchKind.Push),
-                Sw("MISSILE", $"G  ({left})", plan.missile, left > 0, LampRed, () => ArmMissile(!plan.missile), SwitchKind.Guarded),
-            });
+            WeaponSwitches(sw - CtlMargin - ctl.weaponsRowW, wp.y - SwitchH - 6, ctl.weaponsRowW);
+            GunMfd(wp);
         }
 
         /// <summary>

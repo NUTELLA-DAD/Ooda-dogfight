@@ -138,12 +138,11 @@ namespace Ooda.Turn
             SwitchRow(x, y, w, row);
         }
 
-        /// <summary>The row over the weapons panel: IR, flares, the specials (Arcade), the lead ring, the funnel and the timeline.</summary>
+        /// <summary>The row over the gun MFD: flare hold and the specials (Arcade). IR, the funnel, the ring and the timeline are the MFD's buttons.</summary>
         void WeaponSwitches(float x, float y, float w)
         {
             var row = new List<SwitchSpec>
             {
-                Sw("IR", "I", irView, true, LampGreen, ToggleIr),
                 Sw("FLR HOLD", $"3  ({battle.flares[0]})", plan.holdFlares, battle.flares[0] > 0, LampAmber, ToggleFlares),
             };
             var load = battle.combat[0];
@@ -154,9 +153,6 @@ namespace Ooda.Turn
                 row.Add(Sw(battle.Cloaked(0) ? "STEALTHY" : "STEALTH", $"6  ({battle.stealths[0]})", plan.cloak, plan.cloak || battle.stealths[0] > 0, new Color(stealthColor.r, stealthColor.g, stealthColor.b, 1f), ToggleCloak));
                 row.Add(Sw("JAM", $"7  ({battle.jammers[0]})", plan.jam, plan.jam || battle.jammers[0] > 0, jamColor, ToggleJam));
             }
-            row.Add(Sw("RING", "L", showLeadRing, true, LampGreen, () => showLeadRing = !showLeadRing));
-            row.Add(Sw("FUNNEL", sightMode == SightMode.Off ? "K off" : sightMode == SightMode.Hover ? "K hover" : "K sight", sightMode != SightMode.Off, true, LampGreen, NextSightMode));
-            row.Add(Sw("TIMELINE", "T", showMoves || plan.HasMarks, true, LampAmber, () => showMoves = !showMoves, SwitchKind.Push));
             SwitchRow(x, y, w, row, true);
             if (JammedNow)
             {
