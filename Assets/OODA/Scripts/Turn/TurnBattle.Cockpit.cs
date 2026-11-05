@@ -55,7 +55,7 @@ namespace Ooda.Turn
                     {
                         // gunmetal, a shade darker toward the bottom and the far sides, with a faint grain
                         float shade = 0.22f - 0.06f * v - 0.04f * u * u + ((x * 7 + y * 13) % 5) * 0.003f;
-                        c = new Color(shade * 0.92f, shade, shade * 0.95f, 0.97f);
+                        c = new Color(shade * 0.92f, shade, shade * 0.95f, 1f);
                         if (d < 11) c = Color.Lerp(c, Color.black, 0.5f);   // the rim's shadow on the panel
                     }
                     px[y * W + x] = c;
@@ -137,8 +137,8 @@ namespace Ooda.Turn
         {
             GUI.DrawTexture(d, DialTexture(), ScaleMode.StretchToFill, true);
             c = d.center; rad = d.width * 0.5f * 0.82f;
-            GUI.Label(new Rect(d.x, c.y + rad * 0.32f, d.width, 12), name, dialName);
-            if (unit != null) GUI.Label(new Rect(d.x, c.y - rad * 0.48f, d.width, 12), unit, dialName);
+            // the name up in the dial's middle, clear of the numbers round the edge
+            GUI.Label(new Rect(d.x, c.y - rad * 0.36f - 6, d.width, 12), unit != null ? $"{name} {unit}" : name, dialName);
         }
 
         static readonly Color DialWhite = new Color(0.95f, 0.95f, 0.9f), DialRed = new Color(1f, 0.25f, 0.2f), DialAmber = new Color(1f, 0.75f, 0.2f);
@@ -146,7 +146,7 @@ namespace Ooda.Turn
         /// <summary>Airspeed: 0 to 500 kt once round, clockwise from the top; a tick each 25 kt, a number each 100.</summary>
         void AirspeedDial(Rect d, float kias)
         {
-            DialFace(d, "AIRSPEED", "KNOTS", out var c, out float r);
+            DialFace(d, "KT", "x10", out var c, out float r);
             float A(float kt) => Mathf.Clamp(kt, 0, 500) / 500f * 340f;
             for (int kt = 0; kt <= 500; kt += 25)
                 Spoke(c, A(kt), r * (kt % 100 == 0 ? 0.78f : 0.86f), r * 0.98f, kt % 100 == 0 ? 2f : 1f, DialWhite);
@@ -170,13 +170,13 @@ namespace Ooda.Turn
             GUI.Label(new Rect(d.x, d.yMax - 2, d.width, 12), $"{alt:N0} FT", dialName);
         }
 
-        /// <summary>The G meter: -3 to +9 round three quarters of the dial, 1 G at nine o'clock; red past the airframe's limit.</summary>
+        /// <summary>The G meter: -3 to +9 round three quarters of the dial (from seven o'clock to five), red past the airframe's limit.</summary>
         void GDial(Rect d, float g, float maxG)
         {
             DialFace(d, "G", null, out var c, out float r);
             float A(float gg) => -135f + (Mathf.Clamp(gg, -3, 9) + 3) / 12f * 270f;
             for (int gg = -3; gg <= 9; gg++)
-                Spoke(c, A(gg), r * (gg % 2 == 1 || gg == -3 ? 0.78f : 0.86f), r * 0.98f, gg == 1 ? 3f : 1.5f, gg > maxG ? DialRed : DialWhite);
+                Spoke(c, A(gg), r * (gg % 2 == 0 ? 0.78f : 0.86f), r * 0.98f, gg == 1 ? 3f : 1.5f, gg > maxG ? DialRed : DialWhite);
             // the limit: a red arc of short ticks from the airframe's limit up
             for (float gg = Mathf.Max(-3, maxG); gg <= 9; gg += 0.25f) Spoke(c, A(gg), r * 0.92f, r * 0.98f, 2f, DialRed);
             if (r > 34) foreach (int gg in new[] { -2, 0, 2, 4, 6, 8 }) DialNumber(c, A(gg), r * 0.6f, gg.ToString());
