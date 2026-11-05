@@ -138,7 +138,7 @@ namespace Ooda.Turn
             SwitchRow(x, y, w, row);
         }
 
-        /// <summary>The row over the gun MFD: flare hold and the specials (Arcade). IR, the funnel, the ring and the timeline are the MFD's buttons.</summary>
+        /// <summary>The weapon switches, in the corner past the gun MFD: flare hold and the specials (Arcade). IR, the funnel, the ring and the timeline are the MFD's buttons.</summary>
         void WeaponSwitches(float x, float y, float w)
         {
             var row = new List<SwitchSpec>

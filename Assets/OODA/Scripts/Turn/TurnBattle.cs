@@ -686,7 +686,8 @@ namespace Ooda.Turn
             public Rect stick, pedals, throttle;     // the pictures and the pedal bar (zero without pictures)
             public Rect quadrant;                    // the engine buttons beside the throttle
             public Rect weapons;                     // the gun MFD, bottom right; the switch row sits above it
-            public float weaponsRowW;                // how wide the switch row over it may be (right-aligned)
+            public float weaponsRowW;                // how wide the switch row may be (right-aligned)
+            public Rect switchRow;                   // where the weapon switches go (flare hold, the specials), right-aligned in it
             public float stickTop;                   // the top of the middle (the stick's caption), for text and the timeline above it
             public Rect asi, alt, gmeter;            // the dials in the panel (zero when there is no room for them)
             public Rect lights;                      // the system lights' box beside the G meter (zero with the dials)
@@ -715,12 +716,29 @@ namespace Ooda.Turn
                 // the throttle on the left, standing in front of the panel's slope, the quadrant beside it
                 c.throttle = new Rect(CtlMargin, sh - CtlBottom - th, tw, th);
                 c.quadrant = new Rect(c.throttle.xMax + 8, sh - CtlBottom - qh, QuadW, qh);
-                c.weaponsRowW = Mathf.Min(WeaponsMaxW, side);
-                float ww = Mathf.Min(mw, side);
-                c.weapons = new Rect(sw - CtlMargin - ww, sh - CtlBottom - mh, ww, mh);
                 c.stickTop = c.stick.y - 20;
                 // the panel's flat top just over the stick's grip, so the stick stands inside it
                 c.panelTop = c.stick.y - 10;
+                // the gun MFD set in the panel right of the stick, under the flat top; the weapon switches in the corner past it
+                float rx0 = Mathf.Max(c.stick.xMax, c.pedals.xMax) + 14;
+                float ww = Mathf.Min(mw, sw * 0.78f - rx0, (sh - CtlBottom - c.panelTop - 14) * 1.3f);
+                if (ww >= 240)
+                {
+                    c.weapons = new Rect(rx0, sh - CtlBottom - ww / 1.3f, ww, ww / 1.3f);
+                    float rowX = c.weapons.xMax + 12;
+                    c.weaponsRowW = sw - CtlMargin - rowX;
+                    c.switchRow = c.weaponsRowW >= 140
+                        ? new Rect(rowX, sh - CtlBottom - SwitchH, c.weaponsRowW, SwitchH)
+                        : new Rect(c.weapons.x, c.weapons.y - SwitchH - 6, c.weaponsRowW = c.weapons.width, SwitchH);
+                }
+                else
+                {
+                    // too tight in the middle: bottom right, the switches over it
+                    c.weaponsRowW = Mathf.Min(WeaponsMaxW, side);
+                    ww = Mathf.Min(mw, side);
+                    c.weapons = new Rect(sw - CtlMargin - ww, sh - CtlBottom - mh, ww, mh);
+                    c.switchRow = new Rect(sw - CtlMargin - c.weaponsRowW, c.weapons.y - SwitchH - 6, c.weaponsRowW, SwitchH);
+                }
                 // the instruments together between the quadrant and the stick: airspeed and altitude side by side along
                 // the top, the G meter and the system lights (ENG, FUEL, CTRL, WING) under them
                 float lx0 = c.quadrant.xMax + 14, lx1 = Mathf.Min(c.stick.x, c.pedals.x) - 14;
@@ -742,6 +760,7 @@ namespace Ooda.Turn
             c.weaponsRowW = Mathf.Min(WeaponsMaxW, sw - QuadW - 3 * CtlMargin);
             float rw = Mathf.Min(mw, c.weaponsRowW);
             c.weapons = new Rect(sw - CtlMargin - rw, sh - CtlBottom - mh, rw, mh);
+            c.switchRow = new Rect(sw - CtlMargin - c.weaponsRowW, c.weapons.y - SwitchH - 6, c.weaponsRowW, SwitchH);
             c.stickTop = Mathf.Min(c.quadrant.y, c.weapons.y - SwitchH - 8);
             return c;
         }
@@ -1804,11 +1823,11 @@ namespace Ooda.Turn
             QuadrantGUI(ctl.quadrant);
             Rect wp = ctl.weapons;
 
-            // the switches over the gun MFD (flares, the specials), and the MFD; the timeline opens over the stick
+            // the weapon switches (flares, the specials) and the gun MFD; the timeline opens over the stick
             float mw = Mathf.Min(640, sw - 40);
             if (showMoves || plan.HasMarks) MovesPanel((sw - mw) / 2, ctl.stickTop - 196 - 4, mw);
             else movesRect = Rect.zero;
-            WeaponSwitches(sw - CtlMargin - ctl.weaponsRowW, wp.y - SwitchH - 6, ctl.weaponsRowW);
+            WeaponSwitches(ctl.switchRow.x, ctl.switchRow.y, ctl.switchRow.width);
             GunMfd(wp);
         }
 
