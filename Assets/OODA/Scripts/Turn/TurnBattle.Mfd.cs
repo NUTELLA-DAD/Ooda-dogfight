@@ -301,7 +301,7 @@ namespace Ooda.Turn
             float len = (p1 - p0).magnitude;
             if (len < 0.5f) return;
             var old = GUI.matrix;
-            GUIUtility.RotateAroundPivot(Mathf.Atan2(p1.y - p0.y, p1.x - p0.x) * Mathf.Rad2Deg, p0);
+            RotateGui(Mathf.Atan2(p1.y - p0.y, p1.x - p0.x) * Mathf.Rad2Deg, p0);
             Fill(new Rect(p0.x, p0.y - width / 2, len, width), c);
             GUI.matrix = old;
         }

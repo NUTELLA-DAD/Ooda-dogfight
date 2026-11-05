@@ -231,9 +231,19 @@ namespace Ooda.Turn
         static void Spoke(Vector2 c, float angleDeg, float r0, float r1, float width, Color col)
         {
             var old = GUI.matrix;
-            GUIUtility.RotateAroundPivot(angleDeg, c);
+            RotateGui(angleDeg, c);
             Fill(new Rect(c.x - width / 2, c.y - r1, width, r1 - r0), col);
             GUI.matrix = old;
+        }
+
+        /// <summary>
+        /// Turn what is drawn next by deg (clockwise) about a GUI point. GUIUtility.RotateAroundPivot puts the pivot in
+        /// the wrong place once GUI.matrix scales, as it does on screens taller than 900 px: the dials' needles and ticks
+        /// and the MFD's funnel lines then land all over the screen.
+        /// </summary>
+        static void RotateGui(float deg, Vector2 pivot)
+        {
+            GUI.matrix = GUI.matrix * Matrix4x4.TRS(pivot, Quaternion.Euler(0, 0, deg), Vector3.one) * Matrix4x4.Translate(-pivot);
         }
 
         /// <summary>A number on the dial at an angle, r out from the middle.</summary>
