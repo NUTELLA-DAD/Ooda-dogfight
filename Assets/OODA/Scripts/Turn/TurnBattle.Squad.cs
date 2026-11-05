@@ -45,7 +45,9 @@ namespace Ooda.Turn
             yield return Shot("5b_prompt");
             for (int k = 0; k < flight.Count && battle.routes[0] == null; k++) NextPlane();
             SetFormation(Formation.Box);
+            ordersOpen = true;   // the orders and formations folded out, to see the pictures
             yield return Shot("6_bomber_box");
+            ordersOpen = false;
             Application.Quit();
         }
     }
