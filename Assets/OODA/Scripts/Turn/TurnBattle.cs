@@ -1921,7 +1921,7 @@ namespace Ooda.Turn
         void Bar(Rect r, double fraction, Color c, string text)
         {
             Fill(r, new Color(0, 0, 0, 0.5f));
-            float lit = r.width * Mathf.Clamp01((float)fraction);
+            float lit = double.IsNaN(fraction) ? 0f : r.width * Mathf.Clamp01((float)fraction);   // (no guns at all: 0 of 0)
             Fill(new Rect(r.x, r.y, lit, r.height), c);
             SplitLabel(new Rect(r.x + 4, r.y - 4, r.width, 22), r.x + lit, text);
         }
@@ -1936,12 +1936,16 @@ namespace Ooda.Turn
                 sysPale = new GUIStyle(sysText);
                 sysPale.normal.textColor = new Color(0.9f, 0.95f, 0.9f);
             }
-            float w = Mathf.Clamp(split - at.x, 0, at.width + 40);
-            GUI.BeginGroup(new Rect(at.x, at.y, w, at.height));
-            GUI.Label(new Rect(0, 0, at.width, at.height), text, sysText);
-            GUI.EndGroup();
-            GUI.BeginGroup(new Rect(at.x + w, at.y, Mathf.Max(0, at.width - w), at.height));
-            GUI.Label(new Rect(-w, 0, at.width, at.height), text, sysPale);
+            float full = at.width + 120;   // the text may run on past the bar's end
+            float w = float.IsNaN(split) ? 0 : Mathf.Clamp(split - at.x, 0, full);
+            if (w > 0)
+            {
+                GUI.BeginGroup(new Rect(at.x, at.y, w, at.height));
+                GUI.Label(new Rect(0, 0, full, at.height), text, sysText);
+                GUI.EndGroup();
+            }
+            GUI.BeginGroup(new Rect(at.x + w, at.y, full - w, at.height));
+            GUI.Label(new Rect(-w, 0, full, at.height), text, sysPale);
             GUI.EndGroup();
         }
 

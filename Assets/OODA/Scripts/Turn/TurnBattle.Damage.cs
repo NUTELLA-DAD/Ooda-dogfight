@@ -62,6 +62,7 @@ namespace Ooda.Turn
             yield return Planning();
 
             // 4: the enemy's engine shot out: its pilot bails out, the parachute opening
+            battle.planes[0].glocLeftSec = 0; battle.planes[0].gStress = 0;   // awake again for the parachute
             if (battle.Count > 1 && !battle.Out(1))
             {
                 battle.planes[1].systems.Wear(SystemId.Engine, 1);
