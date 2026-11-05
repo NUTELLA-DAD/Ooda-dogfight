@@ -14,11 +14,11 @@ namespace Ooda.Turn
     /// 4, Balloon mine: a red spiked balloon let go behind you. It hangs where it was dropped, blinks once armed, and goes
     /// off on the first enemy that flies within its fuse (the faint red ring round it while planning). Ideal for a tailer.
     ///
-    /// 5, Heat blade: the plane glows red hot all turn and its guns stay cold; fly through an enemy and it is cut in half.
+    /// 5, Heat blade: the whole plane glows red hot all turn and its guns stay cold; fly through an enemy and it is cut in half.
     /// You are the brightest thing in the IR view while it glows: every heat-seeker locks you from farther.
     ///
     /// 6, Stealth: two turns unseen. A stealthy enemy vanishes from your screen with its ghosts and projection (only its
-    /// heat shows, in the IR view, and a heat-seeker still locks it); yours shimmers cyan. Firing shows you again.
+    /// heat shows, in the IR view, and a heat-seeker still locks it); yours shows only as a dotted cyan outline. Firing shows you again.
     /// </summary>
     public partial class TurnBattle
     {
@@ -161,15 +161,15 @@ namespace Ooda.Turn
                 var f = r.frames[k][Mathf.Min(now, r.frames[k].Length - 1)];
                 bool enemy = !replaying && k < battle.Count && battle.side[k] != battle.side[0];
                 Stealth(vs[k], f.cloaked && !f.down, enemy, k);
-                if (f.ram && !f.down) BladeLook(vs[k].transform, k);
+                RedHot(vs[k], f.ram && !f.down, k);
             }
         }
 
-        /// <summary>While planning: hide the stealthy enemies, shimmer your own, and glow your ghost if the blade is lit.</summary>
+        /// <summary>While planning: hide the stealthy enemies, outline your own, and glow your ghost if the blade is lit.</summary>
         void SpecialsPlanning()
         {
             for (int k = 0; k < views.Length && k < battle.Count; k++)
-                if (views[k] != null) Stealth(views[k], battle.Cloaked(k), battle.side[k] != battle.side[0], k);
+                if (views[k] != null) { Stealth(views[k], battle.Cloaked(k), battle.side[k] != battle.side[0], k); views[k].SetRedHot(false); }
             if (plan.ram && holoMine != null && holoMine.activeSelf) BladeLook(holoMine.transform, 0);
             DrawLiveMines();
         }
@@ -177,23 +177,79 @@ namespace Ooda.Turn
         /// <summary>Everyone shown again (the fight is over, or no one is stealthy).</summary>
         void RevealAll()
         {
-            foreach (var v in views) if (v != null) v.SetVisible(true);
+            foreach (var v in views) if (v != null) { v.SetVisible(true); v.SetRedHot(false); }
         }
 
         void Stealth(TurnAircraftView v, bool cloaked, bool enemy, int k)
         {
             if (!cloaked) { v.SetVisible(true); return; }
-            if (enemy) { v.SetVisible(false); return; }
-            // yours: there, but only just: it blinks out now and then, with a cyan shimmer along it
-            v.SetVisible(Mathf.Repeat(Time.time * 2.3f + k * 0.37f, 1f) > 0.22f);
-            var t = v.transform;
-            float flick = 0.6f + 0.4f * Mathf.Sin(Time.time * 9f + k);
-            var c = stealthColor; c.a *= flick;
-            lines.Line(t.position - t.right * 5.5f, t.position + t.right * 5.5f, 0.6f, c);
-            lines.Line(t.position + t.forward * 4.5f, t.position - t.forward * 4.5f, 0.6f, c);
+            v.SetVisible(false);
+            if (!enemy) DottedOutline(v, k);   // yours: only a dotted outline, so you know where you are
         }
 
-        /// <summary>Red hot: the wings and the fuselage glowing orange to white, flickering, with a heat haze trailing.</summary>
+        // a fighter seen from above, nose first down its right side (x across the wings, z along, as shares of the half span
+        // and half length); the left side is its mirror
+        static readonly Vector2[] PlanForm =
+        {
+            new Vector2(0f, 1f), new Vector2(0.1f, 0.85f), new Vector2(0.12f, 0.3f), new Vector2(1f, 0.12f), new Vector2(1f, -0.05f),
+            new Vector2(0.12f, -0.15f), new Vector2(0.1f, -0.72f), new Vector2(0.38f, -0.8f), new Vector2(0.38f, -0.95f), new Vector2(0f, -0.93f),
+        };
+        readonly List<Vector3> outlinePts = new List<Vector3>(32);
+
+        /// <summary>A stealthy plane of yours: its outline from above and its fin, in marching cyan dashes, the model itself hidden.</summary>
+        void DottedOutline(TurnAircraftView v, int k)
+        {
+            var t = v.transform;
+            var b = v.LocalBounds();
+            float sx = b.extents.x, sz = b.extents.z, y = b.center.y;
+            outlinePts.Clear();
+            for (int i = 0; i < PlanForm.Length; i++) outlinePts.Add(t.TransformPoint(new Vector3(b.center.x + PlanForm[i].x * sx, y, b.center.z + PlanForm[i].y * sz)));
+            for (int i = PlanForm.Length - 2; i >= 1; i--) outlinePts.Add(t.TransformPoint(new Vector3(b.center.x - PlanForm[i].x * sx, y, b.center.z + PlanForm[i].y * sz)));
+            Dashes(outlinePts, true, k);
+            // the fin, standing up at the tail
+            outlinePts.Clear();
+            float top = b.max.y;
+            outlinePts.Add(t.TransformPoint(new Vector3(b.center.x, y, b.center.z - 0.55f * sz)));
+            outlinePts.Add(t.TransformPoint(new Vector3(b.center.x, top, b.center.z - 0.85f * sz)));
+            outlinePts.Add(t.TransformPoint(new Vector3(b.center.x, top, b.center.z - 1f * sz)));
+            outlinePts.Add(t.TransformPoint(new Vector3(b.center.x, y, b.center.z - 0.97f * sz)));
+            Dashes(outlinePts, false, k);
+        }
+
+        /// <summary>A path drawn as dashes, 0.9 m on and 0.7 m off, creeping along it.</summary>
+        void Dashes(List<Vector3> pts, bool loop, int k)
+        {
+            const float on = 0.9f, period = 1.6f;
+            float phase = Mathf.Repeat(Time.time * 1.5f + k * 0.3f, period);
+            int n = loop ? pts.Count : pts.Count - 1;
+            float start = 0;   // the distance along the path where this segment begins
+            for (int i = 0; i < n; i++)
+            {
+                Vector3 a = pts[i], c = pts[(i + 1) % pts.Count];
+                float len = Vector3.Distance(a, c);
+                if (len < 1e-4f) continue;
+                // dashes begin at m * period - phase along the whole path
+                for (float d = Mathf.Floor((start + phase) / period) * period - phase; d < start + len; d += period)
+                {
+                    float s0 = Mathf.Max(d, start) - start, s1 = Mathf.Min(d + on, start + len) - start;
+                    if (s1 > s0) lines.Line(Vector3.Lerp(a, c, s0 / len), Vector3.Lerp(a, c, s1 / len), 0.55f, stealthColor);
+                }
+                start += len;
+            }
+        }
+
+        /// <summary>The heat blade on a plane: the whole airframe glowing red, pulsing, with the heat haze trailing.</summary>
+        void RedHot(TurnAircraftView v, bool on, int k)
+        {
+            float pulse = 0.5f + 0.5f * Mathf.Sin(Time.time * 9f + k * 1.3f);
+            v.SetRedHot(on, pulse);
+            if (!on) return;
+            var t = v.transform;
+            var haze = bladeColor; haze.a = 0.35f;
+            lines.Line(t.position - t.forward * 4.5f, t.position - t.forward * 16f, 1.6f, haze);
+        }
+
+        /// <summary>Red hot on your ghost while planning: the wings and the fuselage glowing orange to white, flickering.</summary>
         void BladeLook(Transform t, int k)
         {
             float flick = 0.8f + 0.2f * Mathf.Sin(Time.time * 31f + k * 1.3f);

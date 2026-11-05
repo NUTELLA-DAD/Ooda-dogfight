@@ -68,7 +68,7 @@ namespace Ooda.Turn
         public void SetVisible(bool on)
         {
             if (on != hidden) return;   // already so
-            if (rends == null) rends = GetComponentsInChildren<Renderer>(true);
+            if (rends == null) rends = Body();
             if (!on)
             {
                 wasEnabled = new bool[rends.Length];
@@ -77,6 +77,108 @@ namespace Ooda.Turn
             else if (wasEnabled != null)
                 for (int k = 0; k < rends.Length; k++) if (rends[k] != null) rends[k].enabled = wasEnabled[k];
             hidden = !on;
+        }
+
+        /// <summary>The model's own renderers (not the red-hot shell).</summary>
+        Renderer[] Body()
+        {
+            var all = GetComponentsInChildren<Renderer>(true);
+            var list = new System.Collections.Generic.List<Renderer>(all.Length);
+            foreach (var r in all) if (r != null && (shell == null || !r.transform.IsChildOf(shell.transform))) list.Add(r);
+            return list.ToArray();
+        }
+
+        // ---------- the heat blade: the whole plane glowing red ----------
+
+        GameObject shell;
+        Material shellMat;
+        static Material shellTemplate;
+
+        /// <summary>
+        /// The heat blade: the whole airframe glows red hot, a glowing copy of each of its meshes laid over it (additive, so it
+        /// lights up whatever colour is under it), pulsing with glow (0 to 1). Off hides the copies again.
+        /// </summary>
+        public void SetRedHot(bool on, float glow = 1f)
+        {
+            if (!on || hidden) { if (shell != null) shell.SetActive(false); return; }
+            if (shell == null) BuildShell();
+            shell.SetActive(true);
+            var c = new Color(1f, 0.16f + 0.18f * glow, 0.04f, 0.55f + 0.4f * glow);
+            shellMat.SetColor("_BaseColor", c);
+            shellMat.color = c;
+        }
+
+        void BuildShell()
+        {
+            if (rends == null) rends = Body();
+            shell = new GameObject("RedHot");
+            shell.transform.SetParent(transform, false);
+            if (shellTemplate == null)
+            {
+                var sh = Shader.Find("Universal Render Pipeline/Unlit");
+                if (sh == null) shellTemplate = new Material(Shader.Find("Sprites/Default"));
+                else
+                {
+                    shellTemplate = new Material(sh);
+                    shellTemplate.SetFloat("_Surface", 1);   // transparent, additive: it glows over the paint
+                    shellTemplate.SetFloat("_Blend", 2);
+                    shellTemplate.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+                    shellTemplate.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.One);
+                    shellTemplate.SetFloat("_ZWrite", 0);
+                    shellTemplate.SetOverrideTag("RenderType", "Transparent");
+                    shellTemplate.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+                    shellTemplate.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+                }
+            }
+            shellMat = new Material(shellTemplate);
+            foreach (var r in rends)
+            {
+                if (!(r is MeshRenderer) || !r.enabled) continue;   // the airframe's meshes (the pilot is skinned: left as he is)
+                var mf = r.GetComponent<MeshFilter>();
+                if (mf == null || mf.sharedMesh == null) continue;
+                var g = new GameObject(r.name + " hot");
+                g.transform.SetParent(r.transform, false);
+                g.transform.localScale = Vector3.one * 1.01f;
+                g.AddComponent<MeshFilter>().sharedMesh = mf.sharedMesh;
+                var mr = g.AddComponent<MeshRenderer>();
+                var mats = new Material[Mathf.Max(1, mf.sharedMesh.subMeshCount)];
+                for (int k = 0; k < mats.Length; k++) mats[k] = shellMat;
+                mr.sharedMaterials = mats;
+                mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                mr.receiveShadows = false;
+                g.transform.SetParent(shell.transform, true);   // kept under the shell (so it switches with it), still where its part is
+                var follow = g.AddComponent<FollowPart>();
+                follow.part = r.transform;
+            }
+            shell.SetActive(false);
+        }
+
+        // ---------- stealth: the dotted outline ----------
+
+        Bounds? outline;
+
+        /// <summary>The airframe's size in its own frame (x across the wings, y up, z along), m, from its meshes.</summary>
+        public Bounds LocalBounds()
+        {
+            if (outline.HasValue) return outline.Value;
+            if (rends == null) rends = Body();
+            var b = new Bounds(Vector3.zero, Vector3.zero); bool any = false;
+            foreach (var r in rends)
+            {
+                if (!(r is MeshRenderer)) continue;
+                var mf = r.GetComponent<MeshFilter>();
+                if (mf == null || mf.sharedMesh == null) continue;
+                var mb = mf.sharedMesh.bounds;
+                for (int k = 0; k < 8; k++)
+                {
+                    var c = mb.center + Vector3.Scale(mb.extents, new Vector3((k & 1) == 0 ? -1 : 1, (k & 2) == 0 ? -1 : 1, (k & 4) == 0 ? -1 : 1));
+                    var p = transform.InverseTransformPoint(r.transform.TransformPoint(c));
+                    if (!any) { b = new Bounds(p, Vector3.zero); any = true; } else b.Encapsulate(p);
+                }
+            }
+            if (!any || b.size.x < 1f) b = new Bounds(Vector3.zero, new Vector3(11.3f, 3.5f, 9.8f));   // about a P-51
+            outline = b;
+            return b;
         }
 
         void Place(Vec3d pos, Vec3d vel, Vec3d up, double alphaDeg) => Pose(transform, pos, vel, up, alphaDeg);
