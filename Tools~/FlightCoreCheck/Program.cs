@@ -105,7 +105,7 @@ static class Program
     {
         int fails = 0;
         void Check(bool ok, string what) { if (!ok) fails++; Console.WriteLine($"  {(ok ? "ok  " : "FAIL")} {what}"); }
-        var planes = new[] { AircraftNumbers.SpitfireIX(), AircraftNumbers.Bf109G(), AircraftNumbers.P51D(), AircraftNumbers.P38L(), AircraftNumbers.Phantom() };
+        var planes = new[] { AircraftNumbers.SpitfireIX(), AircraftNumbers.Bf109G(), AircraftNumbers.P51D(), AircraftNumbers.P38L(), AircraftNumbers.Phantom(), AircraftNumbers.A6M2() };
         Console.WriteLine("\nTurn performance (WEP or afterburner)");
         foreach (double alt in new[] { 0.0, 10000 })
         {
@@ -128,6 +128,11 @@ static class Program
             "the F-4 sustains about 14 deg/s low down and turns about 19.5 deg/s at corner speed");
         Check(p38.ClimbFpm(0, true) > p51.ClimbFpm(0, true) && spit.ClimbFpm(0, true) > bf.ClimbFpm(0, true),
             "the P-38 and the Spitfire out-climb the Mustang and the Bf 109");
+        var zero = planes[5];
+        Check(Math.Abs(S(zero) - 16) < 0.6 && zero.MinTurnRadiusFt(0) < spit.MinTurnRadiusFt(0) && zero.CornerKias < spit.CornerKias,
+            "the Zero out-turns them all: a 16 s circle, the tightest radius at the slowest corner speed");
+        Check(zero.ClimbFpm(0, true) < bf.ClimbFpm(0, true) && zero.vneKias < p51.vneKias && zero.maxRollRateDps < p51.maxRollRateDps,
+            "but it climbs slower than the Bf 109 and dives and rolls worse than the Mustang");
         return fails;
     }
 }

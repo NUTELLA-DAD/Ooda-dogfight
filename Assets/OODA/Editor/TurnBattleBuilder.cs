@@ -49,7 +49,8 @@ namespace Ooda.EditorTools
             var p51Turn = MakeP51TurnPrefab();
             var phantom = JetTestBuilder.MakeTurnPrefab();
             var p38 = MakeP38Prefab(mats);
-            MakeScene(bf109, p51Turn, b17, spit, phantom, p38);
+            var zero = MakeZeroPrefab(mats);
+            MakeScene(bf109, p51Turn, b17, spit, phantom, p38, zero);
             AssetDatabase.SaveAssets();
             Debug.Log("OODA: turn battle built. Press Play.");
         }
@@ -188,6 +189,28 @@ namespace Ooda.EditorTools
                                TigerFbx, Ooda.Turn.Core.PilotKind.Tiger, tigerMat, tigerCtrl, maxRpm: 1500);
         }
 
+        // ---------- the Zero ----------
+
+        const string ZeroFbx = Art + "/Zero/Zero.fbx";
+        const string ZeroPrefabPath = Root + "/Prefabs/Zero.prefab";
+        const string FoxFbx = Art + "/FoxPilot/FoxPilot.fbx";
+        // A roomy cartoon greenhouse (Tools~/ArtPipeline/zero.py and build_cockpit.py Zero): the pilot at the P-51's size,
+        // seated as in the P-38, the rails a little narrower and lower on the Zero's lower sill.
+        static readonly TestWorldBuilder.Seat ZeroSeat = new TestWorldBuilder.Seat { scale = 1.55f, lift = -0.40f, back = 0f, railHalfWidth = 0.45f, railHeight = 0.58f, railForward = 0.25f };
+
+        /// <summary>The A6M2 Zero with the fox in it (the koi and the others beside her, hidden), its three-blade propeller
+        /// turning (the Sakae's 2,550 rpm through the 0.58 reduction gear). Null, with a warning, if its FBX isn't there.</summary>
+        static GameObject MakeZeroPrefab(TestWorldBuilder.Mats mats)
+        {
+            if (!File.Exists(ZeroFbx)) { Debug.LogWarning($"OODA: no {ZeroFbx}; the dogfight's Zeros show as P-51s (or Bf 109s on their side)."); return null; }
+            ImportPlane(ZeroFbx, Art + "/Zero/Zero_MetallicSmoothness.png");
+            var body = TestWorldBuilder.Textured("Zero", Art + "/Zero/Zero_BaseColor.png", Art + "/Zero/Zero_MetallicSmoothness.png");
+            var foxMat = TestWorldBuilder.Textured("FoxPilot", Art + "/FoxPilot/Fox_BaseColor.png", Art + "/FoxPilot/Fox_MetallicSmoothness.png");
+            var foxCtrl = TestWorldBuilder.MakePilotController(FoxFbx, "FoxPilot");
+            return MakeFighter("Zero", ZeroFbx, new[] { "Zero_Propeller" }, ZeroPrefabPath, ZeroSeat, mats, body,
+                               FoxFbx, Ooda.Turn.Core.PilotKind.Fox, foxMat, foxCtrl, maxRpm: 1480);
+        }
+
         /// <summary>The P-51 and its tiger for the wingmen: the test world's prefab without its free-flight parts, flown by a TurnAircraftView.</summary>
         static GameObject MakeP51TurnPrefab()
         {
@@ -295,7 +318,7 @@ namespace Ooda.EditorTools
             return saved;
         }
 
-        static void MakeScene(GameObject enemyPrefab, GameObject wingmanPrefab, GameObject bomberPrefab, GameObject spitfirePrefab, GameObject phantomPrefab, GameObject p38Prefab)
+        static void MakeScene(GameObject enemyPrefab, GameObject wingmanPrefab, GameObject bomberPrefab, GameObject spitfirePrefab, GameObject phantomPrefab, GameObject p38Prefab, GameObject zeroPrefab)
         {
             AssetDatabase.DeleteAsset(ScenePath);
             AssetDatabase.CopyAsset(TestWorldBuilder.ScenePath, ScenePath);
@@ -353,10 +376,11 @@ namespace Ooda.EditorTools
             tb.wingmanPrefab = wingmanPrefab;
             tb.enemyPrefab = enemyPrefab;
             tb.bomberPrefab = bomberPrefab;
-            // the dogfight's setup screen can put any of the five types on either side
+            // the dogfight's setup screen can put any of the six types on either side
             tb.spitfirePrefab = spitfirePrefab;
             tb.phantomPrefab = phantomPrefab;
             tb.p38Prefab = p38Prefab;
+            tb.zeroPrefab = zeroPrefab;
             tb.flakSites = PlaceFlak();
             Physics.SyncTransforms();
             float clear = AlpineWorld.CheckEscortRoute(tb.terrain);

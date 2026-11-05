@@ -265,6 +265,13 @@ static class Program
             Check(lb.ours.SequenceEqual(lightning.ours) && lb.theirs.SequenceEqual(lightning.theirs) && lb.theirsPilots[1] == PilotKind.Wizard
                   && DogfightSetup.Of(lf.planes[0].numbers) == Craft.P38 && DogfightSetup.Of(lf.planes[3].numbers) == Craft.P38 && lf.combat[3].guns.StartsWith("20 mm + 4"),
                   "the P-38 survives the trip to bytes and flies as a P-38 with its nose guns, on either side");
+            var zeros = new DogfightSetup { ours = new[] { Craft.Zero, Craft.Spitfire }, theirs = new[] { Craft.Zero }, randomStart = false,
+                                            oursPilots = new[] { PilotKind.Koi, PilotKind.Lion }, theirsPilots = new[] { PilotKind.Fox } };
+            var zb = DogfightSetup.FromBytes(zeros.ToBytes());
+            var zf = Scenarios.Dogfight(zb, centre, 3600, 300, 3000);
+            Check(zb.ours.SequenceEqual(zeros.ours) && zb.oursPilots.SequenceEqual(zeros.oursPilots) && zb.theirsPilots[0] == PilotKind.Fox
+                  && DogfightSetup.Of(zf.planes[0].numbers) == Craft.Zero && DogfightSetup.Of(zf.planes[1].numbers) == Craft.Zero && zf.combat[1].health < zf.combat[2].health,
+                  "the Zero, the fox, the koi and the lion survive the trip to bytes; the Zero flies as a Zero on either side, and breaks easier");
             var easy = Scenarios.Dogfight(new DogfightSetup { ours = new[] { Craft.Bf109 }, theirs = new[] { Craft.Mustang }, randomStart = false }, centre);
             Check(easy.combat[0].hitRadiusFt == 20 && easy.combat[1].hitRadiusFt < 20, "against the AI your guns get the easy aim whatever you fly, and an enemy P-51 doesn't");
 
