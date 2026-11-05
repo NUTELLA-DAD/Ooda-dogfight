@@ -477,34 +477,71 @@ namespace Ooda.Turn
 
         // ---------- the roster ----------
 
-        /// <summary>A row of buttons along the top: each of your planes, which you are flying, which you have planned, which are down.</summary>
+        int rosterOpen = -2;      // the flight folded out in the roster: -2 follows the flight you're flying
+        int rosterLastFlight = -3;
+
+        /// <summary>
+        /// A row along the top: a button for each of your flights (Blue, Red, Bombers), and the planes of one of them
+        /// folded out after it: yours, unless you click another flight's button to look at its planes. Click a plane to
+        /// fly it. Each shows which you are flying, which you have planned, which are down.
+        /// </summary>
         void RosterGUI(float sw)
         {
             if (flight.Count < 2) return;
-            // between the panels in the top corners (yours on the left, the buttons on the right)
-            float left = 320, right = sw - 200, gap = 4;
-            float bw = Mathf.Clamp((right - left - (flight.Count - 1) * gap) / flight.Count, 70, 132);
-            float total = flight.Count * bw + (flight.Count - 1) * gap;
-            float x = Mathf.Max(left, (left + right - total) / 2), y = 10;
-            var r = new Rect(x - 6, y - 4, total + 12, 52);
-            guiRects.Add(r);
-            for (int k = 0; k < flight.Count; k++)
+            // the flights, in the order their planes come in the roster
+            var groups = new List<(int f, List<int> planes)>();
+            foreach (var m in flight)
             {
-                var m = flight[k];
                 int i = System.Array.IndexOf(battle.planes, m);
-                bool down = i < 0 || battle.Out(i);
-                var st = new GUIStyle(GUI.skin.button) { fontSize = bw < 90 ? 11 : 12, fontStyle = i == 0 ? FontStyle.Bold : FontStyle.Normal };
-                if (i == 0) st.normal.textColor = st.hover.textColor = new Color(1f, 0.85f, 0.2f);
-                GUI.enabled = !down && i != 0 && phase == Phase.Planning;
-                if (GUI.Button(new Rect(x + k * (bw + gap), y, bw, 40), $"{(i >= 0 ? CallSign(i) : "")}\n{RosterState(i)}", st))
-                {
-                    TakeControl(i);
-                    Notice($"Flying {FlightName(0)}.");
-                }
-                GUI.enabled = true;
+                int f = i >= 0 ? battle.flightOf[i] : -1;
+                int g = groups.FindIndex(x => x.f == f);
+                if (g < 0) { groups.Add((f, new List<int>())); g = groups.Count - 1; }
+                groups[g].planes.Add(i);
             }
-            if (phase == Phase.Planning)
-                GUI.Label(new Rect(x, y + 42, total, 20), "Tab: your next plane. Steer one to take it over.", new GUIStyle(small) { alignment = TextAnchor.UpperCenter });
+            int mine = battle.flightOf[0];
+            if (mine != rosterLastFlight) { rosterOpen = -2; rosterLastFlight = mine; }   // you moved to another flight: show it
+            int open = rosterOpen == -2 ? mine : rosterOpen;
+            bool one = groups.Count == 1;   // a single flight: its planes always show
+
+            // between the panels in the top corners (yours on the left, the buttons on the right)
+            float left = 320, right = sw - 200, gap = 4, hw = 112, bw = 96;
+            int shown = 0;
+            foreach (var g in groups) if (one || g.f == open) shown += g.planes.Count;
+            float total = (one ? 0 : groups.Count * (hw + gap)) + shown * (bw + gap) - gap;
+            if (total > right - left) { bw = Mathf.Max(70, (right - left - (one ? 0 : groups.Count * (hw + gap)) - shown * gap) / Mathf.Max(1, shown)); total = (one ? 0 : groups.Count * (hw + gap)) + shown * (bw + gap) - gap; }
+            float x = Mathf.Max(left, (left + right - total) / 2), y = 10;
+            guiRects.Add(new Rect(x - 6, y - 4, total + 12, 52));
+            var amber = new Color(1f, 0.85f, 0.2f);
+            foreach (var g in groups)
+            {
+                bool isOpen = one || g.f == open;
+                if (!one)
+                {
+                    bool yours = g.f == mine;
+                    int up = g.planes.Count(i => i >= 0 && !battle.Out(i));
+                    string fname = g.f >= 0 && g.f < battle.flights.Count ? battle.flights[g.f].name : "Planes";
+                    var hs = new GUIStyle(GUI.skin.button) { fontSize = 12, fontStyle = FontStyle.Bold };
+                    if (yours) hs.normal.textColor = hs.hover.textColor = amber;
+                    if (GUI.Button(new Rect(x, y, hw, 40), $"{fname} flight {(isOpen ? "\u25BE" : "\u25B8")}\n{up} of {g.planes.Count} up", hs))
+                        rosterOpen = isOpen && !yours ? mine : g.f;   // click again to fold it back to yours
+                    x += hw + gap;
+                }
+                if (!isOpen) continue;
+                foreach (int i in g.planes)
+                {
+                    bool down = i < 0 || battle.Out(i);
+                    var st = new GUIStyle(GUI.skin.button) { fontSize = bw < 90 ? 11 : 12, fontStyle = i == 0 ? FontStyle.Bold : FontStyle.Normal };
+                    if (i == 0) st.normal.textColor = st.hover.textColor = amber;
+                    GUI.enabled = !down && i != 0 && phase == Phase.Planning;
+                    if (GUI.Button(new Rect(x, y, bw, 40), $"{(i >= 0 ? CallSign(i) : "")}\n{RosterState(i)}", st))
+                    {
+                        TakeControl(i);
+                        Notice($"Flying {FlightName(0)}.");
+                    }
+                    GUI.enabled = true;
+                    x += bw + gap;
+                }
+            }
         }
     }
 }

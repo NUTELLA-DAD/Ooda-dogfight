@@ -19,9 +19,10 @@ namespace Ooda.Turn
     {
         static readonly Color MfdBezel = new Color(0.17f, 0.18f, 0.18f, 0.97f), MfdBezelEdge = new Color(0.36f, 0.37f, 0.37f, 1f),
                               MfdGlass = new Color(0.015f, 0.05f, 0.025f, 0.96f), MfdGreen = new Color(0.35f, 1f, 0.42f, 1f),
-                              MfdDim = new Color(0.35f, 1f, 0.42f, 0.45f), MfdRed = new Color(1f, 0.25f, 0.2f, 1f),
+                              MfdDim = new Color(0.35f, 1f, 0.42f, 0.7f), MfdRed = new Color(1f, 0.25f, 0.2f, 1f),
                               MfdOsb = new Color(0.62f, 0.64f, 0.64f, 1f), MfdOsbDark = new Color(0.08f, 0.08f, 0.08f, 1f);
-        const float MfdRim = 30;   // the bezel round the glass, where the push buttons sit
+        const float MfdRim = 30;
+        const double MfdFunnelFt = 4500;   // the MFD's funnel runs out this far: a gunsight looks a little past the guns' best range   // the bezel round the glass, where the push buttons sit
         GUIStyle mfdText, mfdSmall;
 
         /// <summary>The whole MFD in r: the bezel, its buttons, the glass with the funnel and the trigger bar.</summary>
@@ -159,7 +160,7 @@ namespace Ooda.Turn
                 }
             lbl.normal.textColor = MfdDim;
             for (int s = 0; s <= (int)turnSec; s++)
-                GUI.Label(new Rect(bar.x + s / (float)turnSec * w - (s == 0 ? 0 : s == (int)turnSec ? 14 : 6), bar.yMax + 3, 20, 11), $"{s}", lbl);
+                GUI.Label(new Rect(bar.x + s / (float)turnSec * w - 10, bar.yMax + 3, 20, 11), $"{s}", new GUIStyle(lbl) { alignment = TextAnchor.MiddleCenter });
         }
 
         /// <summary>
@@ -170,7 +171,7 @@ namespace Ooda.Turn
         void MfdFunnel(Rect v)
         {
             var c = new Vector2(v.center.x, v.y + v.height * 0.42f);   // the gun cross a little high, like a gunsight's
-            float k = Mathf.Min(v.width, v.height) * 0.5f / Mathf.Tan(14f * Mathf.Deg2Rad);   // px per unit of angle: ±14° fills it
+            float k = Mathf.Min(v.width, v.height) * 0.5f / Mathf.Tan(5f * Mathf.Deg2Rad);   // px per unit of angle: ±5° fills it, like a gunsight
             // the gun cross
             Fill(new Rect(c.x - 9, c.y, 6, 1), MfdGreen); Fill(new Rect(c.x + 4, c.y, 6, 1), MfdGreen);
             Fill(new Rect(c.x, c.y - 9, 1, 6), MfdGreen); Fill(new Rect(c.x, c.y + 4, 1, 6), MfdGreen);
@@ -212,10 +213,20 @@ namespace Ooda.Turn
                 var p = tr.At(f);
                 if (p == null) continue;
                 double rr = Vec3d.Dot(p.Value - me.pos, gun);
-                if (rr < 250 || rr > funnelMaxFt) continue;
+                if (rr < 300 || rr > MfdFunnelFt) continue;
                 stream.Add((rr, p.Value));
             }
             stream.Sort((x, y) => x.range.CompareTo(y.range));
+            // smooth it: the rounds averaged in 200 ft steps of range, so the edges read as two clean lines
+            var smooth = new List<(double range, Vec3d at)>();
+            for (int a = 0; a < stream.Count;)
+            {
+                double bin = Math.Floor(stream[a].range / 200);
+                Vec3d sum = Vec3d.Zero; double rs = 0; int n = 0;
+                for (; a < stream.Count && Math.Floor(stream[a].range / 200) == bin; a++) { sum = sum + stream[a].at; rs += stream[a].range; n++; }
+                smooth.Add((rs / n, sum * (1.0 / n)));
+            }
+            stream = smooth;
             int j = FunnelTarget();
             double half = SpanFt(j) / 2;
             bool hitNow = FunnelHit(j, out _);
@@ -247,20 +258,24 @@ namespace Ooda.Turn
                     double tspan = SpanFt(j) / 2;
                     Vector2? w0 = P(them.pos - tr * tspan), w1 = P(them.pos + tr * tspan), mid = P(them.pos), fin = P(them.pos + them.up * tspan * 0.4);
                     Color tc = hitNow ? Color.white : MfdRed;
-                    if (w0 != null && w1 != null) MfdLine(w0.Value, w1.Value, 2, tc, v);
-                    if (mid != null && fin != null) MfdLine(mid.Value, fin.Value, 2, tc, v);
-                    if (mid != null && v.Contains(mid.Value))
+                    if (w0 != null && w1 != null && mid != null)
                     {
-                        double range = (them.pos - me.pos).Length;
-                        var rs = new GUIStyle(mfdSmall);
-                        rs.normal.textColor = tc;
-                        GUI.Label(new Rect(mid.Value.x + 8, mid.Value.y + 2, 90, 12), hitNow ? $"ON TGT {range:F0}" : $"{range:F0} FT", rs);
+                        // never smaller than a little plane mark, so a far one still shows
+                        Vector2 half2 = (w1.Value - w0.Value) / 2;
+                        if (half2.magnitude < 6) half2 = half2.magnitude < 1e-3f ? new Vector2(6, 0) : half2.normalized * 6;
+                        MfdLine(mid.Value - half2, mid.Value + half2, 2, tc, v);
+                        Vector2 finV = fin != null ? fin.Value - mid.Value : Vector2.zero;
+                        if (finV.magnitude < 4) finV = new Vector2(-half2.y, half2.x).normalized * 4 * (finV.y > 0 ? 1 : -1);
+                        MfdLine(mid.Value, mid.Value + finV, 2, tc, v);
                     }
-                    else if (mid == null || !v.Contains(mid.Value))
-                        GUI.Label(new Rect(v.x, v.y, v.width, 12), "TGT OUTSIDE FUNNEL", dim);
+                    double range = (them.pos - me.pos).Length;
+                    bool inside = mid != null && v.Contains(mid.Value);
+                    var rs = new GUIStyle(mfdSmall) { alignment = TextAnchor.MiddleRight };
+                    rs.normal.textColor = hitNow ? MfdRed : inside ? MfdGreen : MfdDim;
+                    GUI.Label(new Rect(v.x, v.yMax - 12, v.width, 12), hitNow ? $"ON TGT  {range:F0} FT" : inside ? $"TGT {range:F0} FT" : $"TGT OFF SCOPE  {range:F0} FT", rs);
                 }
             }
-            GUI.Label(new Rect(v.x, v.yMax - 12, v.width, 12), $"AT {ArriveT:F1} S   (HOVER THE TRIGGER BAR)", dim);
+            GUI.Label(new Rect(v.x, v.yMax - 12, v.width, 12), $"AT {ArriveT:F1} S", new GUIStyle(dim) { alignment = TextAnchor.MiddleLeft });
         }
 
         /// <summary>A line on the glass, cut to the rect v.</summary>
