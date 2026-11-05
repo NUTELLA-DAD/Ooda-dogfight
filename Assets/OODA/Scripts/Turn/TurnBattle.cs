@@ -1697,7 +1697,7 @@ namespace Ooda.Turn
             GUI.Label(new Rect(20, 14, 290, 26), $"{(flight.Count > 1 ? FlightName(0) : DogfightSetup.Short(DogfightSetup.Of(battle.planes[0].numbers)))}   Turn {battle.turn + (phase == Phase.Planning ? 1 : 0)}", title);
             string extra = me.RocketBurning ? "   ROCKET" : me.brakeOut ? "   BRAKE" : "";
             GUI.Label(new Rect(20, 42, 290, 22), $"{me.Kias:F0} KIAS   {me.AltFt:F0} ft   {me.g:F1} G{extra}", label);
-            SystemsRow(new Rect(20, 68, 270, 14), Shown(0), battle.Out(0));
+            if (!ctl.pictures || ctl.lights.width <= 0) SystemsRow(new Rect(20, 68, 270, 14), Shown(0), battle.Out(0));   // in the cockpit they're the lamps along the dash
             Bar(new Rect(20, 88, 270, 14), battle.ammo[0] / battle.combat[0].ammoSec, new Color(0.9f, 0.75f, 0.2f), $"Ammo {battle.ammo[0]:F1} s   Missiles {battle.missiles[0]}   Flares {battle.flares[0]}");
             Vec3d los = them.state.pos - me.state.pos;
             double range = los.Length;
