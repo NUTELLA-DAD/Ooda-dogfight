@@ -285,7 +285,7 @@ namespace Ooda.Turn
             Shadow(new Rect(x, y, w, 22), thrText, new GUIStyle(label) { fontStyle = FontStyle.Bold });
             y += QuadRow;
             float thr = GUI.HorizontalSlider(new Rect(x, y + 6, w, 20), (float)plan.throttle, 0f, 1f);
-            if (Math.Abs(thr - plan.throttle) > 1e-4) { plan.throttle = thr; dirty = true; }
+            if (!controlsLocked && Math.Abs(thr - plan.throttle) > 1e-4) { plan.throttle = thr; dirty = true; }
             y += QuadRow;
             EngineSwitches(x, y, w);
         }

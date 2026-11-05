@@ -49,7 +49,8 @@ namespace Ooda.Turn
             Rect Osb(int k, bool bottom)
             {
                 if (bottom) { float bw = glass.width / 4; return new Rect(glass.x + bw * (k + 0.5f) - 12, r.yMax - rim + (rim - 14) / 2, 24, 14); }
-                float bh = glass.height / 4; return new Rect(r.x + (rim - 16) / 2, glass.y + bh * (k + 0.5f) - 9, 16, 18);
+                // down the left, below the header line and above the trigger bar
+                float bh = (glass.height - 18 - 46) / 3; return new Rect(r.x + (rim - 14) / 2, glass.y + 18 + bh * (k + 0.5f) - 9, 14, 18);
             }
             bool Button(Rect b, bool enabled)
             {
@@ -140,7 +141,8 @@ namespace Ooda.Turn
             float w = bar.width;
             var lbl = new GUIStyle(mfdSmall);
             lbl.normal.textColor = MfdGreen;
-            GUI.Label(new Rect(bar.x, bar.y - 14, w, 12), plan.burstEnd > plan.burstStart ? $"TRIG {plan.burstStart:F2}-{plan.burstEnd:F2} S" : "TRIG SAFE  (DRAG TO SET A BURST)", lbl);
+            lbl.wordWrap = false; lbl.clipping = TextClipping.Clip;
+            GUI.Label(new Rect(bar.x, bar.y - 14, w, 12), plan.burstEnd > plan.burstStart ? $"TRIG {plan.burstStart:F2}-{plan.burstEnd:F2} S" : w >= 230 ? "TRIG SAFE  (DRAG TO SET A BURST)" : "TRIG SAFE  (DRAG A BURST)", lbl);
             // the hit window: when rounds fired would connect on the bright ghost
             foreach (var hw in hitWindows)
                 Fill(new Rect(bar.x + (float)(hw.a / turnSec) * w, bar.y + 1, Mathf.Max(2f, (float)((hw.b - hw.a) / turnSec) * w), bar.height - 2), new Color(MfdRed.r, MfdRed.g, MfdRed.b, 0.35f));
@@ -275,7 +277,7 @@ namespace Ooda.Turn
                     bool inside = mid != null && v.Contains(mid.Value);
                     var rs = new GUIStyle(mfdSmall) { alignment = TextAnchor.MiddleRight };
                     rs.normal.textColor = hitNow ? MfdRed : inside ? MfdGreen : MfdDim;
-                    GUI.Label(new Rect(v.x, v.yMax - 12, v.width, 12), hitNow ? $"ON TGT  {range:F0} FT" : inside ? $"TGT {range:F0} FT" : $"TGT OFF SCOPE  {range:F0} FT", rs);
+                    GUI.Label(new Rect(v.x, v.yMax - 12, v.width, 12), hitNow ? $"ON TGT {range:F0} FT" : inside ? $"TGT {range:F0} FT" : $"OFF SCOPE {range:F0} FT", rs);
                 }
             }
             GUI.Label(new Rect(v.x, v.yMax - 12, v.width, 12), $"AT {ArriveT:F1} S", new GUIStyle(dim) { alignment = TextAnchor.MiddleLeft });

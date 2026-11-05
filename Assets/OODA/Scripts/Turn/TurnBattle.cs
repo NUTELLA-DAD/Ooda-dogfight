@@ -798,7 +798,7 @@ namespace Ooda.Turn
             GUI.DrawTexture(shook, gauge.StickTexture, ScaleMode.ScaleToFit, true);
             var cap = new GUIStyle(small) { alignment = TextAnchor.UpperCenter };
             bool planning = phase == Phase.Planning;
-            if (!planning)   // planning, the quadrant beside it says the throttle
+            if (!planning && phase != Phase.Playing)   // planning and playing, the quadrant beside it says the throttle
                 Shadow(new Rect(left.x, left.y - 18, left.width, 20), gaugeWep ? $"Throttle {gaugeThrottle * 100:F0}%  {WepName}" : $"Throttle {gaugeThrottle * 100:F0}%", cap);
             bool steer = planning && !plan.HasMarks;
             Shadow(new Rect(mid.x - 40, ctl.stickTop + 1, mid.width + 80, 20), steer ? "Stick: drag to steer" : "Stick", cap);   // over the lights along the dash
@@ -1838,7 +1838,7 @@ namespace Ooda.Turn
         /// switches over it. The timeline itself opens above the stick.
         /// </summary>
         /// <summary>
-        /// While the turn plays the MFD and the weapon switches stay in the dash, looking but not taking clicks: the
+        /// While the turn plays the throttle quadrant, the MFD and the weapon switches stay in the dash, looking but not taking clicks: the
         /// funnel follows the turn's clock, so it shows the rounds as they fly.
         /// </summary>
         void PlaybackPanel()
@@ -1846,6 +1846,7 @@ namespace Ooda.Turn
             float keepT = sightT;
             controlsLocked = true;
             sightT = Mathf.Clamp(playT, 0f, (float)turnSec);
+            QuadrantGUI(ctl.quadrant);
             WeaponSwitches(ctl.switchRow.x, ctl.switchRow.y, ctl.switchRow.width);
             GunMfd(ctl.weapons);
             sightT = keepT;

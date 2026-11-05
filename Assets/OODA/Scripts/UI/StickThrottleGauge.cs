@@ -95,17 +95,26 @@ namespace Ooda.UI
             var model = Resources.Load<GameObject>("Pedals");
             var tex = Resources.Load<Texture2D>("Pedals_BaseColor");
             if (model == null || stick == null) return;
-            var mesh = model.GetComponentInChildren<MeshFilter>()?.sharedMesh;
-            if (mesh == null) return;
+            // a big OBJ comes in as several meshes (Unity splits it at 65k vertices): take every part
+            var parts = model.GetComponentsInChildren<MeshFilter>(true);
+            if (parts.Length == 0) return;
             var root = new GameObject("Pedals") { layer = Layer };
             root.transform.SetParent(transform, false);
             root.transform.localPosition = new Vector3(9, 0, 0);
-            var body = new GameObject("PedalsMesh") { layer = Layer };
-            body.transform.SetParent(root.transform, false);
-            body.AddComponent<MeshFilter>().sharedMesh = mesh;
             var mat = new Material(stick.sharedMaterials[0]) { name = "Pedals" };
             if (tex != null) { mat.SetTexture("_BaseMap", tex); mat.SetTexture("_MainTex", tex); }
-            body.AddComponent<MeshRenderer>().sharedMaterial = mat;
+            foreach (var part in parts)
+            {
+                if (part.sharedMesh == null) continue;
+                var body = new GameObject(part.name) { layer = Layer };
+                body.transform.SetParent(root.transform, false);
+                var from = model.transform.InverseTransformPoint(part.transform.position);
+                body.transform.localPosition = from;
+                body.transform.localRotation = Quaternion.Inverse(model.transform.rotation) * part.transform.rotation;
+                body.transform.localScale = part.transform.lossyScale;
+                body.AddComponent<MeshFilter>().sharedMesh = part.sharedMesh;
+                body.AddComponent<MeshRenderer>().sharedMaterial = mat;
+            }
             pedalsRoot = root.transform;
             pedalsCam = MakeCamera("PedalsCamera", pedalsRoot, pedalsCamera, out var pt, PedalsAspect, pedalsLookAt);
             PedalsTexture = pt;
