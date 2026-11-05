@@ -15,7 +15,8 @@ namespace Ooda.EditorTools
         [MenuItem("OODA/World Shots")]
         public static void Capture()
         {
-            EditorSceneManager.OpenScene(TestWorldBuilder.ScenePath);
+            var scene = EditorSceneManager.OpenScene(TestWorldBuilder.ScenePath);
+            if (Ooda.Fx.ToonSky.Enabled) Ooda.Fx.ToonSky.Apply(scene);   // (the game puts it on as each scene loads; the shots must too)
             string dir = Path.GetFullPath("Shots~");
             Directory.CreateDirectory(dir);
             var camGo = new GameObject("ShotCam");
