@@ -1,5 +1,6 @@
 using System;
 using Ooda.Flight.Core;
+using Ooda.Turn.Core;
 using UnityEngine;
 
 namespace Ooda.Turn
@@ -7,8 +8,8 @@ namespace Ooda.Turn
     /// <summary>
     /// The bottom of the screen as a cockpit: a gunmetal instrument panel shaped as a trapezoid, its padded coaming
     /// flat across the middle over the stick (it stands inside it) and sloping down to the bottom corners;
-    /// and the instruments grouped left of the stick: the airspeed indicator and the altimeter side by side, the G meter and the
-    /// system lights under them.
+    /// the instruments grouped left of the stick: the airspeed indicator and the altimeter side by side, the G meter and the
+    /// attitude indicator under them; and the system lights in a row along the top of the dash.
     /// While planning they read where the turn starts; during playback they follow the plane.
     /// </summary>
     public partial class TurnBattle
@@ -96,7 +97,7 @@ namespace Ooda.Turn
             return dialTex;
         }
 
-        /// <summary>The three dials, in their places in the panel. Drawn whenever the stick is.</summary>
+        /// <summary>The dials, in their places in the panel, and the system lights. Drawn whenever the stick is.</summary>
         void Instruments()
         {
             if (!ctl.pictures || ctl.asi.width <= 0) return;
@@ -118,6 +119,16 @@ namespace Ooda.Turn
             AirspeedDial(ctl.asi, shownKias);
             AltimeterDial(ctl.alt, shownAlt);
             GDial(ctl.gmeter, shownG, (float)m.numbers.maxG);
+            if (ctl.attitude.width > 0)
+            {
+                float pitch = Mathf.Asin(Mathf.Clamp((float)m.Forward.z, -1, 1)) * Mathf.Rad2Deg, bank = (float)AutoPilot.BankDeg(m);
+                if (Event.current.type == EventType.Repaint)
+                {
+                    float k = 1 - Mathf.Exp(-8f * Time.unscaledDeltaTime);
+                    shownPitch = Mathf.Lerp(shownPitch, pitch, k); shownBank = Mathf.LerpAngle(shownBank, bank, k);
+                }
+                AttitudeDial(ctl.attitude, shownPitch, Mathf.DeltaAngle(0, shownBank));
+            }
             if (ctl.lights.width > 0) SystemLights(ctl.lights);
         }
 
@@ -125,8 +136,8 @@ namespace Ooda.Turn
         GUIStyle lightText;
 
         /// <summary>
-        /// The crucial system lights beside the G meter, a two by two annunciator: a lamp each for the engine, the fuel,
-        /// the flight controls and the wings. <see cref="SystemLight"/> says what each shows; without it they stay green.
+        /// The crucial system lights in a row along the top of the dash, over the stick: a lamp each for the engine, the
+        /// fuel, the flight controls and the wings. <see cref="SystemLight"/> says what each shows; without it they stay green.
         /// </summary>
         void SystemLights(Rect r)
         {
@@ -135,12 +146,13 @@ namespace Ooda.Turn
                 lightText = new GUIStyle(GUI.skin.label) { fontSize = 11, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, padding = new RectOffset(0, 0, 0, 0), clipping = TextClipping.Clip };
                 lightText.font = Ooda.UI.BriefingStyle.Stencil;
             }
+            guiRects.Add(r);
             Fill(r, SwEdge);
             Fill(new Rect(r.x + 1, r.y + 1, r.width - 2, r.height - 2), SwHole);
-            float cw = (r.width - 6) / 2, ch = (r.height - 6) / 2;
+            float cw = (r.width - 2 - 2 * 5) / 4;
             for (int k = 0; k < 4; k++)
             {
-                var cell = new Rect(r.x + 2 + (k % 2) * (cw + 2), r.y + 2 + (k / 2) * (ch + 2), cw, ch);
+                var cell = new Rect(r.x + 2 + k * (cw + 2), r.y + 2, cw, r.height - 4);
                 Color lamp = LampGreen; string text = LightNames[k];
                 SystemLight(k, ref lamp, ref text);
                 Fill(cell, Color.Lerp(SwHole, lamp, 0.85f));
@@ -148,7 +160,64 @@ namespace Ooda.Turn
                 lightText.normal.textColor = new Color(0.05f, 0.05f, 0.04f);
                 GUI.Label(cell, text, lightText);
             }
-            GUI.Label(new Rect(r.x, r.yMax + 2, r.width, 12), "SYSTEMS", dialName);
+        }
+
+        float shownPitch, shownBank;
+        static Texture2D attTex;
+        static float attPitch = 999, attBank = 999;
+        static readonly Color AttSky = new Color(0.22f, 0.55f, 0.92f), AttGround = new Color(0.55f, 0.34f, 0.14f);
+
+        /// <summary>The attitude indicator: a ball of sky over ground that tilts with the bank and drops as the nose comes up
+        /// (a rung each 10 degrees, the ball's edge at 40), a fixed amber aircraft over it, and the bank scale along the top.</summary>
+        void AttitudeDial(Rect d, float pitch, float bank)
+        {
+            GUI.DrawTexture(d, DialTexture(), ScaleMode.StretchToFill, true);
+            Vector2 c = d.center; float rad = d.width * 0.5f * 0.82f, br = rad * 0.8f;
+            if (Event.current.type == EventType.Repaint && (attTex == null || Mathf.Abs(pitch - attPitch) > 0.2f || Mathf.Abs(Mathf.DeltaAngle(bank, attBank)) > 0.2f))
+            {
+                BuildAttitudeBall(pitch, bank);
+                attPitch = pitch; attBank = bank;
+            }
+            GUI.DrawTexture(new Rect(c.x - br, c.y - br, 2 * br, 2 * br), attTex, ScaleMode.StretchToFill, true);
+            // the bank scale: ticks at 0, 10, 20, 30, 60 either side, and the pointer turning with the ball
+            foreach (float t in new[] { 0f, 10f, 20f, 30f, 60f, -10f, -20f, -30f, -60f })
+                Spoke(c, t, rad * (t % 30 == 0 ? 0.84f : 0.88f), rad * 0.98f, t == 0 ? 3f : 1.5f, DialWhite);
+            Spoke(c, -bank, br * 0.8f, br, 3f, DialAmber);
+            // the aircraft: a wing each side of a dot
+            Fill(new Rect(c.x - br * 0.62f, c.y - 1.5f, br * 0.42f, 3), DialAmber);
+            Fill(new Rect(c.x + br * 0.2f, c.y - 1.5f, br * 0.42f, 3), DialAmber);
+            Fill(new Rect(c.x - 2.5f, c.y - 2.5f, 5, 5), DialAmber);
+            GUI.Label(new Rect(d.x, d.yMax - 2, d.width, 12), $"PITCH {pitch:+0;-0;0}  BANK {Mathf.Abs(bank):0}", dialName);
+        }
+
+        static void BuildAttitudeBall(float pitch, float bank)
+        {
+            const int S = 96;
+            if (attTex == null) attTex = new Texture2D(S, S, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
+            var px = new Color[S * S];
+            float h = (S - 1) / 2f, sb = Mathf.Sin(bank * Mathf.Deg2Rad), cb = Mathf.Cos(bank * Mathf.Deg2Rad);
+            float per10 = 0.25f;                       // the ball's radius is 40 degrees of pitch
+            float horizon = -pitch / 40f, line = 1.3f / h;
+            for (int y = 0; y < S; y++)
+                for (int x = 0; x < S; x++)
+                {
+                    float dx = (x - h) / h, dy = (y - h) / h, r = Mathf.Sqrt(dx * dx + dy * dy);   // y up (textures go bottom up)
+                    if (r > 1) { px[y * S + x] = Color.clear; continue; }
+                    // in the ball's frame: rolled with the bank (right wing down tips the horizon's left end up)
+                    float u = dx * cb - dy * sb, v = dx * sb + dy * cb;
+                    Color col = v > horizon ? AttSky : AttGround;
+                    if (Mathf.Abs(v - horizon) < line) col = Color.white;
+                    for (int n = -2; n <= 2; n++)
+                    {
+                        if (n == 0) continue;
+                        float half = n % 2 == 0 ? 0.32f : 0.18f;
+                        if (Mathf.Abs(v - (horizon + n * per10)) < line * 0.7f && Mathf.Abs(u) < half) col = Color.white;
+                    }
+                    col.a = Mathf.Clamp01((1 - r) * h);   // a smooth edge
+                    px[y * S + x] = col;
+                }
+            attTex.SetPixels(px);
+            attTex.Apply();
         }
 
         /// <summary>

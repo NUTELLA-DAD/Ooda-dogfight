@@ -690,7 +690,8 @@ namespace Ooda.Turn
             public Rect switchRow;                   // where the weapon switches go (flare hold, the specials), right-aligned in it
             public float stickTop;                   // the top of the middle (the stick's caption), for text and the timeline above it
             public Rect asi, alt, gmeter;            // the dials in the panel (zero when there is no room for them)
-            public Rect lights;                      // the system lights' box beside the G meter (zero with the dials)
+            public Rect lights;                      // the system lights in a row along the top of the dash (zero with the dials)
+            public Rect attitude;                    // the attitude indicator beside the G meter (zero with the dials)
             public float panelTop;                   // the cockpit panel's flat top, over the stick
         }
 
@@ -716,9 +717,12 @@ namespace Ooda.Turn
                 // the throttle on the left, standing in front of the panel's slope, the quadrant beside it
                 c.throttle = new Rect(CtlMargin, sh - CtlBottom - th, tw, th);
                 c.quadrant = new Rect(c.throttle.xMax + 8, sh - CtlBottom - qh, QuadW, qh);
-                c.stickTop = c.stick.y - 20;
-                // the panel's flat top just over the stick's grip, so the stick stands inside it
+                // the panel's flat top just over the stick's grip, so the stick stands inside it; the system lights in a
+                // row along the top of the dash, over the stick; the stick's caption and the text above them
                 c.panelTop = c.stick.y - 10;
+                float lw = Mathf.Min(520f, sw * 0.34f);
+                c.lights = new Rect((sw - lw) / 2, c.panelTop - 24, lw, 20);
+                c.stickTop = c.lights.y - 22;
                 // the gun MFD set in the panel right of the stick, under the flat top; the weapon switches in the corner past it
                 float rx0 = Mathf.Max(c.stick.xMax, c.pedals.xMax) + 14;
                 float ww = Mathf.Min(mw, sw * 0.78f - rx0, (sh - CtlBottom - c.panelTop - 14) * 1.3f);
@@ -740,7 +744,7 @@ namespace Ooda.Turn
                     c.switchRow = new Rect(sw - CtlMargin - c.weaponsRowW, c.weapons.y - SwitchH - 6, c.weaponsRowW, SwitchH);
                 }
                 // the instruments together between the quadrant and the stick: airspeed and altitude side by side along
-                // the top, the G meter and the system lights (ENG, FUEL, CTRL, WING) under them
+                // the top, the G meter and the attitude indicator under them
                 float lx0 = c.quadrant.xMax + 14, lx1 = Mathf.Min(c.stick.x, c.pedals.x) - 14;
                 float rowsH = sh - CtlBottom - (c.panelTop + 22) - 2 * 14;   // two rows, each with its caption under it
                 float d = Mathf.Min(130f, (lx1 - lx0 - 10) / 2, rowsH / 2);
@@ -751,7 +755,7 @@ namespace Ooda.Turn
                     c.asi = new Rect(mid - d - 5, topY, d, d);
                     c.alt = new Rect(mid + 5, topY, d, d);
                     c.gmeter = new Rect(mid - d - 5, lowY, d, d);
-                    c.lights = new Rect(mid + 5, lowY + d * 0.15f, d, d * 0.7f);
+                    c.attitude = new Rect(mid + 5, lowY, d, d);
                 }
                 return c;
             }
@@ -784,7 +788,7 @@ namespace Ooda.Turn
             if (!planning)   // planning, the quadrant beside it says the throttle
                 Shadow(new Rect(left.x, left.y - 18, left.width, 20), gaugeWep ? $"Throttle {gaugeThrottle * 100:F0}%  {WepName}" : $"Throttle {gaugeThrottle * 100:F0}%", cap);
             bool steer = planning && !plan.HasMarks;
-            Shadow(new Rect(mid.x - 40, Mathf.Min(mid.y, ctl.panelTop) - 22, mid.width + 80, 20), steer ? "Stick: drag to steer" : "Stick", cap);   // over the panel, not on its rim
+            Shadow(new Rect(mid.x - 40, ctl.stickTop + 1, mid.width + 80, 20), steer ? "Stick: drag to steer" : "Stick", cap);   // over the lights along the dash
             guiRects.Add(left); guiRects.Add(mid);
             stickRect = mid;
             throttleRect = planning ? left : Rect.zero;
