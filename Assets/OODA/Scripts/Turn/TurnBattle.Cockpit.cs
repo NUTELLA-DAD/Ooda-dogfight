@@ -6,8 +6,8 @@ namespace Ooda.Turn
 {
     /// <summary>
     /// The bottom of the screen as a cockpit: a gunmetal instrument panel shaped as a trapezoid, its padded coaming
-    /// flat across the middle (the stick stands in front of it) and sloping down to the bottom corners; and round dials set in
-    /// it either side of the stick: the airspeed indicator and the altimeter on the left, the G meter on the right.
+    /// flat across the middle over the stick and the throttle (both stand inside it) and sloping down to the bottom corners;
+    /// and round dials grouped on the stick's right: the airspeed indicator and the altimeter side by side, the G meter under them.
     /// While planning they read where the turn starts; during playback they follow the plane.
     /// </summary>
     public partial class TurnBattle
@@ -17,11 +17,11 @@ namespace Ooda.Turn
         float shownKias, shownAlt, shownG = 1;
         GUIStyle dialNum, dialName;
 
-        /// <summary>The panel behind the controls: a trapezoid, its flat top just under the stick's grip across the middle half, its sides sloping down to the bottom corners.</summary>
+        /// <summary>The panel behind the controls: a trapezoid, its flat top just over the stick and the throttle across the middle half, its sides sloping down to the bottom corners.</summary>
         void CockpitPanel(float sw, float sh)
         {
             if (!ctl.pictures) return;
-            float top = ctl.stick.y + ctl.stick.height * 0.1f;
+            float top = ctl.panelTop;
             if (panelTex == null || panelTexDip != 1) { MakePanelTexture(); panelTexDip = 1; }
             GUI.DrawTexture(new Rect(0, top, sw, sh - top), panelTex, ScaleMode.StretchToFill, true);
         }

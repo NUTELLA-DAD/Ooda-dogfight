@@ -689,7 +689,7 @@ namespace Ooda.Turn
             public float weaponsRowW;                // how wide the switch row over it may be (right-aligned)
             public float stickTop;                   // the top of the middle (the stick's caption), for text and the timeline above it
             public Rect asi, alt, gmeter;            // the dials in the panel (zero when there is no room for them)
-            public float panelTop;                   // the cockpit panel's top at the sides
+            public float panelTop;                   // the cockpit panel's flat top, over the stick and the throttle
         }
 
         ControlsLayout ctl;
@@ -703,33 +703,37 @@ namespace Ooda.Turn
             var c = new ControlsLayout();
             float qh = 2 * QuadRow + SwitchH;   // the throttle, its slider, and the engine's switches
             float mh = Mathf.Clamp(sh * 0.34f, 220f, 280f), mw = mh * 1.3f;   // the gun MFD
-            for (float h = Mathf.Min(260f, sh * 0.3f); havePictures && h >= 110; h -= 10)
+            for (float h = Mathf.Min(240f, sh * 0.27f); havePictures && h >= 110; h -= 10)
             {
                 float w = h * 0.9f, pw = Mathf.Max(w * 1.1f, 240f);
                 float side = (sw - pw) / 2 - 2 * CtlMargin;
                 float th = h * 0.9f, tw = th * 0.9f;
                 if (side < tw + 8 + QuadW || side < WeaponsMinW) continue;
-                c.pictures = true;
                 c.pedals = new Rect((sw - pw) / 2, sh - CtlBottom - PedalH, pw, PedalH);
                 c.stick = new Rect((sw - w) / 2, c.pedals.y - 4 - h, w, h);
-                c.throttle = new Rect(CtlMargin, sh - CtlBottom - th, tw, th);
-                c.quadrant = new Rect(c.throttle.xMax + 8, sh - CtlBottom - qh, QuadW, qh);
+                // the throttle beside the stick, under the panel's flat top (it runs across the middle half); the quadrant
+                // in the bottom left corner, under the slope
+                c.throttle = new Rect(c.stick.x - 6 - tw, sh - CtlBottom - th, tw, th);
+                c.quadrant = new Rect(CtlMargin, sh - CtlBottom - qh, QuadW, qh);
+                if (c.throttle.x < sw * 0.25f + 4 || c.quadrant.xMax + 8 > c.throttle.x) continue;
                 c.weaponsRowW = Mathf.Min(WeaponsMaxW, side);
                 float ww = Mathf.Min(mw, side);
                 c.weapons = new Rect(sw - CtlMargin - ww, sh - CtlBottom - mh, ww, mh);
                 c.stickTop = c.stick.y - 20;
-                c.panelTop = Mathf.Min(Mathf.Min(c.throttle.y - 20, c.quadrant.y), c.weapons.y - SwitchH - 6) - 12;
-                // the dials either side of the stick: airspeed and altitude on the left, the G meter on the right
-                float lx0 = c.quadrant.xMax + 14, lx1 = Mathf.Min(c.stick.x, c.pedals.x) - 14;
-                float rx0 = Mathf.Max(c.stick.xMax, c.pedals.xMax) + 14, rx1 = c.weapons.x - 14;
-                float d = Mathf.Min(130f, (lx1 - lx0 - 10) / 2, rx1 - rx0, h * 0.55f);
-                if (d >= 60)
+                // the panel's flat top just over the stick's and the throttle's grips, so both stand inside it
+                c.panelTop = Mathf.Min(c.stick.y, c.throttle.y) - 10;
+                // the dials together on the right of the stick, under the flat top: airspeed and altitude side by side
+                // along the top, the G meter under them
+                float rx0 = Mathf.Max(c.stick.xMax, c.pedals.xMax) + 14, rx1 = Mathf.Min(c.weapons.x, sw * 0.75f) - 14;
+                float rowsH = sh - CtlBottom - (c.panelTop + 22) - 2 * 14;   // two rows, each with its caption under it
+                float d = Mathf.Min(130f, (rx1 - rx0 - 10) / 2, rowsH / 2);
+                c.pictures = true;
+                if (d >= 70)
                 {
-                    float dy = sh - CtlBottom - 14 - d;
-                    float lmid = (lx0 + lx1) / 2;
-                    c.asi = new Rect(lmid - d - 5, dy, d, d);
-                    c.alt = new Rect(lmid + 5, dy, d, d);
-                    c.gmeter = new Rect((rx0 + rx1) / 2 - d / 2, dy, d, d);
+                    float mid = (rx0 + rx1) / 2, topY = c.panelTop + 22;
+                    c.asi = new Rect(mid - d - 5, topY, d, d);
+                    c.alt = new Rect(mid + 5, topY, d, d);
+                    c.gmeter = new Rect(mid - d / 2, sh - CtlBottom - 14 - d, d, d);
                 }
                 return c;
             }
@@ -1772,7 +1776,7 @@ namespace Ooda.Turn
                 // as tall as its text needs (wrapped), but never down over the throttle quadrant: when it would be, the
                 // panel stops above it and the rest scrolls (the wheel over the panel, or drag its bar)
                 var helpStyle = new GUIStyle(small) { wordWrap = true };
-                float leftTop = (ctl.pictures ? Mathf.Min(ctl.throttle.y - 20, ctl.quadrant.y) : ctl.quadrant.y) - 6;
+                float leftTop = (ctl.pictures ? ctl.panelTop : ctl.quadrant.y) - 6;
                 float th = helpStyle.CalcHeight(new GUIContent(helpText), 425);
                 float ph = Mathf.Clamp(leftTop - hy, 80f, th + 12);
                 Rect help = new Rect(10, hy, 440, ph);
