@@ -40,8 +40,11 @@ namespace Ooda.Turn
             yield return Shot("1_lights");
 
             // 2: nearly greyed out already, a full pull: the planning warning
+            // (fast enough to pull the G whatever the saved setup flies: 380 KIAS)
             var m = battle.planes[0];
+            m.state.vel = m.state.vel.Normalized * (Atmosphere.IasToTasKt(380, m.AltFt) * Atmosphere.KtToFtps);
             m.gStress = FlightModel.GlocLimit * 0.9;
+            env = Envelope.Compute(m, turnSec);
             plan.aim = env.Clamp((m.Forward * 0.2 + m.Up).Normalized);
             plan.overpull = 0;
             plan.burstStart = plan.burstEnd = 0;

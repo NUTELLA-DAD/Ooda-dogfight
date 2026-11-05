@@ -1506,7 +1506,7 @@ namespace Ooda.Turn
         {
             shownSys = (Systems[])sys.Clone();
             for (int i = 0; i < battle.Count && i < views.Length; i++)
-                if (views[i] != null) views[i].SetSmoke(down[i] ? 2 : i < sys.Length && sys[i].AnyDamaged ? 1 : 0);
+                if (views[i] != null) views[i].SetSmoke(down[i] ? 2 : i < sys.Length && sys[i].AnyDamaged && (i != 0 || phase == Phase.Playing) ? 1 : 0);   // no smoke hanging over your own plane while you plan
         }
 
         readonly List<Vector3> smokePath = new List<Vector3>(32);
@@ -1885,6 +1885,7 @@ namespace Ooda.Turn
 
         Systems Shown(int i) => i >= 0 && i < shownSys.Length ? shownSys[i] : battle.SystemsOf(i);
 
+        GUIStyle sysText;
         static readonly Color sysOk = new Color(0.3f, 0.85f, 0.35f), sysHurt = new Color(1f, 0.7f, 0.15f), sysOut = new Color(0.95f, 0.2f, 0.15f);
 
         /// <summary>
@@ -1908,10 +1909,12 @@ namespace Ooda.Turn
                 if (down && c == sysOk) c = new Color(c.r * 0.5f, c.g * 0.5f, c.b * 0.5f, 1);
                 var cr = new Rect(x + k * cell + 1, r.y, cell - 2, r.height);
                 Fill(cr, new Color(0, 0, 0, 0.5f));
-                Fill(new Rect(cr.x, cr.y, cr.width * Mathf.Clamp01(1 - (float)s[id] * 0.5f), cr.height), c);
+                bool gone = c == sysOut;
+                Fill(new Rect(cr.x, cr.y, cr.width * (gone ? 1f : Mathf.Clamp01(1 - (float)s[id] * 0.5f)), cr.height), c);   // out: the whole light red
                 string txt = Systems.Short(id);
                 if (id == SystemId.Fuel && s.Leaking && !s.IsOut(id) && !down) txt = $"FUEL {s.leakLeftSec:F0}";
-                GUI.Label(new Rect(cr.x + 3, r.y - 4, cr.width, 22), txt, small);
+                if (sysText == null) { sysText = new GUIStyle(small) { fontStyle = FontStyle.Bold }; sysText.normal.textColor = new Color(0.06f, 0.06f, 0.05f); }
+                GUI.Label(new Rect(cr.x + 3, r.y - 4, cr.width, 22), txt, sysText);   // dark on the lit bar
             }
         }
 
