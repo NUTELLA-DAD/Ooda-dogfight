@@ -37,6 +37,7 @@ Shader "Ooda/ToonCloud"
         float4 _KindLit[4], _KindShade[4], _KindBelly[4], _KindLine[4];
         float4 _KindDrift[4];   // per kind: speed (m/s), span (m), billow rate, billow size
         float4 _RainCol, _FlashCol;
+        float _ToonTime;        // real seconds (ToonSky's clock: it runs while the battle's clock is stopped for planning)
 
         // the puff's centre in POSITION (all four corners the same);
         // uv0: corner (-1/+1, -1/+1), radius, seed (0-1); uv1: the base it is cut flat at, the bank's top, lobes, kind;
@@ -60,7 +61,7 @@ Shader "Ooda/ToonCloud"
             float kind = a.uv1.w, stretch = a.uv2.x, phase = a.uv2.y, seed = a.uv0.w;
             bool rain = kind > 3.5;
             int ki = rain ? 1 : (int)min(kind, 3.0);   // (rain rides with its storm)
-            float t = _Time.y * _ToonWind.w;
+            float t = _ToonTime * _ToonWind.w;
             // the bank's drift across its span, and its life: forming, drifting, dissolving
             float4 drift = _KindDrift[ki];
             float u = frac(t * drift.x / drift.y + phase);
@@ -146,10 +147,10 @@ Shader "Ooda/ToonCloud"
                 float xb = lerp(x0, x1, frac(y8)) * 0.7 * W;
                 if (abs(wx - xb) < max(4.0, 2.2 * px) && uv.y > -0.4) return half4(Fogged(_FlashCol.rgb, i.w.w), 1);
             }
-            float spacing = max(16.0, 7.0 * px), slant = wx + wy * 0.28;
+            float spacing = max(12.0, 5.0 * px), slant = wx + wy * 0.28;
             float col = floor(slant / spacing), f = frac(slant / spacing);
-            float dash = frac((wy + _Time.y * 60.0) / (spacing * 6.0) + Hash(col));
-            if (f > 0.22 || dash > 0.55) discard;
+            float dash = frac((wy + _ToonTime * 60.0) / (spacing * 6.0) + Hash(col));
+            if (f > 0.3 || dash > 0.72) discard;
             if (abs(uv.x) > 0.9 - 0.35 * Hash(col * 3.1)) discard;
             Dither(i.positionCS, i.d.w * saturate((uv.y + 1.0) / 0.9));
             return half4(Fogged(_RainCol.rgb, i.w.w), 1);

@@ -83,6 +83,8 @@ namespace Ooda.Fx
 
             foreach (var go in roots)
                 if (go.name == "Clouds") Clouds(go.transform);
+            if (Application.isPlaying && Clock.Instance == null)
+                Object.DontDestroyOnLoad(new GameObject("ToonSky clock", typeof(Clock)) { hideFlags = HideFlags.HideInHierarchy });
         }
 
         static Light SunOf(GameObject[] roots)
@@ -143,6 +145,17 @@ namespace Ooda.Fx
             Debug.Log($"OODA: toon clouds: {banks} banks of {puffs} puffs: {kinds[0]} cumulus, {kinds[1]} storms, {kinds[2]} cirrus, {kinds[3]} low.");
         }
 
+        /// <summary>
+        /// The clouds' clock, in real time: the battle stops the game's clock while you plan, and the sky should not.
+        /// </summary>
+        sealed class Clock : MonoBehaviour
+        {
+            public static Clock Instance;
+            void Awake() => Instance = this;
+            void OnDestroy() { if (Instance == this) Instance = null; }
+            void Update() => Shader.SetGlobalFloat("_ToonTime", Time.unscaledTime);
+        }
+
         // stable hashes, so the clouds are the same every run
         static uint H(uint x) { x ^= x >> 16; x *= 0x7feb352dU; x ^= x >> 15; x *= 0x846ca68bU; x ^= x >> 16; return x; }
         static float R01(int a, int b) => (H((uint)a * 73856093U ^ H((uint)b * 19349663U + 0x9e3779b9U)) & 0xffffff) / 16777216f;
@@ -167,7 +180,9 @@ namespace Ooda.Fx
                 bankBase = Mathf.Min(bankBase, p.min.y + p.size.y * 0.18f);
                 widest = Mathf.Max(widest, Mathf.Max(p.extents.x, p.extents.z));
             }
-            if (kind == Kind.Storm) top = Mathf.Max(top, bankBase + widest * 1.6f);       // (a storm towers)
+            // a storm is its own shape, far bigger than the bank it grew from: a tower several times as tall as it is wide
+            float T = widest * 1.3f, towerH = T * 5.5f;
+            if (kind == Kind.Storm) top = bankBase + towerH;
             else if (kind == Kind.Cumulus && tall) top = bankBase + (top - bankBase) * 1.6f;
             var box = pieces[0];
             float phase = R01(seed, 7);
@@ -203,6 +218,8 @@ namespace Ooda.Fx
                 rb = Mathf.Max(rb, Mathf.Sqrt(Mathf.PI * ex * ez * 0.9f / 36f));   // (a flat piece: fewer, bigger puffs, never gappy)
                 int n = Mathf.Clamp(Mathf.RoundToInt(Mathf.PI * ex * ez / (rb * rb) * 0.9f), 5, 36);
 
+                if (kind == Kind.Storm) continue;   // (built whole below)
+
                 if (kind == Kind.Cirrus)
                 {
                     // a streak or two along the wind, small puffs stretched out, a little ragged
@@ -216,7 +233,7 @@ namespace Ooda.Fx
                         {
                             int s = ps + 9000 + st * 101 + k * 7;
                             float u = m == 1 ? 0 : k / (m - 1f) * 2f - 1f;
-                            float r = rb * 0.42f * (1.1f - 0.6f * Mathf.Abs(u)) * Rng(s, 5, 0.8f, 1.2f);
+                            float r = rb * 0.55f * (1.1f - 0.6f * Mathf.Abs(u)) * Rng(s, 5, 0.8f, 1.2f);
                             Vector3 c = pb.center + side + wind * (u * len * 0.5f) + Vector3.up * Rng(s, 6, -0.15f, 0.15f) * rb;
                             Puff(c, r, s, Kind.Cirrus, Rng(s, 7, 2.6f, 3.6f), c.y - r * 10f);
                         }
@@ -262,28 +279,42 @@ namespace Ooda.Fx
 
             if (kind == Kind.Storm)
             {
-                // the anvil: wide flat puffs spread out at the top, leaning downwind
                 Vector3 c0 = Vector3.zero;
                 foreach (var p in pieces) c0 += p.center;
                 c0 /= pieces.Count;
-                int m = 14;
-                for (int k = 0; k < m; k++)
+                // the tower: rings of big puffs from the base up, narrowing a little as it climbs and leaning downwind
+                const int Levels = 11;
+                for (int j = 0; j < Levels; j++)
+                {
+                    float f = j / (Levels - 1f), ring = T * (1f - 0.3f * f);
+                    int per = j == 0 ? 7 : 5;
+                    for (int k = 0; k < per; k++)
+                    {
+                        int s = seed * 41 + j * 97 + k * 13;
+                        float a = (k + Rng(s, 3, -0.35f, 0.35f)) / per * Mathf.PI * 2f, rr = ring * Rng(s, 4, 0.25f, 0.75f);
+                        float r = T * Rng(s, 5, 0.42f, 0.62f) * (j == 0 ? 0.85f : 1f);
+                        var c = new Vector3(c0.x + Mathf.Cos(a) * rr, bankBase + r * 0.45f + f * (towerH * 0.82f), c0.z + Mathf.Sin(a) * rr) + wind * (f * f * T * 0.6f);
+                        Puff(c, r, s, Kind.Storm);
+                    }
+                }
+                // the anvil: a wide flat shelf of stretched puffs at the top, cut flat underneath, swept downwind
+                for (int k = 0; k < 22; k++)
                 {
                     int s = seed * 53 + k * 19;
-                    float a = Rng(s, 3, 0f, Mathf.PI * 2f), rr = Mathf.Sqrt(R01(s, 4)) * widest * 1.3f;
-                    Vector3 c = new Vector3(c0.x + Mathf.Cos(a) * rr, top - widest * Rng(s, 6, 0.05f, 0.25f), c0.z + Mathf.Sin(a) * rr) + wind * widest * 0.5f;
-                    Puff(c, widest * Rng(s, 5, 0.3f, 0.45f), s, Kind.Storm, Rng(s, 7, 1.5f, 2.1f), top - widest * 0.45f);
+                    float a = Rng(s, 3, 0f, Mathf.PI * 2f), rr = Mathf.Sqrt(R01(s, 4)) * T * 2.4f;
+                    Vector3 c = new Vector3(c0.x + Mathf.Cos(a) * rr, top - T * Rng(s, 6, 0.1f, 0.35f), c0.z + Mathf.Sin(a) * rr) + wind * T * 1.4f;
+                    Puff(c, T * Rng(s, 5, 0.38f, 0.55f), s, Kind.Storm, Rng(s, 7, 1.5f, 2.2f), top - T * 0.6f);
                 }
-                // rain down to the ground under it
-                int shafts = 2 + (int)(R01(seed, 8) * 2.99f);
+                // rain under it: wide shafts falling a long way, thinning out before the ground if the ground is far
+                int shafts = 3 + (int)(R01(seed, 8) * 1.99f);
                 for (int k = 0; k < shafts; k++)
                 {
                     int s = seed * 61 + k * 23;
-                    float a = Rng(s, 3, 0f, Mathf.PI * 2f), rr = R01(s, 4) * widest * 0.55f;
+                    float a = (k + Rng(s, 3, -0.3f, 0.3f)) / shafts * Mathf.PI * 2f, rr = Rng(s, 4, 0.2f, 0.6f) * T;
                     var foot = new Vector3(c0.x + Mathf.Cos(a) * rr, bankBase, c0.z + Mathf.Sin(a) * rr);
                     float ground = Physics.Raycast(foot + Vector3.up, Vector3.down, out var hit, 8000f) ? hit.point.y : bankBase - 2500f;
-                    float h = Mathf.Max(200f, bankBase + 30f - ground);
-                    float w = widest * Rng(s, 5, 0.35f, 0.6f);
+                    float h = Mathf.Clamp(bankBase + 30f - ground, 200f, 1800f);
+                    float w = T * Rng(s, 5, 0.55f, 0.85f);
                     Puff(new Vector3(foot.x, bankBase + 30f - h * 0.5f, foot.z), h * 0.5f, s, Kind.Rain, w / (h * 0.5f), float.MinValue);
                 }
             }
