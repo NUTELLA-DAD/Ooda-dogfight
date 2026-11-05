@@ -844,7 +844,9 @@ namespace Ooda.Turn
                 {
                     if (mouse.rightButton.isPressed) view.Orbit(mouse.delta.ReadValue() * 0.25f);
                     float sc = mouse.scroll.ReadValue().y;
-                    if (Mathf.Abs(sc) > 0.01f) view.Zoom(Mathf.Sign(sc));
+                    Vector2 mp = mouse.position.ReadValue();
+                    bool overPanel = guiRects.Any(r => r.Contains(new Vector2(mp.x, Screen.height - mp.y) / guiScale));   // the wheel scrolls the help there
+                    if (Mathf.Abs(sc) > 0.01f && !overPanel) view.Zoom(Mathf.Sign(sc));
                 }
                 if (pad != null)
                 {
@@ -1579,6 +1581,7 @@ namespace Ooda.Turn
 
         GUIStyle label, big, small, title;
         float helpTop = 190;
+        Vector2 helpScroll;   // how far the help is scrolled when it is taller than the room above the throttle
 
         void OnGUI()
         {
@@ -1739,29 +1742,23 @@ namespace Ooda.Turn
                     "Pad: left stick arrow, triggers throttle, A fly, X bursts,\n" +
                     "RB fire at predicted hits, Y projection, B replay, right stick look,\n" +
                     "d-pad right rocket, left speed brake, View button your next plane.";
-                // as tall as its text needs (wrapped), so nothing is cut off; when that would reach down over the throttle
-                // quadrant, the text goes into two columns side by side instead
+                // as tall as its text needs (wrapped), but never down over the throttle quadrant: when it would be, the
+                // panel stops above it and the rest scrolls (the wheel over the panel, or drag its bar)
                 var helpStyle = new GUIStyle(small) { wordWrap = true };
                 float leftTop = (ctl.pictures ? Mathf.Min(ctl.throttle.y - 20, ctl.quadrant.y) : ctl.quadrant.y) - 6;
                 float th = helpStyle.CalcHeight(new GUIContent(helpText), 425);
-                if (hy + th + 12 <= leftTop)
-                {
-                    Rect help = new Rect(10, hy, 440, th + 12);
-                    GUI.Box(help, GUIContent.none);
-                    guiRects.Add(help);
-                    GUI.Label(new Rect(20, hy + 6, 425, th), helpText, helpStyle);
-                }
+                float ph = Mathf.Clamp(leftTop - hy, 80f, th + 12);
+                Rect help = new Rect(10, hy, 440, ph);
+                GUI.Box(help, GUIContent.none);
+                guiRects.Add(help);
+                if (th + 12 <= ph) GUI.Label(new Rect(20, hy + 6, 425, th), helpText, helpStyle);
                 else
                 {
-                    var helpLines = helpText.Split('\n');
-                    int half = (helpLines.Length + 1) / 2;
-                    string a = string.Join("\n", helpLines, 0, half), b = string.Join("\n", helpLines, half, helpLines.Length - half);
-                    float ha = helpStyle.CalcHeight(new GUIContent(a), 425), hb = helpStyle.CalcHeight(new GUIContent(b), 425);
-                    Rect help = new Rect(10, hy, 870, Mathf.Max(ha, hb) + 12);
-                    GUI.Box(help, GUIContent.none);
-                    guiRects.Add(help);
-                    GUI.Label(new Rect(20, hy + 6, 425, ha), a, helpStyle);
-                    GUI.Label(new Rect(450, hy + 6, 425, hb), b, helpStyle);
+                    float iw = 425 - 18;   // room for the scroll bar
+                    th = helpStyle.CalcHeight(new GUIContent(helpText), iw);
+                    helpScroll = GUI.BeginScrollView(new Rect(20, hy + 6, 425, ph - 12), helpScroll, new Rect(0, 0, iw, th), false, true);
+                    GUI.Label(new Rect(0, 0, iw, th), helpText, helpStyle);
+                    GUI.EndScrollView();
                 }
             }
             if (planning) SightGUI(sw, sh);   // after the help, so the glass sits on top of it
