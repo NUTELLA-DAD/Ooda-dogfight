@@ -52,8 +52,9 @@ Shader "Ooda/ToonSky"
                 float3 sun = normalize(_ToonSunDir.xyz + float3(0, 1e-4, 0));
                 float h = d.y;
                 float upness = saturate(h);
-                half3 c = lerp(_Horizon.rgb, _High.rgb, smoothstep(0.0, 0.32, upness));
-                c = lerp(c, _Zenith.rgb, smoothstep(0.32, 1.0, upness));
+                // (two overlapping, smooth ramps: no seam where one hands over to the other)
+                half3 c = lerp(_Horizon.rgb, _High.rgb, 1 - exp(-upness * 7.0));
+                c = lerp(c, _Zenith.rgb, smoothstep(0.08, 1.0, upness));
                 c = lerp(c, _Ground.rgb, smoothstep(0.0, 0.3, -h));
                 // the warm glow along the horizon on the sun's side
                 float2 dx = d.xz / max(length(d.xz), 1e-4), sx = sun.xz / max(length(sun.xz), 1e-4);

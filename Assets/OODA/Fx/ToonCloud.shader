@@ -39,7 +39,7 @@ Shader "Ooda/ToonCloud"
             float4 e : TEXCOORD3;   // lit tone's offset (xy), radius (z)
         };
 
-        Varyings Build(Attributes a, bool line)
+        Varyings Build(Attributes a, bool isLine)
         {
             Varyings o;
             float3 cw = TransformObjectToWorld(a.positionOS.xyz);
@@ -49,12 +49,12 @@ Shader "Ooda/ToonCloud"
             // the line is at least ~1.7 pixels wide, and never thinner than 6% of the puff
             float pxR = R * abs(UNITY_MATRIX_P[1][1]) * 0.5 * _ScreenParams.y / dist;
             float lw = max(0.06, 1.7 / max(pxR, 1.0));
-            float grow = line ? 1.0 + lw : 1.0;
+            float grow = isLine ? 1.0 + lw : 1.0;
             float2 corner = a.uv0.xy * grow;
             float3 right = UNITY_MATRIX_V[0].xyz, up = UNITY_MATRIX_V[1].xyz;
             o.w.xyz = cw + (right * corner.x + up * corner.y) * R;
             float3 pv = cv + float3(corner * R, 0);
-            if (line) pv *= (dist + _Push * R) / dist;   // (back along the view ray: same size on screen, behind the fills)
+            if (isLine) pv *= (dist + _Push * R) / dist;   // (back along the view ray: same size on screen, behind the fills)
             o.positionCS = TransformWViewToHClip(pv);
             o.w.w = ComputeFogFactor(o.positionCS.z);
             o.c = float4(corner, lw, a.uv0.w * 6.2832);
