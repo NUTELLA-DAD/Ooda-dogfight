@@ -63,7 +63,7 @@ namespace Ooda.Flight.Core
         public double rocketG = 1.3;              // the rocket's thrust / weight while it burns
         public double rocketSec = 2.5;            // how long it burns
         public double rocketCooldownSec = 30;     // from lighting it until it can be lit again (10 normal turns)
-        public double brakeG = 0.7;               // the speed brake's drag / weight at 300 KIAS (with the square of the speed)
+        public double brakeG = 1.0;               // the speed brake's drag / weight at 300 KIAS (with the square of the speed)
 
         // Attitude for the picture only: angle of attack at zero lift and at the stall line
         public double alphaZeroLiftDeg = -1;
@@ -319,7 +319,7 @@ namespace Ooda.Flight.Core
             thrustK = 2200, thrustV0Kt = 4000, thrustDensityExp = 0.8, thrustFlatSigma = 1.0,
             maxStaticThrustPerWeight = 99, wepFactor = 1.75, dragA = 9.2e-7, dragB = 5000,
             ramPerMach2 = 0.35, waveRise = 1.5,
-            rocketG = 0, brakeG = 1.0,
+            rocketG = 0, brakeG = 1.4,
             alphaZeroLiftDeg = -1, alphaStallDeg = 20,
             spinRateDps = 120, spinDragPerWeight = 0.6,
         };

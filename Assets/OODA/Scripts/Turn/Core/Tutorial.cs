@@ -130,8 +130,8 @@ namespace Ooda.Turn.Core
                 throttle = 0.6,
                 steps = new[]
                 {
-                    S(Goal.FullPower, "Full throttle and WEP",
-                      "Push the throttle to full (hold Shift, or the slider in the panel) and switch on WEP (Space): war emergency power, for when you need every horse."),
+                    S(Goal.FullPower, "Full throttle: WEP",
+                      "Push the throttle to the stop (drag the lever up, hold Shift, or Space): the last notch is WEP, war emergency power, for when you need every horse."),
                     S(Goal.FlyHardTurn, "Fly two hard turns, watch your speed",
                       "Fly two hard turns (stick shaking, out of the red) and watch your speed, the KIAS at the top left. Every fighter turns best near its corner speed, about 300 KIAS for the P-51. Much slower and it turns slowly and mushes.", 2),
                 },

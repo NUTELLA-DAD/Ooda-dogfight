@@ -290,18 +290,7 @@ namespace Ooda.Turn
                 hoverUntil = Mathf.Max(hoverUntil, Time.unscaledTime + 0.6f);   // held a moment after leaving the bar
             }
 
-            // the toggles, left above the throttle
-            float pw = Mathf.Min(640, sw - 40);
-            float side = (sw - pw) / 2 - 20;
-            float gh = Mathf.Min(240f, side / 0.9f, sh * 0.32f);
-            float bottom = gh >= 90 ? sh - gh - 8 - 24 : sh - 8;
-            float bw = Mathf.Clamp(side, 220f, 280f);
-            Rect toggle = new Rect(10, bottom - 26, bw, 24);
-            guiRects.Add(toggle);
-            var btn = new GUIStyle(GUI.skin.button) { fontSize = 13 };
-            if (GUI.Button(new Rect(toggle.x, toggle.y, bw / 2 - 3, toggle.height), showLeadRing ? "Ring: on (L)" : "Ring: off (L)", btn)) showLeadRing = !showLeadRing;
-            string sm = sightMode == SightMode.Off ? "Funnel: off (K)" : sightMode == SightMode.Hover ? "Funnel: hover (K)" : "Funnel: sight (K)";
-            if (GUI.Button(new Rect(toggle.x + bw / 2 + 3, toggle.y, bw / 2 - 3, toggle.height), sm, btn)) NextSightMode();
+            // the ring and funnel switches are in the row over the weapons panel (TurnBattle.Switches)
             if (!showSight) return;
 
             // the moment on the burst bar

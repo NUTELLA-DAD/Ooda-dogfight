@@ -340,21 +340,5 @@ namespace Ooda.Turn
                         : $"flares on auto, {battle.flares[0]} left (3 holds them)";
             GUI.Label(new Rect(sw / 2 - 330, irView ? 34 : 8, 660, 28), $"MISSILE ON YOU  {nearest:N0} ft:  {what}", w);
         }
-
-        /// <summary>The IR and flare buttons, in a row over the planning panel's left end.</summary>
-        void HeatButtons(float x, float y)
-        {
-            Rect row = new Rect(x, y, 262, 24);
-            guiRects.Add(row);
-            var ir = new GUIStyle(GUI.skin.button) { fontSize = 13, fontStyle = irView ? FontStyle.Bold : FontStyle.Normal };
-            if (GUI.Button(new Rect(x, y, 110, 24), irView ? "IR: ON (I)" : "IR view (I)", ir)) ToggleIr();
-            int left = battle.flares[0];
-            var fs = new GUIStyle(GUI.skin.button) { fontSize = 13, fontStyle = plan.holdFlares ? FontStyle.Bold : FontStyle.Normal };
-            if (plan.holdFlares) fs.normal.textColor = fs.hover.textColor = new Color(1f, 0.6f, 0.3f);
-            GUI.enabled = left > 0;
-            string ft = left <= 0 ? "Flares: none" : plan.holdFlares ? $"Flares {left}: HELD (3)" : $"Flares {left}: auto (3)";
-            if (GUI.Button(new Rect(x + 118, y, 144, 24), ft, fs)) ToggleFlares();
-            GUI.enabled = true;
-        }
     }
 }

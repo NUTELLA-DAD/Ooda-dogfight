@@ -326,7 +326,7 @@ namespace Ooda.Turn
         {
             if (phase != Phase.Planning && phase != Phase.Thinking) return;
             var tag = new GUIStyle(small) { fontStyle = FontStyle.Bold };
-            if (reading != null && read == null) Shadow(new Rect(sw / 2 - 120, sh * 0.16f, 240, 22), "Reading the enemy...", new GUIStyle(label) { alignment = TextAnchor.MiddleCenter });
+            if (reading != null && read == null) Shadow(new Rect(sw / 2 - 120, Mathf.Max(sh * 0.16f, ordersBottom + 30), 240, 22), "Reading the enemy...", new GUIStyle(label) { alignment = TextAnchor.MiddleCenter });
             if (read != null)
             {
                 int j = read.target;
@@ -349,9 +349,9 @@ namespace Ooda.Turn
                     if (g != null) Shadow(new Rect(g.Value.x + 22, g.Value.y + 4, 240, 20), text, tag);
                 }
             }
-            // last turn's ghost miss, just above the planning panel
+            // last turn's ghost miss, just above the stick (and the timeline, when it is open)
             if (ghostReport != null && phase == Phase.Planning)
-                Shadow(new Rect(0, sh - 178 - (showMoves || plan.HasMarks ? 266 : 70), sw, 22), ghostReport, new GUIStyle(label) { alignment = TextAnchor.MiddleCenter });
+                Shadow(new Rect(0, ctl.stickTop - (showMoves || plan.HasMarks ? 214 : 0) - 26, sw, 22), ghostReport, new GUIStyle(label) { alignment = TextAnchor.MiddleCenter });
         }
 
         /// <summary>A label with a dark shadow under it, so it reads over snow and grass alike.</summary>
