@@ -118,36 +118,6 @@ namespace Ooda.Turn
             if (Pressed(Key.Digit7) || Pressed(Key.Numpad7)) ToggleJam();
         }
 
-        /// <summary>The three specials' buttons in a row (over the IR and flare buttons).</summary>
-        void SpecialButtons(float x, float y, float w)
-        {
-            var load = battle.combat[0];
-            if (load.balloonMines + load.heatBlades + load.stealths + load.jammers <= 0) return;   // Arcade off (or a mission without them)
-            float bw = Mathf.Min(140, (w - 24) / 4);
-            Rect row = new Rect(x, y, bw * 4 + 24, 24);
-            guiRects.Add(row);
-            void Button(int k, bool on, int left, string name, string key, string active, Color col, Action toggle)
-            {
-                var s = new GUIStyle(GUI.skin.button) { fontSize = 13, fontStyle = on ? FontStyle.Bold : FontStyle.Normal };
-                if (on) s.normal.textColor = s.hover.textColor = col;
-                GUI.enabled = on || left > 0;
-                string text = on ? $"{active} ({key})" : left <= 0 ? $"{name}: none" : $"{name} {left} ({key})";
-                if (GUI.Button(new Rect(x + k * (bw + 8), y, bw, 24), text, s)) toggle();
-                GUI.enabled = true;
-            }
-            Button(0, plan.mine, battle.balloonMines[0], "Mine", "4", "MINE: drop", mineColor, ToggleMine);
-            Button(1, plan.ram, battle.heatBlades[0], "Heat blade", "5", "BLADE: hot", bladeColor, ToggleBlade);
-            bool cloakedNow = battle.Cloaked(0);
-            Button(2, plan.cloak, battle.stealths[0], cloakedNow ? "Stealthy" : "Stealth", "6", "STEALTH: on", stealthColor, ToggleCloak);
-            Button(3, plan.jam, battle.jammers[0], "Jammer", "7", "JAM: on", jamColor, ToggleJam);
-            if (JammedNow)
-            {
-                var w2 = new GUIStyle(GUI.skin.label) { fontSize = 15, fontStyle = FontStyle.Bold };
-                w2.normal.textColor = Mathf.Repeat(Time.unscaledTime, 0.7f) < 0.45f ? jamColor : Color.white;
-                GUI.Label(new Rect(x, y - 24, 520, 22), "JAMMED: their ghosts are scrambled. Trust your eyes, not the projections.", w2);
-            }
-        }
-
         // ---------- drawing ----------
 
         /// <summary>The balloon mines hanging in the air now (planning): each with its fuse ring, and where a planned one would go.</summary>

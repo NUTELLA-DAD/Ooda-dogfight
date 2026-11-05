@@ -32,7 +32,7 @@ namespace Ooda.UI
         [Header("Look")]
         public Color overpullColor = new Color(1f, 0.15f, 0.1f, 1f);
         public int textureHeight = 512;
-        public Vector3 stickCamera = new Vector3(-1.4f, 1.1f, -1.8f), throttleCamera = new Vector3(-2.1f, 1.2f, -1.65f);
+        public Vector3 stickCamera = new Vector3(0f, 1.1f, -2.28f), throttleCamera = new Vector3(-0.33f, 1.2f, -2.65f);
         public Vector3 lookAt = new Vector3(0f, 0.5f, 0f);
         public float fieldOfView = 25f;
 

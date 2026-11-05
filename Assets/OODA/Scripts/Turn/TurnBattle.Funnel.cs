@@ -290,16 +290,7 @@ namespace Ooda.Turn
                 hoverUntil = Mathf.Max(hoverUntil, Time.unscaledTime + 0.6f);   // held a moment after leaving the bar
             }
 
-            // the toggles go with the guns: right, over the weapons panel's rows (the specials' row, when there are specials)
-            var load = battle.combat[0];
-            bool specials = load.balloonMines + load.heatBlades + load.stealths + load.jammers > 0;
-            float bw = 260f;
-            Rect toggle = new Rect(ctl.weapons.xMax - bw, ctl.weapons.y - (specials ? 90 : 60), bw, 24);
-            guiRects.Add(toggle);
-            var btn = new GUIStyle(GUI.skin.button) { fontSize = 13 };
-            if (GUI.Button(new Rect(toggle.x, toggle.y, bw / 2 - 3, toggle.height), showLeadRing ? "Ring: on (L)" : "Ring: off (L)", btn)) showLeadRing = !showLeadRing;
-            string sm = sightMode == SightMode.Off ? "Funnel: off (K)" : sightMode == SightMode.Hover ? "Funnel: hover (K)" : "Funnel: sight (K)";
-            if (GUI.Button(new Rect(toggle.x + bw / 2 + 3, toggle.y, bw / 2 - 3, toggle.height), sm, btn)) NextSightMode();
+            // the ring and funnel switches are in the row over the weapons panel (TurnBattle.Switches)
             if (!showSight) return;
 
             // the moment on the burst bar

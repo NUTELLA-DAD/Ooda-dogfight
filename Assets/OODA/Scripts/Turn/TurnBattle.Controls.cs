@@ -250,34 +250,22 @@ namespace Ooda.Turn
         }
 
         /// <summary>
-        /// The throttle quadrant's buttons, beside the lever: the throttle (or the start throttle once the timeline has
-        /// points), a slider for it, WEP (the F-4's burner), the rocket and the speed brake, one under the other.
+        /// The throttle quadrant beside the lever: the throttle (or the start throttle once the timeline has points), a
+        /// slider for it, and the engine's switches under them (rocket, speed brake, and a jet's burner). A piston
+        /// fighter has no WEP switch: its throttle's last notch is WEP.
         /// </summary>
         void QuadrantGUI(Rect q)
         {
-            var m = battle.planes[0];
             float x = q.x, y = q.y, w = q.width;
             guiRects.Add(q);
-            Shadow(new Rect(x, y, w, 22), plan.HasMarks ? $"Start {plan.throttle * 100:F0}%" : $"Throttle {plan.throttle * 100:F0}%", new GUIStyle(label) { fontStyle = FontStyle.Bold });
+            string thrText = plan.HasMarks ? $"Start {plan.throttle * 100:F0}%" : $"Throttle {plan.throttle * 100:F0}%";
+            if (!Jet && plan.throttle >= 0.995) thrText += "  WEP";
+            Shadow(new Rect(x, y, w, 22), thrText, new GUIStyle(label) { fontStyle = FontStyle.Bold });
             y += QuadRow;
             float thr = GUI.HorizontalSlider(new Rect(x, y + 6, w, 20), (float)plan.throttle, 0f, 1f);
             if (Math.Abs(thr - plan.throttle) > 1e-4) { plan.throttle = thr; dirty = true; }
             y += QuadRow;
-            var ws = new GUIStyle(GUI.skin.button) { fontSize = 13, fontStyle = plan.wep ? FontStyle.Bold : FontStyle.Normal };
-            if (plan.wep) ws.normal.textColor = ws.hover.textColor = new Color(1f, 0.45f, 0.2f);
-            if (GUI.Button(new Rect(x, y, w, 26), plan.wep ? $"{WepName}: ON (Space)" : $"{WepName} (Space)", ws)) { plan.wep = !plan.wep; dirty = true; }
-            y += QuadRow;
-            int turns = RocketTurns(m);
-            var rs = new GUIStyle(GUI.skin.button) { fontSize = 13, fontStyle = plan.rocket ? FontStyle.Bold : FontStyle.Normal };
-            if (plan.rocket) rs.normal.textColor = rs.hover.textColor = rocketFlame;
-            string rt = plan.rocket ? "ROCKET: lit (1)" : m.RocketBurning ? "Rocket: burning" : turns == 0 ? "Rocket: ready (1)" : $"Rocket: {turns} turn{(turns == 1 ? "" : "s")}";
-            GUI.enabled = plan.rocket || m.RocketReady;
-            if (GUI.Button(new Rect(x, y, w, 26), rt, rs)) ToggleRocket();
-            GUI.enabled = true;
-            y += QuadRow;
-            var bs = new GUIStyle(GUI.skin.button) { fontSize = 13, fontStyle = plan.brake ? FontStyle.Bold : FontStyle.Normal };
-            if (plan.brake) bs.normal.textColor = bs.hover.textColor = new Color(0.6f, 0.85f, 1f);
-            if (GUI.Button(new Rect(x, y, w, 26), plan.brake ? "BRAKE: out (2)" : "Speed brake (2)", bs)) ToggleBrake();
+            EngineSwitches(x, y, w);
         }
 
         // ---------- the throttle lever: drag it ----------

@@ -647,6 +647,7 @@ namespace Ooda.Turn
 
         void UpdateGauge()
         {
+            SyncWep();
             if (gauge == null) { Rumble(0); return; }
             bool show = phase != Phase.Over && !battle.Out(0);
             gauge.SetVisible(show);
@@ -690,14 +691,14 @@ namespace Ooda.Turn
 
         ControlsLayout ctl;
 
-        const float CtlMargin = 10, CtlBottom = 8, PedalH = 26, QuadW = 160, QuadRow = 30, QuadRows = 5,
-                    WeaponsMinW = 400, WeaponsMaxW = 580, WeaponsH = 158;
+        const float CtlMargin = 10, CtlBottom = 8, PedalH = 26, QuadW = 160, QuadRow = 30,
+                    WeaponsMinW = 400, WeaponsMaxW = 580, WeaponsH = 146;
 
         /// <summary>The pictures as big as the room allows: shrink them until the quadrant and the weapons fit beside the stick.</summary>
         public static ControlsLayout LayoutControls(float sw, float sh, bool havePictures)
         {
             var c = new ControlsLayout();
-            float qh = QuadRows * QuadRow - 4;
+            float qh = 2 * QuadRow + SwitchH;   // the throttle, its slider, and the engine's switches
             for (float h = Mathf.Min(260f, sh * 0.3f); havePictures && h >= 110; h -= 10)
             {
                 float w = h * 0.9f, pw = Mathf.Max(w * 1.1f, 240f);
@@ -718,7 +719,7 @@ namespace Ooda.Turn
             c.quadrant = new Rect(CtlMargin, sh - CtlBottom - qh, QuadW, qh);
             float rw = Mathf.Min(WeaponsMaxW, sw - QuadW - 3 * CtlMargin);
             c.weapons = new Rect(sw - CtlMargin - rw, sh - CtlBottom - WeaponsH, rw, WeaponsH);
-            c.stickTop = Mathf.Min(c.quadrant.y, c.weapons.y - 64);
+            c.stickTop = Mathf.Min(c.quadrant.y, c.weapons.y - SwitchH - 8);
             return c;
         }
 
@@ -957,7 +958,12 @@ namespace Ooda.Turn
             }
             if (Pressed(Key.Space))
             {
-                if (plan.HasMarks) { bool v = !plan.StateAt(markT).wep; EditPoint(k => { k.wep = v; return k; }); }
+                if (!Jet)   // no WEP switch on a piston fighter: Space pushes the throttle to the stop, where WEP is
+                {
+                    if (plan.HasMarks) EditPoint(k => { k.throttle = 1; return k; });
+                    else { plan.throttle = 1; dirty = true; }
+                }
+                else if (plan.HasMarks) { bool v = !plan.StateAt(markT).wep; EditPoint(k => { k.wep = v; return k; }); }
                 else { plan.wep = !plan.wep; dirty = true; }
             }
 
@@ -1734,7 +1740,7 @@ namespace Ooda.Turn
                     "Your rounds: red hits, yellow just misses, orange misses. Lead the target.\n" +
                     "Drag on the timeline to fire; F fires where hits are predicted.\n\n" +
                     "Keys: WASD arrow (S pulls up, like the stick), Shift/Ctrl throttle,\n" +
-                    "Space WEP, 1 rocket, 2 speed brake, 3 hold flares, I IR view, Tab next plane, N next target,\n" +
+                    "Space full throttle (a jet: burner), 1 rocket, 2 speed brake, 3 hold flares, I IR view, Tab next plane, N next target,\n" +
                     "4 mine, 5 blade, 6 stealth, 7 jammer, B bursts, G missile, T timeline,\n" +
                     "Z/C rudder pedals (slow and nose-high, the rudder swings the nose: hammerhead).\n" +
                     "Enter fly, R replay, P projection, V view, X straight, M mission, H help.\n" +
@@ -1774,18 +1780,11 @@ namespace Ooda.Turn
             Rect wp = ctl.weapons;
             float px = wp.x + 10, pw = wp.width - 20, py = wp.y + 8;
 
-            // the rows over the box: IR and flares with the timeline toggle, and the specials over them
+            // the switches over the box: IR, flares, the specials, the ring, the funnel and the timeline; the timeline opens over the stick
             float mw = Mathf.Min(640, sw - 40);
             if (showMoves || plan.HasMarks) MovesPanel((sw - mw) / 2, ctl.stickTop - 196 - 4, mw);
             else movesRect = Rect.zero;
-            float rowY = wp.y - 30;
-            HeatButtons(wp.x, rowY);
-            float aw = Mathf.Min(200, wp.width - 270);
-            string adv = showMoves ? "Timeline (T)  \u25BE" : plan.HasMarks ? "Timeline: in use (T)" : "Timeline (T)  \u25B8";
-            Rect advRect = new Rect(wp.xMax - aw, rowY, aw, 24);
-            guiRects.Add(advRect);
-            if (GUI.Button(advRect, adv, new GUIStyle(GUI.skin.button) { fontSize = 13 })) showMoves = !showMoves;
-            SpecialButtons(wp.x, rowY - 30, wp.width);
+            WeaponSwitches(wp.x, wp.y - SwitchH - 6, wp.width);
             GUI.Box(wp, GUIContent.none);
             guiRects.Add(wp);
 
@@ -1816,7 +1815,7 @@ namespace Ooda.Turn
             for (int s = 0; s <= (int)turnSec; s++)
                 GUI.Label(new Rect(burstRect.x + s / turnSec * pw - (s == 0 ? 0 : 8), burstRect.yMax, 40, 18), $"{s}s", small);
             int theirs = preview == null ? 0 : preview.hits.Count(h => h.target == 0);
-            float ty = py + 70, tw = pw - 138;
+            float ty = py + 70, tw = pw - 2 * 60 - SwitchGap - 10;
             if (predicted > 0)
             {
                 var hitStyle = new GUIStyle(small) { fontStyle = FontStyle.Bold, wordWrap = true };
@@ -1826,7 +1825,6 @@ namespace Ooda.Turn
                 GUI.Label(new Rect(px, ty, tw, 32), $"HITS: {predicted} on the bright ghost{sure}{hitBack}", hitStyle);
             }
             else GUI.Label(new Rect(px, ty, tw, 32), $"On the bright ghost: you hit {predicted}, you get hit {theirs}", new GUIStyle(small) { wordWrap = true });
-            if (GUI.Button(new Rect(px + pw - 130, ty, 130, 26), "Fire at hits (F)")) FireAtPredicted();
 
             // The missile: armed, it leaves the first moment the seeker locks this turn
             int left = battle.missiles[0];
@@ -1839,10 +1837,14 @@ namespace Ooda.Turn
                 var mt = preview?.traces.FirstOrDefault(tr => tr.missile && tr.owner == 0);
                 mText = mt == null ? "Missile armed: no lock on this path, it stays on the rail" : mt.hit ? "Missile armed: it hits the bright ghost" : "Missile armed: it launches, but misses the bright ghost";
             }
-            GUI.Label(new Rect(px, ty + 34, tw, 40), mText, new GUIStyle(small) { wordWrap = true });
-            GUI.enabled = left > 0;
-            if (GUI.Button(new Rect(px + pw - 130, ty + 34, 130, 26), plan.missile ? "Missile: ARMED (G)" : "Missile (G)")) ArmMissile(!plan.missile);
-            GUI.enabled = true;
+            GUI.Label(new Rect(px, ty + 30, tw, 36), mText, new GUIStyle(small) { wordWrap = true });
+
+            // the fire button and the missile's guarded arm switch, at the right of the box
+            SwitchRow(px + pw - 2 * 60 - SwitchGap, ty - 2, 2 * 60 + SwitchGap, new List<SwitchSpec>
+            {
+                Sw("FIRE", "F  at hits", false, true, LampRed, FireAtPredicted, SwitchKind.Push),
+                Sw("MISSILE", $"G  ({left})", plan.missile, left > 0, LampRed, () => ArmMissile(!plan.missile), SwitchKind.Guarded),
+            });
         }
 
         /// <summary>
@@ -1906,9 +1908,12 @@ namespace Ooda.Turn
             float rx = px + col + 10;
             Row(rx, y, col - 10, 120, here.throttle != null, marks, $"Throttle {st.throttle * 100:F0}%", on, dim, (float)st.throttle, 0, 1,
                 v => { double t = Math.Round(v * 20) / 20; EditPoint(k => { k.throttle = t; return k; }); }, () => EditPoint(k => { k.throttle = null; return k; }));
-            bool wep = GUI.Toggle(new Rect(rx, y + 26, 120, 22), st.wep, marks && here.wep == null ? $" {WepName} (carried)" : $" {WepName}");
-            if (wep != st.wep) EditPoint(k => { k.wep = wep; return k; });
-            if (marks && here.wep != null && GUI.Button(new Rect(rx + 124, y + 26, 22, 22), "x")) EditPoint(k => { k.wep = null; return k; });
+            if (Jet)   // the burner; a piston fighter has no WEP switch (full throttle is WEP)
+            {
+                bool wep = GUI.Toggle(new Rect(rx, y + 26, 120, 22), st.wep, marks && here.wep == null ? $" {WepName} (carried)" : $" {WepName}");
+                if (wep != st.wep) EditPoint(k => { k.wep = wep; return k; });
+                if (marks && here.wep != null && GUI.Button(new Rect(rx + 124, y + 26, 22, 22), "x")) EditPoint(k => { k.wep = null; return k; });
+            }
             if (GUI.Button(new Rect(rx + 150, y + 26, col - 160, 22), "Level, 1 G here")) EditPoint(k => { k.bankDeg = 0; k.g = 1; return k; });
             float bw = (col - 20) / 2;
             GUI.enabled = at >= 0;
