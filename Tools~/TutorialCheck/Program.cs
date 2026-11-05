@@ -42,7 +42,7 @@ static class Program
                 double phi = 2 * Math.PI * d / Envelope.Directions;
                 var p = new TurnPlan { aim = frac == 0 ? env.fwd : env.Direction(phi, env.MaxAngle(phi) * frac), throttle = 1, burstStart = 0, burstEnd = guns ? 3 : 0 };
                 var s = b.Clone(); s.dispersion = false;
-                if (guns) s.health[1] = double.PositiveInfinity;
+                if (guns) s.Spare(1);
                 var r = s.Resolve(new TurnPlan?[] { p, bright }, 3);
                 if (s.Out(0)) continue;   // not into the ground, nor into it
                 var on = r.hits.Where(h => h.shooter == 0 && h.target == 1).Select(h => h.fireTime - r.startTime).ToList();
@@ -68,6 +68,13 @@ static class Program
         return most + 1;
     }
 
+    /// <summary>An aircraft's systems for a log line: each one's wear, 0 whole to 1 out.</summary>
+    static string Sys(Battle b, int i)
+    {
+        var s = b.SystemsOf(i);
+        return $"engine {s.engine:F2} fuel {s.fuel:F2} controls {s.controls:F2} wings {s.wings:F2}";
+    }
+
     static int Main()
     {
         Console.WriteLine("The lessons");
@@ -87,9 +94,9 @@ static class Program
                   $"{l.title}: P-51 v Bf 109, {l.foe}{(l.foe == Tutorial.Foe.Armed ? $" ({l.damageScale * 100:F0}% damage)" : "")}, {l.steps.Length} steps{(l.arcade ? ", specials for you" : "")}");
         }
         {
-            var l = Tutorial.All.First(x => x.foeHealth > 0);
+            var l = Tutorial.All.First(x => x.foeToughness > 0);
             var b = Build(l, out _);
-            Check(b.health[1] == l.foeHealth && b.combat[1].health == l.foeHealth, $"the drone's airframe is {l.foeHealth} (the bar reads it full)");
+            Check(!b.SystemsOf(1).Hurt && b.combat[1].toughness == l.foeToughness, $"the drone's toughness is {l.foeToughness}, its systems whole");
             var real = CombatNumbers.Bf109G();
             Check(real.ammoSec > 0 && real.missiles > 0, "and the real Bf 109's numbers are left as they were (Arm copies them)");
         }
@@ -100,7 +107,7 @@ static class Program
             var b = Build(l, out _);
             var env = Envelope.Compute(b.planes[0], 3);
             var plan = new TurnPlan { aim = env.fwd, throttle = 1 };
-            Tutorial.Look Look(TurnPlan p) => new Tutorial.Look { battle = b, plan = p, env = env, planning = true, foe = 1, foeHealthAtStep = b.health[1] };
+            Tutorial.Look Look(TurnPlan p) => new Tutorial.Look { battle = b, plan = p, env = env, planning = true, foe = 1, foeWearAtStep = b.SystemsOf(1).Total };
             var steer = new Tutorial.Step { goal = Tutorial.Goal.Steer };
             Check(!Tutorial.Met(steer, Look(plan)), "straight ahead is not steering");
             var p = plan; p.aim = env.Direction(Math.PI / 2, 15 * Math.PI / 180);
@@ -170,7 +177,7 @@ static class Program
             var l = Tutorial.All.First(x => x.start == Scenarios.Start.Defensive);
             var b = Build(l, out var foe);
             int t = Fly(b, foe, 4, false, x => false);
-            Check(!b.Out(0), $"{l.title}: you are still flying after 4 turns ({b.health[0]:F1} of {b.combat[0].health} left)");
+            Check(!b.Out(0), $"{l.title}: you are still flying after 4 turns ({Sys(b, 0)})");
             var full = Scenarios.Dogfight(Tutorial.Setup(l), Arenas.Get(Tutorial.ArenaIndex).CentreFt, Arenas.Get(Tutorial.ArenaIndex).altFt, 300, 3000, true, Arenas.Get(Tutorial.ArenaIndex).axisDeg);
             Check(b.combat[1].damage < full.combat[1].damage, $"its rounds do {b.combat[1].damage:F2} against the real {full.combat[1].damage:F2}");
         }
@@ -178,7 +185,7 @@ static class Program
             var l = Tutorial.All[Tutorial.Count - 1];
             var b = Build(l, out var foe);
             int t = Fly(b, foe, 30, true, x => x.Out(1));
-            Console.WriteLine($"  (info) {l.title}: the student {(b.Out(1) && !b.Out(0) ? $"wins in {t} turns" : b.Out(0) ? $"loses in {t} turns" : "has not won in 30 turns")} (you {b.health[0]:F1} of {b.combat[0].health}, it {b.health[1]:F1} of {b.combat[1].health}, range {(b.planes[1].state.pos - b.planes[0].state.pos).Length:F0} ft)");
+            Console.WriteLine($"  (info) {l.title}: the student {(b.Out(1) && !b.Out(0) ? $"wins in {t} turns" : b.Out(0) ? $"loses in {t} turns" : "has not won in 30 turns")} (you {Sys(b, 0)}, it {Sys(b, 1)}, range {(b.planes[1].state.pos - b.planes[0].state.pos).Length:F0} ft)");
         }
 
         Console.WriteLine(fails == 0 ? "\nAll checks pass." : $"\n{fails} check(s) failed.");

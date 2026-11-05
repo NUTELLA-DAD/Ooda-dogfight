@@ -3,6 +3,7 @@ using System.Linq;
 using System.Reflection;
 using Ooda.Flight;
 using Ooda.Turn;
+using Ooda.Flight.Core;
 using Ooda.Turn.Core;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -85,7 +86,7 @@ namespace Ooda.EditorTools
             {
                 var m = battle.planes[i];
                 var p = UnityFrame.Pos(m.state.pos);
-                return $"({p.x:F0}, {p.y:F0}, {p.z:F0}) {m.Kias:F0} kias hp {battle.health[i]:F0}{(battle.Out(i) ? " OUT" : "")}";
+                return $"({p.x:F0}, {p.y:F0}, {p.z:F0}) {m.Kias:F0} kias worst system {battle.SystemsOf(i).Worst:F2}{(battle.Out(i) ? " OUT" : "")}";
             }
             Debug.Log($"OODA escort {when}: phase {Phase(tb)}, {battle.Count} aircraft; P-51 {P(0)}; Spitfire {P(1)}{(battle.Count > 2 ? "; B-17 " + P(2) : "")}.");
         }

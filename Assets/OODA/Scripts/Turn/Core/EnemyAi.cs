@@ -297,8 +297,11 @@ namespace Ooda.Turn.Core
                 double rj = lj.Length, theirAta = Envelope.Angle(sim.planes[j].Forward, -lj);   // their nose off the line to me
                 if (theirAta < 20 * Math.PI / 180 && rj < 4000) score -= 1.5 * (1 - theirAta / (20 * Math.PI / 180));
             }
-            // damage taken flying it (flak, rounds already in the air)
-            score -= 2 * (sub.health[0] - sim.health[0]) / Math.Max(1, sub.combat[0].health) * 10;
+            // harm to its systems flying it (flak, rounds already in the air): a whole system knocked out costs 10
+            score -= 10 * (sim.SystemsOf(0).Total - sub.SystemsOf(0).Total);
+            // blacking out (G-LOC) leaves it flying blind for seconds: a pilot avoids pulling that hard for that long
+            if (sim.planes[0].glocs > sub.planes[0].glocs) score -= 4;
+            score -= 0.5 * sim.planes[0].GreyOut;
             // Energy, by its own aircraft: below corner speed it turns slower and wider, so that always costs. A turner
             // wants to sit at corner speed (faster only widens its turn); an up-and-down fighter wants energy in hand,
             // speed and height together, to climb away and dive back in.
@@ -397,7 +400,7 @@ namespace Ooda.Turn.Core
             if (!tailed) return;
             if (sub.balloonMines[0] > 0) { plan.mine = true; return; }
             if (sub.jammers[0] > 0) { plan.jam = true; return; }
-            bool hurt = sub.health[0] < 0.7 * sub.combat[0].health;
+            bool hurt = sub.SystemsOf(0).AnyDamaged;
             if (sub.stealths[0] > 0 && hurt && plan.burstEnd <= plan.burstStart && !plan.missile) plan.cloak = true;
         }
 
@@ -409,7 +412,7 @@ namespace Ooda.Turn.Core
             test.burstStart = 0; test.burstEnd = turnSec;
             var sim = sub.Clone();
             sim.dispersion = false;
-            for (int j = 0; j < sim.Count; j++) if (sim.side[j] != sim.side[0]) sim.health[j] = double.PositiveInfinity;   // keep targets flying to see the whole burst
+            for (int j = 0; j < sim.Count; j++) if (sim.side[j] != sim.side[0]) sim.Spare(j);   // keep targets flying to see the whole burst
             // The target will not fly exactly as projected: fire at anything that comes near (a wider "hit" here)
             sim.combat = (CombatNumbers[])sim.combat.Clone();
             for (int j = 0; j < sim.Count; j++) sim.combat[j] = sim.combat[j].Copy();
