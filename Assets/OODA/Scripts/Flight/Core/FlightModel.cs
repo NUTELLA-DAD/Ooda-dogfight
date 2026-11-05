@@ -55,7 +55,7 @@ namespace Ooda.Flight.Core
         /// for GlocSec, the stick and pedals slack (it unloads to 1 G and flies on as it was banked). Under GlocRecoverG
         /// the stress drains at GlocRecoverPerSec. So 8 G holds about 2 s, 7 G about 4 s, 6.5 G about 9 s.
         /// </summary>
-        public const double GlocOnsetG = 6, GlocLimit = 4.5, GlocRecoverG = 5, GlocRecoverPerSec = 1.5, GlocSec = 4;
+        public const double GlocOnsetG = 6, GlocLimit = 4.5, GlocRecoverG = 3, GlocRecoverPerSec = 1, GlocSec = 4;
         public double gStress;
         public double glocLeftSec;
         /// <summary>How many times the pilot has blacked out.</summary>

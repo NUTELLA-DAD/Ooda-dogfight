@@ -1885,7 +1885,7 @@ namespace Ooda.Turn
 
         Systems Shown(int i) => i >= 0 && i < shownSys.Length ? shownSys[i] : battle.SystemsOf(i);
 
-        GUIStyle sysText;
+        GUIStyle sysText, sysPale;
         static readonly Color sysOk = new Color(0.3f, 0.85f, 0.35f), sysHurt = new Color(1f, 0.7f, 0.15f), sysOut = new Color(0.95f, 0.2f, 0.15f);
 
         /// <summary>
@@ -1910,19 +1910,39 @@ namespace Ooda.Turn
                 var cr = new Rect(x + k * cell + 1, r.y, cell - 2, r.height);
                 Fill(cr, new Color(0, 0, 0, 0.5f));
                 bool gone = c == sysOut;
-                Fill(new Rect(cr.x, cr.y, cr.width * (gone ? 1f : Mathf.Clamp01(1 - (float)s[id] * 0.5f)), cr.height), c);   // out: the whole light red
+                float lit = cr.width * (gone ? 1f : Mathf.Clamp01(1 - (float)s[id] * 0.5f));   // out: the whole light red
+                Fill(new Rect(cr.x, cr.y, lit, cr.height), c);
                 string txt = Systems.Short(id);
                 if (id == SystemId.Fuel && s.Leaking && !s.IsOut(id) && !down) txt = $"FUEL {s.leakLeftSec:F0}";
-                if (sysText == null) { sysText = new GUIStyle(small) { fontStyle = FontStyle.Bold }; sysText.normal.textColor = new Color(0.06f, 0.06f, 0.05f); }
-                GUI.Label(new Rect(cr.x + 3, r.y - 4, cr.width, 22), txt, sysText);   // dark on the lit bar
+                SplitLabel(new Rect(cr.x + 3, r.y - 4, cr.width, 22), cr.x + lit, txt);
             }
         }
 
         void Bar(Rect r, double fraction, Color c, string text)
         {
             Fill(r, new Color(0, 0, 0, 0.5f));
-            Fill(new Rect(r.x, r.y, r.width * Mathf.Clamp01((float)fraction), r.height), c);
-            GUI.Label(new Rect(r.x + 4, r.y - 4, r.width, 22), text, small);
+            float lit = r.width * Mathf.Clamp01((float)fraction);
+            Fill(new Rect(r.x, r.y, lit, r.height), c);
+            SplitLabel(new Rect(r.x + 4, r.y - 4, r.width, 22), r.x + lit, text);
+        }
+
+        /// <summary>A bar's text: dark bold where it lies over the lit part (left of split), pale where it runs on over the dark.</summary>
+        void SplitLabel(Rect at, float split, string text)
+        {
+            if (sysText == null)
+            {
+                sysText = new GUIStyle(small) { fontStyle = FontStyle.Bold };
+                sysText.normal.textColor = new Color(0.06f, 0.06f, 0.05f);
+                sysPale = new GUIStyle(sysText);
+                sysPale.normal.textColor = new Color(0.9f, 0.95f, 0.9f);
+            }
+            float w = Mathf.Clamp(split - at.x, 0, at.width + 40);
+            GUI.BeginGroup(new Rect(at.x, at.y, w, at.height));
+            GUI.Label(new Rect(0, 0, at.width, at.height), text, sysText);
+            GUI.EndGroup();
+            GUI.BeginGroup(new Rect(at.x + w, at.y, Mathf.Max(0, at.width - w), at.height));
+            GUI.Label(new Rect(-w, 0, at.width, at.height), text, sysPale);
+            GUI.EndGroup();
         }
 
         static Texture2D white;

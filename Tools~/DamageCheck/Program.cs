@@ -168,6 +168,17 @@ static class Program
             Check(m.g < 1.6 && Math.Abs(m.rollRateDps) < 5, $"the stick held hard back does nothing: it unloads ({g0:F1} G to {m.g:F1})");
             for (int k = 0; k < 250; k++) m.Step(new FlightControls { pitch = 0, throttle = 1 }, 0.02);
             Check(!m.BlackedOut, $"he comes round after {FlightModel.GlocSec:F0} s");
+            {
+                var b = new Battle(At(AircraftNumbers.SpitfireIX(), 0, 0, 380), CombatNumbers.SpitfireIX(), At(AircraftNumbers.Bf109G(), 0, 20000, 300), CombatNumbers.Bf109G());
+                var me = b.planes[0];
+                me.gStress = FlightModel.GlocLimit * 0.9;
+                var env = Envelope.Compute(me, 3);
+                var p = new TurnPlan { aim = env.Clamp((me.Forward * 0.2 + me.Up).Normalized), throttle = 1 };
+                var r = b.Resolve(new TurnPlan?[] { p, Ahead(b, 1) }, 3);
+                double gMax = r.frames[0].Max(x => x.g), grey = r.frames[0].Max(x => x.greyOut);
+                Console.WriteLine($"  (info) planned pull to the ring at 380 KIAS from 90% stress: up to {gMax:F1} G, grey {grey:F2}, stress {me.gStress:F2}");
+                Check(r.frames[0].Any(x => x.greyOut >= 1), "a planned pull to the ring, already near it, blacks out (the planning warning)");
+            }
             var c = m.Clone();
             Check(c.gStress == m.gStress && c.glocs == m.glocs, "a clone carries the G stress");
         }
