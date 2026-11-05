@@ -176,6 +176,7 @@ namespace Ooda.Turn
             if (Ooda.UI.TitleScreen.ChosenMission is int chosen) mission = (Mission)chosen;   // picked on the title screen
             dogSetup = Ooda.UI.DogfightSetupScreen.Chosen.Copy();   // picked on the setup screen
             BotSetUp();
+            TutorialSetUp();
             NetSetUp();
             NetBotSetUp();
             lines = new LinePool(transform, "Lines") { sizeAt = W };
@@ -286,7 +287,7 @@ namespace Ooda.Turn
                     battle = Scenarios.ValleyRun(route, guns, valleyRunStartM);
                     break;
                 }
-                default: battle = DogfightBattle(); break;
+                default: battle = tutorial ? TutorialBattle() : DogfightBattle(); break;
             }
             if (grid != null) battle.groundFt = grid.At; else battle.groundFt = GroundFt;
             battle.obstacleHit = ObstacleHit;
@@ -367,6 +368,7 @@ namespace Ooda.Turn
                     role = ours ? (i % 2 == 0 ? EnemyAi.Role.Escort : EnemyAi.Role.Fighter) : (i % 2 == 1 ? EnemyAi.Role.Hunter : EnemyAi.Role.Fighter),
                 };
             }
+            TutorialPilots();   // training: the lesson's foe (no pilot for the drone) and its first step
             NetSitDown();   // online: into your own first plane
             healthBefore = (double[])battle.health.Clone();
             shownHp = (double[])battle.health.Clone();
@@ -380,7 +382,7 @@ namespace Ooda.Turn
             BeginPlanning();
             if (view != null) view.BehindPlayer();
             StrikeRestarted();
-            if (Dogfighting && !Online) Notice(DogfightNotice);
+            if (Dogfighting && !Online && !tutorial) Notice(DogfightNotice);
         }
 
         /// <summary>What the WEP box is called for the plane you are in: a jet's is its afterburner.</summary>
@@ -457,6 +459,7 @@ namespace Ooda.Turn
         {
             if (phase != Phase.Planning) return;
             if (AskAboutUnplanned()) return;
+            TutorialCommitted();
             var b = battle; var pilots = ais; float ts = turnSec; int n = battle.Count; var rd = reading; var mine = ManualMask();
             mine[0] = battle.orders[0] != Order.AutoFight;   // the plane you are on flies your plan, unless you've told it to fight by itself
             thinkingFor = b;
@@ -493,9 +496,10 @@ namespace Ooda.Turn
             last = Online ? net.seating.ResolveInWireOrder(battle, plans, turnSec, true) : battle.Resolve(plans, turnSec, true);
             RecordTurn();
             TurnFlown(plans, onLead);
+            TutorialTurnFlown();
             bool over = FightIsOver();
             phaseAfterPlayback = over ? Phase.Over : Phase.Planning;
-            if (over) { outcome = Outcome(); FightOver(); }
+            if (over) { outcome = Outcome(); FightOver(); TutorialFightOver(); }
             newTurn = true;
             StartPlayback();
         }
@@ -589,6 +593,7 @@ namespace Ooda.Turn
         void SwitchMission()
         {
             if (Online) { NetNotice("Online fights are dogfights for now."); return; }
+            tutorial = false;   // another mission ends training
             int missions = Enum.GetValues(typeof(Mission)).Length;
             for (int k = 0; k < missions; k++)
             {
@@ -615,6 +620,7 @@ namespace Ooda.Turn
             if (reading != null && reading.IsCompleted) FinishReading();
             if (thinking != null && thinking.IsCompleted) FinishCommit();
             HandleInput();
+            TutorialUpdate();
             SightCamera();
             WatchOrders();
             SquadShotsCheck();
@@ -1620,6 +1626,7 @@ namespace Ooda.Turn
             UnplannedGUI(sw, sh);
             if (planning) PlanningPanel(sw, sh);
             DogfightGUI(sw, sh);
+            TutorialGUI(sw, sh);
             if (phase == Phase.Playing) GUI.Label(new Rect(0, sh - 60, sw, 30), $"Turn playing  {playT:F1} / {turnSec:F0} s   (hold Tab to speed up)", new GUIStyle(label) { alignment = TextAnchor.MiddleCenter });
             var warn = new GUIStyle(big) { fontSize = 26 };
             warn.normal.textColor = overpullColor;
