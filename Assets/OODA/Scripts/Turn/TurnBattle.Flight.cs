@@ -504,7 +504,7 @@ namespace Ooda.Turn
             bool one = groups.Count == 1;   // a single flight: its planes always show
 
             // between the panels in the top corners (yours on the left, the buttons on the right)
-            float left = 320, right = sw - 200, gap = 4, hw = 112, bw = 96;
+            float left = 320, right = sw - 200, gap = 4, hw = 104, bw = 96;
             int shown = 0;
             foreach (var g in groups) if (one || g.f == open) shown += g.planes.Count;
             float total = (one ? 0 : groups.Count * (hw + gap)) + shown * (bw + gap) - gap;
@@ -522,7 +522,7 @@ namespace Ooda.Turn
                     string fname = g.f >= 0 && g.f < battle.flights.Count ? battle.flights[g.f].name : "Planes";
                     var hs = new GUIStyle(GUI.skin.button) { fontSize = 12, fontStyle = FontStyle.Bold };
                     if (yours) hs.normal.textColor = hs.hover.textColor = amber;
-                    if (GUI.Button(new Rect(x, y, hw, 40), $"{fname} flight {(isOpen ? "\u25BE" : "\u25B8")}\n{up} of {g.planes.Count} up", hs))
+                    if (GUI.Button(new Rect(x, y, hw, 40), $"{fname} {(isOpen ? "\u25BE" : "\u25B8")}\n{up} of {g.planes.Count} up", hs))
                         rosterOpen = isOpen && !yours ? mine : g.f;   // click again to fold it back to yours
                     x += hw + gap;
                 }

@@ -213,7 +213,7 @@ namespace Ooda.Turn
                 var p = tr.At(f);
                 if (p == null) continue;
                 double rr = Vec3d.Dot(p.Value - me.pos, gun);
-                if (rr < 300 || rr > MfdFunnelFt) continue;
+                if (rr < 600 || rr > MfdFunnelFt) continue;   // nearer, the stream is still sorting itself out off the guns
                 stream.Add((rr, p.Value));
             }
             stream.Sort((x, y) => x.range.CompareTo(y.range));
