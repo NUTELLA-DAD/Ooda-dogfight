@@ -63,6 +63,17 @@ namespace Ooda.Turn.Core
         };
 
         /// <summary>
+        /// Two 20 mm Type 99s in the wings (60 rounds each, slow and loopy) and two 7.7 mm Type 97s over the engine: hard
+        /// hitting while the cannon last, a wider cone, about 12 s of fire. No armour and no self-sealing tanks: it goes
+        /// down quickly.
+        /// </summary>
+        public static CombatNumbers A6M2() => new CombatNumbers
+        {
+            guns = "2 x 20 mm + 2 x 7.7 mm", muzzleFps = 2000, damage = 1.3, ammoSec = 12, spreadMil = 3.5, dragPerSec = 0.4,
+            health = 9, heatIdle = 0.45, heatFull = 0.9,
+        };
+
+        /// <summary>
         /// The F-4E Phantom's M61 Vulcan, 20 mm, 640 rounds at 6,000 a minute: a fast, hard-hitting stream but only about
         /// 7 s of it, a little wider spread. Four heat-seekers (Sidewinders). A bigger, tougher airframe (63 ft long, 38 ft
         /// span) and so a bigger target. Estimates to tune by feel.

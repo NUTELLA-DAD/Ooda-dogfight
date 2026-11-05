@@ -29,7 +29,7 @@ namespace Ooda.EditorTools
             var rt = new RenderTexture(1600, 1000, 24);
             cam.targetTexture = rt;
 
-            foreach (var (path, tag, size) in new[] { ("Assets/OODA/Prefabs/P51.prefab", "p51", 1f), ("Assets/OODA/Prefabs/Spitfire.prefab", "spit", 1f), ("Assets/OODA/Prefabs/Bf109.prefab", "bf109", 1f), ("Assets/OODA/Prefabs/PhantomTurn.prefab", "f4", 2f), ("Assets/OODA/Prefabs/P38.prefab", "p38", 1.4f) })
+            foreach (var (path, tag, size) in new[] { ("Assets/OODA/Prefabs/P51.prefab", "p51", 1f), ("Assets/OODA/Prefabs/Spitfire.prefab", "spit", 1f), ("Assets/OODA/Prefabs/Bf109.prefab", "bf109", 1f), ("Assets/OODA/Prefabs/PhantomTurn.prefab", "f4", 2f), ("Assets/OODA/Prefabs/P38.prefab", "p38", 1.4f), ("Assets/OODA/Prefabs/Zero.prefab", "zero", 1.1f) })
             {
                 var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
                 if (prefab == null) { Debug.LogWarning($"OODA shots: no {path}"); continue; }
