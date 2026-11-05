@@ -94,7 +94,7 @@ namespace Ooda.Turn
             battle.Swap(a, b);
             net?.seating?.Swapped(a, b);
             void S<T>(T[] arr) { if (arr != null && a < arr.Length && b < arr.Length) { var t = arr[a]; arr[a] = arr[b]; arr[b] = t; } }
-            S(views); S(ais); S(holos); S(healthBefore); S(shownHp);
+            S(views); S(ais); S(holos); S(systemsBefore); S(shownSys);
             for (int i = 0; i < ais.Length; i++) if (ais[i] != null) { ais[i].me = i; ais[i].Forget(); }
             if (botPilot != null) botPilot.Forget();
             int Map(int i) => i == a ? b : i == b ? a : i;

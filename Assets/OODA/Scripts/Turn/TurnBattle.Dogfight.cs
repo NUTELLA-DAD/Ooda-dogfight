@@ -184,7 +184,7 @@ namespace Ooda.Turn
                 var p = mine;
                 p.aim = aim; p.overpull = 0; p.marks = null; p.burstStart = 0; p.burstEnd = ts; p.missile = false;
                 var s = Sim();
-                for (int j = 0; j < s.Count; j++) if (s.side[j] != s.side[0]) s.health[j] = double.PositiveInfinity;
+                for (int j = 0; j < s.Count; j++) if (s.side[j] != s.side[0]) s.Spare(j);
                 s.bullets.Clear();
                 var plans = (TurnPlan?[])others.Clone();
                 plans[0] = p;

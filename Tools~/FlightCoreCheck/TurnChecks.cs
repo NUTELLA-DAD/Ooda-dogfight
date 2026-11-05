@@ -94,7 +94,7 @@ static class TurnChecks
             var target = new FlightModel(AircraftNumbers.P51D(), PointMass.Make(new Vec3d(0, 1000, 5000), 300, Math.PI / 2));
             shooter.throttle = target.throttle = 1;
             var b = new Battle(shooter, CombatNumbers.P51D(), target, CombatNumbers.P51D()) { dispersion = false };
-            b.health[1] = double.PositiveInfinity;
+            b.Spare(1);
             var r = b.Resolve(new TurnPlan { aim = shooter.Forward, throttle = 1, burstStart = 0, burstEnd = 0.5 }, TurnPlan.Holding(), 3);
             Vec3d last = Vec3d.Zero; foreach (var tr in r.traces) if (tr.owner == 0 && !tr.hit) { last = tr.points[tr.points.Count - 1]; break; }
             Console.WriteLine($"  dead astern at 1,000 ft, 0.5 s burst: {r.hits.Count} of {r.traces.Count} packets hit");
@@ -153,8 +153,8 @@ static class TurnChecks
                 var a = fight.planes[0]; var e = fight.planes[1];
                 double range = (e.state.pos - a.state.pos).Length;
                 if (turn < 12 || turn % 5 == 0 || fight.Over)
-                    Console.WriteLine($"    turn {turn + 1,2}: range {range,6:F0} ft  P-51 {a.Kias,3:F0} KIAS {a.AltFt,5:F0} ft hp {fight.health[0],4:F1} {(p0.burstEnd > p0.burstStart ? "FIRE" : "    ")}" +
-                                      $"  Spit {e.Kias,3:F0} KIAS {e.AltFt,5:F0} ft hp {fight.health[1],4:F1} {(p1.burstEnd > p1.burstStart ? "FIRE" : "    ")}  hits {r.hits.Count}");
+                    Console.WriteLine($"    turn {turn + 1,2}: range {range,6:F0} ft  P-51 {a.Kias,3:F0} KIAS {a.AltFt,5:F0} ft worst {fight.SystemsOf(0).Worst,4:F2} {(p0.burstEnd > p0.burstStart ? "FIRE" : "    ")}" +
+                                      $"  Spit {e.Kias,3:F0} KIAS {e.AltFt,5:F0} ft worst {fight.SystemsOf(1).Worst,4:F2} {(p1.burstEnd > p1.burstStart ? "FIRE" : "    ")}  hits {r.hits.Count}");
             }
             string end = fight.crashed[0] ? "P-51 crashed" : fight.crashed[1] ? "Spitfire crashed" : fight.down[0] && fight.down[1] ? "both down" : fight.down[0] ? "P-51 shot down" : fight.down[1] ? "Spitfire shot down" : "no result";
             Console.WriteLine($"  AI vs AI: {end} after {turn} turns; slowest AI plan {worst:F0} ms");
@@ -181,8 +181,8 @@ static class TurnChecks
                 var r = fight.Resolve(p0, p1, Scenarios.TurnSec);
                 var bm = fight.planes[2];
                 if (turn < 6 || turn % 5 == 0 || fight.Over)
-                    Console.WriteLine($"    turn {turn + 1,2}: B-17 {bm.Kias,3:F0} KIAS {bm.AltFt,5:F0} ft heading {Math.Atan2(bm.state.vel.x, bm.state.vel.y) * D,4:F0} waypoint {fight.routes[2].next} hp {fight.health[2],4:F1}" +
-                                      $"  Spit {(fight.planes[1].state.pos - bm.state.pos).Length,6:F0} ft off hp {fight.health[1],4:F1}  P-51 hp {fight.health[0],4:F1}  hits {r.hits.Count}");
+                    Console.WriteLine($"    turn {turn + 1,2}: B-17 {bm.Kias,3:F0} KIAS {bm.AltFt,5:F0} ft heading {Math.Atan2(bm.state.vel.x, bm.state.vel.y) * D,4:F0} waypoint {fight.routes[2].next} worst {fight.SystemsOf(2).Worst,4:F2}" +
+                                      $"  Spit {(fight.planes[1].state.pos - bm.state.pos).Length,6:F0} ft off worst {fight.SystemsOf(1).Worst,4:F2}  P-51 worst {fight.SystemsOf(0).Worst,4:F2}  hits {r.hits.Count}");
             }
             string end = fight.routes[2].Done ? "the B-17 reached the target" : fight.Out(2) ? "the B-17 went down" : fight.Out(1) ? "the Spitfire went down" : fight.Out(0) ? "the P-51 went down" : "no result";
             Console.WriteLine($"  escort AI vs AI: {end} after {turn} turns; slowest AI plan {worst:F0} ms");
@@ -219,7 +219,7 @@ static class TurnChecks
                         if (best < 1e8) { missSum += best; missN++; }
                     }
             }
-            Console.WriteLine($"  flak at a bomber passing 2,500 ft off: {hits} hits from {shots} packets; mean closest pass {missSum / Math.Max(1, missN):F0} ft; bomber hp {fb.health[1]:F1}");
+            Console.WriteLine($"  flak at a bomber passing 2,500 ft off: {hits} hits from {shots} packets; mean closest pass {missSum / Math.Max(1, missN):F0} ft; bomber worst system {fb.SystemsOf(1).Worst:F2}");
             Check(hits > 0 && hits < shots / 2, "flak hits a steady bomber sometimes, not every round");
         }
 
@@ -239,7 +239,7 @@ static class TurnChecks
                 onFoe += r.hits.Count(h => h.shooter < 0 && h.target == 1); onOwn += r.hits.Count(h => h.shooter < 0 && h.target == 0);
                 packets += r.traces.Count(tr => tr.owner < 0 && tr.startFrame > 0);
             }
-            Console.WriteLine($"  B-17 gunners at a Bf 109 closing on the tail: {packets} packets, {onFoe} hits on it, {onOwn} on the bomber; 109 hp {gb.health[1]:F1}");
+            Console.WriteLine($"  B-17 gunners at a Bf 109 closing on the tail: {packets} packets, {onFoe} hits on it, {onOwn} on the bomber; 109 worst system {gb.SystemsOf(1).Worst:F2}");
             Check(onFoe > 0 && onOwn == 0, "the B-17's gunners hit a fighter closing on its tail, and never their own bomber");
         }
 
@@ -311,7 +311,7 @@ static class TurnChecks
                     }
                 System.Threading.Tasks.Parallel.For(0, n, i => { if (ais[i] != null && !fight.Out(i) && !fight.InFormation(i)) plans[i] = ais[i].Plan(fight, Scenarios.TurnSec); });
                 worstTurn = Math.Max(worstTurn, sw.Elapsed.TotalMilliseconds - t0);
-                var wasDown = (bool[])fight.down.Clone(); var hpBefore = (double[])fight.health.Clone();
+                var wasDown = (bool[])fight.down.Clone(); var wearBefore = fight.AllSystems();
                 bool anyFormed = false; for (int i = 0; i < n; i++) anyFormed |= fight.InFormation(i);
                 if (anyFormed) formedTurns++;
                 var r = fight.Resolve(plans, Scenarios.TurnSec);
@@ -320,7 +320,7 @@ static class TurnChecks
                     if (!wasDown[i] && fight.down[i])
                     {
                         var q = fight.planes[i].state.pos;
-                        string why = fight.crashed[i] ? (fight.health[i] < hpBefore[i] ? "shot, then hit the ground" : "flew into the ground") : fight.health[i] <= 0 ? "shot down" : "collided";
+                        string why = fight.crashed[i] ? (fight.SystemsOf(i).Total > wearBefore[i].Total ? "shot, then hit the ground" : "flew into the ground") : fight.SystemsOf(i).Lost ? $"shot down ({Systems.Name(fight.SystemsOf(i).LostTo.Value)})" : "collided";
                         Console.WriteLine($"      turn {turn + 1}: {i} {fight.planes[i].numbers.name} {why} at {q.z - Ground(q.x, q.y):F0} ft clear, {fight.planes[i].Kias:F0} KIAS, heading {Math.Atan2(fight.planes[i].state.vel.x, fight.planes[i].state.vel.y) * D:F0}");
                     }
                 if (true)

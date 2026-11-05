@@ -132,7 +132,7 @@ namespace Ooda.Turn
         TurnPlan plan;
         bool dirty;
         TurnResult preview, last;
-        double[] healthBefore = new double[0];
+        Systems[] systemsBefore = new Systems[0];
         float playT, prevPlayT;
         string outcome, notice;
         float noticeUntil;
@@ -370,8 +370,8 @@ namespace Ooda.Turn
             }
             TutorialPilots();   // training: the lesson's foe (no pilot for the drone) and its first step
             NetSitDown();   // online: into your own first plane
-            healthBefore = (double[])battle.health.Clone();
-            shownHp = (double[])battle.health.Clone();
+            systemsBefore = battle.AllSystems();
+            shownSys = battle.AllSystems();
             ListFlight();
             plan = new TurnPlan { throttle = battle.planes[0].throttle };
             last = null;
@@ -424,7 +424,7 @@ namespace Ooda.Turn
             OrdersTurnStarts();
             dirty = true;
             ShowAllLive();
-            UpdateSmoke(battle.health, battle.down);
+            UpdateSmoke(battle.AllSystems(), battle.down);
             FocusNearest();
             StartReading();
         }
@@ -492,7 +492,7 @@ namespace Ooda.Turn
         /// <summary>Fly the turn from every plane's plan (by local index) and play it back.</summary>
         void FlyTurn(TurnPlan?[] plans, bool onLead)
         {
-            healthBefore = (double[])battle.health.Clone();
+            systemsBefore = battle.AllSystems();
             lastOverpull = plan.overpull;
             last = Online ? net.seating.ResolveInWireOrder(battle, plans, turnSec, true) : battle.Resolve(plans, turnSec, true);
             RecordTurn();
@@ -1087,7 +1087,7 @@ namespace Ooda.Turn
             previewDeparts = preview.frames[0].Any(f => f.departed);
             bool stalls = preview.frames[0].Any(f => f.stalled);
             // flown into the ground or an obstacle (not shot down first and falling)
-            previewCrashes = !battle.Out(0) && sim.crashed[0] && sim.health[0] > 0;
+            previewCrashes = !battle.Out(0) && sim.crashed[0] && !sim.SystemsOf(0).Lost;
             if (previewCrashes) warning = sim.hitObstacle[0] ? "OBSTACLE: this turn hits a cable or structure" : "TERRAIN: this turn flies into the ground";
             else if (battle.planes[0].Departed)
                 warning = previewDeparts ? (plan.overpull > 0 ? "SPINNING: still overpulling, it stays departed" : "SPINNING: the arrow flies the recovery, it is not out yet")
@@ -1112,7 +1112,7 @@ namespace Ooda.Turn
             var full = plan; full.burstStart = 0; full.burstEnd = turnSec; full.missile = false;
             var gsim = battle.Clone();
             gsim.dispersion = false;
-            for (int j = 0; j < gsim.Count; j++) if (gsim.side[j] != gsim.side[0]) gsim.health[j] = double.PositiveInfinity;
+            for (int j = 0; j < gsim.Count; j++) if (gsim.side[j] != gsim.side[0]) gsim.Spare(j);
             gsim.bullets.Clear();
             gunPreview = gsim.Resolve(WithLikeliest(full), turnSec, true);
             // the hit window: when a round fired connects, short gaps merged
@@ -1454,14 +1454,14 @@ namespace Ooda.Turn
 
             // Hits: a flash where they land, and the damage so far shown as smoke
             double t0 = last.startTime;
-            double[] hp = (double[])healthBefore.Clone();
+            var sys = (Systems[])systemsBefore.Clone();
             foreach (var h in last.hits)
             {
                 double ht = h.time - t0;
-                if (ht <= playT) hp[h.target] -= h.damage;
-                if (ht > prevPlayT && ht <= playT) { Flash(UnityFrame.Pos(h.pos), hp[h.target] <= 0 && hp[h.target] + h.damage > 0); PilotsReact(h, hp[h.target] <= 0); }
+                if (ht <= playT && h.target >= 0 && h.target < sys.Length) Battle.Apply(ref sys[h.target], h);
+                if (ht > prevPlayT && ht <= playT) { Flash(UnityFrame.Pos(h.pos), h.downed); PilotsReact(h, h.target >= 0 && h.target < sys.Length && sys[h.target].Lost); }
             }
-            UpdateSmoke(hp, last.frames.Select(fr => fr[now].down).ToArray());
+            UpdateSmoke(sys, last.frames.Select(fr => fr[now].down).ToArray());
             StrikePlayback(t0 + prevPlayT, t0 + playT);
 
             if (playT >= turnSec - 1e-4f)
@@ -1496,13 +1496,14 @@ namespace Ooda.Turn
             }
         }
 
-        double[] shownHp = new double[0];
+        /// <summary>Each aircraft's systems as the screen shows them (during playback, as far as the turn has got).</summary>
+        Systems[] shownSys = new Systems[0];
 
-        void UpdateSmoke(double[] hp, bool[] down)
+        void UpdateSmoke(Systems[] sys, bool[] down)
         {
-            shownHp = (double[])hp.Clone();
+            shownSys = (Systems[])sys.Clone();
             for (int i = 0; i < battle.Count && i < views.Length; i++)
-                if (views[i] != null) views[i].SetSmoke(down[i] ? 2 : hp[i] < battle.combat[i].health * 0.5 ? 1 : 0);
+                if (views[i] != null) views[i].SetSmoke(down[i] ? 2 : i < sys.Length && sys[i].AnyDamaged ? 1 : 0);
         }
 
         readonly List<Vector3> smokePath = new List<Vector3>(32);
@@ -1570,7 +1571,7 @@ namespace Ooda.Turn
             GUI.Label(new Rect(20, 14, 290, 26), $"{(flight.Count > 1 ? FlightName(0) : DogfightSetup.Short(DogfightSetup.Of(battle.planes[0].numbers)))}   Turn {battle.turn + (phase == Phase.Planning ? 1 : 0)}", title);
             string extra = me.RocketBurning ? "   ROCKET" : me.brakeOut ? "   BRAKE" : "";
             GUI.Label(new Rect(20, 42, 290, 22), $"{me.Kias:F0} KIAS   {me.AltFt:F0} ft   {me.g:F1} G{extra}", label);
-            Bar(new Rect(20, 68, 270, 14), shownHp[0] / battle.combat[0].health, new Color(0.3f, 0.9f, 0.3f), "Airframe");
+            SystemsRow(new Rect(20, 68, 270, 14), Shown(0), battle.Out(0));
             Bar(new Rect(20, 88, 270, 14), battle.ammo[0] / battle.combat[0].ammoSec, new Color(0.9f, 0.75f, 0.2f), $"Ammo {battle.ammo[0]:F1} s   Missiles {battle.missiles[0]}   Flares {battle.flares[0]}");
             Vec3d los = them.state.pos - me.state.pos;
             double range = los.Length;
@@ -1578,7 +1579,7 @@ namespace Ooda.Turn
             double aa = Envelope.Angle(them.Forward, los) * 180 / Math.PI;
             GUI.Label(new Rect(20, 108, 290, 22), $"{themName} {range:F0} ft, {ata:F0}° off your nose", label);
             GUI.Label(new Rect(20, 128, 290, 22), $"You are {aa:F0}° off its tail ({(aa < 45 ? "behind it" : aa > 135 ? "in front of it" : "beside it")})", label);
-            Bar(new Rect(20, 152, 270, 14), shownHp[focus] / battle.combat[focus].health, new Color(0.9f, 0.3f, 0.3f), themName);
+            SystemsRow(new Rect(20, 152, 270, 14), Shown(focus), battle.Out(focus), themName);
             if (Bombing)
             {
                 var bi = Enumerable.Range(0, battle.Count).Where(i => battle.routes[i] != null).ToList();
@@ -1597,7 +1598,7 @@ namespace Ooda.Turn
                 string togo = route.Done ? "through" : $"waypoint {route.next} of {route.points.Length - 1}";
                 GUI.Label(new Rect(20, 188, 290, 22), $"P-51s {ours}/{oursAll}   Bf 109s {theirs}/{theirsAll}   {togo}", label);
                 for (int k = 0; k < bi.Count; k++)
-                    Bar(new Rect(20, 214 + 20 * k, 270, 14), shownHp[bi[k]] / battle.combat[bi[k]].health, bomberColor, $"B-17 {k + 1}{(battle.Out(bi[k]) ? "  down" : "")}");
+                    SystemsRow(new Rect(20, 214 + 20 * k, 270, 14), Shown(bi[k]), battle.Out(bi[k]), $"B-17 {k + 1}");
                 helpTop = 184 + bh + 6;
             }
             else helpTop = 190;
@@ -1856,6 +1857,38 @@ namespace Ooda.Turn
             float v = GUI.HorizontalSlider(new Rect(x + lw, y + 6, sw, 20), value, lo, hi);
             if (Math.Abs(v - value) > (hi - lo) * 0.004f) set(v);
             if (marks && setHere && GUI.Button(new Rect(x + lw + sw + 6, y, 22, 22), "x")) unset();
+        }
+
+        Systems Shown(int i) => i >= 0 && i < shownSys.Length ? shownSys[i] : battle.SystemsOf(i);
+
+        static readonly Color sysOk = new Color(0.3f, 0.85f, 0.35f), sysHurt = new Color(1f, 0.7f, 0.15f), sysOut = new Color(0.95f, 0.2f, 0.15f);
+
+        /// <summary>
+        /// An aircraft's systems in place of a health bar: a light for each (ENG, FUEL, CTRL, WING), green while whole or
+        /// lightly hit, amber once damaged (it flies worse; a holed tank shows the seconds of fuel left), red once out.
+        /// The bar in each shrinks as the system is worn.
+        /// </summary>
+        void SystemsRow(Rect r, Systems s, bool down, string who = null)
+        {
+            float x = r.x, w = r.width;
+            if (who != null)
+            {
+                GUI.Label(new Rect(x, r.y - 4, 96, 22), who, small);
+                x += 96; w -= 96;
+            }
+            float cell = w / Systems.Count;
+            for (int k = 0; k < Systems.Count; k++)
+            {
+                var id = (SystemId)k;
+                var c = s.IsOut(id) || id == SystemId.Engine && s.EngineDead ? sysOut : s.IsDamaged(id) ? sysHurt : sysOk;
+                if (down && c == sysOk) c = new Color(c.r * 0.5f, c.g * 0.5f, c.b * 0.5f, 1);
+                var cr = new Rect(x + k * cell + 1, r.y, cell - 2, r.height);
+                Fill(cr, new Color(0, 0, 0, 0.5f));
+                Fill(new Rect(cr.x, cr.y, cr.width * Mathf.Clamp01(1 - (float)s[id] * 0.5f), cr.height), c);
+                string txt = Systems.Short(id);
+                if (id == SystemId.Fuel && s.Leaking && !s.IsOut(id) && !down) txt = $"FUEL {s.leakLeftSec:F0}";
+                GUI.Label(new Rect(cr.x + 3, r.y - 4, cr.width, 22), txt, small);
+            }
         }
 
         void Bar(Rect r, double fraction, Color c, string text)

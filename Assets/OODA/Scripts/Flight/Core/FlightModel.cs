@@ -50,6 +50,8 @@ namespace Ooda.Flight.Core
         public double rocketCoolSec;    // seconds until the rocket can be lit again (counts from lighting it)
         public bool brakeOut;           // the speed brake was out last step
         public bool wepOn;              // war emergency power (a jet's afterburner) was in last step
+        /// <summary>What hits have done to the engine, fuel, controls and wings (see Systems): whole in free flight.</summary>
+        public Systems systems;
 
         /// <summary>The rocket can be lit now.</summary>
         public bool RocketReady => rocketCoolSec <= 0 && rocketBurnSec <= 0 && numbers.rocketG > 0;
@@ -121,8 +123,9 @@ namespace Ooda.Flight.Core
 
             // G: the stick's ask, eased at the onset rate and its acceleration, then held inside the wing's limits
             gAsked = p >= 0 ? 1 + p * (n.maxG - 1) : 1 + (-p) * (n.minG - 1);
-            double hi = n.AvailableG(kias), lo = n.AvailableNegG(kias);
-            double maxRate = n.MaxRollRateDps(ktas);
+            double gf = systems.GFactor;
+            double hi = Math.Min(n.AvailableG(kias), Math.Max(1, n.maxG * gf)), lo = Math.Max(n.AvailableNegG(kias), Math.Min(-0.5, n.minG * gf));   // a hurt tail or wing can't take the full G
+            double maxRate = n.MaxRollRateDps(ktas) * systems.RollFactor;
             double rollAccel = n.maxRollRateDps / n.rollFullRateSec;
             double extraDrag = 0;
 
@@ -193,9 +196,10 @@ namespace Ooda.Flight.Core
             // Engine: the throttle spools toward the lever
             double lever = Math.Max(0, Math.Min(1, c.throttle));
             throttle += Math.Max(-dt * 0.8, Math.Min(dt * 0.8, lever - throttle));
-            wepOn = c.wep && lever > 0.95;
-            double power = throttle * (wepOn ? n.wepFactor : 1);
+            wepOn = c.wep && lever > 0.95 && !systems.WepOut;
+            double power = Math.Min(throttle, systems.PowerCap) * (wepOn ? n.wepFactor : 1);
             double side = Math.Abs(sideG);
+            double dragK = systems.DragFactor;
 
             // The rocket: lit when asked and ready, it burns for its time and then needs its cool-down before the next
             rocketCoolSec = Math.Max(0, rocketCoolSec - dt);
@@ -208,7 +212,7 @@ namespace Ooda.Flight.Core
             PointMass.ExcessFn excessFn = (vKt, altFt, gg) =>
             {
                 double ias = Atmosphere.TasToIasKt(vKt, altFt);
-                return power * n.ThrustPerWeight(vKt, altFt) + boost - n.DragPerWeight(ias, gg) - n.WaveDragPerWeight(vKt, altFt, ias)
+                return power * n.ThrustPerWeight(vKt, altFt) + boost - dragK * n.DragPerWeight(ias, gg) - n.WaveDragPerWeight(vKt, altFt, ias)
                     - brakeK * ias * ias - n.sideslipDragPerG * side - extraDrag;
             };
             excess = excessFn(ktas, AltFt, g);
@@ -253,8 +257,8 @@ namespace Ooda.Flight.Core
             // Engine, rocket, brake: as in normal flight
             double lever = Math.Max(0, Math.Min(1, c.throttle));
             throttle += Math.Max(-dt * 0.8, Math.Min(dt * 0.8, lever - throttle));
-            wepOn = c.wep && lever > 0.95;
-            double power = throttle * (wepOn ? n.wepFactor : 1);
+            wepOn = c.wep && lever > 0.95 && !systems.WepOut;
+            double power = Math.Min(throttle, systems.PowerCap) * (wepOn ? n.wepFactor : 1);
             rocketCoolSec = Math.Max(0, rocketCoolSec - dt);
             if (c.rocket && RocketReady) { rocketBurnSec = n.rocketSec; rocketCoolSec = n.rocketCooldownSec; }
             double boost = 0;
@@ -301,7 +305,7 @@ namespace Ooda.Flight.Core
             double ktas = v * Atmosphere.FtpsToKt;
             double ias = Atmosphere.TasToIasKt(ktas, AltFt);
             double thrust = power * n.ThrustPerWeight(Math.Max(0, Vec3d.Dot(vel, nose)) * Atmosphere.FtpsToKt, AltFt) + boost;
-            double drag = n.DragPerWeight(ias, 0) + (c.brake ? n.brakeG * ias * ias / (300.0 * 300.0) : 0);
+            double drag = systems.DragFactor * n.DragPerWeight(ias, 0) + (c.brake ? n.brakeG * ias * ias / (300.0 * 300.0) : 0);
             Vec3d acc = nose * (thrust * Atmosphere.GFtps2) - (v > 1e-6 ? vel / v : Vec3d.Zero) * (drag * Atmosphere.GFtps2);
             acc.z -= Atmosphere.GFtps2;
             Vec3d v0 = vel;

@@ -39,7 +39,6 @@ namespace Ooda.Turn.Core
         public int[] flightOf = new int[0];
         public int[] number = new int[0];             // 1 the lead to 4
         public Order[] orders = new Order[0];         // what each one does when nobody plans its turn
-        public double[] health = new double[0];
         public double[] ammo = new double[0];        // seconds of trigger left
         public int[] missiles = new int[0];          // missiles left
         public int[] flares = new int[0];            // flares left
@@ -89,7 +88,6 @@ namespace Ooda.Turn.Core
             Array.Resize(ref flightOf, n + 1); flightOf[n] = -1;
             Array.Resize(ref number, n + 1);
             Array.Resize(ref orders, n + 1); orders[n] = Order.AutoFight;
-            Array.Resize(ref health, n + 1); health[n] = c.health;
             Array.Resize(ref ammo, n + 1); ammo[n] = c.ammoSec;
             Array.Resize(ref missiles, n + 1); missiles[n] = c.missiles;
             Array.Resize(ref flares, n + 1); flares[n] = c.flares;
@@ -143,7 +141,7 @@ namespace Ooda.Turn.Core
             void S<T>(T[] arr) { var t = arr[a]; arr[a] = arr[b]; arr[b] = t; }
             int Map(int i) => i == a ? b : i == b ? a : i;
             side = (int[])side.Clone(); combat = (CombatNumbers[])combat.Clone();   // new arrays: clones share these two
-            S(planes); S(combat); S(side); S(routes); S(flightOf); S(number); S(orders); S(health); S(ammo); S(missiles); S(flares); S(balloonMines); S(heatBlades); S(stealths); S(jammers); S(jammedUntil); S(ramOn); S(cloakUntil); S(down); S(crashed); S(hitObstacle); S(fireClock);
+            S(planes); S(combat); S(side); S(routes); S(flightOf); S(number); S(orders); S(ammo); S(missiles); S(flares); S(balloonMines); S(heatBlades); S(stealths); S(jammers); S(jammedUntil); S(ramOn); S(cloakUntil); S(down); S(crashed); S(hitObstacle); S(fireClock);
             foreach (var bl in bullets)
             {
                 if (bl.owner >= 0) bl.owner = Map(bl.owner);
@@ -186,7 +184,7 @@ namespace Ooda.Turn.Core
             for (int i = 0; i < Count; i++) { c.planes[i] = planes[i].Clone(); c.routes[i] = routes[i]?.Copy(); }
             c.flightOf = (int[])flightOf.Clone(); c.number = (int[])number.Clone(); c.orders = (Order[])orders.Clone();
             c.flights = flights.ConvertAll(f => f.Copy());
-            c.health = (double[])health.Clone(); c.ammo = (double[])ammo.Clone(); c.missiles = (int[])missiles.Clone(); c.flares = (int[])flares.Clone();
+            c.ammo = (double[])ammo.Clone(); c.missiles = (int[])missiles.Clone(); c.flares = (int[])flares.Clone();
             c.balloonMines = (int[])balloonMines.Clone(); c.heatBlades = (int[])heatBlades.Clone(); c.stealths = (int[])stealths.Clone(); c.jammers = (int[])jammers.Clone(); c.jammedUntil = (double[])jammedUntil.Clone();
             c.ramOn = (bool[])ramOn.Clone(); c.cloakUntil = (double[])cloakUntil.Clone();
             c.down = (bool[])down.Clone(); c.crashed = (bool[])crashed.Clone(); c.hitObstacle = (bool[])hitObstacle.Clone();
@@ -271,6 +269,7 @@ namespace Ooda.Turn.Core
                         ? new FlightControls { pitch = -0.1, roll = 0.25 * (i % 2 == 0 ? 1 : -1), throttle = 0 }
                         : plans[i].ControlsFor(m, t);
                     m.Step(c, StepSec);
+                    if (!down[i]) { m.systems.Step(StepSec); if (m.systems.Lost) down[i] = true; }   // the leak runs the tanks dry
                     if (m.AltFt <= groundFt(m.state.pos.x, m.state.pos.y)) { crashed[i] = true; down[i] = true; }
                     else if (obstacleHit != null && obstacleHit(before[i], m.state.pos)) { crashed[i] = true; down[i] = true; hitObstacle[i] = true; }
                 }
@@ -390,7 +389,7 @@ namespace Ooda.Turn.Core
                         }
                         if (Passes(r0, r1, reach))
                         {
-                            Hit(b, target, res);
+                            Hit(b, target, res, r0, r1, reach);
                             b.alive = false;
                             if (bt != null) bt.hit = true;
                         }
@@ -433,10 +432,10 @@ namespace Ooda.Turn.Core
             var mb = planes[b];
             res.hits.Add(new HitEvent
             {
-                time = time + StepSec, shooter = a, target = b, pos = mb.state.pos, fireTime = time, damage = Math.Max(0, health[b]),
-                local = Vec3d.Zero,
+                time = time + StepSec, shooter = a, target = b, pos = mb.state.pos, fireTime = time, damage = 1,
+                local = Vec3d.Zero, system = (int)SystemId.Wings, wear = 1, downed = true,
             });
-            health[b] = 0;
+            mb.systems.wings = 1;   // cut in half: even a spared one (it is not a hit the guns could hold back)
             down[b] = true;
         }
 
@@ -650,14 +649,14 @@ namespace Ooda.Turn.Core
             var c = (Battle)MemberwiseClone();
             int n = keep.Length;
             c.planes = new FlightModel[n]; c.combat = new CombatNumbers[n]; c.side = new int[n]; c.routes = new Route[n];
-            c.health = new double[n]; c.ammo = new double[n]; c.missiles = new int[n]; c.flares = new int[n]; c.down = new bool[n];
+            c.ammo = new double[n]; c.missiles = new int[n]; c.flares = new int[n]; c.down = new bool[n];
             c.balloonMines = new int[n]; c.heatBlades = new int[n]; c.stealths = new int[n]; c.jammers = new int[n]; c.jammedUntil = new double[n]; c.ramOn = new bool[n]; c.cloakUntil = new double[n]; c.crashed = new bool[n]; c.hitObstacle = new bool[n]; c.fireClock = new double[n];
             var map = new Dictionary<int, int>();
             for (int j = 0; j < n; j++)
             {
                 int i = keep[j]; map[i] = j;
                 c.planes[j] = planes[i].Clone(); c.combat[j] = combat[i]; c.side[j] = side[i]; c.routes[j] = routes[i]?.Copy();
-                c.health[j] = health[i]; c.ammo[j] = ammo[i]; c.missiles[j] = missiles[i]; c.flares[j] = flares[i];
+                c.ammo[j] = ammo[i]; c.missiles[j] = missiles[i]; c.flares[j] = flares[i];
                 c.balloonMines[j] = balloonMines[i]; c.heatBlades[j] = heatBlades[i]; c.stealths[j] = stealths[i]; c.jammers[j] = jammers[i]; c.jammedUntil[j] = jammedUntil[i]; c.ramOn[j] = ramOn[i]; c.cloakUntil[j] = cloakUntil[i];
                 c.down[j] = down[i]; c.crashed[j] = crashed[i]; c.hitObstacle[j] = hitObstacle[i]; c.fireClock[j] = fireClock[i];
             }
@@ -692,19 +691,70 @@ namespace Ooda.Turn.Core
             return c;
         }
 
-        void Hit(Bullet b, int target, TurnResult res)
+        /// <summary>What share of its toughness each system takes before it is knocked out (the wings, bigger, take more).</summary>
+        public const double SystemShare = 0.6, WingsShare = 0.8;
+
+        /// <summary>The damage a system of aircraft i takes before it is knocked out.</summary>
+        public double Capacity(int i, SystemId s) => Math.Max(1e-6, combat[i].toughness * (s == SystemId.Wings ? WingsShare : SystemShare));
+
+        /// <summary>What hits have done to aircraft i (see Systems).</summary>
+        public Systems SystemsOf(int i) => planes[i].systems;
+
+        /// <summary>Wear a copy of an aircraft's systems by one recorded hit (playback rebuilds the damage hit by hit this way).</summary>
+        public static void Apply(ref Systems s, HitEvent h)
+        {
+            if (h.system < 0) for (int k = 0; k < Systems.Count; k++) s.Wear((SystemId)k, h.wear);
+            else s.Wear((SystemId)h.system, h.wear);
+        }
+
+        /// <summary>Everyone's systems as they stand now.</summary>
+        public Systems[] AllSystems()
+        {
+            var a = new Systems[Count];
+            for (int i = 0; i < Count; i++) a[i] = planes[i].systems;
+            return a;
+        }
+
+        /// <summary>Hits on aircraft i land but do nothing (a "what if" keeps a target flying to see the whole burst).</summary>
+        public void Spare(int i) => planes[i].systems.spared = true;
+
+        /// <summary>
+        /// A packet strikes. A gun round knocks at one system, the one where it enters the target's hit sphere (see
+        /// Systems.Struck); a missile's or a mine's blast wears every system by its share of the airframe's toughness.
+        /// r0 and r1 are the round's position relative to the target over the step, reach the hit sphere's radius.
+        /// </summary>
+        void Hit(Bullet b, int target, TurnResult res, Vec3d r0, Vec3d r1, double reach)
         {
             var m = planes[target];
-            Vec3d rel = b.pos - m.state.pos;
+            // where it enters the sphere: back along its path from the closest pass
+            Vec3d d = r1 - r0;
+            double dd = Vec3d.Dot(d, d);
+            double s = dd > 1e-12 ? Math.Max(0, Math.Min(1, -Vec3d.Dot(r0, d) / dd)) : 0;
+            Vec3d c = r0 + d * s;
+            Vec3d entry = dd > 1e-12 ? c - d * (Math.Sqrt(Math.Max(0, reach * reach - Vec3d.Dot(c, c)) / dd)) : r1;
+            var local = new Vec3d(Vec3d.Dot(entry, m.Right), Vec3d.Dot(entry, m.Forward), Vec3d.Dot(entry, m.Up));
+            bool blast = b is Missile || b is Mine;
+            var sys = Systems.Struck(local.x, local.y, local.z);
             var e = new HitEvent
             {
                 time = time + StepSec, shooter = b.owner, target = target, pos = b.pos, fireTime = b.fireTime, damage = b.damage,
-                local = new Vec3d(Vec3d.Dot(rel, m.Right), Vec3d.Dot(rel, m.Forward), Vec3d.Dot(rel, m.Up)),
+                local = local, system = blast ? -1 : (int)sys,
             };
+            if (!down[target] && !m.systems.spared)
+            {
+                if (blast)
+                {
+                    e.wear = b.damage / Math.Max(1e-6, combat[target].toughness);
+                    for (int k = 0; k < Systems.Count; k++) m.systems.Wear((SystemId)k, e.wear);
+                }
+                else
+                {
+                    e.wear = b.damage / Capacity(target, sys);
+                    m.systems.Wear(sys, e.wear);
+                }
+                if (m.systems.Lost) { down[target] = true; e.downed = true; }
+            }
             res.hits.Add(e);
-            if (down[target]) return;
-            health[target] -= b.damage;
-            if (health[target] <= 0) down[target] = true;
         }
 
         /// <summary>How close a straight relative move from r0 to r1 comes to the origin.</summary>
