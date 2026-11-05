@@ -56,6 +56,7 @@ namespace Ooda.Turn
                 Fill(b, MfdOsbDark);
                 Fill(new Rect(b.x + 1, b.y + 1, b.width - 2, b.height - 2), enabled ? MfdOsb : new Color(MfdOsb.r * 0.6f, MfdOsb.g * 0.6f, MfdOsb.b * 0.6f, 1f));
                 Fill(new Rect(b.x + 1, b.yMax - 4, b.width - 2, 3), new Color(0, 0, 0, 0.35f));
+                if (controlsLocked) return false;
                 bool was = GUI.enabled; GUI.enabled = was && enabled;
                 bool hit = GUI.Button(b, GUIContent.none, GUIStyle.none);
                 GUI.enabled = was;

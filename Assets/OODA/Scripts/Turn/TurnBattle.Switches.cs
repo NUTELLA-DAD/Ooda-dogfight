@@ -84,6 +84,7 @@ namespace Ooda.Turn
             GUI.Label(new Rect(r.x + 1, r.yMax - 25, r.width - 2, 13), name, swName);
             GUI.Label(new Rect(r.x + 1, r.yMax - 13, r.width - 2, 11), key, swKey);
 
+            if (controlsLocked) return false;
             bool was = GUI.enabled;
             GUI.enabled = was && enabled;
             bool hit = GUI.Button(r, GUIContent.none, GUIStyle.none);

@@ -1761,6 +1761,7 @@ namespace Ooda.Turn
             OrdersGUI(sw);
             UnplannedGUI(sw, sh);
             if (planning) PlanningPanel(sw, sh);
+            else if (phase == Phase.Playing && ctl.pictures) PlaybackPanel();
             DogfightGUI(sw, sh);
             TutorialGUI(sw, sh);
             if (phase == Phase.Playing) GUI.Label(new Rect(0, ctl.stickTop - 30, sw, 30), $"Turn playing  {playT:F1} / {turnSec:F0} s   (hold Tab to speed up)", new GUIStyle(label) { alignment = TextAnchor.MiddleCenter });
@@ -1836,6 +1837,25 @@ namespace Ooda.Turn
         /// Planning: the engine switches beside the throttle (left), and the gun MFD (right) with the flare and specials
         /// switches over it. The timeline itself opens above the stick.
         /// </summary>
+        /// <summary>
+        /// While the turn plays the MFD and the weapon switches stay in the dash, looking but not taking clicks: the
+        /// funnel follows the turn's clock, so it shows the rounds as they fly.
+        /// </summary>
+        void PlaybackPanel()
+        {
+            float keepT = sightT;
+            controlsLocked = true;
+            sightT = Mathf.Clamp(playT, 0f, (float)turnSec);
+            WeaponSwitches(ctl.switchRow.x, ctl.switchRow.y, ctl.switchRow.width);
+            GunMfd(ctl.weapons);
+            sightT = keepT;
+            controlsLocked = false;
+            burstRect = Rect.zero;   // no setting the burst mid-turn
+        }
+
+        /// <summary>True while the cockpit's buttons are drawn for show only (the turn playing).</summary>
+        bool controlsLocked;
+
         void PlanningPanel(float sw, float sh)
         {
             QuadrantGUI(ctl.quadrant);
