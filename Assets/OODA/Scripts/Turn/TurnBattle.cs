@@ -1659,7 +1659,9 @@ namespace Ooda.Turn
         {
             if (battle == null) return;
             Ooda.UI.BriefingStyle.Use();
-            guiScale = Mathf.Clamp(Screen.height / 900f, 1f, 2.5f);
+            // scale up so the GUI is at least 1600x900 points: by height alone a 16:10 screen (2560x1600) left only
+            // 1440 points across, and the cockpit squeezed (small dials with no numbers, the MFD pushed to the edge)
+            guiScale = Mathf.Clamp(Mathf.Min(Screen.height / 900f, Screen.width / 1600f), 1f, 2.5f);
             GUI.matrix = Matrix4x4.Scale(Vector3.one * guiScale);
             float sw = Screen.width / guiScale, sh = Screen.height / guiScale;
             // under the menu the screen is drawn but takes no clicks or keys
