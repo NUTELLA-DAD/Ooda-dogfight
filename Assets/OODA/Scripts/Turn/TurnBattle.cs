@@ -625,6 +625,7 @@ namespace Ooda.Turn
             SightCamera();
             WatchOrders();
             SquadShotsCheck();
+            DamageShotsCheck();
             BotUpdate();
             NetBotUpdate();
             lines.Begin();
