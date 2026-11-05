@@ -93,7 +93,7 @@ namespace Ooda.Turn
         int FunnelTarget()
         {
             int j = read != null && read.target >= 0 ? read.target : focus;
-            return j >= 0 && j < battle.Count && battle.side[j] != battle.side[0] && !HiddenFromMe(j) ? j : -1;
+            return j >= 0 && j < battle.Count && battle.side[j] != battle.side[0] && !HiddenFromMe(j) && !JammedNow ? j : -1;
         }
 
         /// <summary>The frame of the gun preview at the funnel's moment.</summary>

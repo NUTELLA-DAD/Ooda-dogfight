@@ -28,6 +28,8 @@ namespace Ooda.Turn.Core
         public bool ram;
         /// <summary>Go stealthy at the start of the turn: unseen for two turns, until you fire (see Specials).</summary>
         public bool cloak;
+        /// <summary>Set off the jammer at the start of the turn: the enemies near you see scrambled ghosts for two turns (see Specials).</summary>
+        public bool jam;
         public bool hold;          // fly on with the stick where it is instead (the "keeps doing what it's doing" projection)
         public double overpull;    // 0..1: the arrow past the ring; the stick goes that far beyond the stall line toward full aft
         /// <summary>The turn's timeline instead of the arrow: points that each change some settings from their time on (see Mark, StateAt).</summary>

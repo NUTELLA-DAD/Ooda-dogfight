@@ -24,7 +24,7 @@ namespace Ooda.Turn.Core
         public int missiles = 2;             // heat-seekers carried (a game liberty: no WW2 fighter had them)
         public int flares = 6;               // flares to decoy a heat-seeker with (the same liberty)
         /// <summary>The arcade specials carried (see Specials): balloon mines, heat-blade charges and stealth charges. None unless Specials.Arm gives them (a dogfight with Arcade on).</summary>
-        public int balloonMines, heatBlades, stealths;
+        public int balloonMines, heatBlades, stealths, jammers;
         /// <summary>
         /// The engines' heat as a seeker sees it from dead astern (see Heat): at idle, at full throttle, and the factor for
         /// WEP (a jet's afterburner). A piston fighter at full throttle is 1, the yardstick for the seeker's lock range.

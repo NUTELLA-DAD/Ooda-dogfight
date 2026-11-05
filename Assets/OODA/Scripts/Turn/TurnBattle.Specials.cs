@@ -17,6 +17,10 @@ namespace Ooda.Turn
     /// 5, Heat blade: the whole plane glows red hot all turn and its guns stay cold; fly through an enemy and it is cut in half.
     /// You are the brightest thing in the IR view while it glows: every heat-seeker locks you from farther.
     ///
+    /// 7, Jammer: the enemies near you see scrambled ghosts for two turns (their AI pilots plan against where you aren't).
+    /// Jammed yourself, the enemies' projections, ghosts and predicted moves jump to the wrong place and flicker, and the
+    /// funnel and the spread of their likely moves are gone: you have only the planes themselves to go by.
+    ///
     /// 6, Stealth: two turns unseen. A stealthy enemy vanishes from your screen with its ghosts and projection (only its
     /// heat shows, in the IR view, and a heat-seeker still locks it); yours shows only as a dotted cyan outline. Firing shows you again.
     /// </summary>
@@ -26,6 +30,7 @@ namespace Ooda.Turn
         public Color mineColor = new Color(0.92f, 0.16f, 0.12f, 1f);
         public Color bladeColor = new Color(1f, 0.32f, 0.06f, 0.95f);
         public Color stealthColor = new Color(0.55f, 0.95f, 1f, 0.7f);
+        public Color jamColor = new Color(0.85f, 0.5f, 1f, 1f);
 
         /// <summary>An enemy you can't see now: stealthy, on the other side.</summary>
         bool HiddenFromMe(int i) => battle != null && i >= 0 && i < battle.Count && battle.side[i] != battle.side[0] && battle.Cloaked(i);
@@ -50,6 +55,49 @@ namespace Ooda.Turn
             dirty = true;
         }
 
+        void ToggleJam()
+        {
+            if (!plan.jam && battle.jammers[0] <= 0) { Notice("The jammer is spent."); return; }
+            plan.jam = !plan.jam;
+            if (plan.jam) Notice($"Jammer: every enemy within {Specials.JamRangeFt / 6076.1:0.#} nm sees scrambled ghosts for two turns.");
+            dirty = true;
+        }
+
+        // ---------- jammed: the enemies' ghosts where they aren't ----------
+
+        /// <summary>The plane you are flying is jammed: the other side's projections are scrambled.</summary>
+        bool JammedNow => battle != null && battle.Jammed(0);
+
+        /// <summary>A projection you can't trust: an enemy's, while you are jammed.</summary>
+        bool JammedFrom(int i) => JammedNow && i >= 0 && i < battle.Count && battle.side[i] != battle.side[0];
+
+        readonly Dictionary<AircraftFrame[], AircraftFrame[]> jamSeen = new Dictionary<AircraftFrame[], AircraftFrame[]>();
+        int jamSeenTurn = -1;
+
+        /// <summary>An aircraft's projected path as you see it: as it is, or (an enemy's, while jammed) moved and turned by the jammer's scramble.</summary>
+        AircraftFrame[] Seen(int i, AircraftFrame[] fr)
+        {
+            if (fr == null || fr.Length == 0 || !JammedFrom(i)) return fr;
+            if (jamSeenTurn != battle.turn || jamSeen.Count > 64) { jamSeen.Clear(); jamSeenTurn = battle.turn; }
+            if (jamSeen.TryGetValue(fr, out var got)) return got;
+            Jam.Offset(battle.turn, 0, i, out var shift, out double rot);
+            double c = Math.Cos(rot), s = Math.Sin(rot);
+            Vec3d Turn(Vec3d v) => new Vec3d(v.x * c - v.y * s, v.x * s + v.y * c, v.z);
+            Vec3d at = fr[0].pos;
+            var o = new AircraftFrame[fr.Length];
+            for (int k = 0; k < fr.Length; k++)
+            {
+                var f = fr[k];
+                f.pos = at + Turn(f.pos - at) + shift; f.vel = Turn(f.vel); f.up = Turn(f.up);
+                o[k] = f;
+            }
+            jamSeen[fr] = o;
+            return o;
+        }
+
+        /// <summary>A jammed enemy ghost drops out now and then, like a bad signal.</summary>
+        bool JamFlicker(int i) => !JammedFrom(i) || Mathf.Repeat(Time.time * 3.1f + i * 0.41f, 1f) > 0.18f;
+
         void ToggleCloak()
         {
             if (!plan.cloak && battle.stealths[0] <= 0) { Notice("No stealth left."); return; }
@@ -67,15 +115,16 @@ namespace Ooda.Turn
             if (Pressed(Key.Digit4) || Pressed(Key.Numpad4)) ToggleMine();
             if (Pressed(Key.Digit5) || Pressed(Key.Numpad5)) ToggleBlade();
             if (Pressed(Key.Digit6) || Pressed(Key.Numpad6)) ToggleCloak();
+            if (Pressed(Key.Digit7) || Pressed(Key.Numpad7)) ToggleJam();
         }
 
         /// <summary>The three specials' buttons in a row (over the IR and flare buttons).</summary>
         void SpecialButtons(float x, float y, float w)
         {
             var load = battle.combat[0];
-            if (load.balloonMines + load.heatBlades + load.stealths <= 0) return;   // Arcade off (or a mission without them)
-            float bw = Mathf.Min(150, (w - 16) / 3);
-            Rect row = new Rect(x, y, bw * 3 + 16, 24);
+            if (load.balloonMines + load.heatBlades + load.stealths + load.jammers <= 0) return;   // Arcade off (or a mission without them)
+            float bw = Mathf.Min(140, (w - 24) / 4);
+            Rect row = new Rect(x, y, bw * 4 + 24, 24);
             guiRects.Add(row);
             void Button(int k, bool on, int left, string name, string key, string active, Color col, Action toggle)
             {
@@ -90,6 +139,13 @@ namespace Ooda.Turn
             Button(1, plan.ram, battle.heatBlades[0], "Heat blade", "5", "BLADE: hot", bladeColor, ToggleBlade);
             bool cloakedNow = battle.Cloaked(0);
             Button(2, plan.cloak, battle.stealths[0], cloakedNow ? "Stealthy" : "Stealth", "6", "STEALTH: on", stealthColor, ToggleCloak);
+            Button(3, plan.jam, battle.jammers[0], "Jammer", "7", "JAM: on", jamColor, ToggleJam);
+            if (JammedNow)
+            {
+                var w2 = new GUIStyle(GUI.skin.label) { fontSize = 15, fontStyle = FontStyle.Bold };
+                w2.normal.textColor = Mathf.Repeat(Time.unscaledTime, 0.7f) < 0.45f ? jamColor : Color.white;
+                GUI.Label(new Rect(x, y - 24, 520, 22), "JAMMED: their ghosts are scrambled. Trust your eyes, not the projections.", w2);
+            }
         }
 
         // ---------- drawing ----------

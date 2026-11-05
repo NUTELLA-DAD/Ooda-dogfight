@@ -415,7 +415,7 @@ namespace Ooda.Turn
             plan.marks = null;
             plan.missile = false;
             plan.rocket = plan.brake = false;
-            plan.mine = plan.ram = plan.cloak = false;
+            plan.mine = plan.ram = plan.cloak = plan.jam = false;
             markT = 0;
             burstPreset = 0;
             OrdersTurnStarts();
@@ -1224,25 +1224,27 @@ namespace Ooda.Turn
             {
                 if (battle.Out(i) || HiddenFromMe(i)) continue;   // a stealthy enemy: no path, no ghost
                 bool noGhost = i >= holos.Length || holos[i] == null;
-                if (battle.routes[i] != null) DrawPath(preview.frames[i], end, bomberColor, noGhost);
-                else if (battle.side[i] != 0) { if (showProjection) DrawPath(preview.frames[i], end, projectionColor, noGhost); }
-                else DrawPath(preview.frames[i], end, wingmanColor, noGhost);
+                var seen = Seen(i, preview.frames[i]);   // jammed: the enemies' paths where they aren't
+                if (battle.routes[i] != null) DrawPath(seen, end, bomberColor, noGhost);
+                else if (battle.side[i] != 0) { if (showProjection) DrawPath(seen, end, projectionColor, noGhost); }
+                else DrawPath(seen, end, wingmanColor, noGhost);
             }
             // lined up behind it, your ghost shows where it is at the funnel's moment
             ShowHolo(holoMine, preview.frames[0][sightView ? Mathf.Min(end, FunnelFrame()) : end], true, badPath ? overpullColor : holoColor);
             for (int i = 1; i < holos.Length; i++)
             {
                 bool hitByMe = i < burstHits.Length && burstHits[i] && battle.side[i] != battle.side[0];
-                ShowHolo(holos[i], preview.frames[i][end], !battle.Out(i) && !HiddenFromMe(i) && (battle.side[i] == 0 || showProjection) && !(sightView && battle.side[i] != battle.side[0]),   // lined up, only the funnel's target shows (ShowFunnelTarget)
+                ShowHolo(holos[i], Seen(i, preview.frames[i])[end], !battle.Out(i) && !HiddenFromMe(i) && JamFlicker(i) && (battle.side[i] == 0 || showProjection) && !(sightView && battle.side[i] != battle.side[0]),   // lined up, only the funnel's target shows (ShowFunnelTarget)
                          battle.side[i] == 0 ? holoFriendColor : hitByMe ? holoTargetHitColor : holoEnemyColor);
             }
-            if (sightView) ShowFunnelTarget();   // lined up: the target's likely moves as models at the funnel's moment
+            if (JammedNow) HideSpread();   // jammed: no read on their likely moves
+            else if (sightView) ShowFunnelTarget();   // lined up: the target's likely moves as models at the funnel's moment
             else DrawSpreadAndLead();
             DrawFunnel();
             if (!sightView)
             foreach (var tr in preview.traces)
             {
-                if (tr.owner != 0 && !showProjection || HiddenFromMe(tr.owner)) continue;
+                if (tr.owner != 0 && !showProjection || HiddenFromMe(tr.owner) || JammedFrom(tr.owner)) continue;
                 if (tr.missile) { DrawPreviewTrace(tr, new Color(1f, 1f, 1f, 0.8f), 1.0f, 0.3f); continue; }
                 DrawPreviewTrace(tr, OutcomeColor(tr, TracerColor(tr.owner)), tr.hit ? 0.5f : 0.35f, tr.hit ? 0.5f : 0.1f);
             }
@@ -1662,7 +1664,7 @@ namespace Ooda.Turn
                     "Drag on the timeline to fire; F fires where hits are predicted.\n\n" +
                     "Keys: WASD arrow (S pulls up, like the stick), Shift/Ctrl throttle,\n" +
                     "Space WEP, 1 rocket, 2 speed brake, 3 hold flares, I IR view, Tab next plane, N next target,\n" +
-                    "4 mine, 5 heat blade, 6 stealth, B bursts, G missile, T timeline,\n" +
+                    "4 mine, 5 blade, 6 stealth, 7 jammer, B bursts, G missile, T timeline,\n" +
                     "Enter fly, R replay, P projection, V view, X straight, M mission, H help.\n" +
                     "Drag the view or right-drag to look; wheel zooms. F2: the old arrow.\n" +
                     "Pad: left stick arrow, triggers throttle, A fly, X bursts,\n" +

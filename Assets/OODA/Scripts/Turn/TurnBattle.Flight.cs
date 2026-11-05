@@ -169,6 +169,7 @@ namespace Ooda.Turn
                 if (battle.balloonMines[0] <= 0) plan.mine = false;
                 if (battle.heatBlades[0] <= 0) plan.ram = false;
                 if (battle.stealths[0] <= 0) plan.cloak = false;
+                if (battle.jammers[0] <= 0) plan.jam = false;
                 plan.aim = env.Clamp(plan.aim, true);
                 plan.overpull = env.Overpull(plan.aim);
                 manual[m] = plan;
@@ -253,7 +254,7 @@ namespace Ooda.Turn
 
         static bool SamePlan(TurnPlan a, TurnPlan b) =>
             (a.aim - b.aim).Length < 1e-9 && System.Math.Abs(a.throttle - b.throttle) < 1e-6 && a.wep == b.wep && a.rocket == b.rocket && a.brake == b.brake
-            && a.mine == b.mine && a.ram == b.ram && a.cloak == b.cloak
+            && a.mine == b.mine && a.ram == b.ram && a.cloak == b.cloak && a.jam == b.jam
             && a.burstStart == b.burstStart && a.burstEnd == b.burstEnd && a.missile == b.missile && a.hold == b.hold && a.marks == b.marks;
 
         /// <summary>At the start of each turn's planning: a plane in formation shows its formation plan, so the stick shows what it will do.</summary>

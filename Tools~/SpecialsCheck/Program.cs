@@ -129,6 +129,30 @@ static class Program
             Check(!c.Cloaked(0) && c.stealths[0] == Specials.Stealths - 1, "firing the guns shows you at once");
         }
 
+        Console.WriteLine("\nJammer");
+        {
+            var b = Tail(1500);
+            b.Add(At(AircraftNumbers.Bf109G(), 0, -15000, 300), Specials.Arm(CombatNumbers.Bf109G()), 1);   // a second 109, far behind
+            var jam = Ahead(b, 0); jam.jam = true;
+            b.Resolve(new TurnPlan?[] { jam, Ahead(b, 1), Ahead(b, 2) }, 3);
+            Check(b.jammers[0] == Specials.Jammers - 1 && b.Jammed(1) && !b.Jammed(2) && !b.Jammed(0), "the 109 close by is jammed, the one 15,000 ft back isn't, nor the jammer");
+            b.Resolve(new TurnPlan?[] { Ahead(b, 0), Ahead(b, 1), Ahead(b, 2) }, 3);
+            Check(b.Jammed(1), "still jammed when it plans the next turn");
+            b.Resolve(new TurnPlan?[] { Ahead(b, 0), Ahead(b, 1), Ahead(b, 2) }, 3);
+            Check(!b.Jammed(1), "clear again the turn after");
+
+            // a jammed pilot plans against where its target isn't
+            var c = Tail(1200); var d = Tail(1200);
+            var jc = Ahead(c, 0); jc.jam = true;
+            c.Resolve(new TurnPlan?[] { jc, Ahead(c, 1) }, 3);
+            d.Resolve(new TurnPlan?[] { Ahead(d, 0), Ahead(d, 1) }, 3);
+            var pc = new EnemyAi { me = 1, sloppiness = 0 }.Plan(c, 3);
+            var pd = new EnemyAi { me = 1, sloppiness = 0 }.Plan(d, 3);
+            Check(Vec3d.Dot(pc.aim, pd.aim) < 0.9999 || pc.burstStart != pd.burstStart || pc.burstEnd != pd.burstEnd, "a jammed 109 plans differently from a clear one in the same spot");
+            Jam.Offset(3, 1, 0, out var s1, out double r1); Jam.Offset(3, 1, 0, out var s2, out double r2);
+            Check((s1 - s2).Length == 0 && r1 == r2 && s1.Length > 0, $"the scramble is the same on every machine ({s1.Length:F0} ft off, {r1 * 180 / Math.PI:F0} deg turned)");
+        }
+
         Console.WriteLine("\nThe AI pilots use them");
         {
             // the P-51's pilot, with a 109 on its tail and guns on it, lets a mine go
@@ -136,9 +160,12 @@ static class Program
             var ai = new EnemyAi { me = 0, sloppiness = 0 };
             var p = ai.Plan(b, 3);
             Check(p.mine, "with a 109 on its six, it lets a mine go");
-            b.balloonMines[0] = 0; b.health[0] = 5; ai.Forget();
+            b.balloonMines[0] = 0; ai.Forget();
             p = ai.Plan(b, 3);
-            Check(p.cloak && !p.mine, "no mines left and hurt: it goes stealthy");
+            Check(p.jam && !p.mine, "no mines left: it sets off the jammer");
+            b.jammers[0] = 0; b.health[0] = 5; ai.Forget();
+            p = ai.Plan(b, 3);
+            Check(p.cloak && !p.mine && !p.jam, "no mines or jammer left, and hurt: it goes stealthy");
 
             // head-on and close with a blade: it lights it and goes through
             var h = HeadOn(2600);
@@ -177,7 +204,7 @@ static class Program
         {
             var on = new DogfightSetup { randomStart = false, ours = new[] { Craft.Mustang, Craft.Phantom }, theirs = new[] { Craft.Bf109 } };
             var b = Scenarios.Dogfight(on, Vec3d.Zero);
-            Check(Enumerable.Range(0, b.Count).All(i => b.balloonMines[i] == Specials.Mines && b.heatBlades[i] == Specials.Blades && b.stealths[i] == Specials.Stealths),
+            Check(Enumerable.Range(0, b.Count).All(i => b.balloonMines[i] == Specials.Mines && b.heatBlades[i] == Specials.Blades && b.stealths[i] == Specials.Stealths && b.jammers[i] == Specials.Jammers),
                   "a dogfight with Arcade on: every fighter carries the specials");
             var off = on.Copy(); off.arcade = false;
             var c = Scenarios.Dogfight(off, Vec3d.Zero);
