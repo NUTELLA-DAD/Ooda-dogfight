@@ -50,6 +50,20 @@ namespace Ooda.Flight.Core
         public double rocketCoolSec;    // seconds until the rocket can be lit again (counts from lighting it)
         public bool brakeOut;           // the speed brake was out last step
         public bool wepOn;              // war emergency power (a jet's afterburner) was in last step
+        /// <summary>
+        /// G-LOC: held past GlocOnsetG the pilot builds up G stress (G-seconds over the onset); at GlocLimit he blacks out
+        /// for GlocSec, the stick and pedals slack (it unloads to 1 G and flies on as it was banked). Under GlocRecoverG
+        /// the stress drains at GlocRecoverPerSec. So 8 G holds about 2 s, 7 G about 4 s, 6.5 G about 9 s.
+        /// </summary>
+        public const double GlocOnsetG = 6, GlocLimit = 4.5, GlocRecoverG = 5, GlocRecoverPerSec = 1.5, GlocSec = 4;
+        public double gStress;
+        public double glocLeftSec;
+        /// <summary>How many times the pilot has blacked out.</summary>
+        public int glocs;
+        public bool BlackedOut => glocLeftSec > 0;
+        /// <summary>How near the pilot is to blacking out, 0 to 1 (1 out): the screen greys as it climbs.</summary>
+        public double GreyOut => BlackedOut ? 1 : Math.Min(1, gStress / GlocLimit);
+
         /// <summary>What hits have done to the engine, fuel, controls and wings (see Systems): whole in free flight.</summary>
         public Systems systems;
 
@@ -114,7 +128,25 @@ namespace Ooda.Flight.Core
 
         public void Step(FlightControls c, double dt)
         {
-            if (vertical) { StepVertical(c, dt); return; }
+            if (glocLeftSec > 0)
+            {
+                glocLeftSec = Math.Max(0, glocLeftSec - dt);
+                c.pitch = c.roll = c.yaw = 0; c.rocket = false;   // out cold: hands and feet off
+            }
+            if (vertical) StepVertical(c, dt); else StepFlying(c, dt);
+            PilotStress(dt);
+        }
+
+        void PilotStress(double dt)
+        {
+            if (BlackedOut) return;
+            if (g > GlocOnsetG) gStress += (g - GlocOnsetG) * dt;
+            else if (g < GlocRecoverG) gStress = Math.Max(0, gStress - GlocRecoverPerSec * dt);
+            if (gStress >= GlocLimit) { glocLeftSec = GlocSec; glocs++; gStress = GlocLimit * 0.5; }
+        }
+
+        void StepFlying(FlightControls c, double dt)
+        {
             var n = numbers;
             double ktas = Ktas, kias = Kias;
             double p = Math.Max(-1, Math.Min(1, c.pitch));

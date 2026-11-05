@@ -124,6 +124,54 @@ static class Program
             Check(!b.down[1] && s.AnyDamaged, "badly damaged but still flying");
         }
 
+        Console.WriteLine("\nBailing out");
+        {
+            var b = Astern(4000);
+            b.planes[1].systems.Wear(SystemId.Engine, 1);
+            var r = b.Resolve(new TurnPlan?[] { Ahead(b, 0), Ahead(b, 1) }, 3);
+            var s = b.SystemsOf(1);
+            Check(b.down[1] && s.bailed && s.bailAt < b.time, "the engine dead, the pilot bails out");
+            var f = r.frames[1][r.FrameCount - 1];
+            Check(f.bailed && f.bailPos.z > 9000, "the frames carry where he left it, for the parachute");
+            var chute = Systems.ChuteAt(s.bailPos, s.bailVel, 60);
+            Check(Math.Abs(chute.z - (s.bailPos.z - Systems.ChuteSinkFtps * 60 + s.bailVel.z * Systems.ChuteLagSec)) < 1, $"a minute later he has sunk {s.bailPos.z - chute.z:F0} ft under the canopy");
+            for (int t = 0; t < 30 && !b.crashed[1]; t++) b.Resolve(new TurnPlan?[] { Ahead(b, 0), Ahead(b, 1) }, 3);
+            Check(b.crashed[1], "and the empty aircraft falls on and crashes");
+            var w = Astern(4000);
+            w.planes[1].systems.Wear(SystemId.Wings, 1);
+            w.Resolve(new TurnPlan?[] { Ahead(w, 0), Ahead(w, 1) }, 3);
+            Check(w.down[1] && !w.SystemsOf(1).bailed, "a folded wing brings it down without a bail-out");
+        }
+
+        Console.WriteLine("\nG-LOC");
+        {
+            double most = 0;
+            FlightModel Pull(double pitch, double sec, double kias = 400)
+            {
+                var m = At(AircraftNumbers.P51D(), 0, 0, kias);
+                most = 0;
+                for (int k = 0; k < sec / 0.02; k++) { m.Step(new FlightControls { pitch = pitch, throttle = 1 }, 0.02); most = Math.Max(most, m.g); }
+                return m;
+            }
+            var one = Pull(1, 3);
+            Check(!one.BlackedOut && one.glocs == 0, $"one full 3 s pull from fresh: greying ({one.GreyOut:F2}) but still awake");
+            var two = Pull(1, 6);
+            Check(two.glocs == 1, $"held for two turns: blacked out ({two.glocs})");
+            var gentle = Pull(0.6, 30);
+            Check(gentle.glocs == 0, $"30 s of loops at up to {most:F1} G: never");
+            var slow = Pull(1, 12, 180);
+            Check(slow.glocs == 0, $"slow, the wing can't pull enough G to do it (at most {most:F1} G)");
+            var m = Pull(1, 4.5);
+            Check(m.BlackedOut, "out cold");
+            double g0 = m.g;
+            for (int k = 0; k < 75; k++) m.Step(new FlightControls { pitch = 1, roll = 1, throttle = 1 }, 0.02);
+            Check(m.g < 1.6 && Math.Abs(m.rollRateDps) < 5, $"the stick held hard back does nothing: it unloads ({g0:F1} G to {m.g:F1})");
+            for (int k = 0; k < 250; k++) m.Step(new FlightControls { pitch = 0, throttle = 1 }, 0.02);
+            Check(!m.BlackedOut, $"he comes round after {FlightModel.GlocSec:F0} s");
+            var c = m.Clone();
+            Check(c.gStress == m.gStress && c.glocs == m.glocs, "a clone carries the G stress");
+        }
+
         Console.WriteLine("\nCarried along");
         {
             var b = Astern(700);

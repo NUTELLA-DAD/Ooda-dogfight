@@ -271,6 +271,12 @@ namespace Ooda.Turn.Core
         public bool rocket, brake;   // the rocket burning, the speed brake out
         public bool wep;             // war emergency power in (a jet's afterburner lit)
         public bool ram, cloaked;
+        /// <summary>The pilot's G stress, 0 to 1 (1 blacked out: G-LOC); see FlightModel.GreyOut.</summary>
+        public double greyOut;
+        /// <summary>The pilot has bailed out: when (battle time; meaningless while bailed is false), from where and how fast.</summary>
+        public bool bailed;
+        public double bailAt;
+        public Vec3d bailPos, bailVel;
         /// <summary>Where the nose points (it leaves the path in vertical flight: a tail slide, a hammerhead); zero in an old recording: along vel.</summary>
         public Vec3d nose;
         /// <summary>The nose along vel when it isn't recorded.</summary>

@@ -16,6 +16,8 @@ namespace Ooda.Turn
         public bool Crashed { get; private set; }
         /// <summary>War emergency power in: a jet's afterburner lit (for its JetBurner).</summary>
         public bool Wep { get; private set; }
+        /// <summary>The pilot's G stress, 0 to 1 (1 blacked out: G-LOC), for the screen to grey.</summary>
+        public float GreyOut { get; private set; }
 
         [Tooltip("Where the smoke comes from (the engine); empty uses the aircraft's centre.")]
         public Transform smokePoint;
@@ -34,10 +36,14 @@ namespace Ooda.Turn
             ShowLive(model);
         }
 
-        public void ShowLive(FlightModel m)
+        /// <summary>Show the aircraft as it is now (now: the battle time, for a bailed-out pilot's parachute).</summary>
+        public void ShowLive(FlightModel m, double now = double.NaN)
         {
             Model.state = m.state; Model.g = m.g; Model.throttle = m.throttle; Model.rollRateDps = 0;
             Wep = false;
+            GreyOut = (float)m.GreyOut;
+            var s = m.systems;
+            ShowBailout(s.bailed && !double.IsNaN(now), s.bailPos, s.bailVel, now - s.bailAt);
             Place(m.state.pos, m.Forward, m.state.up, m.AlphaDeg);   // the nose (in a tail slide it isn't along the path)
         }
 
@@ -53,6 +59,9 @@ namespace Ooda.Turn
             Model.g = a.g + (b.g - a.g) * u;
             Model.throttle = b.throttle;
             Wep = b.wep;
+            GreyOut = (float)(a.greyOut + (b.greyOut - a.greyOut) * u);
+            double t = a.time + (b.time - a.time) * u;
+            ShowBailout(b.bailed && t >= b.bailAt, b.bailPos, b.bailVel, t - b.bailAt);
             Vector3 upU = UnityFrame.Dir(up);
             if (dt > 0 && lastUp != Vector3.zero)
                 Model.rollRateDps = Vector3.SignedAngle(lastUp, upU, UnityFrame.Dir(vel)) / dt * -1;
@@ -87,6 +96,108 @@ namespace Ooda.Turn
             var list = new System.Collections.Generic.List<Renderer>(all.Length);
             foreach (var r in all) if (r != null && (shell == null || !r.transform.IsChildOf(shell.transform))) list.Add(r);
             return list.ToArray();
+        }
+
+        // ---------- bailing out: the pilot leaves the cockpit under a parachute ----------
+
+        SkinnedMeshRenderer[] pilotRends;
+        bool[] pilotWas;
+        bool seatEmpty;
+        GameObject chute;
+        Transform canopy, chuteMan;
+        LineRenderer[] chuteLines;
+        static Material chuteCloth, chuteBody, chuteCord;
+
+        /// <summary>
+        /// The pilot has bailed out (t seconds ago, from p0 at v0, ft): the seat is empty and he hangs under a parachute
+        /// (Systems.ChuteAt), the canopy blossoming over the first second and a half, until he lands. Off: back in the seat.
+        /// </summary>
+        void ShowBailout(bool on, Vec3d p0, Vec3d v0, double t)
+        {
+            if (on && !seatEmpty)
+            {
+                // the pilot is the skinned mesh (only the roster's chosen one is on): note which, then empty the seat
+                pilotRends = GetComponentsInChildren<SkinnedMeshRenderer>(true);
+                pilotWas = new bool[pilotRends.Length];
+                for (int k = 0; k < pilotRends.Length; k++) if (pilotRends[k] != null) { pilotWas[k] = pilotRends[k].enabled; pilotRends[k].enabled = false; }
+                seatEmpty = true;
+            }
+            else if (!on && seatEmpty)
+            {
+                for (int k = 0; k < pilotRends.Length; k++) if (pilotRends[k] != null) pilotRends[k].enabled = pilotWas[k] && !hidden;
+                seatEmpty = false;
+            }
+            if (!on) { if (chute != null) chute.SetActive(false); return; }
+            if (chute == null) BuildChute();
+            chute.SetActive(true);
+            Vector3 at = UnityFrame.Pos(Systems.ChuteAt(p0, v0, t));
+            bool landed = false;
+            if (Physics.Raycast(at + Vector3.up * 2000f, Vector3.down, out var hit, 2000f + 1.5f) && hit.point.y > at.y - 0.5f) { at = hit.point; landed = true; }
+            chute.transform.position = at;
+            float open = Mathf.Clamp01(((float)t - 0.4f) / 1.1f);
+            float sway = landed ? 0 : Mathf.Sin((float)t * 1.3f) * 6f;
+            chute.transform.rotation = Quaternion.Euler(sway, (float)(t * 4.0) % 360f, sway * 0.5f);
+            canopy.localScale = landed ? new Vector3(7f, 0.4f, 7f) : new Vector3(0.6f + 6.4f * open, 0.6f + 2.9f * open, 0.6f + 6.4f * open);
+            canopy.localPosition = landed ? new Vector3(3.5f, 0.2f, 0) : new Vector3(0, 1.2f + 6.5f * open, 0);
+            for (int k = 0; k < chuteLines.Length; k++)
+            {
+                float a = k * Mathf.PI / 2 + Mathf.PI / 4;
+                var rim = canopy.localPosition + new Vector3(Mathf.Cos(a) * canopy.localScale.x * 0.45f, 0, Mathf.Sin(a) * canopy.localScale.z * 0.45f);
+                chuteLines[k].SetPosition(0, chute.transform.TransformPoint(new Vector3(0, 1.5f, 0)));
+                chuteLines[k].SetPosition(1, chute.transform.TransformPoint(rim));
+                chuteLines[k].enabled = !landed;
+            }
+            chuteMan.localRotation = landed ? Quaternion.Euler(90, 0, 0) : Quaternion.identity;
+            chuteMan.localPosition = landed ? new Vector3(0, 0.3f, 0) : new Vector3(0, 0.9f, 0);
+        }
+
+        static Material ChuteMaterial(Color c)
+        {
+            var sh = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+            var m = new Material(sh);
+            m.SetColor("_BaseColor", c);
+            m.color = c;
+            return m;
+        }
+
+        void BuildChute()
+        {
+            if (chuteCloth == null)
+            {
+                chuteCloth = ChuteMaterial(new Color(0.96f, 0.93f, 0.84f));
+                chuteBody = ChuteMaterial(new Color(0.42f, 0.36f, 0.24f));
+                chuteCord = new Material(Shader.Find("Sprites/Default")) { color = new Color(0.85f, 0.85f, 0.8f) };
+            }
+            chute = new GameObject("Parachute");   // not under the aircraft: it falls apart from it
+            var c = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            Destroy(c.GetComponent<Collider>());
+            c.name = "Canopy";
+            c.transform.SetParent(chute.transform, false);
+            c.GetComponent<Renderer>().sharedMaterial = chuteCloth;
+            canopy = c.transform;
+            var man = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+            Destroy(man.GetComponent<Collider>());
+            man.name = "Pilot";
+            man.transform.SetParent(chute.transform, false);
+            man.transform.localScale = new Vector3(0.6f, 0.9f, 0.6f);
+            man.GetComponent<Renderer>().sharedMaterial = chuteBody;
+            chuteMan = man.transform;
+            chuteLines = new LineRenderer[4];
+            for (int k = 0; k < 4; k++)
+            {
+                var g = new GameObject("Cord");
+                g.transform.SetParent(chute.transform, false);
+                var lr = g.AddComponent<LineRenderer>();
+                lr.positionCount = 2; lr.widthMultiplier = 0.05f; lr.useWorldSpace = true;
+                lr.sharedMaterial = chuteCord;
+                lr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                chuteLines[k] = lr;
+            }
+        }
+
+        void OnDestroy()
+        {
+            if (chute != null) Destroy(chute);
         }
 
         // ---------- the heat blade: the whole plane glowing red ----------

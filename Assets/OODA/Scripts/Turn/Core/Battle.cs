@@ -269,7 +269,7 @@ namespace Ooda.Turn.Core
                         ? new FlightControls { pitch = -0.1, roll = 0.25 * (i % 2 == 0 ? 1 : -1), throttle = 0 }
                         : plans[i].ControlsFor(m, t);
                     m.Step(c, StepSec);
-                    if (!down[i]) { m.systems.Step(StepSec); if (m.systems.Lost) down[i] = true; }   // the leak runs the tanks dry
+                    if (!down[i]) { m.systems.Step(StepSec); if (m.systems.Lost) GoDown(i); }   // the leak runs the tanks dry
                     if (m.AltFt <= groundFt(m.state.pos.x, m.state.pos.y)) { crashed[i] = true; down[i] = true; }
                     else if (obstacleHit != null && obstacleHit(before[i], m.state.pos)) { crashed[i] = true; down[i] = true; hitObstacle[i] = true; }
                 }
@@ -447,6 +447,7 @@ namespace Ooda.Turn.Core
                 time = time, pos = m.state.pos, vel = m.state.vel, up = m.state.up,
                 alphaDeg = m.AlphaDeg, g = m.g, throttle = m.throttle, firing = firing, stalled = m.stalled, departed = m.Departed, down = down[i],
                 rocket = m.RocketBurning, brake = m.brakeOut, wep = m.wepOn, ram = ramOn[i] && !down[i], cloaked = Cloaked(i), nose = m.Forward,
+                greyOut = down[i] ? 0 : m.GreyOut, bailed = m.systems.bailed, bailAt = m.systems.bailAt, bailPos = m.systems.bailPos, bailVel = m.systems.bailVel,
             };
         }
 
@@ -700,6 +701,17 @@ namespace Ooda.Turn.Core
         /// <summary>What hits have done to aircraft i (see Systems).</summary>
         public Systems SystemsOf(int i) => planes[i].systems;
 
+        /// <summary>A system is gone: down, and with the engine dead the pilot bails out (a parachute; the aircraft falls on and crashes).</summary>
+        void GoDown(int i)
+        {
+            down[i] = true;
+            var m = planes[i];
+            if (m.systems.EngineDead && !m.systems.bailed)
+            {
+                m.systems.bailed = true; m.systems.bailAt = time; m.systems.bailPos = m.state.pos; m.systems.bailVel = m.state.vel;
+            }
+        }
+
         /// <summary>Wear a copy of an aircraft's systems by one recorded hit (playback rebuilds the damage hit by hit this way).</summary>
         public static void Apply(ref Systems s, HitEvent h)
         {
@@ -752,7 +764,7 @@ namespace Ooda.Turn.Core
                     e.wear = b.damage / Capacity(target, sys);
                     m.systems.Wear(sys, e.wear);
                 }
-                if (m.systems.Lost) { down[target] = true; e.downed = true; }
+                if (m.systems.Lost) { GoDown(target); e.downed = true; }
             }
             res.hits.Add(e);
         }

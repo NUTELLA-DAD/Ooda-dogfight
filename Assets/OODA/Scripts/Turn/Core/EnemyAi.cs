@@ -299,6 +299,9 @@ namespace Ooda.Turn.Core
             }
             // harm to its systems flying it (flak, rounds already in the air): a whole system knocked out costs 10
             score -= 10 * (sim.SystemsOf(0).Total - sub.SystemsOf(0).Total);
+            // blacking out (G-LOC) leaves it flying blind for seconds: a pilot avoids pulling that hard for that long
+            if (sim.planes[0].glocs > sub.planes[0].glocs) score -= 4;
+            score -= 0.5 * sim.planes[0].GreyOut;
             // Energy, by its own aircraft: below corner speed it turns slower and wider, so that always costs. A turner
             // wants to sit at corner speed (faster only widens its turn); an up-and-down fighter wants energy in hand,
             // speed and height together, to climb away and dive back in.

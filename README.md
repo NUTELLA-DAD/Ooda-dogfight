@@ -121,12 +121,16 @@ There is no health bar. A hit knocks at one of four systems, and which one depen
 
 | System | Damaged | Knocked out |
 |---|---|---|
-| Engine | power held to 60%, no WEP (no afterburner) | the engine stops: going down |
-| Fuel | leaking: the engine quits 30 s (ten turns) later | on fire: going down |
+| Engine | power held to 60%, no WEP (no afterburner) | the engine stops: the pilot bails out under a parachute and the empty aircraft falls on and crashes |
+| Fuel | leaking: the engine quits 30 s (ten turns) later (and the pilot bails out) | on fire: going down |
 | Flight controls | half the roll rate, 30% less G | the tail is shot away: going down |
 | Wings | 20% more drag, 25% less G | the wing folds: going down |
 
-A missile's or a balloon mine's blast wears every system at once, by its damage over the toughness. The heat blade cuts the wings off. The reach ring, the ghost and the AI's tries all fly the damaged aircraft as it is. On screen each aircraft's row of four lights (ENG, FUEL, CTRL, WING) replaces the health bars: green, amber once damaged (a holed tank counts down its seconds), red once out; a damaged aircraft trails thin smoke. The rules are `Flight/Core/Systems.cs` (on each `FlightModel`, so a clone, a swap and a network snapshot carry it) and `Battle.Hit`. `Tools~/DamageCheck` (`dotnet run`) checks where rounds land, what each damaged system does to the flying, the leak, the blast, and that the damage survives a clone, a subset, a swap and a snapshot.
+A missile's or a balloon mine's blast wears every system at once, by its damage over the toughness. The heat blade cuts the wings off. The reach ring, the ghost and the AI's tries all fly the damaged aircraft as it is. On screen each aircraft's row of four lights (ENG, FUEL, CTRL, WING) replaces the health bars: green, amber once damaged (a holed tank counts down its seconds), red once out; a damaged aircraft trails thin smoke. The rules are `Flight/Core/Systems.cs` (on each `FlightModel`, so a clone, a swap and a network snapshot carry it) and `Battle.Hit`. `Tools~/DamageCheck` (`dotnet run`) checks where rounds land, what each damaged system does to the flying, the leak, the blast, the bail-out, G-LOC, and that the damage survives a clone, a subset, a swap and a snapshot.
+
+### G-LOC
+
+Pull too hard for too long and the pilot blacks out. Past 6 G he builds up G stress (G-seconds over 6); at 4.5 of it he is out cold for 4 s: the stick and pedals go slack, the aircraft unloads to 1 G and flies on however it was banked, and nothing he planned happens until he comes round. Under 5 G the stress drains at 1.5 a second. So 8 G holds about 2 s past the onset, 7 G about 4 s, 6.5 G about 9 s: one full pull at speed greys you out but two in a row black you out, and slow, the wing can't pull the G to do it. While planning the warning line says when the turn would black you out (G-LOC); in playback the screen greys in from the edges as the stress climbs and goes dark with G-LOC across it while you are out. The AI pilots avoid it. The numbers are `GlocOnsetG`, `GlocLimit`, `GlocRecoverG`, `GlocRecoverPerSec` and `GlocSec` in `FlightModel` (free flight blacks out too).
 
 ### The menu and the replay
 

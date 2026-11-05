@@ -431,7 +431,7 @@ namespace Ooda.Turn
 
         void ShowAllLive()
         {
-            for (int i = 0; i < views.Length; i++) if (views[i] != null) views[i].ShowLive(battle.planes[i]);
+            for (int i = 0; i < views.Length; i++) if (views[i] != null) views[i].ShowLive(battle.planes[i], battle.time);
         }
 
         bool Bombing => battle != null && battle.routes.Any(r => r != null);
@@ -1089,6 +1089,8 @@ namespace Ooda.Turn
             // flown into the ground or an obstacle (not shot down first and falling)
             previewCrashes = !battle.Out(0) && sim.crashed[0] && !sim.SystemsOf(0).Lost;
             if (previewCrashes) warning = sim.hitObstacle[0] ? "OBSTACLE: this turn hits a cable or structure" : "TERRAIN: this turn flies into the ground";
+            else if (battle.planes[0].BlackedOut) warning = $"G-LOC: you are blacked out, you come round in {battle.planes[0].glocLeftSec:F0} s";
+            else if (preview.frames[0].Any(f => f.greyOut >= 1)) warning = "G-LOC: this many G for this long blacks you out";
             else if (battle.planes[0].Departed)
                 warning = previewDeparts ? (plan.overpull > 0 ? "SPINNING: still overpulling, it stays departed" : "SPINNING: the arrow flies the recovery, it is not out yet")
                                          : "SPINNING: the arrow flies the recovery (idle, opposite rudder, stick forward)";
@@ -1561,6 +1563,7 @@ namespace Ooda.Turn
             if (briefing) { BriefingGUI(sw, sh); return; }
             // What is on screen now (during playback, not the end of the turn)
             var me = player.Model;
+            if (phase == Phase.Playing) GreyOutGUI(sw, sh, player.GreyOut);
             var them = views.Length > focus && views[focus] != null ? views[focus].Model : battle.planes[focus];
             string themName = EnemyName(focus);
 
@@ -1857,6 +1860,26 @@ namespace Ooda.Turn
             float v = GUI.HorizontalSlider(new Rect(x + lw, y + 6, sw, 20), value, lo, hi);
             if (Math.Abs(v - value) > (hi - lo) * 0.004f) set(v);
             if (marks && setHere && GUI.Button(new Rect(x + lw + sw + 6, y, 22, 22), "x")) unset();
+        }
+
+        /// <summary>
+        /// The pilot's G stress as he sees it in playback: past 60% the screen greys in from the edges, and blacked out
+        /// (G-LOC) it goes dark with G-LOC across it until he comes round.
+        /// </summary>
+        void GreyOutGUI(float sw, float sh, float grey)
+        {
+            if (grey < 0.6f) return;
+            if (grey >= 1f)
+            {
+                Fill(new Rect(0, 0, sw, sh), new Color(0, 0, 0, 0.82f));
+                GUI.Label(new Rect(0, sh * 0.5f - 60, sw, 50), "G-LOC", big);
+                return;
+            }
+            float a = (grey - 0.6f) / 0.4f * 0.55f, edge = Mathf.Min(sw, sh) * 0.22f * (grey - 0.5f) / 0.5f;
+            var c = new Color(0.05f, 0.05f, 0.05f, a);
+            Fill(new Rect(0, 0, sw, edge), c); Fill(new Rect(0, sh - edge, sw, edge), c);
+            Fill(new Rect(0, edge, edge, sh - 2 * edge), c); Fill(new Rect(sw - edge, edge, edge, sh - 2 * edge), c);
+            Fill(new Rect(0, 0, sw, sh), new Color(0.4f, 0.4f, 0.4f, a * 0.35f));
         }
 
         Systems Shown(int i) => i >= 0 && i < shownSys.Length ? shownSys[i] : battle.SystemsOf(i);

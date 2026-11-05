@@ -31,6 +31,13 @@ namespace Ooda.Flight.Core
         public double engine, fuel, controls, wings;
         /// <summary>Seconds of fuel left once the tanks are holed (counts down only while Leaking).</summary>
         public double leakLeftSec;
+        /// <summary>
+        /// The pilot bailed out (the engine died): when (battle time), and where and how fast the aircraft was going, so a
+        /// parachute can be drawn from there. The aircraft falls on without him.
+        /// </summary>
+        public bool bailed;
+        public double bailAt;
+        public Vec3d bailPos, bailVel;
         /// <summary>Hits land but do nothing: the AI's and the preview's "what if" keeps a target flying to see the whole burst.</summary>
         public bool spared;
 
@@ -74,6 +81,17 @@ namespace Ooda.Flight.Core
             bool wasLeaking = Leaking;
             this[s] = this[s] + amount;
             if (!wasLeaking && Leaking) leakLeftSec = LeakSec;
+        }
+
+        /// <summary>Parachute: the pilot carries the aircraft's speed until the drag takes it (ChuteLagSec), then sinks at ChuteSinkFtps.</summary>
+        public const double ChuteLagSec = 1.5, ChuteSinkFtps = 18;
+
+        /// <summary>Where a pilot who bailed out from p0 at v0 is t seconds later (ft; before the ground stops him).</summary>
+        public static Vec3d ChuteAt(Vec3d p0, Vec3d v0, double t)
+        {
+            t = Math.Max(0, t);
+            double carry = ChuteLagSec * (1 - Math.Exp(-t / ChuteLagSec));
+            return new Vec3d(p0.x + v0.x * carry, p0.y + v0.y * carry, p0.z + v0.z * carry - ChuteSinkFtps * t);
         }
 
         /// <summary>Run the leak for dt seconds.</summary>
