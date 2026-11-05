@@ -69,7 +69,7 @@ There is no stunt button: these come out of the flight model. The **rudder pedal
 
 - **Tail slide**: hold the stick and pedals centred. The plane stops, slides backwards, and the tail weathervanes the nose over and down; at 150 ft/s with the nose along the flight path it flies again.
 - **Hammerhead**: kick a pedal near the top. The prop blast over the rudder swings the nose sideways over the top and straight down, with no slide back. The power matters: a prop's slipstream gives the rudder bite even at a standstill, a jet's doesn't (`propWash`), so the Phantom swings over slower.
-- **Barrel roll**: the stick pulled to a diagonal with the pedal the same way, or bank points on the timeline while pulling.
+- **Barrel roll**: not its own manoeuvre yet. The nearest today is bank points on the timeline that keep rolling while you pull; this isn't checked headless.
 
 `Tools~/VerticalCheck` (`dotnet run`) flies each of them through the battle core.
 
