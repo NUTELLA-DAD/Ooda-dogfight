@@ -1732,7 +1732,7 @@ namespace Ooda.Turn
                     $"Plan where your nose points when the {turnSec:0.#} s turn ends. O: OODA, short turns.\n" +
                     "Drag the stick to steer (down pulls); the bar under it is the rudder. It shakes\n" +
                     "near your hardest turn, and violently in the overpull: stall, maybe spin.\n" +
-                    "Drag the throttle lever (left) up and down. F1: reach rings.\n" +
+                    "Drag the throttle lever (left) toward the stick to open it. F1: reach rings.\n" +
                     "Blue: your path. Red: where the enemy may go, the bright one likeliest.\n" +
                     "Green funnel: your rounds at the moment you hover on the burst bar.\n" +
                     "Fire when the target's wings fit across it. K funnel, L the old lead ring.\n" +

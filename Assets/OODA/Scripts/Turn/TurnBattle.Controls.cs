@@ -272,15 +272,15 @@ namespace Ooda.Turn
 
         Rect throttleRect;         // the throttle's picture while planning (GUI units); zero when it is not drawn
         bool dragThrottle;
-        float throttleDragFrom;
+        Vector2 throttleDragFrom;
         double throttleAtPress;
 
-        /// <summary>A press on the throttle's picture grabs the lever: up opens it, down closes it.</summary>
+        /// <summary>A press on the throttle's picture grabs the lever: right (toward the stick) or up opens it.</summary>
         bool PressThrottle(Vector2 gui)
         {
             if (phase != Phase.Planning || throttleRect.width <= 0 || !throttleRect.Contains(gui)) return false;
             dragThrottle = true;
-            throttleDragFrom = gui.y;
+            throttleDragFrom = gui;
             throttleAtPress = plan.throttle;
             return true;
         }
@@ -289,7 +289,9 @@ namespace Ooda.Turn
         {
             if (phase != Phase.Planning) { dragThrottle = false; return; }
             float span = Mathf.Max(20f, throttleRect.height * 0.6f);
-            double v = Math.Max(0, Math.Min(1, throttleAtPress + (throttleDragFrom - gui.y) / span));
+            // the lever swings toward the middle of the screen as it opens: right or up opens it, left or down closes it
+            Vector2 d = gui - throttleDragFrom;
+            double v = Math.Max(0, Math.Min(1, throttleAtPress + (d.x - d.y) / span));
             if (Math.Abs(v - plan.throttle) > 1e-4) { plan.throttle = v; dirty = true; }
         }
 
