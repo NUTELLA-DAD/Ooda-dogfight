@@ -181,7 +181,7 @@ namespace Ooda.Fx
                 widest = Mathf.Max(widest, Mathf.Max(p.extents.x, p.extents.z));
             }
             // a storm is its own shape, far bigger than the bank it grew from: a tower several times as tall as it is wide
-            float T = widest * 2.6f, towerH = T * 5.5f;
+            float T = widest * 2.6f, towerH = T * 4.6f;
             if (kind == Kind.Storm) top = bankBase + towerH;
             else if (kind == Kind.Cumulus && tall) top = bankBase + (top - bankBase) * 1.6f;
             Vector3 mid0 = Vector3.zero;
@@ -212,7 +212,7 @@ namespace Ooda.Fx
                     verts.Add(c);
                     uv0.Add(new Vector4(i == 0 || i == 3 ? -1 : 1, i < 2 ? -1 : 1, r, shape));
                     uv1.Add(new Vector4(baseY, topOut, lobes, (float)k));
-                    uv2.Add(new Vector4(stretch, phase, 0, 0));
+                    uv2.Add(new Vector4(stretch, phase, 0, 0));   // (z: how far out it is, set below)
                 }
                 tris.Add(m); tris.Add(m + 2); tris.Add(m + 1); tris.Add(m); tris.Add(m + 3); tris.Add(m + 2);
                 box.Encapsulate(new Bounds(c, new Vector3(r * stretch, r, r * stretch) * 2.4f));
@@ -298,22 +298,22 @@ namespace Ooda.Fx
                 const int Levels = 11;
                 for (int j = 0; j < Levels; j++)
                 {
-                    float f = j / (Levels - 1f), ring = T * (1f - 0.3f * f);
-                    int per = j == 0 ? 7 : 5;
+                    float f = j / (Levels - 1f), ring = T * (1.6f - 0.5f * f);   // (broad at the foot, a little narrower up high)
+                    int per = j == 0 ? 9 : 7;
                     for (int k = 0; k < per; k++)
                     {
                         int s = seed * 41 + j * 97 + k * 13;
-                        float a = (k + Rng(s, 3, -0.35f, 0.35f)) / per * Mathf.PI * 2f, rr = ring * Rng(s, 4, 0.25f, 0.75f);
-                        float r = T * Rng(s, 5, 0.42f, 0.62f) * (j == 0 ? 0.85f : 1f);
+                        float a = (k + Rng(s, 3, -0.35f, 0.35f)) / per * Mathf.PI * 2f, rr = ring * Rng(s, 4, 0.3f, 0.85f);
+                        float r = T * Rng(s, 5, 0.55f, 0.8f) * (j == 0 ? 0.85f : 1f);
                         var c = new Vector3(c0.x + Mathf.Cos(a) * rr, bankBase + r * 0.45f + f * (towerH * 0.82f), c0.z + Mathf.Sin(a) * rr) + wind * (f * f * T * 0.6f);
                         Puff(c, r, s, Kind.Storm);
                     }
                 }
                 // the anvil: a wide flat shelf of stretched puffs at the top, cut flat underneath, swept downwind
-                for (int k = 0; k < 22; k++)
+                for (int k = 0; k < 28; k++)
                 {
                     int s = seed * 53 + k * 19;
-                    float a = Rng(s, 3, 0f, Mathf.PI * 2f), rr = Mathf.Sqrt(R01(s, 4)) * T * 2.4f;
+                    float a = Rng(s, 3, 0f, Mathf.PI * 2f), rr = Mathf.Sqrt(R01(s, 4)) * T * 2.7f;
                     Vector3 c = new Vector3(c0.x + Mathf.Cos(a) * rr, top - T * Rng(s, 6, 0.1f, 0.35f), c0.z + Mathf.Sin(a) * rr) + wind * T * 1.4f;
                     Puff(c, T * Rng(s, 5, 0.38f, 0.55f), s, Kind.Storm, Rng(s, 7, 1.5f, 2.2f), top - T * 0.6f);
                 }
@@ -329,6 +329,18 @@ namespace Ooda.Fx
                     float w = T * Rng(s, 5, 0.55f, 0.85f);
                     Puff(new Vector3(foot.x, bankBase + 30f - h * 0.5f, foot.z), h * 0.5f, s, Kind.Rain, w / (h * 0.5f), float.MinValue);
                 }
+            }
+
+            // a bank forms from its heart outward and dissolves from its edges in: each puff's place in that order (0 at the
+            // middle, 1 at the farthest), so a half-formed bank is a smaller cloud, never a scatter of separate balls
+            var heart = new Vector3(mid0.x, bankBase + (topOut - bankBase) * 0.35f, mid0.z);
+            float far = 1f;
+            for (int i = 0; i < verts.Count; i += 4) if (uv1[i].w < 3.5f) far = Mathf.Max(far, Vector3.Distance(verts[i], heart));
+            for (int i = 0; i < verts.Count; i++)
+            {
+                var v = uv2[i];
+                v.z = uv1[i].w > 3.5f ? 0f : Vector3.Distance(verts[i], heart) / far;
+                uv2[i] = v;
             }
 
             count = made;

@@ -41,7 +41,7 @@ Shader "Ooda/ToonCloud"
 
         // the puff's centre in POSITION (all four corners the same);
         // uv0: corner (-1/+1, -1/+1), radius, seed (0-1); uv1: the base it is cut flat at, the bank's top, lobes, kind;
-        // uv2: stretch across, the bank's phase (0-1)
+        // uv2: stretch across, the bank's phase (0-1), how far out from the bank's heart (0-1)
         struct Attributes { float4 positionOS : POSITION; float4 uv0 : TEXCOORD0; float4 uv1 : TEXCOORD1; float4 uv2 : TEXCOORD2; };
         struct Varyings
         {
@@ -70,7 +70,8 @@ Shader "Ooda/ToonCloud"
             float R = a.uv0.z;
             if (!rain)
             {
-                float lifeP = saturate(life * 1.5 - seed * 0.5);   // (each puff out of step with the bank)
+                // (it forms from its heart outward and dissolves from its edges in: uv2.z is how far out this puff is)
+                float lifeP = saturate((life * 1.6 - a.uv2.z * 0.6) * 1.5);
                 R *= lifeP * (1.0 + drift.w * sin(t * drift.z + seed * 40.0));
             }
             float3 cv = TransformWorldToView(cw);

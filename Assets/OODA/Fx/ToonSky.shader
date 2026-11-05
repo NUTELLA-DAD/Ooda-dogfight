@@ -60,9 +60,9 @@ Shader "Ooda/ToonSky"
                 // the warm glow along the horizon on the sun's side
                 float2 dx = d.xz / max(length(d.xz), 1e-4), sx = sun.xz / max(length(sun.xz), 1e-4);
                 float toward = saturate(dot(dx, sx) * 0.5 + 0.5);
-                // (it starts just above the horizon: at the horizon itself the sky is exactly the fog's colour, so the fogged
-                // ground and sea out at the far clip meet it with no step)
-                float glow = toward * toward * toward * smoothstep(0.0, 0.035, h) * (1 - smoothstep(0.035, 0.22, h));
+                // (it fades in over the first few degrees above the horizon: at the horizon itself the sky is exactly the fog's
+                // colour, so the fogged ground and sea out at the far clip meet it with no step and no hard edge)
+                float glow = toward * toward * toward * smoothstep(0.0, 0.12, h) * (1 - smoothstep(0.12, 0.38, h));
                 c = lerp(c, _Glow.rgb, glow * 0.75);
                 // the sun: a soft bloom, two flat rings and a hard disc
                 float cosA = dot(d, sun), ang = acos(clamp(cosA, -1, 1));
