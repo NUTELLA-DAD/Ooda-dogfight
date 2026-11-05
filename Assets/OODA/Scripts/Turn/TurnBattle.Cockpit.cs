@@ -203,8 +203,9 @@ namespace Ooda.Turn
                 {
                     float dx = (x - h) / h, dy = (y - h) / h, r = Mathf.Sqrt(dx * dx + dy * dy);   // y up (textures go bottom up)
                     if (r > 1) { px[y * S + x] = Color.clear; continue; }
-                    // in the ball's frame: rolled with the bank (right wing down tips the horizon's left end up)
-                    float u = dx * cb - dy * sb, v = dx * sb + dy * cb;
+                    // in the ball's frame: rolled with the bank (right wing down tips the horizon's right end up, as the
+                    // world looks from a plane banked right; the sky pointer turns the same way)
+                    float u = dx * cb + dy * sb, v = -dx * sb + dy * cb;
                     Color col = v > horizon ? AttSky : AttGround;
                     if (Mathf.Abs(v - horizon) < line) col = Color.white;
                     for (int n = -2; n <= 2; n++)

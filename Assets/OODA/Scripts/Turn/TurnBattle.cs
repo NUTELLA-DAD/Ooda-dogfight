@@ -654,6 +654,7 @@ namespace Ooda.Turn
             if (!show) { gauge.Shake = 0; Rumble(0); return; }
             GaugeInput(out var stick, out float over, out float throttle, out bool wep);
             gauge.Show(stick, over, throttle, wep);
+            gauge.Rudder = (float)plan.rudder;
             gaugeThrottle = throttle; gaugeWep = wep;
             gauge.Shake = ShakeFor(stick, over, (phase == Phase.Planning || phase == Phase.Thinking) && !plan.HasMarks);
             Rumble(menuOpen || bot ? 0 : gauge.Shake);
@@ -701,7 +702,7 @@ namespace Ooda.Turn
                     WeaponsMinW = 400, WeaponsMaxW = 580;
 
         /// <summary>The pictures as big as the room allows: shrink them until the quadrant and the weapons fit beside the stick.</summary>
-        public static ControlsLayout LayoutControls(float sw, float sh, bool havePictures)
+        public static ControlsLayout LayoutControls(float sw, float sh, bool havePictures, bool havePedals = false)
         {
             var c = new ControlsLayout();
             float qh = 2 * QuadRow + SwitchH;   // the throttle, its slider, and the engine's switches
@@ -712,8 +713,19 @@ namespace Ooda.Turn
                 float side = (sw - pw) / 2 - 2 * CtlMargin;
                 float th = h * 0.9f, tw = th * 0.9f;
                 if (side < tw + 8 + QuadW || side < WeaponsMinW) continue;
-                c.pedals = new Rect((sw - pw) / 2, sh - CtlBottom - PedalH, pw, PedalH);
-                c.stick = new Rect((sw - w) / 2, c.pedals.y - 4 - h, w, h);
+                if (havePedals)
+                {
+                    // the pedals' picture at the foot of the stick, the stick standing between the two pedals
+                    pw = Mathf.Max(w * 1.5f, 280f);
+                    float ph = pw / Ooda.UI.StickThrottleGauge.PedalsAspect;
+                    c.pedals = new Rect((sw - pw) / 2, sh - CtlBottom - ph, pw, ph);
+                    c.stick = new Rect((sw - w) / 2, sh - CtlBottom - ph * 0.12f - h, w, h);
+                }
+                else
+                {
+                    c.pedals = new Rect((sw - pw) / 2, sh - CtlBottom - PedalH, pw, PedalH);
+                    c.stick = new Rect((sw - w) / 2, c.pedals.y - 4 - h, w, h);
+                }
                 // the throttle on the left, standing in front of the panel's slope, the quadrant beside it
                 c.throttle = new Rect(CtlMargin, sh - CtlBottom - th, tw, th);
                 c.quadrant = new Rect(c.throttle.xMax + 8, sh - CtlBottom - qh, QuadW, qh);
@@ -772,7 +784,7 @@ namespace Ooda.Turn
         /// <summary>The throttle lever on the left and the stick in the middle, the pedals under it. No warnings: the stick shakes.</summary>
         void DrawGauge(float sw, float sh)
         {
-            ctl = LayoutControls(sw, sh, gauge != null && gauge.StickTexture != null);
+            ctl = LayoutControls(sw, sh, gauge != null && gauge.StickTexture != null, gauge != null && gauge.PedalsTexture != null);
             stickRect = pedalRect = throttleRect = Rect.zero;
             if (!ctl.pictures || !gauge.Visible) return;
             CockpitPanel(sw, sh);
@@ -782,6 +794,7 @@ namespace Ooda.Turn
             float jig = sk * 9f;
             Rect shook = new Rect(mid.x + jig * Mathf.Sin(Time.unscaledTime * 131f), mid.y + jig * Mathf.Sin(Time.unscaledTime * 97f + 1f), mid.width, mid.height);
             GUI.DrawTexture(left, gauge.ThrottleTexture, ScaleMode.ScaleToFit, true);
+            if (gauge.PedalsTexture != null) GUI.DrawTexture(ctl.pedals, gauge.PedalsTexture, ScaleMode.ScaleToFit, true);   // behind the stick
             GUI.DrawTexture(shook, gauge.StickTexture, ScaleMode.ScaleToFit, true);
             var cap = new GUIStyle(small) { alignment = TextAnchor.UpperCenter };
             bool planning = phase == Phase.Planning;
@@ -792,7 +805,8 @@ namespace Ooda.Turn
             guiRects.Add(left); guiRects.Add(mid);
             stickRect = mid;
             throttleRect = planning ? left : Rect.zero;
-            DrawPedals(ctl.pedals, cap);
+            if (gauge.PedalsTexture != null) PedalsCaption(ctl.pedals, cap);
+            else DrawPedals(ctl.pedals, cap);
         }
 
         /// <summary>

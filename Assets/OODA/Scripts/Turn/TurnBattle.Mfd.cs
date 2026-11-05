@@ -21,8 +21,7 @@ namespace Ooda.Turn
                               MfdGlass = new Color(0.015f, 0.05f, 0.025f, 0.96f), MfdGreen = new Color(0.35f, 1f, 0.42f, 1f),
                               MfdDim = new Color(0.35f, 1f, 0.42f, 0.7f), MfdRed = new Color(1f, 0.25f, 0.2f, 1f),
                               MfdOsb = new Color(0.62f, 0.64f, 0.64f, 1f), MfdOsbDark = new Color(0.08f, 0.08f, 0.08f, 1f);
-        const float MfdRim = 30;
-        const double MfdFunnelFt = 4500;   // the MFD's funnel runs out this far: a gunsight looks a little past the guns' best range   // the bezel round the glass, where the push buttons sit
+        const double MfdFunnelFt = 4500;   // the MFD's funnel runs out this far: a gunsight looks a little past the guns' best range
         GUIStyle mfdText, mfdSmall;
 
         /// <summary>The whole MFD in r: the bezel, its buttons, the glass with the funnel and the trigger bar.</summary>
@@ -39,7 +38,9 @@ namespace Ooda.Turn
             Fill(new Rect(r.x + 2, r.y + 2, r.width - 4, r.height - 4), MfdBezel);
             foreach (var (sx, sy) in new[] { (r.x + 7, r.y + 7), (r.xMax - 11, r.y + 7), (r.x + 7, r.yMax - 11), (r.xMax - 11, r.yMax - 11) })
             { Fill(new Rect(sx, sy, 4, 4), MfdOsbDark); Fill(new Rect(sx + 1, sy + 1, 2, 2), MfdBezelEdge); }
-            Rect glass = new Rect(r.x + MfdRim, r.y + MfdRim, r.width - 2 * MfdRim, r.height - 2 * MfdRim);
+            // the bezel round the glass, where the push buttons sit: thinner on a smaller MFD, so the glass keeps its room
+            float rim = Mathf.Clamp(r.height * 0.09f, 20f, 30f);
+            Rect glass = new Rect(r.x + rim, r.y + rim, r.width - 2 * rim, r.height - 2 * rim);
             Fill(new Rect(glass.x - 2, glass.y - 2, glass.width + 4, glass.height + 4), MfdOsbDark);
             Fill(glass, MfdGlass);
 
@@ -47,8 +48,8 @@ namespace Ooda.Turn
             int left = battle.missiles[0];
             Rect Osb(int k, bool bottom)
             {
-                if (bottom) { float bw = glass.width / 4; return new Rect(glass.x + bw * (k + 0.5f) - 12, r.yMax - MfdRim + 7, 24, 16); }
-                float bh = glass.height / 4; return new Rect(r.x + 4, glass.y + bh * (k + 0.5f) - 9, 20, 18);
+                if (bottom) { float bw = glass.width / 4; return new Rect(glass.x + bw * (k + 0.5f) - 12, r.yMax - rim + (rim - 14) / 2, 24, 14); }
+                float bh = glass.height / 4; return new Rect(r.x + (rim - 16) / 2, glass.y + bh * (k + 0.5f) - 9, 16, 18);
             }
             bool Button(Rect b, bool enabled)
             {
@@ -97,10 +98,10 @@ namespace Ooda.Turn
             Legend(new Rect(glass.x + 6, l2.center.y - 7, 70, 14), "TGT", false, TextAnchor.MiddleLeft, MfdGreen);
 
             // the trigger bar along the bottom of the glass, over the button legends
-            Rect bar = new Rect(glass.x + 70, glass.yMax - 52, glass.width - 80, 16);
+            Rect bar = new Rect(glass.x + 58, glass.yMax - 46, glass.width - 66, 14);
             TriggerBar(bar);
-            // the funnel in the space left above it, right of the left legends
-            Rect scope = new Rect(glass.x + 70, glass.y + 18, glass.width - 80, bar.y - glass.y - 34);
+            // the funnel in all the room left above it, right of the left legends (its range line along its bottom)
+            Rect scope = new Rect(glass.x + 58, glass.y + 16, glass.width - 64, bar.y - glass.y - 32);
             MfdHeader(new Rect(glass.x + 6, glass.y + 2, glass.width - 12, 14), left);
             MfdFunnel(scope);
             clicked?.Invoke();

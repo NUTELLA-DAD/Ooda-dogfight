@@ -111,6 +111,24 @@ namespace Ooda.Turn
             GUI.Label(inner, txt, st);
         }
 
+        /// <summary>
+        /// The pedals' picture is the rudder control now: a press on it sets the rudder from where it lands (left of the
+        /// middle is left rudder), a drag keeps setting it. Its name and setting sit along the bottom corners.
+        /// </summary>
+        void PedalsCaption(Rect r, GUIStyle cap)
+        {
+            pedalRect = r;
+            guiRects.Add(r);
+            bool steer = phase == Phase.Planning && !plan.HasMarks;
+            float rud = (float)plan.rudder;
+            var st = new GUIStyle(cap) { alignment = TextAnchor.LowerLeft };
+            Rect inner = new Rect(r.x + 4, r.y, r.width - 8, r.height - 2);
+            Shadow(inner, "Rudder", st);
+            st.alignment = TextAnchor.LowerRight;
+            string txt = Mathf.Abs(rud) < 0.01f ? (steer ? "Z / C" : "") : $"{(rud < 0 ? "left" : "right")} {Mathf.Abs(rud) * 100:F0}%";
+            Shadow(inner, txt, st);
+        }
+
         /// <summary>A press on the pedal bar sets the rudder from where it lands; a drag keeps setting it.</summary>
         bool PressPedals(Vector2 gui)
         {
