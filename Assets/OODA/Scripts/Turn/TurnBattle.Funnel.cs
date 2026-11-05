@@ -290,10 +290,11 @@ namespace Ooda.Turn
                 hoverUntil = Mathf.Max(hoverUntil, Time.unscaledTime + 0.6f);   // held a moment after leaving the bar
             }
 
-            // the toggles, left above the throttle quadrant
-            float bottom = ctl.pictures ? Mathf.Min(ctl.throttle.y - 20, ctl.quadrant.y) : ctl.quadrant.y;
+            // the toggles go with the guns: right, over the weapons panel's rows (the specials' row, when there are specials)
+            var load = battle.combat[0];
+            bool specials = load.balloonMines + load.heatBlades + load.stealths + load.jammers > 0;
             float bw = 260f;
-            Rect toggle = new Rect(10, bottom - 30, bw, 24);
+            Rect toggle = new Rect(ctl.weapons.xMax - bw, ctl.weapons.y - (specials ? 90 : 60), bw, 24);
             guiRects.Add(toggle);
             var btn = new GUIStyle(GUI.skin.button) { fontSize = 13 };
             if (GUI.Button(new Rect(toggle.x, toggle.y, bw / 2 - 3, toggle.height), showLeadRing ? "Ring: on (L)" : "Ring: off (L)", btn)) showLeadRing = !showLeadRing;

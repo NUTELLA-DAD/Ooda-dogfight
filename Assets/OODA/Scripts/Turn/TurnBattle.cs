@@ -737,9 +737,9 @@ namespace Ooda.Turn
             var cap = new GUIStyle(small) { alignment = TextAnchor.UpperCenter };
             bool planning = phase == Phase.Planning;
             if (!planning)   // planning, the quadrant beside it says the throttle
-                GUI.Label(new Rect(left.x, left.y - 18, left.width, 20), gaugeWep ? $"Throttle {gaugeThrottle * 100:F0}%  {WepName}" : $"Throttle {gaugeThrottle * 100:F0}%", cap);
+                Shadow(new Rect(left.x, left.y - 18, left.width, 20), gaugeWep ? $"Throttle {gaugeThrottle * 100:F0}%  {WepName}" : $"Throttle {gaugeThrottle * 100:F0}%", cap);
             bool steer = planning && !plan.HasMarks;
-            GUI.Label(new Rect(mid.x - 40, mid.y - 18, mid.width + 80, 20), steer ? "Stick: drag to steer" : "Stick", cap);
+            Shadow(new Rect(mid.x - 40, mid.y - 18, mid.width + 80, 20), steer ? "Stick: drag to steer" : "Stick", cap);
             guiRects.Add(left); guiRects.Add(mid);
             stickRect = mid;
             throttleRect = planning ? left : Rect.zero;
@@ -1719,10 +1719,7 @@ namespace Ooda.Turn
             if (showHelp)
             {
                 float hy = helpTop;
-                Rect help = new Rect(10, hy, 440, 356);
-                GUI.Box(help, GUIContent.none);
-                guiRects.Add(help);
-                GUI.Label(new Rect(20, hy + 6, 425, 346),
+                string helpText =
                     $"Plan where your nose points when the {turnSec:0.#} s turn ends. O: OODA, short turns.\n" +
                     "Drag the stick to steer (down pulls); the bar under it is the rudder. It shakes\n" +
                     "near your hardest turn, and violently in the overpull: stall, maybe spin.\n" +
@@ -1741,7 +1738,14 @@ namespace Ooda.Turn
                     "Drag the view or right-drag to look; wheel zooms. F2: the old arrow.\n" +
                     "Pad: left stick arrow, triggers throttle, A fly, X bursts,\n" +
                     "RB fire at predicted hits, Y projection, B replay, right stick look,\n" +
-                    "d-pad right rocket, left speed brake, View button your next plane.", small);
+                    "d-pad right rocket, left speed brake, View button your next plane.";
+                // as tall as its text needs (wrapped), so nothing is cut off at the bottom
+                var helpStyle = new GUIStyle(small) { wordWrap = true };
+                float th = helpStyle.CalcHeight(new GUIContent(helpText), 425);
+                Rect help = new Rect(10, hy, 440, th + 12);
+                GUI.Box(help, GUIContent.none);
+                guiRects.Add(help);
+                GUI.Label(new Rect(20, hy + 6, 425, th), helpText, helpStyle);
             }
             if (planning) SightGUI(sw, sh);   // after the help, so the glass sits on top of it
         }

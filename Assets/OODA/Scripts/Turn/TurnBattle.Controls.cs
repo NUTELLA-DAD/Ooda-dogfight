@@ -258,7 +258,7 @@ namespace Ooda.Turn
             var m = battle.planes[0];
             float x = q.x, y = q.y, w = q.width;
             guiRects.Add(q);
-            GUI.Label(new Rect(x, y, w, 22), plan.HasMarks ? $"Start {plan.throttle * 100:F0}%" : $"Throttle {plan.throttle * 100:F0}%", label);
+            Shadow(new Rect(x, y, w, 22), plan.HasMarks ? $"Start {plan.throttle * 100:F0}%" : $"Throttle {plan.throttle * 100:F0}%", new GUIStyle(label) { fontStyle = FontStyle.Bold });
             y += QuadRow;
             float thr = GUI.HorizontalSlider(new Rect(x, y + 6, w, 20), (float)plan.throttle, 0f, 1f);
             if (Math.Abs(thr - plan.throttle) > 1e-4) { plan.throttle = thr; dirty = true; }
