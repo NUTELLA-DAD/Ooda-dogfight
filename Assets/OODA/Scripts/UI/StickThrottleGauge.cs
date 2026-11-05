@@ -47,7 +47,7 @@ namespace Ooda.UI
         public Vector3 pedalsCamera = new Vector3(0f, 0.75f, -1.7f), pedalsLookAt = new Vector3(0f, 0.22f, 0f);
         /// <summary>The pictures' width over height: the pedals are wide and low.</summary>
         public const float PedalsAspect = 1.8f;
-        Transform pedalsRoot;
+        Transform pedalsRoot, pedalsPivot;   // the camera sits on the root; the pivot holding the mesh swings
         Camera pedalsCam;
         float wantRudder, shownRudder;
 
@@ -103,11 +103,14 @@ namespace Ooda.UI
             root.transform.localPosition = new Vector3(9, 0, 0);
             var mat = new Material(stick.sharedMaterials[0]) { name = "Pedals" };
             if (tex != null) { mat.SetTexture("_BaseMap", tex); mat.SetTexture("_MainTex", tex); }
+            // the parts hang under a pivot so the rudder swings them while the camera, on the root, stays put
+            var pivot = new GameObject("PedalsPivot") { layer = Layer };
+            pivot.transform.SetParent(root.transform, false);
             foreach (var part in parts)
             {
                 if (part.sharedMesh == null) continue;
                 var body = new GameObject(part.name) { layer = Layer };
-                body.transform.SetParent(root.transform, false);
+                body.transform.SetParent(pivot.transform, false);
                 var from = model.transform.InverseTransformPoint(part.transform.position);
                 body.transform.localPosition = from;
                 body.transform.localRotation = Quaternion.Inverse(model.transform.rotation) * part.transform.rotation;
@@ -117,6 +120,7 @@ namespace Ooda.UI
             }
             Debug.Log($"OODA: pedals: {parts.Length} mesh parts, {(tex != null ? $"colour map {tex.width}x{tex.height}" : "NO colour map (Resources/Pedals_BaseColor)")}, shader {mat.shader.name}");
             pedalsRoot = root.transform;
+            pedalsPivot = pivot.transform;
             pedalsCam = MakeCamera("PedalsCamera", pedalsRoot, pedalsCamera, out var pt, PedalsAspect, pedalsLookAt);
             PedalsTexture = pt;
         }
@@ -198,7 +202,7 @@ namespace Ooda.UI
             stickShaft.localRotation = Quaternion.AngleAxis(-shownStick.y * stickTravelDeg + jy, Vector3.right)
                                      * Quaternion.AngleAxis(-shownStick.x * stickTravelDeg + jx, Vector3.forward) * shaftRest;
             throttleLever.localRotation = Quaternion.AngleAxis(Mathf.Lerp(throttleIdleDeg, throttleFullDeg, shownThrottle), Vector3.right) * leverRest;
-            if (pedalsRoot != null) pedalsRoot.localRotation = Quaternion.AngleAxis(-shownRudder * pedalYawDeg, Vector3.up);   // right rudder: the right pedal away
+            if (pedalsPivot != null) pedalsPivot.localRotation = Quaternion.AngleAxis(-shownRudder * pedalYawDeg, Vector3.up);   // right rudder: the right pedal away
             if (block == null) block = new MaterialPropertyBlock();
             // the grip (submesh 1) reddens through the overpull band; the lever's knob glows with WEP
             Tint(stick, Color.Lerp(Color.white, overpullColor, shownOver * 0.85f), overpullColor * (shownOver * 0.6f));
