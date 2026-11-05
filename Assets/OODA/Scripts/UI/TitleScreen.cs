@@ -159,6 +159,7 @@ namespace Ooda.UI
             var pad = Gamepad.current;
             if (setup.open) { SetupKeys(setup.Keys()); return; }   // the dogfight's briefing has the keys while it is up
             if (kb != null && kb.oKey.wasPressedThisFrame) { OpenLobby(); return; }
+            if (kb != null && kb.tKey.wasPressedThisFrame) { PlayTutorial(); return; }
             if ((kb != null && (kb.leftArrowKey.wasPressedThisFrame || kb.aKey.wasPressedThisFrame)) || (pad != null && pad.dpad.left.wasPressedThisFrame)) pick = (pick + Missions.Length - 1) % Missions.Length;
             if ((kb != null && (kb.rightArrowKey.wasPressedThisFrame || kb.dKey.wasPressedThisFrame)) || (pad != null && pad.dpad.right.wasPressedThisFrame)) pick = (pick + 1) % Missions.Length;
             if (pick == 2)
@@ -263,6 +264,15 @@ namespace Ooda.UI
             else if (r == DogfightSetupScreen.Result.Fly) { DogfightSetupScreen.Save(); setup.open = false; LoadBattle(); }
         }
 
+        /// <summary>Training: the dogfight's lessons, one goal at a time (TurnBattle.Tutorial.cs).</summary>
+        public void PlayTutorial()
+        {
+            TurnBattle.TutorialRequested = true;
+            TurnBattle.TutorialStartLesson = 0;
+            ChosenMission = (int)TurnBattle.Mission.Dogfight;
+            SceneManager.LoadScene(battleScene);
+        }
+
         /// <summary>The jet test, if it has been built into the game.</summary>
         public void PlayJet()
         {
@@ -304,6 +314,7 @@ namespace Ooda.UI
 
             if (lobbyOpen) { LobbyGUI(sw, sh); return; }
             if (GUI.Button(new Rect(24, sh - 72, 212, 48), "Online (O)", button)) OpenLobby();
+            if (GUI.Button(new Rect(24, sh - 128, 212, 48), "Training (T)", picked)) PlayTutorial();   // new players start here
             float bw = 190, gap = 16, total = Missions.Length * bw + (Missions.Length - 1) * gap;
             float x = (sw - total) / 2, y = sh - 230;
             for (int i = 0; i < Missions.Length; i++)

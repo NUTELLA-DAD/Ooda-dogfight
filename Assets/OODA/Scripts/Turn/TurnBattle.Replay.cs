@@ -467,7 +467,7 @@ namespace Ooda.Turn
             guiRects.Add(r);
             if (tapeOk && GUI.Button(new Rect(x, y, bw, 44), "Watch replay  (W)")) StartReplay();
             if (tapeOk) x += bw + gap;
-            if (GUI.Button(new Rect(x, y, bw, 44), Dogfighting ? "New fight  (R)" : "Fly again  (Backspace)")) Restart();
+            if (GUI.Button(new Rect(x, y, bw, 44), tutorial ? "Fly lesson again  (R)" : Dogfighting ? "New fight  (R)" : "Fly again  (Backspace)")) Restart();
             x += bw + gap;
             if (GUI.Button(new Rect(x, y, bw, 44), "Main menu")) GoToMainMenu();
         }
