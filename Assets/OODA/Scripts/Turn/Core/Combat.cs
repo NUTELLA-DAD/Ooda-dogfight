@@ -70,7 +70,7 @@ namespace Ooda.Turn.Core
         public static CombatNumbers A6M2() => new CombatNumbers
         {
             guns = "2 x 20 mm + 2 x 7.7 mm", muzzleFps = 2000, damage = 1.3, ammoSec = 12, spreadMil = 3.5, dragPerSec = 0.4,
-            health = 9, heatIdle = 0.45, heatFull = 0.9,
+            toughness = 9, heatIdle = 0.45, heatFull = 0.9,
         };
 
         /// <summary>

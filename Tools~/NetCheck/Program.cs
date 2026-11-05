@@ -270,7 +270,7 @@ static class Program
             var zb = DogfightSetup.FromBytes(zeros.ToBytes());
             var zf = Scenarios.Dogfight(zb, centre, 3600, 300, 3000);
             Check(zb.ours.SequenceEqual(zeros.ours) && zb.oursPilots.SequenceEqual(zeros.oursPilots) && zb.theirsPilots[0] == PilotKind.Fox
-                  && DogfightSetup.Of(zf.planes[0].numbers) == Craft.Zero && DogfightSetup.Of(zf.planes[1].numbers) == Craft.Zero && zf.combat[1].health < zf.combat[2].health,
+                  && DogfightSetup.Of(zf.planes[0].numbers) == Craft.Zero && DogfightSetup.Of(zf.planes[1].numbers) == Craft.Zero && zf.combat[1].toughness < zf.combat[2].toughness,
                   "the Zero, the fox, the koi and the lion survive the trip to bytes; the Zero flies as a Zero on either side, and breaks easier");
             var easy = Scenarios.Dogfight(new DogfightSetup { ours = new[] { Craft.Bf109 }, theirs = new[] { Craft.Mustang }, randomStart = false }, centre);
             Check(easy.combat[0].hitRadiusFt == 20 && easy.combat[1].hitRadiusFt < 20, "against the AI your guns get the easy aim whatever you fly, and an enemy P-51 doesn't");
