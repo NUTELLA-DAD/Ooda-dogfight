@@ -10,7 +10,7 @@ namespace Ooda.Turn
 {
     /// <summary>
     /// Flying from the side controls, and the extras. The arrow and its ball are gone (F2 brings them back as a dev view):
-    /// you drag the stick in the bottom-right corner to set where the nose goes, back to pull, sideways to roll into it,
+    /// you drag the stick in the bottom middle to set where the nose goes, back to pull, sideways to roll into it,
     /// past the shaker into the overpull band; WASD and the gamepad move it as before, and the ghost path shows the result.
     /// The rocket (1, pad d-pad right) gives a few seconds of hard shove, then needs about ten turns before it is ready
     /// again; the speed brake (2, d-pad left) is out for the turn and sheds speed fast. N picks which enemy you are
@@ -19,22 +19,22 @@ namespace Ooda.Turn
     public partial class TurnBattle
     {
         [Header("Side controls")]
-        [Tooltip("Draw the old arrow and its ball (a dev view, F2). Off: steer by dragging the corner stick.")]
+        [Tooltip("Draw the old arrow and its ball (a dev view, F2). Off: steer by dragging the stick.")]
         public bool showArrow = false;
         [Tooltip("How far (as a share of the stick picture's height) a drag moves the stick from centre to full over.")]
         public float stickDragSpan = 0.5f;
         public Color rocketFlame = new Color(1f, 0.55f, 0.1f, 0.95f);
         public Color targetBracket = new Color(1f, 0.35f, 0.3f, 0.9f);
 
-        Rect stickRect;            // where the corner stick is drawn (GUI units); zero when it is not
+        Rect stickRect;            // where the stick is drawn, bottom middle (GUI units); zero when it is not
         bool dragStick;
         Vector2 stickDragFrom, stickAtPress;
         int pinnedFocus = -1;      // the enemy picked with N, kept while it flies
 
-        /// <summary>The arrow is drawn (and its ball can be dragged): the dev view, or when there is no room for the corner stick.</summary>
+        /// <summary>The arrow is drawn (and its ball can be dragged): the dev view, or when there is no room for the stick.</summary>
         bool ArrowShown => showArrow || stickRect.width <= 0;
 
-        // ---------- the corner stick ----------
+        // ---------- the stick ----------
 
         /// <summary>The plan's arrow as a stick position: up = back (a pull), right = right; the ring at RingTravel, the overpull band beyond.</summary>
         Vector2 StickFromPlan()
@@ -58,7 +58,7 @@ namespace Ooda.Turn
             return env.Direction(phi, theta);
         }
 
-        /// <summary>A press on the corner stick starts a drag (planning with the arrow, not the timeline).</summary>
+        /// <summary>A press on the stick starts a drag (planning with the arrow, not the timeline).</summary>
         bool PressStick(Vector2 gui)
         {
             if (phase != Phase.Planning || plan.HasMarks || stickRect.width <= 0 || !stickRect.Contains(gui)) return false;
@@ -81,10 +81,10 @@ namespace Ooda.Turn
 
         // ---------- the rudder pedals ----------
 
-        Rect pedalRect;            // the pedal bar above the corner stick (GUI units); zero when it is not drawn
+        Rect pedalRect;            // the pedal bar under the stick (GUI units); zero when it is not drawn
         bool dragPedals;
 
-        /// <summary>The rudder pedals as a bar above the stick: the marker shows the plan's rudder, left foot to right foot.
+        /// <summary>The rudder pedals as a bar under the stick: the marker shows the plan's rudder, left foot to right foot.
         /// Fast, the rudder only skids the nose a little; slow and nose-high it is what swings the nose over the top.</summary>
         void DrawPedals(Rect r, GUIStyle cap)
         {
@@ -101,10 +101,14 @@ namespace Ooda.Turn
                 Fill(new Rect(Mathf.Min(x0, x1), r.y + 6, Mathf.Abs(x1 - x0), r.height - 12), new Color(arrowColor.r, arrowColor.g, arrowColor.b, 0.6f));
             }
             Fill(new Rect(r.center.x + rud * half - 3, r.y + 1, 6, r.height - 2), steer ? Color.white : new Color(1f, 1f, 1f, 0.5f));
-            string txt = Mathf.Abs(rud) < 0.01f ? (steer ? "Rudder: Z / C" : "Rudder") : $"Rudder {(rud < 0 ? "left" : "right")} {Mathf.Abs(rud) * 100:F0}%";
-            var st = new GUIStyle(cap) { alignment = TextAnchor.MiddleCenter };
+            // in the bar (the stick sits right over it): the name at the left end, the setting at the right, clear of the middle
+            var st = new GUIStyle(cap) { alignment = TextAnchor.MiddleLeft };
             st.normal.textColor = Color.white;
-            GUI.Label(new Rect(r.x, r.y - 18, r.width, 18), txt, st);
+            Rect inner = new Rect(r.x + 8, r.y, r.width - 16, r.height);
+            GUI.Label(inner, "Rudder", st);
+            st.alignment = TextAnchor.MiddleRight;
+            string txt = Mathf.Abs(rud) < 0.01f ? (steer ? "Z / C" : "") : $"{(rud < 0 ? "left" : "right")} {Mathf.Abs(rud) * 100:F0}%";
+            GUI.Label(inner, txt, st);
         }
 
         /// <summary>A press on the pedal bar sets the rudder from where it lands; a drag keeps setting it.</summary>
@@ -245,21 +249,82 @@ namespace Ooda.Turn
             }
         }
 
-        /// <summary>The rocket and the brake in the planning panel's throttle row: x is where they start, w the room they have.</summary>
-        void ExtrasRow(float x, float y, float w)
+        /// <summary>
+        /// The throttle quadrant's buttons, beside the lever: the throttle (or the start throttle once the timeline has
+        /// points), a slider for it, WEP (the F-4's burner), the rocket and the speed brake, one under the other.
+        /// </summary>
+        void QuadrantGUI(Rect q)
         {
             var m = battle.planes[0];
-            float bw = (w - 8) / 2;
+            float x = q.x, y = q.y, w = q.width;
+            guiRects.Add(q);
+            GUI.Label(new Rect(x, y, w, 22), plan.HasMarks ? $"Start {plan.throttle * 100:F0}%" : $"Throttle {plan.throttle * 100:F0}%", label);
+            y += QuadRow;
+            float thr = GUI.HorizontalSlider(new Rect(x, y + 6, w, 20), (float)plan.throttle, 0f, 1f);
+            if (Math.Abs(thr - plan.throttle) > 1e-4) { plan.throttle = thr; dirty = true; }
+            y += QuadRow;
+            var ws = new GUIStyle(GUI.skin.button) { fontSize = 13, fontStyle = plan.wep ? FontStyle.Bold : FontStyle.Normal };
+            if (plan.wep) ws.normal.textColor = ws.hover.textColor = new Color(1f, 0.45f, 0.2f);
+            if (GUI.Button(new Rect(x, y, w, 26), plan.wep ? $"{WepName}: ON (Space)" : $"{WepName} (Space)", ws)) { plan.wep = !plan.wep; dirty = true; }
+            y += QuadRow;
             int turns = RocketTurns(m);
             var rs = new GUIStyle(GUI.skin.button) { fontSize = 13, fontStyle = plan.rocket ? FontStyle.Bold : FontStyle.Normal };
             if (plan.rocket) rs.normal.textColor = rs.hover.textColor = rocketFlame;
             string rt = plan.rocket ? "ROCKET: lit (1)" : m.RocketBurning ? "Rocket: burning" : turns == 0 ? "Rocket: ready (1)" : $"Rocket: {turns} turn{(turns == 1 ? "" : "s")}";
             GUI.enabled = plan.rocket || m.RocketReady;
-            if (GUI.Button(new Rect(x, y, bw, 24), rt, rs)) ToggleRocket();
+            if (GUI.Button(new Rect(x, y, w, 26), rt, rs)) ToggleRocket();
             GUI.enabled = true;
+            y += QuadRow;
             var bs = new GUIStyle(GUI.skin.button) { fontSize = 13, fontStyle = plan.brake ? FontStyle.Bold : FontStyle.Normal };
             if (plan.brake) bs.normal.textColor = bs.hover.textColor = new Color(0.6f, 0.85f, 1f);
-            if (GUI.Button(new Rect(x + bw + 8, y, bw, 24), plan.brake ? "BRAKE: out (2)" : "Speed brake (2)", bs)) ToggleBrake();
+            if (GUI.Button(new Rect(x, y, w, 26), plan.brake ? "BRAKE: out (2)" : "Speed brake (2)", bs)) ToggleBrake();
+        }
+
+        // ---------- the throttle lever: drag it ----------
+
+        Rect throttleRect;         // the throttle's picture while planning (GUI units); zero when it is not drawn
+        bool dragThrottle;
+        float throttleDragFrom;
+        double throttleAtPress;
+
+        /// <summary>A press on the throttle's picture grabs the lever: up opens it, down closes it.</summary>
+        bool PressThrottle(Vector2 gui)
+        {
+            if (phase != Phase.Planning || throttleRect.width <= 0 || !throttleRect.Contains(gui)) return false;
+            dragThrottle = true;
+            throttleDragFrom = gui.y;
+            throttleAtPress = plan.throttle;
+            return true;
+        }
+
+        void DragThrottle(Vector2 gui)
+        {
+            if (phase != Phase.Planning) { dragThrottle = false; return; }
+            float span = Mathf.Max(20f, throttleRect.height * 0.6f);
+            double v = Math.Max(0, Math.Min(1, throttleAtPress + (throttleDragFrom - gui.y) / span));
+            if (Math.Abs(v - plan.throttle) > 1e-4) { plan.throttle = v; dirty = true; }
+        }
+
+        // ---------- the shaker on the gamepad ----------
+
+        float rumbleNow;
+
+        /// <summary>The stick shaker in your hands too: the pad's motors buzz with it (the heavy one only deep in the overpull band).</summary>
+        void Rumble(float shake)
+        {
+            if (!Application.isFocused) shake = 0;
+            if (Mathf.Abs(shake - rumbleNow) < 0.02f && (shake > 0 || rumbleNow == 0)) return;
+            rumbleNow = shake;
+            var pad = Gamepad.current;
+            if (pad == null) return;
+            if (shake <= 0) pad.ResetHaptics();
+            else pad.SetMotorSpeeds(Mathf.Clamp01((shake - 0.6f) * 1.5f), Mathf.Lerp(0.35f, 1f, shake));
+        }
+
+        void OnDisable()
+        {
+            if (rumbleNow > 0) Gamepad.current?.ResetHaptics();
+            rumbleNow = 0;
         }
     }
 }

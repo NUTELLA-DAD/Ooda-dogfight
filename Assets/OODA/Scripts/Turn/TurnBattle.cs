@@ -84,7 +84,7 @@ namespace Ooda.Turn
         public float playbackSpeed = 1f;
         public bool showProjection = true;
         public bool showHelp = true;
-        [Tooltip("Draw the reach shell's rings round the arrow (a dev view, F1). Off: the stick shaker in the corner tells how hard you pull.")]
+        [Tooltip("Draw the reach shell's rings round the arrow (a dev view, F1). Off: the stick shaker tells how hard you pull.")]
         public bool showReachRings = false;
         [Tooltip("Show the OVERPULL, SPINNING, STALL and DEPARTED warnings (a dev view, F3). Off: the stick shaker and the ghost path tell you.")]
         public bool showStallWarnings = false;
@@ -139,7 +139,7 @@ namespace Ooda.Turn
 
         LinePool lines;
         Transform tip;
-        Ooda.UI.StickThrottleGauge gauge;   // the stick and throttle in the bottom corners
+        Ooda.UI.StickThrottleGauge gauge;   // the stick (bottom middle) and the throttle (bottom left)
         Material tipMat;
 
         bool dragArrow, dragLook, dragBurst, dragMoves;
@@ -643,62 +643,111 @@ namespace Ooda.Turn
             UpdateGauge();
         }
 
-        // ---------- the stick and throttle in the corners ----------
+        // ---------- the stick in the middle, the throttle on the left ----------
 
         void UpdateGauge()
         {
-            if (gauge == null) return;
+            if (gauge == null) { Rumble(0); return; }
             bool show = phase != Phase.Over && !battle.Out(0);
             gauge.SetVisible(show);
-            if (!show) return;
+            if (!show) { gauge.Shake = 0; Rumble(0); return; }
             GaugeInput(out var stick, out float over, out float throttle, out bool wep);
             gauge.Show(stick, over, throttle, wep);
-            gaugeThrottle = throttle; gaugeWep = wep; gaugeOver = over;
+            gaugeThrottle = throttle; gaugeWep = wep;
             gauge.Shake = ShakeFor(stick, over, (phase == Phase.Planning || phase == Phase.Thinking) && !plan.HasMarks);
+            Rumble(menuOpen || bot ? 0 : gauge.Shake);
         }
 
         /// <summary>
-        /// The stick shaker: still until the pull reaches 70% of the hardest clean turn, then buzzing harder up to the
-        /// ring, and harder again through the overpull band. With the arrow the pull is how far out the tip sits in any
-        /// direction; otherwise it is the stick's back travel.
+        /// The stick shaker: still until the pull reaches 70% of the hardest clean turn, then buzzing hard by the
+        /// ring, and violently through the overpull band. There is no caption for it: the stick (and the pad) shake.
+        /// With the arrow the pull is how far out the tip sits in any direction; otherwise it is the stick's back travel.
         /// </summary>
         static float ShakeFor(Vector2 stick, float over, bool arrow)
         {
             const float ring = Ooda.UI.StickThrottleGauge.RingTravel;
             float p = (arrow ? stick.magnitude : Mathf.Max(0, stick.y)) / ring;
-            return Mathf.Clamp01((p - 0.7f) / 0.3f) * 0.55f + Mathf.Clamp01(over) * 0.45f;
+            float onset = Mathf.Clamp01((p - 0.7f) / 0.3f);
+            return onset > 0 || over > 0 ? 0.35f + onset * 0.3f + Mathf.Clamp01(over) * 0.35f : 0f;
         }
 
-        float gaugeThrottle, gaugeOver;
+        float gaugeThrottle;
         bool gaugeWep;
 
-        /// <summary>The throttle bottom left and the stick bottom right, as big as the room beside the planning panel allows.</summary>
+        /// <summary>
+        /// The bottom of the screen, left to right: the throttle quadrant (the lever's picture and the buttons that go
+        /// with the engine: throttle, WEP, rocket, speed brake), the stick in the middle with the rudder pedals under it,
+        /// and the weapons panel on the right (guns, missile, flares, IR, the specials, the timeline).
+        /// </summary>
+        public struct ControlsLayout
+        {
+            public bool pictures;                    // the stick and throttle pictures fit; false: the arrow comes back
+            public Rect stick, pedals, throttle;     // the pictures and the pedal bar (zero without pictures)
+            public Rect quadrant;                    // the engine buttons beside the throttle
+            public Rect weapons;                     // the weapons box; its button rows sit above it
+            public float stickTop;                   // the top of the middle (the stick's caption), for text and the timeline above it
+        }
+
+        ControlsLayout ctl;
+
+        const float CtlMargin = 10, CtlBottom = 8, PedalH = 26, QuadW = 160, QuadRow = 30, QuadRows = 5,
+                    WeaponsMinW = 400, WeaponsMaxW = 580, WeaponsH = 158;
+
+        /// <summary>The pictures as big as the room allows: shrink them until the quadrant and the weapons fit beside the stick.</summary>
+        public static ControlsLayout LayoutControls(float sw, float sh, bool havePictures)
+        {
+            var c = new ControlsLayout();
+            float qh = QuadRows * QuadRow - 4;
+            for (float h = Mathf.Min(260f, sh * 0.3f); havePictures && h >= 110; h -= 10)
+            {
+                float w = h * 0.9f, pw = Mathf.Max(w * 1.1f, 240f);
+                float side = (sw - pw) / 2 - 2 * CtlMargin;
+                float th = h * 0.9f, tw = th * 0.9f;
+                if (side < tw + 8 + QuadW || side < WeaponsMinW) continue;
+                c.pictures = true;
+                c.pedals = new Rect((sw - pw) / 2, sh - CtlBottom - PedalH, pw, PedalH);
+                c.stick = new Rect((sw - w) / 2, c.pedals.y - 4 - h, w, h);
+                c.throttle = new Rect(CtlMargin, sh - CtlBottom - th, tw, th);
+                c.quadrant = new Rect(c.throttle.xMax + 8, sh - CtlBottom - qh, QuadW, qh);
+                float ww = Mathf.Min(WeaponsMaxW, side);
+                c.weapons = new Rect(sw - CtlMargin - ww, sh - CtlBottom - WeaponsH, ww, WeaponsH);
+                c.stickTop = c.stick.y - 20;
+                return c;
+            }
+            // no room for the pictures: the quadrant bottom left, the weapons beside it, and the arrow to steer
+            c.quadrant = new Rect(CtlMargin, sh - CtlBottom - qh, QuadW, qh);
+            float rw = Mathf.Min(WeaponsMaxW, sw - QuadW - 3 * CtlMargin);
+            c.weapons = new Rect(sw - CtlMargin - rw, sh - CtlBottom - WeaponsH, rw, WeaponsH);
+            c.stickTop = Mathf.Min(c.quadrant.y, c.weapons.y - 64);
+            return c;
+        }
+
+        /// <summary>The throttle lever on the left and the stick in the middle, the pedals under it. No warnings: the stick shakes.</summary>
         void DrawGauge(float sw, float sh)
         {
-            stickRect = pedalRect = Rect.zero;
-            if (gauge == null || !gauge.Visible || gauge.StickTexture == null) return;
-            float pw = Mathf.Min(640, sw - 40);
-            float h = Mathf.Min(240f, ((sw - pw) / 2 - 20) / 0.9f, sh * 0.32f);
-            if (h < 90) return;   // no room beside the panel: the arrow comes back
-            float w = h * 0.9f, y = sh - h - 8;
-            Rect left = new Rect(10, y, w, h), right = new Rect(sw - w - 10, y, w, h);
-            float sk = gauge.Shake;   // the shaker jiggles the stick's picture a little too
-            Rect shook = new Rect(right.x + sk * 3f * Mathf.Sin(Time.unscaledTime * 131f), right.y + sk * 3f * Mathf.Sin(Time.unscaledTime * 97f + 1f), w, h);
+            ctl = LayoutControls(sw, sh, gauge != null && gauge.StickTexture != null);
+            stickRect = pedalRect = throttleRect = Rect.zero;
+            if (!ctl.pictures || !gauge.Visible) return;
+            Rect left = ctl.throttle, mid = ctl.stick;
+            float sk = gauge.Shake;   // the shaker rattles the stick's picture too, harder the deeper you pull
+            float jig = sk * 9f;
+            Rect shook = new Rect(mid.x + jig * Mathf.Sin(Time.unscaledTime * 131f), mid.y + jig * Mathf.Sin(Time.unscaledTime * 97f + 1f), mid.width, mid.height);
             GUI.DrawTexture(left, gauge.ThrottleTexture, ScaleMode.ScaleToFit, true);
             GUI.DrawTexture(shook, gauge.StickTexture, ScaleMode.ScaleToFit, true);
             var cap = new GUIStyle(small) { alignment = TextAnchor.UpperCenter };
-            GUI.Label(new Rect(left.x, y - 18, w, 20), gaugeWep ? $"Throttle {gaugeThrottle * 100:F0}%  {WepName}" : $"Throttle {gaugeThrottle * 100:F0}%", cap);
-            if (gaugeOver > 0) cap.normal.textColor = overpullColor;
-            if (gaugeOver <= 0 && sk > 0) cap.normal.textColor = Color.Lerp(cap.normal.textColor, overpullColor, sk);
-            bool steer = phase == Phase.Planning && !plan.HasMarks;
-            GUI.Label(new Rect(right.x - 20, y - 18, w + 40, 20), gaugeOver > 0 ? "Stick: overpull" : sk > 0 ? "Stick: shaker" : steer ? "Stick: drag to steer" : "Stick", cap);
-            guiRects.Add(left); guiRects.Add(right);
-            stickRect = right;
-            DrawPedals(new Rect(right.x, y - 46, w, 22), cap);
+            bool planning = phase == Phase.Planning;
+            if (!planning)   // planning, the quadrant beside it says the throttle
+                GUI.Label(new Rect(left.x, left.y - 18, left.width, 20), gaugeWep ? $"Throttle {gaugeThrottle * 100:F0}%  {WepName}" : $"Throttle {gaugeThrottle * 100:F0}%", cap);
+            bool steer = planning && !plan.HasMarks;
+            GUI.Label(new Rect(mid.x - 40, mid.y - 18, mid.width + 80, 20), steer ? "Stick: drag to steer" : "Stick", cap);
+            guiRects.Add(left); guiRects.Add(mid);
+            stickRect = mid;
+            throttleRect = planning ? left : Rect.zero;
+            DrawPedals(ctl.pedals, cap);
         }
 
         /// <summary>
-        /// What the corner stick shows. Planning with the arrow: where the arrow sits in the reach shell, up = back and
+        /// What the stick shows. Planning with the arrow: where the arrow sits in the reach shell, up = back and
         /// right = right, the white ring at <see cref="Ooda.UI.StickThrottleGauge.RingTravel"/> and the overpull band the
         /// rest of the way. Planning with the timeline: the G and the roll at the slider's moment. Playing: the stick
         /// the plane is flying with, its G and roll rate.
@@ -781,7 +830,7 @@ namespace Ooda.Turn
             if (Pressed(Key.M)) SwitchMission();
             if (Pressed(Key.O)) SwitchOoda();
             if (Pressed(Key.F3)) { showStallWarnings = !showStallWarnings; Notice(showStallWarnings ? "Dev: stall and spin warnings on (F3)" : "Dev: stall and spin warnings off (F3)"); }
-            if (Pressed(Key.F2)) { showArrow = !showArrow; Notice(showArrow ? "Dev: arrow on (F2)" : "Dev: arrow off (F2): drag the corner stick"); }
+            if (Pressed(Key.F2)) { showArrow = !showArrow; Notice(showArrow ? "Dev: arrow on (F2)" : "Dev: arrow off (F2): drag the stick"); }
             if (Pressed(Key.F1)) { showReachRings = !showReachRings; Notice(showReachRings ? "Dev: reach rings on (F1)" : "Dev: reach rings off (F1)"); }
             if (Pressed(Key.Backspace) || (pad != null && pad.startButton.wasPressedThisFrame)) Restart();
             if (Pressed(Key.R) || (pad != null && pad.buttonEast.wasPressedThisFrame)) { if (phase == Phase.Over && Dogfighting) Restart(); else Replay(); }   // a new one on one once it is over
@@ -821,6 +870,7 @@ namespace Ooda.Turn
                     else if (phase == Phase.Planning && movesRect.Contains(gui)) { dragMoves = true; SetMarkTime(gui.x); }
                     else if (PressStick(gui)) { }
                     else if (PressPedals(gui)) { }
+                    else if (PressThrottle(gui)) { }
                     else if (guiRects.Any(r => r.Contains(gui))) { }
                     else if (phase == Phase.Planning && !plan.HasMarks && ArrowShown && NearTip(pos)) dragArrow = true;
                     else dragLook = true;
@@ -830,11 +880,12 @@ namespace Ooda.Turn
                     if (dragArrow) DragArrow(pos);
                     else if (dragStick) DragStick(gui);
                     else if (dragPedals) SetPedals(gui.x);
+                    else if (dragThrottle) DragThrottle(gui);
                     else if (dragBurst) SetBurstFromBar(gui.x, false);
                     else if (dragMoves) SetMarkTime(gui.x);
                     else if (dragLook && view != null && (mouse == null || !mouse.rightButton.isPressed)) view.Orbit((pos - lastPointer) * 0.25f);
                 }
-                if (pointer.press.wasReleasedThisFrame) { dragArrow = dragLook = dragMoves = dragStick = dragPedals = false; if (dragBurst) { dragBurst = false; TidyBurst(); } }
+                if (pointer.press.wasReleasedThisFrame) { dragArrow = dragLook = dragMoves = dragStick = dragPedals = dragThrottle = false; if (dragBurst) { dragBurst = false; TidyBurst(); } }
                 lastPointer = pos;
             }
 
@@ -1218,7 +1269,7 @@ namespace Ooda.Turn
                 goto Paths;
             }
 
-            // The arrow (a dev view now: the corner stick steers)
+            // The arrow (a dev view now: the stick steers)
             if (!ArrowShown) goto Paths;
             Vector3 t = TipPos;
             Color arrow = Color.Lerp(arrowColor, overpullColor, plan.overpull > 0 ? 0.5f + 0.5f * (float)plan.overpull : 0f);
@@ -1641,7 +1692,7 @@ namespace Ooda.Turn
             if (planning) PlanningPanel(sw, sh);
             DogfightGUI(sw, sh);
             TutorialGUI(sw, sh);
-            if (phase == Phase.Playing) GUI.Label(new Rect(0, sh - 60, sw, 30), $"Turn playing  {playT:F1} / {turnSec:F0} s   (hold Tab to speed up)", new GUIStyle(label) { alignment = TextAnchor.MiddleCenter });
+            if (phase == Phase.Playing) GUI.Label(new Rect(0, ctl.stickTop - 30, sw, 30), $"Turn playing  {playT:F1} / {turnSec:F0} s   (hold Tab to speed up)", new GUIStyle(label) { alignment = TextAnchor.MiddleCenter });
             var warn = new GUIStyle(big) { fontSize = 26 };
             warn.normal.textColor = overpullColor;
             bool wingWarning = warning != null && (warning.StartsWith("OVERPULL") || warning.StartsWith("SPINNING"));
@@ -1668,13 +1719,14 @@ namespace Ooda.Turn
             if (showHelp)
             {
                 float hy = helpTop;
-                Rect help = new Rect(10, hy, 440, 338);
+                Rect help = new Rect(10, hy, 440, 356);
                 GUI.Box(help, GUIContent.none);
                 guiRects.Add(help);
-                GUI.Label(new Rect(20, hy + 6, 425, 328),
+                GUI.Label(new Rect(20, hy + 6, 425, 346),
                     $"Plan where your nose points when the {turnSec:0.#} s turn ends. O: OODA, short turns.\n" +
-                    "Drag the corner stick to steer (down pulls). It shakes near your hardest turn;\n" +
-                    "harder means overpull: stall, maybe spin. F1: reach rings.\n" +
+                    "Drag the stick to steer (down pulls); the bar under it is the rudder. It shakes\n" +
+                    "near your hardest turn, and violently in the overpull: stall, maybe spin.\n" +
+                    "Drag the throttle lever (left) up and down. F1: reach rings.\n" +
                     "Blue: your path. Red: where the enemy may go, the bright one likeliest.\n" +
                     "Green funnel: your rounds at the moment you hover on the burst bar.\n" +
                     "Fire when the target's wings fit across it. K funnel, L the old lead ring.\n" +
@@ -1694,35 +1746,36 @@ namespace Ooda.Turn
             if (planning) SightGUI(sw, sh);   // after the help, so the glass sits on top of it
         }
 
+        /// <summary>
+        /// Planning: the engine buttons beside the throttle (left), and the weapons panel (right) with the IR, flare,
+        /// specials and timeline buttons in rows over it. The timeline itself opens above the stick.
+        /// </summary>
         void PlanningPanel(float sw, float sh)
         {
-            float pw = Mathf.Min(640, sw - 40), px = (sw - pw) / 2, py = sh - 178;
-            if (showMoves || plan.HasMarks) MovesPanel(px, py - 196, pw);
-            else movesRect = Rect.zero;
-            string adv = showMoves ? "Advanced: timeline (T)  \u25BE" : plan.HasMarks ? "Advanced: timeline in use (T)  \u25B8" : "Advanced: timeline (T)  \u25B8";
-            Rect advRect = new Rect(px + pw - 230, (showMoves || plan.HasMarks) ? py - 236 : py - 40, 230, 24);
-            guiRects.Add(advRect);
-            if (GUI.Button(advRect, adv)) showMoves = !showMoves;
-            HeatButtons(px, advRect.y);
-            SpecialButtons(px, advRect.y - 30, pw - 240);
-            Rect panel = new Rect(px - 10, py - 10, pw + 20, 178);
-            GUI.Box(panel, GUIContent.none);
-            guiRects.Add(panel);
+            QuadrantGUI(ctl.quadrant);
+            Rect wp = ctl.weapons;
+            float px = wp.x + 10, pw = wp.width - 20, py = wp.y + 8;
 
-            // Throttle and WEP
-            GUI.Label(new Rect(px, py, 110, 22), plan.HasMarks ? $"Start {plan.throttle * 100:F0}%" : $"Throttle {plan.throttle * 100:F0}%", label);
-            float sliderW = Mathf.Max(80, pw - 520);
-            float thr = GUI.HorizontalSlider(new Rect(px + 112, py + 6, sliderW, 20), (float)plan.throttle, 0f, 1f);
-            if (Math.Abs(thr - plan.throttle) > 1e-4) { plan.throttle = thr; dirty = true; }
-            ExtrasRow(px + 122 + sliderW, py - 1, pw - 122 - sliderW - 124);
-            bool wep = GUI.Toggle(new Rect(px + pw - 118, py, 118, 22), plan.wep, " WEP (Space)");
-            if (wep != plan.wep) { plan.wep = wep; dirty = true; }
+            // the rows over the box: IR and flares with the timeline toggle, and the specials over them
+            float mw = Mathf.Min(640, sw - 40);
+            if (showMoves || plan.HasMarks) MovesPanel((sw - mw) / 2, ctl.stickTop - 196 - 4, mw);
+            else movesRect = Rect.zero;
+            float rowY = wp.y - 30;
+            HeatButtons(wp.x, rowY);
+            float aw = Mathf.Min(200, wp.width - 270);
+            string adv = showMoves ? "Timeline (T)  \u25BE" : plan.HasMarks ? "Timeline: in use (T)" : "Timeline (T)  \u25B8";
+            Rect advRect = new Rect(wp.xMax - aw, rowY, aw, 24);
+            guiRects.Add(advRect);
+            if (GUI.Button(advRect, adv, new GUIStyle(GUI.skin.button) { fontSize = 13 })) showMoves = !showMoves;
+            SpecialButtons(wp.x, rowY - 30, wp.width);
+            GUI.Box(wp, GUIContent.none);
+            guiRects.Add(wp);
 
             // The burst timeline
-            GUI.Label(new Rect(px, py + 28, pw, 22), plan.burstEnd > plan.burstStart
+            GUI.Label(new Rect(px, py, pw, 20), plan.burstEnd > plan.burstStart
                 ? $"Guns: fire {plan.burstStart:F2} to {plan.burstEnd:F2} s   (drag on the bar, tap to clear)"
-                : "Guns: hold fire   (drag on the bar to set a burst)", label);
-            burstRect = new Rect(px, py + 54, pw, 28);
+                : "Guns: hold fire   (drag on the bar to set a burst)", small);
+            burstRect = new Rect(px, py + 22, pw, 26);
             GUI.Box(burstRect, GUIContent.none);
             if (plan.burstEnd != plan.burstStart)
             {
@@ -1743,18 +1796,19 @@ namespace Ooda.Turn
                     Fill(new Rect(x - 1, burstRect.y, 2, burstRect.height), h.shooter == 0 ? Color.white : new Color(1f, 0.3f, 0.3f));
                 }
             for (int s = 0; s <= (int)turnSec; s++)
-                GUI.Label(new Rect(burstRect.x + s / turnSec * pw - 8, burstRect.yMax, 40, 20), $"{s}s", small);
+                GUI.Label(new Rect(burstRect.x + s / turnSec * pw - (s == 0 ? 0 : 8), burstRect.yMax, 40, 18), $"{s}s", small);
             int theirs = preview == null ? 0 : preview.hits.Count(h => h.target == 0);
+            float ty = py + 70, tw = pw - 138;
             if (predicted > 0)
             {
-                var hitStyle = new GUIStyle(label) { fontStyle = FontStyle.Bold };
+                var hitStyle = new GUIStyle(small) { fontStyle = FontStyle.Bold, wordWrap = true };
                 hitStyle.normal.textColor = hitTracer;
-                string sure = confidencePct >= 0 ? $"   (chance {confidencePct}%)" : confidenceHits >= 0 ? $"   (hits in {confidenceHits} of {confidenceOf})" : confidencePending ? "   (checking...)" : "";
-                string hitBack = theirs > 0 ? $"   you get hit {theirs}" : "";
-                GUI.Label(new Rect(px, py + 104, pw - 140, 22), $"HITS: {predicted} on the bright ghost{sure}{hitBack}", hitStyle);
+                string sure = confidencePct >= 0 ? $"  (chance {confidencePct}%)" : confidenceHits >= 0 ? $"  (hits in {confidenceHits} of {confidenceOf})" : confidencePending ? "  (checking...)" : "";
+                string hitBack = theirs > 0 ? $"  you get hit {theirs}" : "";
+                GUI.Label(new Rect(px, ty, tw, 32), $"HITS: {predicted} on the bright ghost{sure}{hitBack}", hitStyle);
             }
-            else GUI.Label(new Rect(px, py + 104, pw - 140, 22), $"On the bright ghost: you hit {predicted}, you get hit {theirs}", label);
-            if (GUI.Button(new Rect(px + pw - 130, py + 102, 130, 26), "Fire at hits (F)")) FireAtPredicted();
+            else GUI.Label(new Rect(px, ty, tw, 32), $"On the bright ghost: you hit {predicted}, you get hit {theirs}", new GUIStyle(small) { wordWrap = true });
+            if (GUI.Button(new Rect(px + pw - 130, ty, 130, 26), "Fire at hits (F)")) FireAtPredicted();
 
             // The missile: armed, it leaves the first moment the seeker locks this turn
             int left = battle.missiles[0];
@@ -1767,9 +1821,9 @@ namespace Ooda.Turn
                 var mt = preview?.traces.FirstOrDefault(tr => tr.missile && tr.owner == 0);
                 mText = mt == null ? "Missile armed: no lock on this path, it stays on the rail" : mt.hit ? "Missile armed: it hits the bright ghost" : "Missile armed: it launches, but misses the bright ghost";
             }
-            GUI.Label(new Rect(px, py + 134, pw - 140, 22), mText, label);
+            GUI.Label(new Rect(px, ty + 34, tw, 40), mText, new GUIStyle(small) { wordWrap = true });
             GUI.enabled = left > 0;
-            if (GUI.Button(new Rect(px + pw - 130, py + 132, 130, 26), plan.missile ? "Missile: ARMED (G)" : "Missile (G)")) ArmMissile(!plan.missile);
+            if (GUI.Button(new Rect(px + pw - 130, ty + 34, 130, 26), plan.missile ? "Missile: ARMED (G)" : "Missile (G)")) ArmMissile(!plan.missile);
             GUI.enabled = true;
         }
 

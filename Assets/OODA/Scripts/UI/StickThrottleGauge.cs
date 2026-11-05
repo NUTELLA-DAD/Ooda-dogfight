@@ -27,7 +27,7 @@ namespace Ooda.UI
         [Tooltip("How fast the shown controls catch up (1/s).")]
         public float follow = 14f;
         [Tooltip("The stick shaker at full: how far the stick jitters (degrees) and how fast (Hz).")]
-        public float shakeDeg = 2.5f, shakeHz = 22f;
+        public float shakeDeg = 6f, shakeHz = 19f;
 
         [Header("Look")]
         public Color overpullColor = new Color(1f, 0.15f, 0.1f, 1f);

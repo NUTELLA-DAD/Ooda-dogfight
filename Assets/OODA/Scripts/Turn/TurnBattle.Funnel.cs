@@ -290,13 +290,10 @@ namespace Ooda.Turn
                 hoverUntil = Mathf.Max(hoverUntil, Time.unscaledTime + 0.6f);   // held a moment after leaving the bar
             }
 
-            // the toggles, left above the throttle
-            float pw = Mathf.Min(640, sw - 40);
-            float side = (sw - pw) / 2 - 20;
-            float gh = Mathf.Min(240f, side / 0.9f, sh * 0.32f);
-            float bottom = gh >= 90 ? sh - gh - 8 - 24 : sh - 8;
-            float bw = Mathf.Clamp(side, 220f, 280f);
-            Rect toggle = new Rect(10, bottom - 26, bw, 24);
+            // the toggles, left above the throttle quadrant
+            float bottom = ctl.pictures ? Mathf.Min(ctl.throttle.y - 20, ctl.quadrant.y) : ctl.quadrant.y;
+            float bw = 260f;
+            Rect toggle = new Rect(10, bottom - 30, bw, 24);
             guiRects.Add(toggle);
             var btn = new GUIStyle(GUI.skin.button) { fontSize = 13 };
             if (GUI.Button(new Rect(toggle.x, toggle.y, bw / 2 - 3, toggle.height), showLeadRing ? "Ring: on (L)" : "Ring: off (L)", btn)) showLeadRing = !showLeadRing;

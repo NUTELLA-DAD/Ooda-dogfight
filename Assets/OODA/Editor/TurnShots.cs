@@ -144,11 +144,15 @@ namespace Ooda.EditorTools
                 if (gauge.StickTexture == null) Call(gauge, "Awake");   // made after the scene's scripts were woken
                 gauge.Snap();
                 var baked = StickThrottleBuilder.Bake(gauge.gameObject);
-                // the same layout as TurnBattle.DrawGauge, in pixels
+                // the same layout as TurnBattle.DrawGauge, in pixels (GUI rects are from the top, Over's from the bottom)
                 float scale = Mathf.Clamp(rt.height / 900f, 1f, 2.5f), sw = rt.width / scale, sh = rt.height / scale;
-                float pw = Mathf.Min(640, sw - 40), h = Mathf.Min(240f, Mathf.Min(((sw - pw) / 2 - 20) / 0.9f, sh * 0.32f)), w = h * 0.9f;
-                Over(tex, gauge.ThrottleTexture, gauge.transform.Find("Throttle").GetComponentInChildren<Camera>(), 10 * scale, 8 * scale, w * scale, h * scale);
-                Over(tex, gauge.StickTexture, gauge.transform.Find("Stick").GetComponentInChildren<Camera>(), (sw - w - 10) * scale, 8 * scale, w * scale, h * scale);
+                var c = Ooda.Turn.TurnBattle.LayoutControls(sw, sh, true);
+                if (c.pictures)
+                {
+                    Rect t = c.throttle, s = c.stick;
+                    Over(tex, gauge.ThrottleTexture, gauge.transform.Find("Throttle").GetComponentInChildren<Camera>(), t.x * scale, (sh - t.yMax) * scale, t.width * scale, t.height * scale);
+                    Over(tex, gauge.StickTexture, gauge.transform.Find("Stick").GetComponentInChildren<Camera>(), s.x * scale, (sh - s.yMax) * scale, s.width * scale, s.height * scale);
+                }
                 foreach (var b in baked) Object.DestroyImmediate(b);
             }
             else Debug.LogWarning("OODA shots: no stick and throttle gauge in the battle.");
