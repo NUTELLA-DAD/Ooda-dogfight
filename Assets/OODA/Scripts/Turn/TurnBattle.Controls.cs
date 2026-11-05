@@ -79,6 +79,52 @@ namespace Ooda.Turn
             SetAim(AimFromStick(st));
         }
 
+        // ---------- the rudder pedals ----------
+
+        Rect pedalRect;            // the pedal bar above the corner stick (GUI units); zero when it is not drawn
+        bool dragPedals;
+
+        /// <summary>The rudder pedals as a bar above the stick: the marker shows the plan's rudder, left foot to right foot.
+        /// Fast, the rudder only skids the nose a little; slow and nose-high it is what swings the nose over the top.</summary>
+        void DrawPedals(Rect r, GUIStyle cap)
+        {
+            pedalRect = r;
+            guiRects.Add(r);
+            bool steer = phase == Phase.Planning && !plan.HasMarks;
+            Fill(r, new Color(0f, 0f, 0f, 0.45f));
+            Fill(new Rect(r.center.x - 1, r.y + 2, 2, r.height - 4), new Color(1f, 1f, 1f, 0.35f));
+            float rud = (float)plan.rudder;
+            float half = r.width / 2 - 6;
+            if (Mathf.Abs(rud) > 0.001f)
+            {
+                float x0 = r.center.x, x1 = r.center.x + rud * half;
+                Fill(new Rect(Mathf.Min(x0, x1), r.y + 6, Mathf.Abs(x1 - x0), r.height - 12), new Color(arrowColor.r, arrowColor.g, arrowColor.b, 0.6f));
+            }
+            Fill(new Rect(r.center.x + rud * half - 3, r.y + 1, 6, r.height - 2), steer ? Color.white : new Color(1f, 1f, 1f, 0.5f));
+            string txt = Mathf.Abs(rud) < 0.01f ? (steer ? "Rudder: Z / C" : "Rudder") : $"Rudder {(rud < 0 ? "left" : "right")} {Mathf.Abs(rud) * 100:F0}%";
+            var st = new GUIStyle(cap) { alignment = TextAnchor.MiddleCenter };
+            st.normal.textColor = Color.white;
+            GUI.Label(new Rect(r.x, r.y - 18, r.width, 18), txt, st);
+        }
+
+        /// <summary>A press on the pedal bar sets the rudder from where it lands; a drag keeps setting it.</summary>
+        bool PressPedals(Vector2 gui)
+        {
+            if (phase != Phase.Planning || plan.HasMarks || pedalRect.width <= 0 || !pedalRect.Contains(gui)) return false;
+            dragPedals = true;
+            SetPedals(gui.x);
+            return true;
+        }
+
+        void SetPedals(float x)
+        {
+            if (phase != Phase.Planning || plan.HasMarks) { dragPedals = false; return; }
+            float half = pedalRect.width / 2 - 6;
+            double v = Mathf.Clamp((x - pedalRect.center.x) / Mathf.Max(1f, half), -1f, 1f);
+            if (Math.Abs(v) < 0.08) v = 0;   // a dead band around the middle, so centring is easy
+            if (v != plan.rudder) { plan.rudder = v; dirty = true; }
+        }
+
         // ---------- the rocket, the speed brake and the target ----------
 
         /// <summary>Turns until the rocket can be lit again (0 ready).</summary>

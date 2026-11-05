@@ -64,11 +64,19 @@ namespace Ooda.Flight.Core
         uint wingDrop = 1944;           // a tiny deterministic generator, so a cloned model flies the same future
 
         public bool Departed => departure != Departure.None;
+
+        /// <summary>
+        /// Vertical flight: nose high and too slow for the wing to fly the path (a tail slide, a hammerhead). The nose is then
+        /// its own direction (nose) and the path goes where gravity, the engine and the drag take it.
+        /// </summary>
+        public bool vertical;
+        public Vec3d nose;
         public double Ktas => state.vel.Length * Atmosphere.FtpsToKt;
         public double AltFt => state.pos.z;
         public double Kias => Atmosphere.TasToIasKt(Ktas, AltFt);
         public double Mach => Atmosphere.Mach(Ktas, AltFt);
-        public Vec3d Forward => state.vel.Normalized;
+        /// <summary>Where the nose points: along the path, or (in vertical flight) its own way.</summary>
+        public Vec3d Forward => vertical ? nose : state.vel.Normalized;
         public Vec3d Up => state.up;
         public Vec3d Right => Vec3d.Cross(Forward, Up);
 
@@ -104,6 +112,7 @@ namespace Ooda.Flight.Core
 
         public void Step(FlightControls c, double dt)
         {
+            if (vertical) { StepVertical(c, dt); return; }
             var n = numbers;
             double ktas = Ktas, kias = Kias;
             double p = Math.Max(-1, Math.Min(1, c.pitch));
@@ -216,6 +225,104 @@ namespace Ooda.Flight.Core
             state.up = (up * Math.Cos(phi) + right * Math.Sin(phi)).SquareTo(fwd);
 
             alphaShown += (FlownAlphaDeg() - alphaShown) * Math.Min(1, dt * 4);
+
+            // Nose high and nearly out of speed: the wing stops flying the path (a tail slide or a hammerhead comes next)
+            if (!Departed && state.vel.Length < n.verticalEntryFtps && fwd.z > Math.Sin(50 * Math.PI / 180))
+            {
+                vertical = true;
+                nose = fwd;
+                departBuild = 0;
+            }
+        }
+
+        /// <summary>
+        /// Vertical flight, step by step. No lift: gravity, the engine along the nose and the drag along the path move it.
+        /// The nose turns three ways: the controls, as far as the air (the speed) and the propeller's blast over the tail
+        /// still work them (full rudder at full power swings it over: the hammerhead, or stall turn); and the relative wind,
+        /// which swings it toward the way the aircraft moves (sliding back, the nose falls through: the tail slide). With
+        /// the stick neutral it falls forward, onto its belly; held back, over onto its back. Once it is moving along the
+        /// nose again and fast enough, it flies normally.
+        /// </summary>
+        void StepVertical(FlightControls c, double dt)
+        {
+            var n = numbers;
+            double p = Math.Max(-1, Math.Min(1, c.pitch));
+            double ail = Math.Max(-1, Math.Min(1, c.roll));
+            double ped = Math.Max(-1, Math.Min(1, c.yaw));
+
+            // Engine, rocket, brake: as in normal flight
+            double lever = Math.Max(0, Math.Min(1, c.throttle));
+            throttle += Math.Max(-dt * 0.8, Math.Min(dt * 0.8, lever - throttle));
+            wepOn = c.wep && lever > 0.95;
+            double power = throttle * (wepOn ? n.wepFactor : 1);
+            rocketCoolSec = Math.Max(0, rocketCoolSec - dt);
+            if (c.rocket && RocketReady) { rocketBurnSec = n.rocketSec; rocketCoolSec = n.rocketCooldownSec; }
+            double boost = 0;
+            if (rocketBurnSec > 0) { boost = n.rocketG * Math.Min(1, rocketBurnSec / dt); rocketBurnSec = Math.Max(0, rocketBurnSec - dt); }
+            brakeOut = c.brake;
+
+            Vec3d vel = state.vel;
+            double v = vel.Length;
+            Vec3d up = state.up.SquareTo(nose);
+            Vec3d right = Vec3d.Cross(nose, up);
+
+            // What still steers: the airflow from the speed, and the propeller's blast over the tail
+            double air = Math.Min(1, v / 200.0);
+            double auth = Math.Min(1, 0.1 + n.propWash * 0.9 * throttle + air);
+            double rad = Math.PI / 180;
+            Vec3d omega = up * (-ped * n.lowSpeedYawDps * auth * rad)          // right pedal swings the nose right
+                        + right * (p * n.lowSpeedPitchDps * auth * rad)        // back stick brings it up, over the canopy
+                        + nose * (ail * n.lowSpeedRollDps * auth * rad);       // right stick rolls right
+            // The relative wind: the nose turns toward the way it moves, faster the faster it moves and the further off it is
+            if (v > 3)
+            {
+                Vec3d dir = vel / v;
+                double cosA = Math.Max(-1, Math.Min(1, Vec3d.Dot(nose, dir)));
+                Vec3d axis = Vec3d.Cross(nose, dir);
+                double s = axis.Length;
+                // straight back along the nose: it falls forward (stick neutral or forward) or over onto its back (stick held back)
+                axis = s > 0.05 ? axis / s : (p > 0.2 ? right : -right);
+                double off = Math.Acos(cosA);
+                double q = Math.Min(1, (v / 100.0) * (v / 100.0));   // with the dynamic pressure: barely at all while it hangs
+                double rate = n.weathervaneDps * rad * q * Math.Min(1, off / (Math.PI / 4) + 0.15);
+                omega = omega + axis * rate;
+            }
+            double w = omega.Length;
+            if (w > 1e-9)
+            {
+                Vec3d k = omega / w;
+                double th = w * dt, ct = Math.Cos(th), st = Math.Sin(th);
+                Vec3d Rot(Vec3d x) => x * ct + Vec3d.Cross(k, x) * st + k * (Vec3d.Dot(k, x) * (1 - ct));
+                nose = Rot(nose).Normalized;
+                up = Rot(up).SquareTo(nose);
+            }
+
+            // The path: gravity, the engine along the nose, the drag against the way it moves (no lift)
+            double ktas = v * Atmosphere.FtpsToKt;
+            double ias = Atmosphere.TasToIasKt(ktas, AltFt);
+            double thrust = power * n.ThrustPerWeight(Math.Max(0, Vec3d.Dot(vel, nose)) * Atmosphere.FtpsToKt, AltFt) + boost;
+            double drag = n.DragPerWeight(ias, 0) + (c.brake ? n.brakeG * ias * ias / (300.0 * 300.0) : 0);
+            Vec3d acc = nose * (thrust * Atmosphere.GFtps2) - (v > 1e-6 ? vel / v : Vec3d.Zero) * (drag * Atmosphere.GFtps2);
+            acc.z -= Atmosphere.GFtps2;
+            Vec3d v0 = vel;
+            vel = vel + acc * dt;
+            state.pos = state.pos + (v0 + vel) * (dt / 2);
+            state.vel = vel;
+            state.up = up;
+            excess = thrust - drag;
+
+            g = 0; gRate = 0; gAsked = 1; sideG = 0; stalled = true;
+            rollRateDps = ail * n.lowSpeedRollDps * auth;
+            alphaShown += (0 - alphaShown) * Math.Min(1, dt * 4);
+
+            // Moving along the nose again, fast enough: the wing flies the path once more
+            v = vel.Length;
+            if (v > n.verticalExitFtps && Vec3d.Dot(vel / v, nose) > Math.Cos(20 * Math.PI / 180))
+            {
+                vertical = false;
+                state.up = up.SquareTo(vel / v);
+                g = Math.Min(1, n.AvailableG(Kias));
+            }
         }
     }
 }

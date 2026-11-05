@@ -125,7 +125,9 @@ namespace Ooda.Turn.Core
                 them = Target(battle);
                 sub = null;
                 if (them < 0) return null;
-                sub = battle.Subset(Nearby(battle, them));   // me is 0 in it, the target 1
+                var keep = Nearby(battle, them);
+                sub = battle.Subset(keep);   // me is 0 in it, the target 1
+                if (battle.Jammed(me)) Jam.Scramble(sub, 0, battle.turn, keep);   // jammed: it plans against where the others aren't
                 if (ignoreObstacles) sub.obstacleHit = sub.wires == null ? null : (Func<Vec3d, Vec3d, bool>)sub.wires.Hit;   // the air hazards' plain shapes, not the colliders
                 // only the flak that could reach it this turn
                 var near = new List<FlakSite>();
@@ -374,7 +376,7 @@ namespace Ooda.Turn.Core
         }
 
         /// <summary>
-        /// Someone on its tail with guns on it: a balloon mine let go in their path; with no mine left (or hurt), stealth,
+        /// Someone on its tail with guns on it: a balloon mine let go in their path; with none left, the jammer; then (hurt) stealth,
         /// unless it is firing this turn (that would show it again at once).
         /// </summary>
         void Defend(Battle sub, ref TurnPlan plan)
@@ -394,6 +396,7 @@ namespace Ooda.Turn.Core
             }
             if (!tailed) return;
             if (sub.balloonMines[0] > 0) { plan.mine = true; return; }
+            if (sub.jammers[0] > 0) { plan.jam = true; return; }
             bool hurt = sub.health[0] < 0.7 * sub.combat[0].health;
             if (sub.stealths[0] > 0 && hurt && plan.burstEnd <= plan.burstStart && !plan.missile) plan.cloak = true;
         }

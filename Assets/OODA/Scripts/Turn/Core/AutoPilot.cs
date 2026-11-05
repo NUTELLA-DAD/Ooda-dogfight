@@ -28,6 +28,10 @@ namespace Ooda.Turn.Core
         public bool ram;
         /// <summary>Go stealthy at the start of the turn: unseen for two turns, until you fire (see Specials).</summary>
         public bool cloak;
+        /// <summary>Set off the jammer at the start of the turn: the enemies near you see scrambled ghosts for two turns (see Specials).</summary>
+        public bool jam;
+        /// <summary>The rudder pedals held all turn (-1 full left to 1 full right), with the arrow; the timeline sets its own.</summary>
+        public double rudder;
         public bool hold;          // fly on with the stick where it is instead (the "keeps doing what it's doing" projection)
         public double overpull;    // 0..1: the arrow past the ring; the stick goes that far beyond the stall line toward full aft
         /// <summary>The turn's timeline instead of the arrow: points that each change some settings from their time on (see Mark, StateAt).</summary>
@@ -55,6 +59,7 @@ namespace Ooda.Turn.Core
                                       : AutoPilot.BankAndPull(m, s.bankDeg.Value, s.g, s.throttle, s.wep);
                 if (!m.Departed) c.yaw = s.rudder;
             }
+            if (!HasMarks && rudder != 0 && !m.Departed) c.yaw = Math.Max(-1, Math.Min(1, rudder));   // the pedals, with the arrow
             c.rocket = rocket && t < 0.1;   // lit at the start of the turn, or not this turn
             c.brake = brake;
             return c;
@@ -134,6 +139,9 @@ namespace Ooda.Turn.Core
         {
             var n = m.numbers;
             if (m.Departed && overpull < 0.5) return Recovery(m);
+            // Vertical flight (out of speed nose high): the stick is left alone, the slide or the rudder does the rest;
+            // an arrow pulled into the overpull band holds it back, so it falls over onto its back
+            if (m.vertical) return new FlightControls { pitch = overpull > 0 ? Math.Min(1, overpull) : 0, throttle = throttle, wep = wep };
             Vec3d fwd = m.Forward, up = m.Up, right = m.Right;
             double v = m.state.vel.Length;
 

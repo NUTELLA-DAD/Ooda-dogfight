@@ -80,6 +80,15 @@ namespace Ooda.Flight.Core
         public double incipientRecoverySec = 0.8;   // stick forward held this long gets out of an incipient spin
         public double spinRecoverySec = 2.5;        // opposite rudder and stick forward held this long stops a developed one
 
+        // Low and slow, nose high: the tail slide and the hammerhead (see FlightModel's vertical flight). Estimates to tune by feel.
+        public double verticalEntryFtps = 120;      // nose more than 50 degrees up and slower than this: the wing no longer flies the path
+        public double verticalExitFtps = 150;       // moving along the nose again this fast: flying normally again
+        public double propWash = 1;                 // how much the propeller's blast over the tail still steers at no airspeed (a jet: little)
+        public double lowSpeedYawDps = 75;          // full rudder, full power, no airspeed: how fast the nose swings (the hammerhead)
+        public double lowSpeedPitchDps = 45;        // the same for the elevator
+        public double lowSpeedRollDps = 60;         // and the ailerons (with the torque)
+        public double weathervaneDps = 140;         // how fast the relative wind swings the nose toward the way it moves, at 100 ft/s or more (less with the square of the speed below it)
+
         /// <summary>The most G the wing gives at this speed before it stalls: (KIAS / stall speed)^2.</summary>
         public double StallLimitG(double kias) => (kias / stallKias) * (kias / stallKias);
 
@@ -284,7 +293,7 @@ namespace Ooda.Flight.Core
         public static AircraftNumbers Phantom() => new AircraftNumbers
         {
             name = "F-4 Phantom II",
-            maxG = 7.33, minG = -3, stallKias = 150, negStallKias = 188, vneKias = 750,
+            propWash = 0.3, maxG = 7.33, minG = -3, stallKias = 150, negStallKias = 188, vneKias = 750,
             rollPerKtasDps = 0.55, maxRollRateDps = 200, rollFullRateSec = 0.35,
             gOnsetGps = 8, gOnsetAccelGps2 = 32,
             rudderSideG = 0.3, rudderFullKias = 250,

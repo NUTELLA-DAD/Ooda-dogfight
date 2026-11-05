@@ -415,7 +415,8 @@ namespace Ooda.Turn
             plan.marks = null;
             plan.missile = false;
             plan.rocket = plan.brake = false;
-            plan.mine = plan.ram = plan.cloak = false;
+            plan.mine = plan.ram = plan.cloak = plan.jam = false;
+            plan.rudder = 0;
             markT = 0;
             burstPreset = 0;
             OrdersTurnStarts();
@@ -668,7 +669,7 @@ namespace Ooda.Turn
         /// <summary>The throttle bottom left and the stick bottom right, as big as the room beside the planning panel allows.</summary>
         void DrawGauge(float sw, float sh)
         {
-            stickRect = Rect.zero;
+            stickRect = pedalRect = Rect.zero;
             if (gauge == null || !gauge.Visible || gauge.StickTexture == null) return;
             float pw = Mathf.Min(640, sw - 40);
             float h = Mathf.Min(240f, ((sw - pw) / 2 - 20) / 0.9f, sh * 0.32f);
@@ -687,6 +688,7 @@ namespace Ooda.Turn
             GUI.Label(new Rect(right.x - 20, y - 18, w + 40, 20), gaugeOver > 0 ? "Stick: overpull" : sk > 0 ? "Stick: shaker" : steer ? "Stick: drag to steer" : "Stick", cap);
             guiRects.Add(left); guiRects.Add(right);
             stickRect = right;
+            DrawPedals(new Rect(right.x, y - 46, w, 22), cap);
         }
 
         /// <summary>
@@ -812,6 +814,7 @@ namespace Ooda.Turn
                     if (phase == Phase.Planning && burstRect.Contains(gui)) { dragBurst = true; SetBurstFromBar(gui.x, true); }
                     else if (phase == Phase.Planning && movesRect.Contains(gui)) { dragMoves = true; SetMarkTime(gui.x); }
                     else if (PressStick(gui)) { }
+                    else if (PressPedals(gui)) { }
                     else if (guiRects.Any(r => r.Contains(gui))) { }
                     else if (phase == Phase.Planning && !plan.HasMarks && ArrowShown && NearTip(pos)) dragArrow = true;
                     else dragLook = true;
@@ -820,11 +823,12 @@ namespace Ooda.Turn
                 {
                     if (dragArrow) DragArrow(pos);
                     else if (dragStick) DragStick(gui);
+                    else if (dragPedals) SetPedals(gui.x);
                     else if (dragBurst) SetBurstFromBar(gui.x, false);
                     else if (dragMoves) SetMarkTime(gui.x);
                     else if (dragLook && view != null && (mouse == null || !mouse.rightButton.isPressed)) view.Orbit((pos - lastPointer) * 0.25f);
                 }
-                if (pointer.press.wasReleasedThisFrame) { dragArrow = dragLook = dragMoves = dragStick = false; if (dragBurst) { dragBurst = false; TidyBurst(); } }
+                if (pointer.press.wasReleasedThisFrame) { dragArrow = dragLook = dragMoves = dragStick = dragPedals = false; if (dragBurst) { dragBurst = false; TidyBurst(); } }
                 lastPointer = pos;
             }
 
@@ -862,6 +866,14 @@ namespace Ooda.Turn
                 if (kb != null) { if (kb.zKey.isPressed) rud -= 1; if (kb.cKey.isPressed) rud += 1; }
                 if (rud != 0) NudgeRudder(rud * 1.5f * dt);
             }
+            else if (!plan.HasMarks && kb != null)
+            {
+                // Z/C are the rudder pedals: left and right foot, held for as long as the key is down; X centres them too
+                float rud = 0;
+                if (kb.zKey.isPressed) rud -= 1;
+                if (kb.cKey.isPressed) rud += 1;
+                if (rud != 0) { plan.rudder = Math.Max(-1, Math.Min(1, plan.rudder + rud * 1.5 * dt)); dirty = true; }
+            }
             if (plan.HasMarks)
             {
                 if (Mathf.Abs(move.x) > 0.1f && bank == 0) NudgeBank(move.x * 90f * dt);
@@ -873,7 +885,7 @@ namespace Ooda.Turn
                 double rate = 45 * Math.PI / 180 * dt;
                 SetAim(plan.aim + env.up * (move.y * rate) + env.right * (move.x * rate));
             }
-            if (Pressed(Key.X) || (pad != null && pad.leftShoulder.wasPressedThisFrame)) { if (plan.HasMarks) ClearMarks(); else SetAim(env.fwd); }
+            if (Pressed(Key.X) || (pad != null && pad.leftShoulder.wasPressedThisFrame)) { if (plan.HasMarks) ClearMarks(); else { SetAim(env.fwd); if (plan.rudder != 0) { plan.rudder = 0; dirty = true; } } }
 
             // Throttle and WEP
             float thr = 0;
@@ -1224,25 +1236,27 @@ namespace Ooda.Turn
             {
                 if (battle.Out(i) || HiddenFromMe(i)) continue;   // a stealthy enemy: no path, no ghost
                 bool noGhost = i >= holos.Length || holos[i] == null;
-                if (battle.routes[i] != null) DrawPath(preview.frames[i], end, bomberColor, noGhost);
-                else if (battle.side[i] != 0) { if (showProjection) DrawPath(preview.frames[i], end, projectionColor, noGhost); }
-                else DrawPath(preview.frames[i], end, wingmanColor, noGhost);
+                var seen = Seen(i, preview.frames[i]);   // jammed: the enemies' paths where they aren't
+                if (battle.routes[i] != null) DrawPath(seen, end, bomberColor, noGhost);
+                else if (battle.side[i] != 0) { if (showProjection) DrawPath(seen, end, projectionColor, noGhost); }
+                else DrawPath(seen, end, wingmanColor, noGhost);
             }
             // lined up behind it, your ghost shows where it is at the funnel's moment
             ShowHolo(holoMine, preview.frames[0][sightView ? Mathf.Min(end, FunnelFrame()) : end], true, badPath ? overpullColor : holoColor);
             for (int i = 1; i < holos.Length; i++)
             {
                 bool hitByMe = i < burstHits.Length && burstHits[i] && battle.side[i] != battle.side[0];
-                ShowHolo(holos[i], preview.frames[i][end], !battle.Out(i) && !HiddenFromMe(i) && (battle.side[i] == 0 || showProjection) && !(sightView && battle.side[i] != battle.side[0]),   // lined up, only the funnel's target shows (ShowFunnelTarget)
+                ShowHolo(holos[i], Seen(i, preview.frames[i])[end], !battle.Out(i) && !HiddenFromMe(i) && JamFlicker(i) && (battle.side[i] == 0 || showProjection) && !(sightView && battle.side[i] != battle.side[0]),   // lined up, only the funnel's target shows (ShowFunnelTarget)
                          battle.side[i] == 0 ? holoFriendColor : hitByMe ? holoTargetHitColor : holoEnemyColor);
             }
-            if (sightView) ShowFunnelTarget();   // lined up: the target's likely moves as models at the funnel's moment
+            if (JammedNow) HideSpread();   // jammed: no read on their likely moves
+            else if (sightView) ShowFunnelTarget();   // lined up: the target's likely moves as models at the funnel's moment
             else DrawSpreadAndLead();
             DrawFunnel();
             if (!sightView)
             foreach (var tr in preview.traces)
             {
-                if (tr.owner != 0 && !showProjection || HiddenFromMe(tr.owner)) continue;
+                if (tr.owner != 0 && !showProjection || HiddenFromMe(tr.owner) || JammedFrom(tr.owner)) continue;
                 if (tr.missile) { DrawPreviewTrace(tr, new Color(1f, 1f, 1f, 0.8f), 1.0f, 0.3f); continue; }
                 DrawPreviewTrace(tr, OutcomeColor(tr, TracerColor(tr.owner)), tr.hit ? 0.5f : 0.35f, tr.hit ? 0.5f : 0.1f);
             }
@@ -1397,7 +1411,7 @@ namespace Ooda.Turn
             if (holo == null) return;
             holo.SetActive(show);
             if (!show) return;
-            TurnAircraftView.Pose(holo.transform, f.pos, f.vel, f.up, f.alphaDeg);
+            TurnAircraftView.Pose(holo.transform, f.pos, f.Nose, f.up, f.alphaDeg);
             // a slow shimmer, like a projection
             float k = 0.8f + 0.2f * Mathf.Sin(Time.time * 6f) + 0.05f * Mathf.Sin(Time.time * 37f);
             var r = holo.GetComponentInChildren<Renderer>();
@@ -1647,10 +1661,10 @@ namespace Ooda.Turn
             if (showHelp)
             {
                 float hy = helpTop;
-                Rect help = new Rect(10, hy, 440, 320);
+                Rect help = new Rect(10, hy, 440, 338);
                 GUI.Box(help, GUIContent.none);
                 guiRects.Add(help);
-                GUI.Label(new Rect(20, hy + 6, 425, 310),
+                GUI.Label(new Rect(20, hy + 6, 425, 328),
                     $"Plan where your nose points when the {turnSec:0.#} s turn ends. O: OODA, short turns.\n" +
                     "Drag the corner stick to steer (down pulls). It shakes near your hardest turn;\n" +
                     "harder means overpull: stall, maybe spin. F1: reach rings.\n" +
@@ -1662,7 +1676,8 @@ namespace Ooda.Turn
                     "Drag on the timeline to fire; F fires where hits are predicted.\n\n" +
                     "Keys: WASD arrow (S pulls up, like the stick), Shift/Ctrl throttle,\n" +
                     "Space WEP, 1 rocket, 2 speed brake, 3 hold flares, I IR view, Tab next plane, N next target,\n" +
-                    "4 mine, 5 heat blade, 6 stealth, B bursts, G missile, T timeline,\n" +
+                    "4 mine, 5 blade, 6 stealth, 7 jammer, B bursts, G missile, T timeline,\n" +
+                    "Z/C rudder pedals (slow and nose-high, the rudder swings the nose: hammerhead).\n" +
                     "Enter fly, R replay, P projection, V view, X straight, M mission, H help.\n" +
                     "Drag the view or right-drag to look; wheel zooms. F2: the old arrow.\n" +
                     "Pad: left stick arrow, triggers throttle, A fly, X bursts,\n" +
