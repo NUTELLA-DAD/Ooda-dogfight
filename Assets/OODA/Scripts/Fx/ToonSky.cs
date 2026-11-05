@@ -340,7 +340,8 @@ namespace Ooda.Fx
             {
                 uv3.Add(heart);
                 var v = uv2[i];
-                v.z = uv1[i].w > 3.5f ? 0f : Vector3.Distance(verts[i], heart) / far;
+                // (a storm grows from the bottom up instead: the tower climbs, then the anvil spreads at its top)
+                v.z = uv1[i].w > 3.5f ? 0f : kind == Kind.Storm ? Mathf.Clamp01((verts[i].y - bankBase) / Mathf.Max(1f, topOut - bankBase)) : Vector3.Distance(verts[i], heart) / far;
                 uv2[i] = v;
             }
 

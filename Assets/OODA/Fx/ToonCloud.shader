@@ -75,8 +75,9 @@ Shader "Ooda/ToonCloud"
                 float g = lerp(0.2, 1.0, smoothstep(0.0, 1.0, life));
                 float3 heart = TransformObjectToWorld(a.uv3);
                 cw = heart + (cw - heart) * g;
-                float lifeP = saturate((life * 1.6 - a.uv2.z * 0.6) * 1.5);
-                R *= g * lerp(0.5, 1.0, lifeP) * step(0.02, life) * (1.0 + drift.w * sin(t * drift.z + seed * 40.0));
+                // (a late puff swells from nothing right beside the ones already there, never as a lone half-size ball)
+                float lifeP = smoothstep(0.0, 1.0, saturate((life * 1.6 - a.uv2.z * 0.6) * 2.0));
+                R *= g * lifeP * (1.0 + drift.w * sin(t * drift.z + seed * 40.0));
             }
             cw += float3(_ToonWind.x, 0, _ToonWind.z) * ((u - 0.5) * drift.y);
             float3 cv = TransformWorldToView(cw);
@@ -109,7 +110,10 @@ Shader "Ooda/ToonCloud"
             float under = smoothstep(0.25, 0.5, normalize(cw - GetCameraPositionWS()).y);
             float baseY = a.uv1.x - under * 4.0 * R;
             // fly into a puff and it thins away (dithered) rather than filling the screen; a rain shaft fades with its storm
-            float fade = rain ? life : saturate((length(cv) - R * 0.6) / (R * 0.9));
+            // and a puff so close it would fill a third of the screen thins away too: one flat disc that size reads as a
+            // ball stuck to the lens, not a cloud; rain only falls once its storm has grown
+            float pxFrac = R / (mPerPx * _ScreenParams.y);
+            float fade = rain ? smoothstep(0.55, 0.85, life) : saturate((length(cv) - R * 0.6) / (R * 0.9)) * saturate((0.6 - pxFrac) / 0.25);
             o.d = float4(baseY, a.uv1.y, a.uv1.z, fade);
             // the lit tone sits toward the sun, always a little up (light from above even with the sun behind you)
             float3 s = mul((float3x3)UNITY_MATRIX_V, _ToonSunDir.xyz);
