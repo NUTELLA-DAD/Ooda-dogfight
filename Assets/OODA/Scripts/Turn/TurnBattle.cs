@@ -765,7 +765,7 @@ namespace Ooda.Turn
             if (!planning)   // planning, the quadrant beside it says the throttle
                 Shadow(new Rect(left.x, left.y - 18, left.width, 20), gaugeWep ? $"Throttle {gaugeThrottle * 100:F0}%  {WepName}" : $"Throttle {gaugeThrottle * 100:F0}%", cap);
             bool steer = planning && !plan.HasMarks;
-            Shadow(new Rect(mid.x - 40, mid.y - 18, mid.width + 80, 20), steer ? "Stick: drag to steer" : "Stick", cap);
+            Shadow(new Rect(mid.x - 40, Mathf.Min(mid.y, ctl.panelTop) - 22, mid.width + 80, 20), steer ? "Stick: drag to steer" : "Stick", cap);   // over the panel, not on its rim
             guiRects.Add(left); guiRects.Add(mid);
             stickRect = mid;
             throttleRect = planning ? left : Rect.zero;

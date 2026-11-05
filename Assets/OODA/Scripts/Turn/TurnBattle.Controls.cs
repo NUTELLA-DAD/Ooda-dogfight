@@ -258,6 +258,10 @@ namespace Ooda.Turn
         {
             float x = q.x, y = q.y, w = q.width;
             guiRects.Add(q);
+            // a dark plate behind the label and the slider, so they read where the panel's slope leaves them over the world
+            Rect plate = new Rect(x - 4, y - 2, w + 8, 2 * QuadRow);
+            Fill(plate, SwEdge);
+            Fill(new Rect(plate.x + 1, plate.y + 1, plate.width - 2, plate.height - 2), SwPlate);
             string thrText = plan.HasMarks ? $"Start {plan.throttle * 100:F0}%" : $"Throttle {plan.throttle * 100:F0}%";
             if (!Jet && plan.throttle >= 0.995) thrText += "  WEP";
             Shadow(new Rect(x, y, w, 22), thrText, new GUIStyle(label) { fontStyle = FontStyle.Bold });
