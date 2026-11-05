@@ -103,7 +103,7 @@ namespace Ooda.Turn
             if (!ctl.pictures || ctl.asi.width <= 0) return;
             if (dialNum == null)
             {
-                dialNum = new GUIStyle(GUI.skin.label) { fontSize = 10, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, padding = new RectOffset(0, 0, 0, 0), clipping = TextClipping.Overflow };
+                dialNum = new GUIStyle(GUI.skin.label) { fontSize = 10, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, padding = new RectOffset(0, 0, 0, 0), clipping = TextClipping.Overflow, wordWrap = false };
                 dialNum.normal.textColor = new Color(0.95f, 0.95f, 0.9f);
                 dialName = new GUIStyle(dialNum) { fontSize = 9, fontStyle = FontStyle.Normal };
                 dialName.normal.textColor = new Color(0.8f, 0.82f, 0.78f);
@@ -187,7 +187,7 @@ namespace Ooda.Turn
             Fill(new Rect(c.x - br * 0.62f, c.y - 1.5f, br * 0.42f, 3), DialAmber);
             Fill(new Rect(c.x + br * 0.2f, c.y - 1.5f, br * 0.42f, 3), DialAmber);
             Fill(new Rect(c.x - 2.5f, c.y - 2.5f, 5, 5), DialAmber);
-            GUI.Label(new Rect(d.x, d.yMax - 2, d.width, 12), $"PITCH {pitch:+0;-0;0}  BANK {Mathf.Abs(bank):0}", dialName);
+            GUI.Label(new Rect(d.x - 30, d.yMax - 2, d.width + 60, 12), $"PITCH {pitch:+0;-0;0}  BANK {Mathf.Abs(bank):0}", dialName);
         }
 
         static void BuildAttitudeBall(float pitch, float bank)
