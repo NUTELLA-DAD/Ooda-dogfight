@@ -55,7 +55,8 @@ Shader "Ooda/ToonSky"
                 // (two overlapping, smooth ramps: no seam where one hands over to the other)
                 half3 c = lerp(_Horizon.rgb, _High.rgb, 1 - exp(-upness * 7.0));
                 c = lerp(c, _Zenith.rgb, smoothstep(0.08, 1.0, upness));
-                c = lerp(c, _Ground.rgb, smoothstep(0.0, 0.3, -h));
+                // (below the horizon it stays the horizon's colour, which is the fog's: the fogged sea out at the far clip
+                // meets it with no seam)
                 // the warm glow along the horizon on the sun's side
                 float2 dx = d.xz / max(length(d.xz), 1e-4), sx = sun.xz / max(length(sun.xz), 1e-4);
                 float toward = saturate(dot(dx, sx) * 0.5 + 0.5);

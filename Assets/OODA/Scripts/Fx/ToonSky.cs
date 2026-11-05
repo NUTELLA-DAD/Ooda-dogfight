@@ -18,7 +18,7 @@ namespace Ooda.Fx
         public static readonly Color Zenith = Hex("#1a4ed6"), High = Hex("#2b8ef4"), Horizon = Hex("#a3e8ff"), Glow = Hex("#ffd39e"),
             Ground = Hex("#74b8dc"), Sun = Hex("#fffbe6"), SunRing = Hex("#fff0ad");
         public static readonly Color CloudLit = Hex("#fffdf4"), CloudShade = Hex("#b4c3ff"), CloudBelly = Hex("#9b8ce8"), CloudLine = Hex("#4a50c2");
-        public static readonly Color HazeTint = new Color(0.86f, 0.95f, 1f, 0.2f), HazeOuterTint = new Color(0.8f, 0.93f, 1f, 0.09f);
+        public static readonly Color HazeTint = new Color(0.86f, 0.95f, 1f, 0.1f);
 
         /// <summary>Off: leave the scenes' own sky and cloud models alone (for comparing).</summary>
         public static bool Enabled = true;
@@ -73,7 +73,7 @@ namespace Ooda.Fx
         // ---------------------------------------------------------------------------------------------------------
         // the clouds
 
-        static Material hazeInner, hazeOuter;
+        static Material hazeInner;
 
         static void Clouds(Transform root)
         {
@@ -119,14 +119,14 @@ namespace Ooda.Fx
         {
             var src = r.sharedMaterial;
             if (src == null || !src.HasProperty("_Color")) return;
-            bool outer = r.name.Contains("outer");
-            ref var m = ref outer ? ref hazeOuter : ref hazeInner;
-            if (m == null || m.shader != src.shader)
+            // (only the inner shell, and faint: the clouds are crisp like the smoke, a wide glow round them blurs that)
+            if (r.name.Contains("outer")) { r.enabled = false; return; }
+            if (hazeInner == null || hazeInner.shader != src.shader)
             {
-                m = new Material(src) { name = src.name + " (toon)" };
-                m.SetColor("_Color", outer ? HazeOuterTint : HazeTint);
+                hazeInner = new Material(src) { name = src.name + " (toon)" };
+                hazeInner.SetColor("_Color", HazeTint);
             }
-            r.sharedMaterial = m;
+            r.sharedMaterial = hazeInner;
         }
 
         // stable hashes, so the clouds are the same every run
@@ -143,11 +143,13 @@ namespace Ooda.Fx
         {
             var verts = new List<Vector3>(512); var uv0 = new List<Vector4>(512); var uv1 = new List<Vector4>(512); var tris = new List<int>(768);
             float top = float.MinValue, maxR = 0f;
-            foreach (var p in pieces) top = Mathf.Max(top, p.max.y);
+            float bankBase = float.MaxValue;
+            foreach (var p in pieces) { top = Mathf.Max(top, p.max.y); bankBase = Mathf.Min(bankBase, p.min.y + p.size.y * 0.18f); }
             var box = pieces[0];
             int made = 0;
 
-            void Puff(Vector3 c, float r, float baseY, int s)
+            // (one flat base for the whole bank: cut at each piece's own height, a bank seen from below is a stack of slices)
+            void Puff(Vector3 c, float r, int s)
             {
                 int m = verts.Count;
                 float shape = R01(s, 1), lobes = 3 + (int)(R01(s, 2) * 2.99f);
@@ -155,7 +157,7 @@ namespace Ooda.Fx
                 {
                     verts.Add(c);
                     uv0.Add(new Vector4(k == 0 || k == 3 ? -1 : 1, k < 2 ? -1 : 1, r, shape));
-                    uv1.Add(new Vector4(baseY, top, lobes, 0));
+                    uv1.Add(new Vector4(bankBase, top, lobes, 0));
                 }
                 tris.Add(m); tris.Add(m + 2); tris.Add(m + 1); tris.Add(m); tris.Add(m + 3); tris.Add(m + 2);
                 box.Encapsulate(new Bounds(c, Vector3.one * (r * 2.4f)));
@@ -179,7 +181,7 @@ namespace Ooda.Fx
                     int s = ps + k * 13;
                     float a = (k + Rng(s, 3, -0.3f, 0.3f)) / rim * Mathf.PI * 2f, rr = Rng(s, 4, 0.7f, 0.92f);
                     float r = rb * Rng(s, 5, 0.5f, 0.72f);
-                    Puff(new Vector3(pb.center.x + Mathf.Cos(a) * rr * ex, baseY + r * Rng(s, 6, 0.3f, 0.55f), pb.center.z + Mathf.Sin(a) * rr * ez), r, baseY, s);
+                    Puff(new Vector3(pb.center.x + Mathf.Cos(a) * rr * ex, bankBase + r * Rng(s, 6, 0.3f, 0.55f), pb.center.z + Mathf.Sin(a) * rr * ez), r, s);
                 }
                 // the heap: bigger and higher toward the middle
                 for (int k = 0; k < n; k++)
@@ -188,7 +190,7 @@ namespace Ooda.Fx
                     float a = Rng(s, 3, 0f, Mathf.PI * 2f), rr = Mathf.Sqrt(R01(s, 4)) * 0.8f, mid = 1f - rr * rr;
                     float r = rb * (0.55f + 0.6f * mid) * Rng(s, 5, 0.85f, 1.15f);
                     float y = baseY + r * 0.35f + mid * Mathf.Max(0f, top - baseY - r) * Rng(s, 6, 0.3f, 0.85f);
-                    Puff(new Vector3(pb.center.x + Mathf.Cos(a) * rr * ex, y, pb.center.z + Mathf.Sin(a) * rr * ez), r, baseY, s);
+                    Puff(new Vector3(pb.center.x + Mathf.Cos(a) * rr * ex, y, pb.center.z + Mathf.Sin(a) * rr * ez), r, s);
                 }
             }
 

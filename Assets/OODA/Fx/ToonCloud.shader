@@ -48,7 +48,7 @@ Shader "Ooda/ToonCloud"
             float dist = max(-cv.z, 0.01);
             // the line is at least ~1.7 pixels wide, and never thinner than 6% of the puff
             float pxR = R * abs(UNITY_MATRIX_P[1][1]) * 0.5 * _ScreenParams.y / dist;
-            float lw = max(0.06, 1.7 / max(pxR, 1.0));
+            float lw = clamp(1.7 / max(pxR, 1.0), 0.06, 0.35);
             float grow = isLine ? 1.0 + lw : 1.0;
             float2 corner = a.uv0.xy * grow;
             float3 right = UNITY_MATRIX_V[0].xyz, up = UNITY_MATRIX_V[1].xyz;
@@ -59,7 +59,11 @@ Shader "Ooda/ToonCloud"
             o.w.w = ComputeFogFactor(o.positionCS.z);
             o.c = float4(corner, lw, a.uv0.w * 6.2832);
             // fly into a puff and it thins away (dithered) rather than filling the screen
-            o.d = float4(a.uv1.x, a.uv1.y, a.uv1.z, saturate((length(cv) - R * 0.7) / (R * 0.9)));
+            // the flat base only reads from the side: looking up at a bank from under it, the cut would slice every puff at
+            // a different place on screen, so it (and the belly band) sinks away and the puffs stay round
+            float under = smoothstep(0.25, 0.5, normalize(cw - GetCameraPositionWS()).y);
+            float baseY = a.uv1.x - under * 4.0 * R;
+            o.d = float4(baseY, a.uv1.y, a.uv1.z, saturate((length(cv) - R * 0.7) / (R * 0.9)));
             // the lit tone sits toward the sun, always a little up (light from above even with the sun behind you)
             float3 s = mul((float3x3)UNITY_MATRIX_V, _ToonSunDir.xyz);
             float2 off = s.xy + float2(0, 0.45);
