@@ -6,8 +6,9 @@ namespace Ooda.Turn
 {
     /// <summary>
     /// The bottom of the screen as a cockpit: a gunmetal instrument panel shaped as a trapezoid, its padded coaming
-    /// flat across the middle over the stick and the throttle (both stand inside it) and sloping down to the bottom corners;
-    /// and round dials grouped on the stick's right: the airspeed indicator and the altimeter side by side, the G meter under them.
+    /// flat across the middle over the stick (it stands inside it) and sloping down to the bottom corners;
+    /// and the instruments grouped left of the stick: the airspeed indicator and the altimeter side by side, the G meter and the
+    /// system lights under them.
     /// While planning they read where the turn starts; during playback they follow the plane.
     /// </summary>
     public partial class TurnBattle
@@ -117,7 +118,44 @@ namespace Ooda.Turn
             AirspeedDial(ctl.asi, shownKias);
             AltimeterDial(ctl.alt, shownAlt);
             GDial(ctl.gmeter, shownG, (float)m.numbers.maxG);
+            if (ctl.lights.width > 0) SystemLights(ctl.lights);
         }
+
+        static readonly string[] LightNames = { "ENG", "FUEL", "CTRL", "WING" };
+        GUIStyle lightText;
+
+        /// <summary>
+        /// The crucial system lights beside the G meter, a two by two annunciator: a lamp each for the engine, the fuel,
+        /// the flight controls and the wings. <see cref="SystemLight"/> says what each shows; without it they stay green.
+        /// </summary>
+        void SystemLights(Rect r)
+        {
+            if (lightText == null)
+            {
+                lightText = new GUIStyle(GUI.skin.label) { fontSize = 11, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, padding = new RectOffset(0, 0, 0, 0), clipping = TextClipping.Clip };
+                lightText.font = Ooda.UI.BriefingStyle.Stencil;
+            }
+            Fill(r, SwEdge);
+            Fill(new Rect(r.x + 1, r.y + 1, r.width - 2, r.height - 2), SwHole);
+            float cw = (r.width - 6) / 2, ch = (r.height - 6) / 2;
+            for (int k = 0; k < 4; k++)
+            {
+                var cell = new Rect(r.x + 2 + (k % 2) * (cw + 2), r.y + 2 + (k / 2) * (ch + 2), cw, ch);
+                Color lamp = LampGreen; string text = LightNames[k];
+                SystemLight(k, ref lamp, ref text);
+                Fill(cell, Color.Lerp(SwHole, lamp, 0.85f));
+                Fill(new Rect(cell.x, cell.y, cell.width, 2), Color.Lerp(lamp, Color.white, 0.4f));   // the lens catching the light
+                lightText.normal.textColor = new Color(0.05f, 0.05f, 0.04f);
+                GUI.Label(cell, text, lightText);
+            }
+            GUI.Label(new Rect(r.x, r.yMax + 2, r.width, 12), "SYSTEMS", dialName);
+        }
+
+        /// <summary>
+        /// What system light k (0 engine, 1 fuel, 2 flight controls, 3 wings) shows for the player's plane: its lamp's
+        /// colour (green whole, amber damaged, red out) and its text. The systems damage work fills this in.
+        /// </summary>
+        partial void SystemLight(int k, ref Color lamp, ref string text);
 
         /// <summary>A line from c at angle (degrees clockwise from straight up), from r0 to r1 out.</summary>
         static void Spoke(Vector2 c, float angleDeg, float r0, float r1, float width, Color col)

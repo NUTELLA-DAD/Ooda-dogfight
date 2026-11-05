@@ -689,7 +689,8 @@ namespace Ooda.Turn
             public float weaponsRowW;                // how wide the switch row over it may be (right-aligned)
             public float stickTop;                   // the top of the middle (the stick's caption), for text and the timeline above it
             public Rect asi, alt, gmeter;            // the dials in the panel (zero when there is no room for them)
-            public float panelTop;                   // the cockpit panel's flat top, over the stick and the throttle
+            public Rect lights;                      // the system lights' box beside the G meter (zero with the dials)
+            public float panelTop;                   // the cockpit panel's flat top, over the stick
         }
 
         ControlsLayout ctl;
@@ -711,29 +712,28 @@ namespace Ooda.Turn
                 if (side < tw + 8 + QuadW || side < WeaponsMinW) continue;
                 c.pedals = new Rect((sw - pw) / 2, sh - CtlBottom - PedalH, pw, PedalH);
                 c.stick = new Rect((sw - w) / 2, c.pedals.y - 4 - h, w, h);
-                // the throttle beside the stick, under the panel's flat top (it runs across the middle half); the quadrant
-                // in the bottom left corner, under the slope
-                c.throttle = new Rect(c.stick.x - 6 - tw, sh - CtlBottom - th, tw, th);
-                c.quadrant = new Rect(CtlMargin, sh - CtlBottom - qh, QuadW, qh);
-                if (c.throttle.x < sw * 0.25f + 4 || c.quadrant.xMax + 8 > c.throttle.x) continue;
+                // the throttle on the left, standing in front of the panel's slope, the quadrant beside it
+                c.throttle = new Rect(CtlMargin, sh - CtlBottom - th, tw, th);
+                c.quadrant = new Rect(c.throttle.xMax + 8, sh - CtlBottom - qh, QuadW, qh);
                 c.weaponsRowW = Mathf.Min(WeaponsMaxW, side);
                 float ww = Mathf.Min(mw, side);
                 c.weapons = new Rect(sw - CtlMargin - ww, sh - CtlBottom - mh, ww, mh);
                 c.stickTop = c.stick.y - 20;
-                // the panel's flat top just over the stick's and the throttle's grips, so both stand inside it
-                c.panelTop = Mathf.Min(c.stick.y, c.throttle.y) - 10;
-                // the dials together on the right of the stick, under the flat top: airspeed and altitude side by side
-                // along the top, the G meter under them
-                float rx0 = Mathf.Max(c.stick.xMax, c.pedals.xMax) + 14, rx1 = Mathf.Min(c.weapons.x, sw * 0.75f) - 14;
+                // the panel's flat top just over the stick's grip, so the stick stands inside it
+                c.panelTop = c.stick.y - 10;
+                // the instruments together between the quadrant and the stick: airspeed and altitude side by side along
+                // the top, the G meter and the system lights (ENG, FUEL, CTRL, WING) under them
+                float lx0 = c.quadrant.xMax + 14, lx1 = Mathf.Min(c.stick.x, c.pedals.x) - 14;
                 float rowsH = sh - CtlBottom - (c.panelTop + 22) - 2 * 14;   // two rows, each with its caption under it
-                float d = Mathf.Min(130f, (rx1 - rx0 - 10) / 2, rowsH / 2);
+                float d = Mathf.Min(130f, (lx1 - lx0 - 10) / 2, rowsH / 2);
                 c.pictures = true;
                 if (d >= 70)
                 {
-                    float mid = (rx0 + rx1) / 2, topY = c.panelTop + 22;
+                    float mid = (lx0 + lx1) / 2, topY = c.panelTop + 22, lowY = sh - CtlBottom - 14 - d;
                     c.asi = new Rect(mid - d - 5, topY, d, d);
                     c.alt = new Rect(mid + 5, topY, d, d);
-                    c.gmeter = new Rect(mid - d / 2, sh - CtlBottom - 14 - d, d, d);
+                    c.gmeter = new Rect(mid - d - 5, lowY, d, d);
+                    c.lights = new Rect(mid + 5, lowY + d * 0.15f, d, d * 0.7f);
                 }
                 return c;
             }
