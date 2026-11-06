@@ -109,7 +109,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Ooda.Pilot.PilotRoster
   usual: 2
-  tiger: {fileID: 8797972238053465885}
+  tiger: {fileID: 8564092714057065037}
   wolf: {fileID: 6525341031109971952}
   wizard: {fileID: 1082342956788885388}
   skeleton: {fileID: 945533321127973919}
@@ -1002,7 +1002,7 @@ PrefabInstance:
       addedObject: {fileID: 4818584890351660519}
     - targetCorrespondingSourceObject: {fileID: 4759589517719309141, guid: 3cf082666bc81b34ea7398008fb6bce4, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 8797972238053465886}
+      addedObject: {fileID: 9048316997285296375}
     - targetCorrespondingSourceObject: {fileID: 4759589517719309141, guid: 3cf082666bc81b34ea7398008fb6bce4, type: 3}
       insertIndex: -1
       addedObject: {fileID: 310345419689065782}
@@ -1662,7 +1662,7 @@ PrefabInstance:
       insertIndex: -1
       addedObject: {fileID: 5873814712490629743}
   m_SourcePrefab: {fileID: 100100000, guid: 1b6c0665b77971d40a2b3d17dcb811ba, type: 3}
---- !u!1 &8797972238053465885 stripped
+--- !u!1 &8564092714057065037 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 1b6c0665b77971d40a2b3d17dcb811ba, type: 3}
   m_PrefabInstance: {fileID: 8797972238053465884}
@@ -1673,7 +1673,7 @@ MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8797972238053465885}
+  m_GameObject: {fileID: 8564092714057065037}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8b8ca99a70995f54994c7148bfe65cdb, type: 3}
@@ -1691,7 +1691,7 @@ MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8797972238053465885}
+  m_GameObject: {fileID: 8564092714057065037}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6e1702bbb223d9844903ffec097272ba, type: 3}
@@ -1711,7 +1711,7 @@ MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8797972238053465885}
+  m_GameObject: {fileID: 8564092714057065037}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: cd4a9778c32d4eea96fe8f194505498f, type: 3}
@@ -1733,7 +1733,7 @@ MonoBehaviour:
   fistRange: 450
   fistCooldown: 14
   idleEvery: {x: 9, y: 20}
---- !u!4 &8797972238053465886 stripped
+--- !u!4 &9048316997285296375 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 1b6c0665b77971d40a2b3d17dcb811ba, type: 3}
   m_PrefabInstance: {fileID: 8797972238053465884}

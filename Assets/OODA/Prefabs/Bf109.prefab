@@ -78,7 +78,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Ooda.Pilot.PilotRoster
   usual: 2
-  tiger: {fileID: 3689696825233394605}
+  tiger: {fileID: 4608596834491922173}
   wolf: {fileID: 8803097819055563789}
   wizard: {fileID: 1946673142096445960}
   skeleton: {fileID: 8833188496524321543}
@@ -776,7 +776,12 @@ PrefabInstance:
       insertIndex: -1
       addedObject: {fileID: 2230114789361382691}
   m_SourcePrefab: {fileID: 100100000, guid: 1b6c0665b77971d40a2b3d17dcb811ba, type: 3}
---- !u!1 &3689696825233394605 stripped
+--- !u!4 &3800711306308299847 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 1b6c0665b77971d40a2b3d17dcb811ba, type: 3}
+  m_PrefabInstance: {fileID: 3689696825233394604}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &4608596834491922173 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 1b6c0665b77971d40a2b3d17dcb811ba, type: 3}
   m_PrefabInstance: {fileID: 3689696825233394604}
@@ -787,7 +792,7 @@ MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3689696825233394605}
+  m_GameObject: {fileID: 4608596834491922173}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8b8ca99a70995f54994c7148bfe65cdb, type: 3}
@@ -805,7 +810,7 @@ MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3689696825233394605}
+  m_GameObject: {fileID: 4608596834491922173}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6e1702bbb223d9844903ffec097272ba, type: 3}
@@ -825,7 +830,7 @@ MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3689696825233394605}
+  m_GameObject: {fileID: 4608596834491922173}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: cd4a9778c32d4eea96fe8f194505498f, type: 3}
@@ -847,11 +852,6 @@ MonoBehaviour:
   fistRange: 450
   fistCooldown: 14
   idleEvery: {x: 9, y: 20}
---- !u!4 &3689696825233394606 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 1b6c0665b77971d40a2b3d17dcb811ba, type: 3}
-  m_PrefabInstance: {fileID: 3689696825233394604}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &3911416153153915406
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1176,7 +1176,7 @@ PrefabInstance:
       addedObject: {fileID: 1556145689253895780}
     - targetCorrespondingSourceObject: {fileID: 4759589517719309141, guid: 6ac99236b972b68408e9dc25e5c90c00, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 3689696825233394606}
+      addedObject: {fileID: 3800711306308299847}
     - targetCorrespondingSourceObject: {fileID: 4759589517719309141, guid: 6ac99236b972b68408e9dc25e5c90c00, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1173231976304580786}

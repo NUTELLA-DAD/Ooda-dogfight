@@ -86,6 +86,18 @@ namespace Ooda.Turn.Core
         };
 
         /// <summary>
+        /// The F-15C's M61A1, 20 mm, 940 rounds at 6,000 a minute: the F-4's stream with more of it, about 9 s. Four
+        /// heat-seekers (Sidewinders) on the wing pylons. A big, tough airframe (64 ft long, 43 ft span), so a big target.
+        /// Estimates to tune by feel.
+        /// </summary>
+        public static CombatNumbers F15C() => new CombatNumbers
+        {
+            guns = "M61A1 20 mm", muzzleFps = 3380, damage = 1.3, ammoSec = 9, spreadMil = 3.2, dragPerSec = 0.3,
+            toughness = 17, sizeFt = 6, missiles = 4, flares = 8,
+            heatIdle = 1.2, heatFull = 2.4, heatWep = 2.6,   // two F100s: hot, and blazing in afterburner
+        };
+
+        /// <summary>
         /// The B-17G as a target: 104 ft span, so a much bigger hit sphere; four engines and a big airframe take
         /// about three times a fighter's damage. Its own gunners come later: no guns for now. Estimates to tune.
         /// </summary>
