@@ -282,6 +282,7 @@ namespace Ooda.Turn
             float span = v.Model.numbers != null && v.Model.numbers.name != null && v.Model.numbers.name.Contains("B-17") ? 16f : 6f;
             Glow(t.position, span + Vector3.Distance(irCamPos, t.position) * 0.003f, ram ? 0.7f : 0.16f);
             if (down) { HeatGlow(t.position, 1.5); return; }   // burning
+            if (c.iced) return;   // cased in ice: as cold as the sky, only its faint shape shows
             if (ram) HeatGlow(t.position, Specials.BladeHeat);   // the heat blade: red hot all over, from every side
             double heat = Heat.Engine(c, v.Model.throttle, v.Wep, rocket) * aspect;
             var spots = EngineSpots(v.Model.numbers?.name);

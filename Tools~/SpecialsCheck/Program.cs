@@ -247,6 +247,99 @@ static class Program
             Check(new CombatNumbers().balloonMines == 0 && CombatNumbers.P51D().stealths == 0, "the other missions carry none");
         }
 
+        Console.WriteLine("\nThe loadout: two picks each");
+        {
+            var setup = new DogfightSetup
+            {
+                ours = new[] { Craft.Mustang, Craft.F15 }, theirs = new[] { Craft.Bf109, Craft.Zero },
+                randomStart = false, start = Scenarios.Start.HeadOn, randomArena = false,
+                oursLoadouts = new[] { new Loadout(Kit.Rocket, Kit.Mines), new Loadout(Kit.Stealth, Kit.Rocket) },
+                theirsLoadouts = new[] { new Loadout(Kit.Missiles, Kit.Blade), new Loadout(Kit.Jammer, Kit.Jammer) },
+            };
+            var b = Scenarios.Dogfight(setup, Vec3d.Zero);
+            // order: 0 our lead, 1 their lead, 2 our wingman, 3 their wingman
+            Check(b.planes[0].RocketReady && b.missiles[0] == 0 && b.balloonMines[0] == Specials.Mines && b.heatBlades[0] == 0 && b.stealths[0] == 0 && b.jammers[0] == 0,
+                  "rocket + mines: the rocket and two mines, no heat-seekers, nothing else");
+            Check(b.missiles[1] == CombatNumbers.Bf109G().missiles && b.heatBlades[1] == 1 && !b.planes[1].RocketReady && b.balloonMines[1] == 0,
+                  "heat-seekers + blade: its missiles and a blade, no rocket");
+            Check(b.stealths[2] == 1 && !b.planes[2].RocketReady && b.missiles[2] == CombatNumbers.F15C().missiles, "an F-15 that picked stealth + rocket gets stealth + heat-seekers instead");
+            var jet = new Loadout(Kit.Stealth, Kit.Rocket).FitTo(Craft.F15);
+            Check(jet.Has(Kit.Stealth) && !jet.Has(Kit.Rocket) && jet.a != jet.b, $"the F-15's stealth + rocket becomes {jet}");
+            var twice = new Loadout(Kit.Jammer, Kit.Jammer).FitTo(Craft.Zero);
+            Check(twice.Has(Kit.Jammer) && twice.a != twice.b && b.jammers[3] == 1, $"the same pick twice becomes two different ones ({twice})");
+            Check(DogfightSetup.Numbers(Craft.Mustang).rocketG > 0, "taking the rocket off one plane leaves the type's numbers alone");
+            var p = new Loadout(Kit.Missiles, Kit.Mines).Pick(Kit.Stealth, Craft.Mustang);
+            Check(p.Has(Kit.Mines) && p.Has(Kit.Stealth) && !p.Has(Kit.Missiles), $"a third pick replaces the older one ({p})");
+            Check(new Loadout(Kit.Missiles, Kit.Mines).Pick(Kit.Rocket, Craft.Phantom).Equals(new Loadout(Kit.Missiles, Kit.Mines)), "an F-4 can't pick the rocket");
+
+            var back = DogfightSetup.FromBytes(setup.ToBytes());
+            Check(back.oursLoadouts.SequenceEqual(setup.oursLoadouts) && back.theirsLoadouts.SequenceEqual(setup.theirsLoadouts), "the loadouts survive the trip to bytes");
+            var bb = Scenarios.Dogfight(back, Vec3d.Zero);
+            Check(Enumerable.Range(0, b.Count).All(i => bb.missiles[i] == b.missiles[i] && bb.balloonMines[i] == b.balloonMines[i] && bb.stealths[i] == b.stealths[i]
+                                                        && bb.planes[i].numbers.rocketG == b.planes[i].numbers.rocketG), "and build the same battle on the friend's machine");
+            var wider = setup.Copy(); wider.ours = DogfightSetup.Resize(wider.ours, 4); wider.FitLoadouts();
+            Check(wider.oursLoadouts.Length == 4 && wider.oursLoadouts[3].Equals(wider.oursLoadouts[1]), "a plane added brings what the one before it brings");
+            var none = setup.Copy(); none.oursLoadouts = none.theirsLoadouts = null;
+            var nb = Scenarios.Dogfight(DogfightSetup.FromBytes(none.ToBytes()), Vec3d.Zero);
+            Check(nb.balloonMines[0] == Specials.Mines && nb.stealths[0] == 1 && nb.missiles[0] > 0 && nb.planes[0].RocketReady, "no loadouts picked (the tutorial): everything, as before");
+            var straight = setup.Copy(); straight.arcade = false;
+            var sb = Scenarios.Dogfight(straight, Vec3d.Zero);
+            Check(sb.missiles[0] > 0 && sb.planes[0].RocketReady && sb.balloonMines[0] == 0 && sb.stealths[2] == 0, "Arcade off: the loadouts don't count (heat-seekers and the rocket, no specials)");
+            var old = setup.ToBytes(); old[0] = 4; Array.Resize(ref old, old.Length - 1 - 2 * 4);
+            var ob = DogfightSetup.FromBytes(old);
+            Check(ob.oursLoadouts == null && ob.arcade, "a setup from before the loadouts still reads");
+
+            // the AI with no specials picked plans none
+            var bare = new DogfightSetup { ours = new[] { Craft.Mustang }, theirs = new[] { Craft.Bf109 }, randomStart = false, start = Scenarios.Start.Defensive, range = DogfightSetup.Range.Close,
+                                           oursLoadouts = new[] { new Loadout(Kit.Missiles, Kit.Rocket) }, theirsLoadouts = new[] { new Loadout(Kit.Missiles, Kit.Rocket) } };
+            var ab = Scenarios.Dogfight(bare, Vec3d.Zero);
+            bool special = false;
+            for (int t = 0; t < 6 && !ab.down[0] && !ab.down[1]; t++)
+            {
+                var p0 = new EnemyAi { me = 0, sloppiness = 0 }.Plan(ab, 3); var p1 = new EnemyAi { me = 1, sloppiness = 0 }.Plan(ab, 3);
+                if (p0.mine || p0.ram || p0.cloak || p0.jam || p1.mine || p1.ram || p1.cloak || p1.jam) special = true;
+                ab.Resolve(new TurnPlan?[] { p0, p1 }, 3);
+            }
+            Check(!special && !ab.bullets.Any(x => x is Mine), "AI pilots with missiles + rocket never plan a special");
+
+            // radar missiles: a jet's pick
+            Check(!Loadout.Allowed(Kit.Radar, Craft.Mustang) && Loadout.Allowed(Kit.Radar, Craft.F15) && Loadout.Allowed(Kit.Radar, Craft.Phantom), "radar missiles: jets only");
+            Check(Loadout.DefaultFor(Craft.F15).Has(Kit.Radar) && Loadout.DefaultFor(Craft.F15).Has(Kit.Missiles) && !Loadout.DefaultFor(Craft.Spitfire).Has(Kit.Radar),
+                  "a jet brings both its missiles unless picked otherwise");
+            var jets = new DogfightSetup { ours = new[] { Craft.F15, Craft.Phantom }, theirs = new[] { Craft.Mustang }, randomStart = false,
+                                           oursLoadouts = new[] { new Loadout(Kit.Radar, Kit.Ice), new Loadout(Kit.Missiles, Kit.Stealth) }, theirsLoadouts = new[] { new Loadout(Kit.Radar, Kit.Missiles) } };
+            jets.FitLoadouts();
+            var jb = Scenarios.Dogfight(jets, Vec3d.Zero);
+            Check(jb.radarMissiles[0] == CombatNumbers.F15C().radarMissiles && jb.missiles[0] == 0 && jb.combat[0].radarRangeFt > 0, "an F-15 with radar + ice: its Sparrows, no heat-seekers");
+            Check(jb.radarMissiles[2] == 0 && jb.combat[2].radarRangeFt > 0 && jb.chaff[2] > 0, "an F-4 without radar missiles keeps its radar and chaff");
+            Check(!jets.theirsLoadouts[0].Has(Kit.Radar) && jb.missiles[1] > 0, $"a P-51 that picked radar missiles gets something it can carry ({jets.theirsLoadouts[0]})");
+
+            // ice: no heat-seeker locks an iced plane, and one that hits it does nothing
+            Check(jb.combat[0].iced && !jb.combat[2].iced && jb.HeatOf(0, jb.planes[1].state.pos) == 0, "ice: cold as the sky to a seeker");
+            var tail = Tail(4000);
+            tail.combat[0] = tail.combat[0].Copy(); tail.combat[0].iced = true;
+            tail.missiles[1] = 4;
+            Check(tail.LockTarget(1) < 0, "a 109 4,000 ft behind an iced P-51 gets no lock");
+            var shoot = Ahead(tail, 1); shoot.missile = true; shoot.missileTarget = 0;
+            tail.Resolve(new TurnPlan?[] { Ahead(tail, 0), shoot }, 3);
+            Check(tail.missiles[1] == 4 && !tail.bullets.Any(x => x is Missile), "so its heat-seeker never goes");
+            var warm = Tail(4000);
+            Check(warm.LockTarget(1) == 0, "the same P-51 without ice is locked");
+            var hit = Tail(4000);
+            hit.combat[0] = hit.combat[0].Copy(); hit.combat[0].iced = true;
+            hit.bullets.Add(Missile.Make(1, 1, 0, hit.planes[0].state.pos - hit.planes[0].Forward * 300, hit.planes[0].state.vel + hit.planes[0].Forward * 400, hit.time));
+            for (int t = 0; t < 2; t++) hit.Resolve(new TurnPlan?[] { Ahead(hit, 0), Ahead(hit, 1) }, 3);
+            var bare2 = Tail(4000);
+            bare2.bullets.Add(Missile.Make(1, 1, 0, bare2.planes[0].state.pos - bare2.planes[0].Forward * 300, bare2.planes[0].state.vel + bare2.planes[0].Forward * 400, bare2.time));
+            for (int t = 0; t < 2; t++) bare2.Resolve(new TurnPlan?[] { Ahead(bare2, 0), Ahead(bare2, 1) }, 3);
+            Check(!hit.SystemsOf(0).Hurt && !hit.down[0] && (bare2.SystemsOf(0).Hurt || bare2.down[0]), "a heat-seeker already on its way shatters on the ice (it hits one without)");
+            var ai2 = new EnemyAi { me = 1, sloppiness = 0 }.Plan(tail, 3);
+            Check(!ai2.missile, "the AI doesn't try a heat-seeker on an iced plane");
+            var icy = new DogfightSetup { oursLoadouts = new[] { new Loadout(Kit.Ice, Kit.Mines) }, theirsLoadouts = new[] { new Loadout(Kit.Missiles, Kit.Mines) }, randomStart = false };
+            Check(DogfightSetup.FromBytes(icy.ToBytes()).oursLoadouts[0].Has(Kit.Ice) && Scenarios.Dogfight(DogfightSetup.FromBytes(icy.ToBytes()), Vec3d.Zero).combat[0].iced,
+                  "ice survives the trip to bytes");
+        }
+
         Console.WriteLine(fails == 0 ? "\nAll checks pass." : $"\n{fails} check(s) FAILED.");
         return fails;
     }

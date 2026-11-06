@@ -30,6 +30,7 @@ namespace Ooda.UI
             public Craft craft;
             public PilotKind pilot;
             public GameObject plane;
+            public int missilesShown = -1;   // how many heat-seekers hang on its rails (its loadout's)
             public readonly List<Standing> crew = new List<Standing>();
             public Vector3 feet;          // where the (first) pilot stands, world
             public Vector3 planeCentre;   // the middle of the plane, world
@@ -493,6 +494,22 @@ namespace Ooda.UI
             s.FitPilots();
             SyncSide(ours, s.ours, s.oursPilots, true);
             SyncSide(theirs, s.theirs, s.theirsPilots, false);
+            // the heat-seekers on the rails: only on a plane that brings them
+            for (int side = 0; side < 2; side++)
+            {
+                var list = side == 0 ? ours : theirs;
+                for (int k = 0; k < list.Count; k++)
+                {
+                    var p = list[k];
+                    var load = s.LoadoutOf(side == 0, k);
+                    if (p.plane != null) Ooda.Turn.IceCoat.Set(p.plane, s.arcade && load != null && load.Value.Has(Kit.Ice));
+                    int n = s.arcade && load != null && !load.Value.Has(Kit.Missiles) ? 0 : DogfightSetup.Guns(p.craft, false).missiles;
+                    if (n == p.missilesShown || p.plane == null) continue;
+                    p.missilesShown = n;
+                    var tv = p.plane.GetComponent<Ooda.Turn.TurnAircraftView>();
+                    if (tv != null) tv.ShowMissiles(n, n);
+                }
+            }
             if (ringOn != null && !ours.Contains(ringOn) && !theirs.Contains(ringOn)) Pick(null);
         }
 
@@ -551,7 +568,7 @@ namespace Ooda.UI
             OnWheels(g, craft);
             // its loadout on the rails (after the wheels: the missiles hang lower than the airframe sits)
             var tv = g.GetComponent<Ooda.Turn.TurnAircraftView>();
-            if (tv != null) { int load = DogfightSetup.Guns(craft, false).missiles; tv.ShowMissiles(load, load); }
+            if (tv != null) { int load = DogfightSetup.Guns(craft, false).missiles; tv.ShowMissiles(load, load); p.missilesShown = load; }
             p.plane = g;
             p.planeCentre = Centre(g);
 
