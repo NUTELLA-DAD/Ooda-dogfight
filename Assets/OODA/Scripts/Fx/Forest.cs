@@ -21,8 +21,8 @@ namespace Ooda.Fx
         public Mesh[] near, far, low;           // by kind; low may be null (then far, out to LeafyDistance)
         public Material[] materials, lowMaterials;
         public Matrix4x4[] local;
-        public float NearDistance = 180f, FarDistance = 1200f, LeafyDistance = 3000f, MaxDistance = 25000f;
-        /// <summary>Past this the trees are drawn by the kilometre square instead (cones only, up to 1000 to a call), so the
+        public float NearDistance = 180f, FarDistance = 1200f, LeafyDistance = 4000f, MaxDistance = 25000f;
+        /// <summary>Past this the trees are drawn by the kilometre square instead (up to 1000 to a call), so the
         /// far forest costs a few hundred calls rather than thousands.</summary>
         public float CoarseDistance = 3000f;
         const float Chunk = 250f, Coarse = 1000f;
@@ -134,14 +134,17 @@ namespace Ooda.Fx
                 else { mesh = low[g.kind]; mat = lowMaterials[g.kind]; shadow = false; }
                 Submit(cam, layer, mat, mesh, g.bounds, shadow, g.m);
             }
-            // far: whole squares of cones (the leafy kinds have none and are gone by now)
+            // far: whole squares, of cones
             for (int i = 0; i < squares.Length; i++)
             {
                 var q = squares[i];
                 float d = squareDistance[i];
-                if (d < CoarseDistance || d > max || low == null || low[q.kind] == null) continue;
+                bool cone = low != null && low[q.kind] != null;
+                if (d < CoarseDistance || d > (cone ? max : Mathf.Min(max, LeafyDistance))) continue;
                 if (!GeometryUtility.TestPlanesAABB(planes, q.bounds)) continue;
-                foreach (var m in q.m) Submit(cam, layer, lowMaterials[q.kind], low[q.kind], q.bounds, false, m);
+                // the leafy kinds have no cone: their far mesh, out to LeafyDistance
+                var mesh = cone ? low[q.kind] : far[q.kind] != null ? far[q.kind] : near[q.kind];
+                foreach (var m in q.m) Submit(cam, layer, cone ? lowMaterials[q.kind] : materials[q.kind], mesh, q.bounds, false, m);
             }
         }
 
