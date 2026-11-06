@@ -400,6 +400,7 @@ namespace Ooda.EditorTools
             spin.aircraft = ac;
             spin.propeller = FindDeep(model.transform, "P51_Propeller");
             if (spin.propeller != null) spin.propeller.position += root.transform.forward * PropellerForward;
+            root.AddComponent<ControlSurfaces>();   // ailerons, elevators and rudder swing with the flying
 
             HideCanopy(model);
             var mount = FindDeep(model.transform, "PilotMount");
