@@ -415,7 +415,7 @@ namespace Ooda.Turn
             plan.burstStart = plan.burstEnd = 0;
             plan.wep = false;
             plan.marks = null;
-            plan.missile = false;
+            plan.missile = false; plan.radarMissile = false;
             plan.rocket = plan.brake = false;
             plan.mine = plan.ram = plan.cloak = plan.jam = false; plan.mineAt = 0;
             plan.rudder = 0;
@@ -1206,9 +1206,11 @@ namespace Ooda.Turn
 
         void RunPreview()
         {
+            plan.radarTarget = focus;
             var sim = battle.Clone();
             sim.dispersion = false;
-            preview = sim.Resolve(WithLikeliest(plan), turnSec, true);
+            preview = sim.Resolve(WithLikeliest(plan), turnSec, true, NotchWatch(sim, turnSec));
+            RadarPreviewDone(sim);
             dirty = false;
             previewDeparts = preview.frames[0].Any(f => f.departed);
             bool stalls = preview.frames[0].Any(f => f.stalled);
@@ -1237,7 +1239,7 @@ namespace Ooda.Turn
             confidenceAt = Time.unscaledTime + 0.25f;
 
             // The gun line: the same turn with the trigger held all the way and the enemy unbreakable, so every chance shows
-            var full = plan; full.burstStart = 0; full.burstEnd = turnSec; full.missile = false;
+            var full = plan; full.burstStart = 0; full.burstEnd = turnSec; full.missile = false; full.radarMissile = false;
             var gsim = battle.Clone();
             gsim.dispersion = false;
             for (int j = 0; j < gsim.Count; j++) if (gsim.side[j] != gsim.side[0]) gsim.Spare(j);
@@ -1391,7 +1393,7 @@ namespace Ooda.Turn
             foreach (var tr in preview.traces)
             {
                 if (tr.owner != 0 && !showProjection || HiddenFromMe(tr.owner) || JammedFrom(tr.owner)) continue;
-                if (tr.missile) { DrawPreviewTrace(tr, new Color(1f, 1f, 1f, 0.8f), 1.0f, 0.3f); continue; }
+                if (tr.missile) { DrawPreviewTrace(tr, tr.radar && tr.owner != 0 ? new Color(1f, 0.35f, 0.3f, 0.85f) : new Color(1f, 1f, 1f, 0.8f), 1.0f, 0.3f); continue; }
                 DrawPreviewTrace(tr, OutcomeColor(tr, TracerColor(tr.owner)), tr.hit ? 0.5f : 0.35f, tr.hit ? 0.5f : 0.1f);
             }
             // The gun line: where a burst would go, faint, until a burst is set
@@ -1403,6 +1405,7 @@ namespace Ooda.Turn
                     col.a *= gunLineAlpha;
                     DrawPreviewTrace(tr, col, 0.3f, col.a * 0.3f);
                 }
+            if (!sightView) DrawNotch();
             DrawHazards();
             SpecialsPlanning();
         }
@@ -1675,6 +1678,7 @@ namespace Ooda.Turn
             var ev = Event.current.type;
             if (!menuOpen || ev == EventType.Repaint || ev == EventType.Layout) BattleGUI(sw, sh);
             IrGui(sw, sh);
+            RadarGui(sw, sh);
             if (menuOpen) MenuGUI(sw, sh);
         }
 
@@ -1822,6 +1826,7 @@ namespace Ooda.Turn
                     "Keys: WASD arrow (S pulls up, like the stick), Shift/Ctrl throttle,\n" +
                     "Space full throttle (a jet: burner), 1 rocket, 2 speed brake, 3 hold flares, I IR view, Tab next plane, N next target,\n" +
                     "4 mine, 5 blade, 6 stealth, 7 jammer, B bursts, G missile, T timeline,\n" +
+                    "A jet: J radar missile, U the radar page; notch a radar missile (fly square across it).\n" +
                     "Z/C rudder pedals (slow and nose-high, the rudder swings the nose: hammerhead).\n" +
                     "Enter fly, R replay, P projection, V view, X straight, M mission, H help.\n" +
                     "Drag the view or right-drag to look; wheel zooms. F2: the old arrow.\n" +

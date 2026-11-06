@@ -131,6 +131,7 @@ namespace Ooda.Turn.Core
                 if (!local[l].HasValue) continue;
                 var p = local[l].Value;
                 if (p.missileTarget >= 0 && p.missileTarget < Count) p.missileTarget = wireOf[p.missileTarget];
+                if (p.radarTarget >= 0 && p.radarTarget < Count) p.radarTarget = wireOf[p.radarTarget];
                 w[wireOf[l]] = p;
             }
             return w;
@@ -145,6 +146,7 @@ namespace Ooda.Turn.Core
                 if (!wire[w].HasValue) continue;
                 var p = wire[w].Value;
                 if (p.missileTarget >= 0 && p.missileTarget < Count) p.missileTarget = LocalOf(p.missileTarget);
+                if (p.radarTarget >= 0 && p.radarTarget < Count) p.radarTarget = LocalOf(p.radarTarget);
                 local[LocalOf(w)] = p;
             }
             return local;

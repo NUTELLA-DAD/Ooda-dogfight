@@ -181,6 +181,12 @@ namespace Ooda.Turn.Core
                 if (!best.cloak && r.Length < Heat.LockRangeFt(battle.HeatOf(them, m.state.pos)) * 1.2 && Vec3d.Dot(r.Normalized, m.Forward) > Math.Cos(60 * Math.PI / 180))
                 { best.missile = true; best.missileTarget = them; }
             }
+            // the radar on the target, and a radar missile whenever it is in the cone (it launches only once the lock is a turn old)
+            if (battle.combat[me].radarRangeFt > 0)
+            {
+                best.radarTarget = them;
+                if (battle.radarMissiles[me] > 0 && battle.routes[me] == null && !best.cloak && battle.InRadarCone(me, them)) best.radarMissile = true;
+            }
             return best;
         }
 
@@ -297,6 +303,8 @@ namespace Ooda.Turn.Core
                 double rj = lj.Length, theirAta = Envelope.Angle(sim.planes[j].Forward, -lj);   // their nose off the line to me
                 if (theirAta < 20 * Math.PI / 180 && rj < 4000) score -= 1.5 * (1 - theirAta / (20 * Math.PI / 180));
             }
+            // a radar missile still guiding on it at the end of the turn: notch it (or chaff it) before it arrives
+            foreach (var b in sim.bullets) if (b is Missile rm && rm.radar && rm.target == 0) score -= 6;
             // harm to its systems flying it (flak, rounds already in the air): a whole system knocked out costs 10
             score -= 10 * (sim.SystemsOf(0).Total - sub.SystemsOf(0).Total);
             // blacking out (G-LOC) leaves it flying blind for seconds: a pilot avoids pulling that hard for that long

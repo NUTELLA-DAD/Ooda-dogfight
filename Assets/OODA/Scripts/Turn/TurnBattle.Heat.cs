@@ -336,7 +336,7 @@ namespace Ooda.Turn
             // a seeker on you now
             double nearest = double.PositiveInfinity;
             foreach (var b in battle.bullets)
-                if (b is Missile ms && ms.target == 0) nearest = Math.Min(nearest, (ms.pos - battle.planes[0].state.pos).Length);
+                if (b is Missile ms && !ms.radar && ms.target == 0) nearest = Math.Min(nearest, (ms.pos - battle.planes[0].state.pos).Length);
             if (double.IsInfinity(nearest)) return;
             var w = new GUIStyle(GUI.skin.label) { fontSize = 20, fontStyle = FontStyle.Bold, alignment = TextAnchor.UpperCenter };
             w.normal.textColor = Mathf.Repeat(Time.unscaledTime, 0.8f) < 0.5f ? missileWarnColor : new Color(1f, 0.85f, 0.3f);

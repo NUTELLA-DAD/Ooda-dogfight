@@ -20,7 +20,14 @@ namespace Ooda.Turn.Core
         /// <summary>Fire one missile this turn, the first moment a target is inside the lock cone and range (missileTarget, or the nearest).</summary>
         public bool missile;
         public int missileTarget;  // aircraft index; -1 any (the one nearest the nose)
-        /// <summary>Hold the flares this turn. By default they go by themselves, a pair at each heat-seeker that closes in.</summary>
+        /// <summary>
+        /// Fire one radar missile this turn, the first moment the radar is locked (Radar: the same target held in the cone for
+        /// a whole turn). It then guides only while the radar keeps that target in its cone.
+        /// </summary>
+        public bool radarMissile;
+        /// <summary>Who the radar should track (aircraft index) when they are in its cone; anyone else it keeps or picks itself.</summary>
+        public int radarTarget;
+        /// <summary>Hold the flares (and the chaff) this turn. By default they go by themselves, a pair at each missile that closes in.</summary>
         public bool holdFlares;
         /// <summary>Let a balloon mine go behind you this turn, mineAt seconds into it (see Specials).</summary>
         public bool mine;

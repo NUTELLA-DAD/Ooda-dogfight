@@ -24,6 +24,12 @@ namespace Ooda.Turn.Core
         public double toughness = 12;
         public int missiles = 2;             // heat-seekers carried (a game liberty: no WW2 fighter had them)
         public int flares = 6;               // flares to decoy a heat-seeker with (the same liberty)
+        /// <summary>
+        /// The radar (see Radar): how far it sees, 0 for none (every warbird), the radar-guided missiles carried, and the
+        /// chaff bundles to break one with. Jets only.
+        /// </summary>
+        public double radarRangeFt;
+        public int radarMissiles, chaff;
         /// <summary>The arcade specials carried (see Specials): balloon mines, heat-blade charges and stealth charges. None unless Specials.Arm gives them (a dogfight with Arcade on).</summary>
         public int balloonMines, heatBlades, stealths, jammers;
         /// <summary>
@@ -83,6 +89,7 @@ namespace Ooda.Turn.Core
             guns = "M61 20 mm", muzzleFps = 3380, damage = 1.3, ammoSec = 7, spreadMil = 3.5, dragPerSec = 0.3,
             toughness = 16, sizeFt = 6, missiles = 4, flares = 8,
             heatIdle = 1.2, heatFull = 2.4, heatWep = 2.4,   // two J79s: hot, and blazing in afterburner
+            radarRangeFt = 30000, radarMissiles = 2, chaff = 6,   // the APQ-120 and two Sparrows
         };
 
         /// <summary>
@@ -95,6 +102,7 @@ namespace Ooda.Turn.Core
             guns = "M61A1 20 mm", muzzleFps = 3380, damage = 1.3, ammoSec = 9, spreadMil = 3.2, dragPerSec = 0.3,
             toughness = 17, sizeFt = 6, missiles = 4, flares = 8,
             heatIdle = 1.2, heatFull = 2.4, heatWep = 2.6,   // two F100s: hot, and blazing in afterburner
+            radarRangeFt = 36000, radarMissiles = 2, chaff = 6,   // the APG-63 and two Sparrows
         };
 
         /// <summary>
@@ -150,8 +158,30 @@ namespace Ooda.Turn.Core
         public int flaresDrawn;
         public double nextFlareAt;
         public double burnSec = 2.5, thrustFps2 = 700, maxG = 20, gimbalDeg = 40, nav = 4;
+        /// <summary>
+        /// A radar missile (see Radar) rather than a heat-seeker: it rides the shooter's radar, so it guides only while the
+        /// shooter holds the target in its cone, and it is beaten by the notch and by chaff, never by flares.
+        /// </summary>
+        public bool radar;
+        /// <summary>Who it was fired at (kept after it loses them, unlike target).</summary>
+        public int aimedAt = -1;
+        /// <summary>How long its target has held the notch (flown square across the missile's line of sight) without a break.</summary>
+        public double notchSec;
+        /// <summary>Chaff its target has let go at it, and when the next bundle may go (battle time).</summary>
+        public int chaffDrawn;
+        public double nextChaffAt;
+        /// <summary>Why it lost its target, once it has (for the warnings and the replay).</summary>
+        public MissileLoss lost;
         /// <summary>Still guided: on its target or on a flare.</summary>
         public bool Tracking => target >= 0 || decoy >= 0;
+
+        /// <summary>Lose the target for good, saying why.</summary>
+        public void Lose(MissileLoss why)
+        {
+            if (!Tracking) return;
+            target = decoy = -1;
+            lost = why;
+        }
 
         /// <summary>Launch envelope: the target within this cone off the shooter's nose, between these ranges.</summary>
         public const double LockConeDeg = 30, MinRangeFt = 1200, MaxRangeFt = 9000;
@@ -162,6 +192,16 @@ namespace Ooda.Turn.Core
         {
             owner = owner, side = side, target = target, pos = pos, vel = vel, fireTime = time,
             damage = 8, hitRadiusFt = 30, dragPerSec = 0.05, lifeSec = 9,
+        };
+
+        /// <summary>
+        /// A radar missile (a Sparrow): a longer burn, so a longer reach than the heat-seeker, a wider seeker and a bigger
+        /// warhead. It needs the shooter's radar lock to launch and to guide (see Radar). Estimates to tune by feel.
+        /// </summary>
+        public static Missile MakeRadar(int owner, int side, int target, Vec3d pos, Vec3d vel, double time) => new Missile
+        {
+            owner = owner, side = side, target = target, aimedAt = target, pos = pos, vel = vel, fireTime = time, radar = true,
+            damage = 9, hitRadiusFt = 35, dragPerSec = 0.04, lifeSec = 16, burnSec = 3.5, thrustFps2 = 650, maxG = 25, gimbalDeg = 60,
         };
 
         /// <summary>
@@ -177,7 +217,15 @@ namespace Ooda.Turn.Core
             {
                 Vec3d r = targetPos - pos;
                 double range = Math.Max(1, r.Length);
-                if (Vec3d.Dot(r * (1 / range), dir) < Math.Cos(gimbalDeg * Math.PI / 180)) target = decoy = -1;   // off the seeker: lost
+                bool notched = false;
+                if (radar && target >= 0)
+                {
+                    // the notch: the target flying square across the line of sight shows no closing speed; held long enough, it is gone
+                    notchSec = Radar.Beaming(targetVel, r) ? notchSec + dt : 0;
+                    notched = notchSec >= Radar.NotchHoldSec - 1e-9;
+                }
+                if (notched) Lose(MissileLoss.Notch);
+                else if (Vec3d.Dot(r * (1 / range), dir) < Math.Cos(gimbalDeg * Math.PI / 180)) Lose(MissileLoss.Seeker);   // off the seeker: lost
                 else
                 {
                     Vec3d vr = targetVel - vel;
@@ -190,13 +238,65 @@ namespace Ooda.Turn.Core
                     acc = acc + a;
                 }
             }
-            else if (Tracking) target = decoy = -1;
+            else if (Tracking) Lose(MissileLoss.Gone);
             if (age < burnSec) acc = acc + dir * thrustFps2;
             Vec3d v0 = vel;
             vel = (vel + acc * dt) * Math.Exp(-dragPerSec * dt);
             pos = pos + (v0 + vel) * (dt / 2);
             age += dt;
         }
+    }
+
+    /// <summary>Why a missile lost its target.</summary>
+    public enum MissileLoss { None, Seeker, Gone, Flare, Notch, Radar, Chaff }
+
+    /// <summary>
+    /// Radar and radar missiles, for jets only (a warbird has no radar: CombatNumbers.radarRangeFt 0), kept arcade simple.
+    /// The radar sees every enemy inside its cone (ConeDeg off the nose, out to radarRangeFt) that isn't stealthy. It tracks
+    /// one: the one asked for (TurnPlan.radarTarget) when it is in the cone, else the one it was tracking, else the one nearest
+    /// the nose. Keep the same one in the cone for LockSec (one whole turn) and it is locked: a radar missile can go. The missile
+    /// guides only while the shooter's radar still tracks that target in its cone (fire, and you must keep pointing at them),
+    /// and the target beats it two ways. The notch: fly square across the missile's line of sight (within NotchBandDeg of 90
+    /// degrees) for NotchHoldSec, and with no closing speed to see it loses you for good. Chaff: a pair of bundles goes at a
+    /// radar missile closing inside ChaffWarnFt (unless held, with the flares), each with one chance to break it, a much
+    /// better chance while you are in the notch.
+    /// </summary>
+    public static class Radar
+    {
+        public const double ConeDeg = 60, LockSec = 3;
+        /// <summary>No radar missile inside this range (it needs room to arm and turn).</summary>
+        public const double MinRangeFt = 1500;
+        /// <summary>Once fired, the shooter's radar keeps the missile guided out to this times its range.</summary>
+        public const double HoldRangeFactor = 1.25;
+        public const double NotchBandDeg = 25, NotchHoldSec = 1.0;
+        public const double ChaffWarnFt = 4000, ChaffGapSec = 0.35, ChaffBurnSec = 4;
+        public const int ChaffPerMissile = 2;
+        public const double ChaffChance = 0.2, ChaffChanceNotching = 0.7;
+
+        /// <summary>How far the velocity is off square to the line of sight, degrees: 0 flying dead across it, 90 straight along it.</summary>
+        public static double OffBeamDeg(Vec3d vel, Vec3d los)
+        {
+            double v = vel.Length, l = los.Length;
+            if (v < 1 || l < 1) return 90;
+            double c = Math.Abs(Vec3d.Dot(vel, los)) / (v * l);
+            return Math.Asin(Math.Min(1, c)) * 180 / Math.PI;
+        }
+
+        /// <summary>In the notch: flying within NotchBandDeg of square across the line of sight (los from the missile to the target).</summary>
+        public static bool Beaming(Vec3d vel, Vec3d los) => OffBeamDeg(vel, los) < NotchBandDeg;
+
+        /// <summary>The chance one chaff bundle breaks a radar missile off a target that is (or isn't) in the notch.</summary>
+        public static double ChaffBreak(bool notching) => notching ? ChaffChanceNotching : ChaffChance;
+    }
+
+    /// <summary>A bundle of chaff: a cloud of foil that blooms behind a jet, hangs and falls. It hits nothing; see Radar.</summary>
+    public class Chaff : Bullet
+    {
+        public static Chaff Make(int owner, int side, Vec3d pos, Vec3d vel, double time) => new Chaff
+        {
+            owner = owner, side = side, pos = pos, vel = vel, fireTime = time,
+            damage = 0, hitRadiusFt = 0, dragPerSec = 2.5, lifeSec = Radar.ChaffBurnSec,
+        };
     }
 
     /// <summary>
@@ -313,6 +413,8 @@ namespace Ooda.Turn.Core
         public System.Collections.Generic.List<Vec3d> points = new System.Collections.Generic.List<Vec3d>();
         public bool hit;
         public bool missile;      // a missile's smoke trail rather than a tracer
+        public bool radar;        // that missile is radar guided
+        public bool chaff;        // a chaff cloud (kept in TurnResult.chaff)
         public bool mine;         // a balloon mine's drift (kept in TurnResult.mines); hit: it went off
         public double age0;       // how old the round (missile, flare) was at startFrame, s
         /// <summary>

@@ -46,11 +46,13 @@ namespace Ooda.Turn
 
             // the push buttons: four along the bottom, three down the left; the label for each is on the glass beside it
             int left = battle.missiles[0];
+            bool rdr = RadarPage;
+            int leftOsbs = HasRadar ? 4 : 3;
             Rect Osb(int k, bool bottom)
             {
                 if (bottom) { float bw = glass.width / 4; return new Rect(glass.x + bw * (k + 0.5f) - 12, r.yMax - rim + (rim - 14) / 2, 24, 14); }
                 // down the left, below the header line and above the trigger bar
-                float bh = (glass.height - 18 - 46) / 3; return new Rect(r.x + (rim - 14) / 2, glass.y + 18 + bh * (k + 0.5f) - 9, 14, 18);
+                float bh = (glass.height - 18 - 46) / leftOsbs; return new Rect(r.x + (rim - 14) / 2, glass.y + 18 + bh * (k + 0.5f) - 9, 14, 18);
             }
             bool Button(Rect b, bool enabled)
             {
@@ -82,12 +84,16 @@ namespace Ooda.Turn
             Action clicked = null;
             // bottom: FIRE at the hits, the missile's ARM (G), the timeline, the IR view
             var b0 = Osb(0, true); if (Button(b0, true)) clicked = FireAtPredicted;
-            var b1 = Osb(1, true); if (Button(b1, left > 0)) clicked = () => ArmMissile(!plan.missile);
+            int sparrows = battle.radarMissiles[0];
+            var b1 = Osb(1, true);
+            if (rdr) { if (Button(b1, sparrows > 0)) clicked = () => ArmRadarMissile(!plan.radarMissile); }
+            else if (Button(b1, left > 0)) clicked = () => ArmMissile(!plan.missile);
             var b2 = Osb(2, true); if (Button(b2, true)) clicked = () => showMoves = !showMoves;
             var b3 = Osb(3, true); if (Button(b3, true)) clicked = ToggleIr;
             float ly = glass.yMax - 16;
             Legend(new Rect(b0.center.x - 30, ly, 60, 14), "FIRE", false, TextAnchor.MiddleCenter, MfdGreen);
-            Legend(new Rect(b1.center.x - 30, ly, 60, 14), left > 0 ? $"ARM {left}" : "MSL 0", plan.missile, TextAnchor.MiddleCenter, plan.missile ? MfdRed : MfdGreen);
+            if (rdr) Legend(new Rect(b1.center.x - 30, ly, 60, 14), sparrows > 0 ? $"RDR {sparrows}" : "RDR 0", plan.radarMissile, TextAnchor.MiddleCenter, plan.radarMissile ? MfdRed : MfdGreen);
+            else Legend(new Rect(b1.center.x - 30, ly, 60, 14), left > 0 ? $"ARM {left}" : "MSL 0", plan.missile, TextAnchor.MiddleCenter, plan.missile ? MfdRed : MfdGreen);
             Legend(new Rect(b2.center.x - 30, ly, 60, 14), "TIME", showMoves || plan.HasMarks, TextAnchor.MiddleCenter, MfdGreen);
             Legend(new Rect(b3.center.x - 30, ly, 60, 14), "IR", irView, TextAnchor.MiddleCenter, MfdGreen);
             // left: the funnel's mode (K), the lead ring (L), the next target (N)
@@ -98,14 +104,19 @@ namespace Ooda.Turn
             Legend(new Rect(glass.x + 6, l0.center.y - 7, 70, 14), fm, sightMode != SightMode.Off, TextAnchor.MiddleLeft, MfdGreen);
             Legend(new Rect(glass.x + 6, l1.center.y - 7, 70, 14), "RING", showLeadRing, TextAnchor.MiddleLeft, MfdGreen);
             Legend(new Rect(glass.x + 6, l2.center.y - 7, 70, 14), "TGT", false, TextAnchor.MiddleLeft, MfdGreen);
+            if (HasRadar)
+            {
+                var l3 = Osb(3, false); if (Button(l3, true)) clicked = ToggleRadarPage;
+                Legend(new Rect(glass.x + 6, l3.center.y - 7, 70, 14), "RDR", rdr, TextAnchor.MiddleLeft, MfdGreen);
+            }
 
             // the trigger bar along the bottom of the glass, over the button legends
             Rect bar = new Rect(glass.x + 58, glass.yMax - 46, glass.width - 66, 14);
             TriggerBar(bar);
             // the funnel in all the room left above it, right of the left legends (its range line along its bottom)
             Rect scope = new Rect(glass.x + 58, glass.y + 16, glass.width - 64, bar.y - glass.y - 32);
-            MfdHeader(new Rect(glass.x + 6, glass.y + 2, glass.width - 12, 14), left);
-            MfdFunnel(scope);
+            if (rdr) { RadarHeader(new Rect(glass.x + 6, glass.y + 2, glass.width - 12, 14)); RadarScope(scope); }
+            else { MfdHeader(new Rect(glass.x + 6, glass.y + 2, glass.width - 12, 14), left); MfdFunnel(scope); }
             clicked?.Invoke();
         }
 
