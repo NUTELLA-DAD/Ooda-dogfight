@@ -15,6 +15,8 @@ namespace Ooda.Turn.Core
         public List<Trace> flares = new List<Trace>();
         /// <summary>The balloon mines' drift (see Specials), apart too: a hit means it went off.</summary>
         public List<Trace> mines = new List<Trace>();
+        /// <summary>The gravity wells' drift (see Specials), apart too: they hit nothing.</summary>
+        public List<Trace> wells = new List<Trace>();
         /// <summary>The chaff clouds' drift (see Radar), apart too: they hit nothing and show nothing to a heat-seeker.</summary>
         public List<Trace> chaff = new List<Trace>();
         public int FrameCount => frames[0].Length;
@@ -51,6 +53,8 @@ namespace Ooda.Turn.Core
         public double[] trackSec = new double[0];
         /// <summary>The specials left (see Specials): balloon mines, heat-blade charges, stealth charges.</summary>
         public int[] balloonMines = new int[0], heatBlades = new int[0], stealths = new int[0], jammers = new int[0];
+        /// <summary>Gravity wells left (see Specials).</summary>
+        public int[] wells = new int[0];
         /// <summary>Jammed (seeing scrambled ghosts) until this battle time.</summary>
         public double[] jammedUntil = new double[0];
         /// <summary>The heat blade glowing this turn; stealthy until this battle time.</summary>
@@ -106,6 +110,7 @@ namespace Ooda.Turn.Core
             Array.Resize(ref heatBlades, n + 1); heatBlades[n] = c.heatBlades;
             Array.Resize(ref stealths, n + 1); stealths[n] = c.stealths;
             Array.Resize(ref jammers, n + 1); jammers[n] = c.jammers;
+            Array.Resize(ref wells, n + 1); wells[n] = c.wells;
             Array.Resize(ref jammedUntil, n + 1);
             Array.Resize(ref ramOn, n + 1);
             Array.Resize(ref cloakUntil, n + 1);
@@ -152,7 +157,7 @@ namespace Ooda.Turn.Core
             void S<T>(T[] arr) { var t = arr[a]; arr[a] = arr[b]; arr[b] = t; }
             int Map(int i) => i == a ? b : i == b ? a : i;
             side = (int[])side.Clone(); combat = (CombatNumbers[])combat.Clone();   // new arrays: clones share these two
-            S(planes); S(combat); S(side); S(routes); S(flightOf); S(number); S(orders); S(ammo); S(missiles); S(flares); S(radarMissiles); S(chaff); S(radarTrack); S(trackSec); S(balloonMines); S(heatBlades); S(stealths); S(jammers); S(jammedUntil); S(ramOn); S(cloakUntil); S(down); S(crashed); S(hitObstacle); S(fireClock);
+            S(planes); S(combat); S(side); S(routes); S(flightOf); S(number); S(orders); S(ammo); S(missiles); S(flares); S(radarMissiles); S(chaff); S(radarTrack); S(trackSec); S(balloonMines); S(heatBlades); S(stealths); S(jammers); S(wells); S(jammedUntil); S(ramOn); S(cloakUntil); S(down); S(crashed); S(hitObstacle); S(fireClock);
             foreach (var bl in bullets)
             {
                 if (bl.owner >= 0) bl.owner = Map(bl.owner);
@@ -200,7 +205,7 @@ namespace Ooda.Turn.Core
             c.flights = flights.ConvertAll(f => f.Copy());
             c.ammo = (double[])ammo.Clone(); c.missiles = (int[])missiles.Clone(); c.flares = (int[])flares.Clone();
             c.radarMissiles = (int[])radarMissiles.Clone(); c.chaff = (int[])chaff.Clone(); c.radarTrack = (int[])radarTrack.Clone(); c.trackSec = (double[])trackSec.Clone();
-            c.balloonMines = (int[])balloonMines.Clone(); c.heatBlades = (int[])heatBlades.Clone(); c.stealths = (int[])stealths.Clone(); c.jammers = (int[])jammers.Clone(); c.jammedUntil = (double[])jammedUntil.Clone();
+            c.balloonMines = (int[])balloonMines.Clone(); c.heatBlades = (int[])heatBlades.Clone(); c.stealths = (int[])stealths.Clone(); c.jammers = (int[])jammers.Clone(); c.wells = (int[])wells.Clone(); c.jammedUntil = (double[])jammedUntil.Clone();
             c.ramOn = (bool[])ramOn.Clone(); c.cloakUntil = (double[])cloakUntil.Clone();
             c.down = (bool[])down.Clone(); c.crashed = (bool[])crashed.Clone(); c.hitObstacle = (bool[])hitObstacle.Clone();
             c.fireClock = (double[])fireClock.Clone();
@@ -244,7 +249,7 @@ namespace Ooda.Turn.Core
             int steps = (int)Math.Round(turnSec / StepSec);
             var launched = new bool[n];
             var radarLaunched = new bool[n];
-            bool[] dropMine = new bool[n];
+            bool[] dropMine = new bool[n], throwWell = new bool[n];
             for (int i = 0; i < n; i++)
             {
                 ramOn[i] = false;
@@ -252,6 +257,7 @@ namespace Ooda.Turn.Core
                 if (plans[i].ram && heatBlades[i] > 0) { ramOn[i] = true; heatBlades[i]--; }
                 if (plans[i].cloak && stealths[i] > 0) { cloakUntil[i] = time + Specials.CloakSec; stealths[i]--; }
                 if (plans[i].mine && balloonMines[i] > 0) { dropMine[i] = true; balloonMines[i]--; }
+                if (plans[i].well && wells[i] > 0) { throwWell[i] = true; wells[i]--; }
             }
             for (int i = 0; i < n; i++)
             {
@@ -290,6 +296,9 @@ namespace Ooda.Turn.Core
                     else if (obstacleHit != null && obstacleHit(before[i], m.state.pos)) { crashed[i] = true; down[i] = true; hitObstacle[i] = true; }
                 }
 
+                // Gravity wells: every open one pulls on every plane still flying (both sides: it bends your own turn too)
+                PullPlanes();
+
                 for (int i = 0; i < n; i++) routes[i]?.Advance(planes[i]);
                 TrackRadars(plans);
 
@@ -303,6 +312,19 @@ namespace Ooda.Turn.Core
                     var mn = Mine.Make(i, side[i], m.state.pos - m.Forward * 50 - m.Up * 6, m.state.vel * 0.25, time + StepSec, k);
                     bullets.Add(mn);
                     if (record) StartTrace(res, traceOf, mn, k);
+                }
+                // Gravity wells: thrown ahead and into the turn, in the step its plan's moment falls in (the last step at the latest)
+                for (int i = 0; i < n; i++)
+                {
+                    if (!throwWell[i] || k < steps && t + StepSec <= Math.Max(0, plans[i].wellAt) + 1e-9) continue;
+                    throwWell[i] = false;
+                    if (Out(i)) continue;
+                    var m = planes[i];
+                    Vec3d from = m.state.pos + m.Forward * 40, to = Specials.WellLanding(m, plans[i]);
+                    to.z = Math.Max(to.z, groundFt(to.x, to.y) + 300);   // it hangs clear of the ground
+                    var wl = Well.Make(i, side[i], from, (to - from) * Specials.WellDragPerSec, time + StepSec);
+                    bullets.Add(wl);
+                    if (record) StartTrace(res, traceOf, wl, k);
                 }
                 if (strike != null) for (int i = 0; i < n; i++) if (strike.OnPatrol(i)) strike.patrols[i].Advance(planes[i]);
 
@@ -358,12 +380,28 @@ namespace Ooda.Turn.Core
                 DropChaff(plans, res, traceOf, k);
 
                 // Rounds: gravity and drag, then a check against each other aircraft over the step
+                bool anyWell = AnyWellOpen();
                 for (int bi = bullets.Count - 1; bi >= 0; bi--)
                 {
                     var b = bullets[bi];
                     Vec3d p0b = b.pos;
                     Trace bt = null;
                     if (record) traceOf.TryGetValue(b, out bt);
+                    if (b is Well wl)
+                    {
+                        wl.Step(StepSec);
+                        if (wl.age > wl.lifeSec) wl.alive = false;
+                        if (bt != null) bt.points.Add(b.pos);
+                        if (!b.alive) bullets.RemoveAt(bi);
+                        continue;
+                    }
+                    if (anyWell && !(b is Mine) && !(b is Flare) && !(b is Chaff))
+                    {
+                        // the gravity wells bend it: a missile hard, a round (light) harder still
+                        Vec3d pull = WellPull(b.pos, b is Missile ? Specials.WellMissileG : Specials.WellRoundG);
+                        b.vel = b.vel + pull * StepSec;
+                        if (b is Missile cm && cm.Tracking && InWellCore(cm.pos)) cm.Lose(MissileLoss.Well);
+                    }
                     if (b is Missile ms)
                     {
                         if (ms.decoy >= 0)
@@ -459,6 +497,40 @@ namespace Ooda.Turn.Core
             return res;
         }
 
+        /// <summary>Any gravity well open now.</summary>
+        bool AnyWellOpen()
+        {
+            foreach (var b in bullets) if (b is Well w && w.Open) return true;
+            return false;
+        }
+
+        /// <summary>The pull of every open gravity well on something at p, ft/s², for a strongest pull of peakG (see Specials).</summary>
+        public Vec3d WellPull(Vec3d p, double peakG)
+        {
+            Vec3d a = Vec3d.Zero;
+            foreach (var b in bullets) if (b is Well w && w.Open) a = a + w.Pull(p, peakG);
+            return a;
+        }
+
+        /// <summary>Inside an open gravity well's capture: a missile there loses its target.</summary>
+        bool InWellCore(Vec3d p)
+        {
+            foreach (var b in bullets) if (b is Well w && w.Strength > 0.5 && (w.pos - p).Length < Specials.WellCaptureFt) return true;
+            return false;
+        }
+
+        /// <summary>One step of the gravity wells' pull on every plane still flying.</summary>
+        void PullPlanes()
+        {
+            if (!AnyWellOpen()) return;
+            for (int i = 0; i < Count; i++)
+            {
+                if (down[i] || crashed[i] || strike != null && strike.Held(i)) continue;
+                Vec3d a = WellPull(planes[i].state.pos, Specials.WellPlaneG);
+                if (a.Length > 1e-9) planes[i].Push(a, StepSec);
+            }
+        }
+
         /// <summary>The heat blade on aircraft a cuts aircraft b in half: down at once, recorded as a hit for the flash and the tally.</summary>
         void Slice(int a, int b, TurnResult res)
         {
@@ -487,10 +559,10 @@ namespace Ooda.Turn.Core
 
         static void StartTrace(TurnResult res, Dictionary<Bullet, Trace> traceOf, Bullet b, int frame)
         {
-            var tr = new Trace { owner = b.owner, startFrame = frame, missile = b is Missile, radar = b is Missile rm && rm.radar, chaff = b is Chaff, mine = b is Mine, age0 = b.age };
+            var tr = new Trace { owner = b.owner, startFrame = frame, missile = b is Missile, radar = b is Missile rm && rm.radar, chaff = b is Chaff, mine = b is Mine, well = b is Well, age0 = b.age };
             tr.points.Add(b.pos);
             traceOf[b] = tr;
-            if (b is Flare) res.flares.Add(tr); else if (b is Chaff) res.chaff.Add(tr); else if (b is Mine) res.mines.Add(tr); else res.traces.Add(tr);
+            if (b is Flare) res.flares.Add(tr); else if (b is Chaff) res.chaff.Add(tr); else if (b is Mine) res.mines.Add(tr); else if (b is Well) res.wells.Add(tr); else res.traces.Add(tr);
         }
 
         /// <summary>Aircraft i's radar can see aircraft j: an enemy still flying, not stealthy, inside its cone and out to range (times rangeFactor).</summary>
@@ -769,7 +841,7 @@ namespace Ooda.Turn.Core
             c.planes = new FlightModel[n]; c.combat = new CombatNumbers[n]; c.side = new int[n]; c.routes = new Route[n];
             c.ammo = new double[n]; c.missiles = new int[n]; c.flares = new int[n]; c.down = new bool[n];
             c.radarMissiles = new int[n]; c.chaff = new int[n]; c.radarTrack = new int[n]; c.trackSec = new double[n];
-            c.balloonMines = new int[n]; c.heatBlades = new int[n]; c.stealths = new int[n]; c.jammers = new int[n]; c.jammedUntil = new double[n]; c.ramOn = new bool[n]; c.cloakUntil = new double[n]; c.crashed = new bool[n]; c.hitObstacle = new bool[n]; c.fireClock = new double[n];
+            c.balloonMines = new int[n]; c.heatBlades = new int[n]; c.stealths = new int[n]; c.jammers = new int[n]; c.wells = new int[n]; c.jammedUntil = new double[n]; c.ramOn = new bool[n]; c.cloakUntil = new double[n]; c.crashed = new bool[n]; c.hitObstacle = new bool[n]; c.fireClock = new double[n];
             var map = new Dictionary<int, int>();
             for (int j = 0; j < n; j++)
             {
@@ -777,7 +849,7 @@ namespace Ooda.Turn.Core
                 c.planes[j] = planes[i].Clone(); c.combat[j] = combat[i]; c.side[j] = side[i]; c.routes[j] = routes[i]?.Copy();
                 c.ammo[j] = ammo[i]; c.missiles[j] = missiles[i]; c.flares[j] = flares[i];
                 c.radarMissiles[j] = radarMissiles[i]; c.chaff[j] = chaff[i]; c.trackSec[j] = trackSec[i];
-                c.balloonMines[j] = balloonMines[i]; c.heatBlades[j] = heatBlades[i]; c.stealths[j] = stealths[i]; c.jammers[j] = jammers[i]; c.jammedUntil[j] = jammedUntil[i]; c.ramOn[j] = ramOn[i]; c.cloakUntil[j] = cloakUntil[i];
+                c.balloonMines[j] = balloonMines[i]; c.heatBlades[j] = heatBlades[i]; c.stealths[j] = stealths[i]; c.jammers[j] = jammers[i]; c.wells[j] = wells[i]; c.jammedUntil[j] = jammedUntil[i]; c.ramOn[j] = ramOn[i]; c.cloakUntil[j] = cloakUntil[i];
                 c.down[j] = down[i]; c.crashed[j] = crashed[i]; c.hitObstacle[j] = hitObstacle[i]; c.fireClock[j] = fireClock[i];
             }
             for (int j = 0; j < n; j++)
@@ -794,7 +866,7 @@ namespace Ooda.Turn.Core
             {
                 var ms = b as Missile;
                 bool aimedIn = ms != null && ms.target >= 0 && map.ContainsKey(ms.target);
-                if (b.owner >= 0 && !map.ContainsKey(b.owner) && !aimedIn && !(b is Mine)) continue;   // keep a missile chasing someone kept, whoever fired it, and every mine hanging there
+                if (b.owner >= 0 && !map.ContainsKey(b.owner) && !aimedIn && !(b is Mine) && !(b is Well)) continue;   // keep a missile chasing someone kept, whoever fired it, and every mine and well hanging there
                 var bc = b.Copy();
                 if (b.owner >= 0) bc.owner = map.TryGetValue(b.owner, out int oj) ? oj : -1000;
                 if (bc is Missile mc) { mc.target = aimedIn ? map[ms.target] : -1; mc.aimedAt = ms.aimedAt >= 0 && map.TryGetValue(ms.aimedAt, out int aj) ? aj : -1; }

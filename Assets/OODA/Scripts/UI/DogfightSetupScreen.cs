@@ -399,10 +399,10 @@ namespace Ooda.UI
             if (GUI.Button(new Rect(w - 268, by + 8, 240, BotH - 16), "READY", ready)) result = Result.Fly;
             GUI.DrawTexture(new Rect(0, by - 26, w, 26), shade);
             Shadow(new Rect(0, by - 25, w, 24), mission ? "Esc closes the mission panel  ·  Enter flies"
-                : loadout ? "← → pick a pilot  ·  1 – 8 add a capability (it replaces the older pick)  ·  L or Esc closes  ·  Enter ready"
+                : loadout ? "← → pick a pilot  ·  1 – 9 add a capability (it replaces the older pick)  ·  L or Esc closes  ·  Enter ready"
                 : "← → pick a pilot  ·  P pilot  ·  C aircraft  ·  L loadout  ·  + − planes on that side  ·  M mission  ·  G arcade  ·  Enter ready", hint);
 
-            var panel = new Rect(w / 2 - 470, TopH + 10, 940, 384);
+            var panel = new Rect(w / 2 - 530, TopH + 10, 1060, 384);
             if (mission) MissionPanel(new Rect(w / 2 - 560, TopH + 20, 1120, by - TopH - 56), s);
             else if (loadout) LoadoutPanel(panel, s);
             if (!mission && Event.current.type == EventType.MouseDown && Event.current.button == 0)
@@ -521,7 +521,7 @@ namespace Ooda.UI
 
             var load = SelLoadout;
             GUI.Label(new Rect(r.x + 20, r.y + 82, r.width - 40, 24), $"Pick two to bring: {load}. Guns, flares and the speed brake always come.", note);
-            const int Cols = 4;
+            int Cols = (Loadout.All.Length + 1) / 2;   // two rows
             float gap = 12, x0 = r.x + 20, y0 = r.y + 114, tw = (r.width - 40 - gap * (Cols - 1)) / Cols, th = 100;
             for (int i = 0; i < Loadout.All.Length; i++)
             {

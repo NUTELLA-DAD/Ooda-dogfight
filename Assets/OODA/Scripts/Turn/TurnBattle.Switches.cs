@@ -157,6 +157,8 @@ namespace Ooda.Turn
                 row.Add(Sw(battle.Cloaked(0) ? "STEALTHY" : "STEALTH", $"6  ({battle.stealths[0]})", plan.cloak, plan.cloak || battle.stealths[0] > 0, new Color(stealthColor.r, stealthColor.g, stealthColor.b, 1f), ToggleCloak));
             if (load.jammers > 0)
                 row.Add(Sw("JAM", $"7  ({battle.jammers[0]})", plan.jam, plan.jam || battle.jammers[0] > 0, jamColor, ToggleJam));
+            if (load.wells > 0)
+                row.Add(Sw("WELL", $"8  ({battle.wells[0]})", plan.well, plan.well || battle.wells[0] > 0, wellColor, ToggleWell));
             SwitchRow(x, y, w, row, true);
             if (JammedNow)
             {
