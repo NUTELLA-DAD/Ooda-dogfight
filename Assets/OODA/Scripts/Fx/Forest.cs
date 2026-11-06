@@ -7,7 +7,7 @@ namespace Ooda.Fx
     /// <summary>
     /// The island's forest: several hundred thousand trees, far too many for the terrain's own trees (they cost the CPU
     /// per tree every frame). Here they are cut into squares of Chunk metres, and each camera draws a square's trees of one
-    /// kind with one instanced call: the full model when the square is near, the light far mesh further off, and past that
+    /// kind with one instanced call: the full model when the square is near, the light far mesh to about 1.2 km, and past that
     /// the pines as plain cones without shadow. Squares outside the view or past MaxDistance are skipped whole, so the
     /// per-frame cost is a few thousand box tests, whatever the number of trees.
     /// The trees (AlpineWorld writes them) are 7 floats each in a binary TextAsset: x, y, z, yaw (radians), width scale,
@@ -20,7 +20,7 @@ namespace Ooda.Fx
         public Mesh[] near, far, low;           // by kind; low may be null (then far, out to LeafyDistance)
         public Material[] materials, lowMaterials;
         public Matrix4x4[] local;
-        public float NearDistance = 180f, FarDistance = 700f, LeafyDistance = 3500f, MaxDistance = 7000f;
+        public float NearDistance = 180f, FarDistance = 1200f, LeafyDistance = 4000f, MaxDistance = 25000f;
         const float Chunk = 250f;
 
         struct Group { public int kind; public Bounds bounds; public Matrix4x4[] m; }

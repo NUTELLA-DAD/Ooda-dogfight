@@ -46,6 +46,9 @@ namespace Ooda.EditorTools
         static bool[,] underModel;
         /// <summary>The highest model surface over each ground cell (float.MinValue where there is none): the trees stand on it.</summary>
         static float[,] modelTop;
+        /// <summary>How far up its mountain the top model surface is there (0 at its foot, 1 at its summit; 0 on a grass hill):
+        /// the mountain model's own snow and bare rock are on its upper part.</summary>
+        static float[,] modelUp;
 
         static bool UnderMountain(float x, float z) => underModel != null && underModel[Idx(z), Idx(x)];
 
@@ -102,6 +105,7 @@ namespace Ooda.EditorTools
             Peaks.Clear();
             underModel = new bool[Res, Res];
             modelTop = new float[Res, Res];
+            modelUp = new float[Res, Res];
             for (int j = 0; j < Res; j++) for (int i = 0; i < Res; i++) modelTop[j, i] = float.MinValue;
             Load(MountainModel, true);
             Load(FoothillModel, true);
@@ -228,7 +232,11 @@ namespace Ooda.EditorTools
             {
                 float surf = p.pos.y + rel;
                 if (surf > h[j, i] + 3f) underModel[j, i] = true;
-                modelTop[j, i] = Mathf.Max(modelTop[j, i], surf);
+                if (surf > modelTop[j, i])
+                {
+                    modelTop[j, i] = surf;
+                    modelUp[j, i] = p.model == FoothillModel ? 0 : rel / Mathf.Max(1f, p.model.top * p.scale.y);
+                }
                 if (!guard[j, i]) h[j, i] = Mathf.Max(h[j, i], surf - 6f);   // just under the model: it is what you see
             }
         }

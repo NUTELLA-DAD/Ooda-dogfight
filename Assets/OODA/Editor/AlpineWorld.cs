@@ -170,7 +170,7 @@ namespace Ooda.EditorTools
                 }
             AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
 
-            var cone = TestWorldBuilder.Mat("PineTree_Cone", new Color(0.10f, 0.36f, 0.23f), 0.05f);
+            var cone = TestWorldBuilder.Mat("PineTree_Cone", new Color(0.13f, 0.42f, 0.30f), 0.05f);
             cone.enableInstancing = true;
             var go = new GameObject("Forest");
             var f = go.AddComponent<Ooda.Fx.Forest>();

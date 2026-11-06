@@ -170,7 +170,7 @@ namespace Ooda.EditorTools
                 int b = v.Count;
                 v.Add(M(0, tall, 0)); v.Add(M(Mathf.Sin(a1) * rad, skirt, Mathf.Cos(a1) * rad)); v.Add(M(Mathf.Sin(a0) * rad, skirt, Mathf.Cos(a0) * rad));
                 n.Add(nm); n.Add(nm); n.Add(nm);
-                t.Add(b); t.Add(b + 1); t.Add(b + 2);
+                t.Add(b); t.Add(b + 2); t.Add(b + 1);   // clockwise seen from outside
             }
             mesh.SetVertices(v); mesh.SetNormals(n); mesh.SetTriangles(t, 0);
             mesh.RecalculateBounds();

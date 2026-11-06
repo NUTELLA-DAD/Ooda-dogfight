@@ -133,7 +133,10 @@ namespace Ooda.EditorTools
                     {
                         // on a model: its own slope and height decide; the snow and bare rock on it are its own texture
                         float jitter = 120f * (Mathf.PerlinNoise(x * 0.003f + 1, z * 0.003f + 4) - 0.5f);
-                        share = ForestShare(x, z, y, Slope(top, x, z), s, jitter, true);
+                        // not on a mountain's upper part (its snow and bare rock), and less steep than on open ground: the
+                        // model has cliffs finer than the 20 m it is sampled at
+                        float up = modelUp[Idx(z), Idx(x)];
+                        share = ForestShare(x, z, y, Slope(top, x, z) + 6f, s, jitter, true) * (1 - Step(0.25f, 0.35f, up));
                         y -= 1.5f;   // sunk a little: the surface between the samples may dip
                     }
                     else { GroundCover(h, x, z, w); share = w[1]; }
