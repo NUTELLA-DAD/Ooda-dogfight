@@ -347,6 +347,30 @@ namespace Ooda.Flight.Core
             spinRateDps = 110, spinDragPerWeight = 0.6,
         };
 
+        /// <summary>
+        /// The Su-27S Flanker, clean, at a combat weight of about 48,500 lb. Seeded from public figures (667 sq ft wing, aspect
+        /// ratio 3.5, two AL-31Fs at about 16,750 lbf dry and 27,560 lbf in afterburner so about 1.14:1 lit, +9 G, a clean
+        /// stall near 110 KIAS thanks to the lifting body and the root extensions, happy past 25 degrees of alpha, a roll near
+        /// 270 deg/s, 1,400 km/h (756 kt, Mach 1.14) at sea level and Mach 2.35 high up, a 300 m/s (59,000 ft/min) climb), on
+        /// the F-15's jet model. Fitted (afterburner, sea level) to about 21 deg/s sustained (a 17 s circle: it out-rates the
+        /// Eagle) and about 29.5 deg/s at a 330 KIAS corner; near 650 kt dry and 753 kt lit low down, Mach 2.35 at 36,000 ft,
+        /// and about 58,000 ft/min. Estimates to tune by feel.
+        /// </summary>
+        public static AircraftNumbers Su27() => new AircraftNumbers
+        {
+            name = "Su-27 Flanker",
+            propWash = 0.3, maxG = 9, minG = -3, stallKias = 110, negStallKias = 145, vneKias = 760,
+            rollPerKtasDps = 0.65, maxRollRateDps = 270, rollFullRateSec = 0.3,
+            gOnsetGps = 10, gOnsetAccelGps2 = 40,
+            rudderSideG = 0.3, rudderFullKias = 250,
+            thrustK = 2875, thrustV0Kt = 4000, thrustDensityExp = 0.8, thrustFlatSigma = 1.0,
+            maxStaticThrustPerWeight = 99, wepFactor = 1.645, dragA = 8.6e-7, dragB = 2900,
+            ramPerMach2 = 0.35, waveRise = 2.0, waveFallPerMach = 0.4, waveFloor = 0.55,
+            rocketG = 0, brakeG = 1.4,   // the big spine-mounted airbrake
+            alphaZeroLiftDeg = -1, alphaStallDeg = 28,
+            spinRateDps = 110, spinDragPerWeight = 0.6,
+        };
+
         /// <summary>The OODA tool's T-6A set (core/t6a-turn-data.js T6A_FIT and T6A_LIMITS), kept to check the port.</summary>
         public static AircraftNumbers T6A() => new AircraftNumbers
         {

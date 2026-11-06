@@ -261,6 +261,7 @@ namespace Ooda.Turn
             if (name.Contains("B-17")) return FourWing;
             if (name.Contains("F-4") || name.Contains("Phantom")) return JetTail;
             if (name.Contains("F-15")) return EagleTail;
+            if (name.Contains("Su-27")) return FlankerTail;
             return OneNose;
         }
         static readonly Vector3[] OneNose = { new Vector3(0.45f, 0.2f, 2.4f), new Vector3(-0.45f, 0.2f, 2.4f) };
@@ -268,7 +269,8 @@ namespace Ooda.Turn
         static readonly Vector3[] FourWing = { new Vector3(3.8f, 0.4f, 2.4f), new Vector3(-3.8f, 0.4f, 2.4f), new Vector3(7.8f, 0.4f, 1.6f), new Vector3(-7.8f, 0.4f, 1.6f) };
         static readonly Vector3[] JetTail = { new Vector3(0.65f, 0f, -8.2f), new Vector3(-0.65f, 0f, -8.2f) };
         static readonly Vector3[] EagleTail = { new Vector3(0.75f, -1.2f, -7.5f), new Vector3(-0.75f, -1.2f, -7.5f) };   // f15.py's NozzleL and NozzleR
-        static bool IsJetTail(Vector3[] spots) => spots == JetTail || spots == EagleTail;
+        static readonly Vector3[] FlankerTail = { new Vector3(1.12f, -1.34f, -7.34f), new Vector3(-1.12f, -1.34f, -7.34f) };   // su27.py's NozzleL and NozzleR
+        static bool IsJetTail(Vector3[] spots) => spots == JetTail || spots == EagleTail || spots == FlankerTail;
 
         void AircraftGlow(TurnAircraftView v, CombatNumbers c, bool down, bool rocket, bool ram = false)
         {
