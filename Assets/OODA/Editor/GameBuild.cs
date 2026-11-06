@@ -16,6 +16,7 @@ namespace Ooda.EditorTools
         [MenuItem("OODA/Build Windows Game")]
         public static void Windows()
         {
+            MissileRacks.Fit();   // the wing hardpoints from the airframes as they are now (a game build can't read the meshes)
             var args = System.Environment.GetCommandLineArgs();
             int at = System.Array.IndexOf(args, "-buildPath");
             string path = at >= 0 && at + 1 < args.Length ? args[at + 1] : Path.Combine("Builds", "Windows", "OODA.exe");

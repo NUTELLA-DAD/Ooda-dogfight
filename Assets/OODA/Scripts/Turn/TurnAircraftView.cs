@@ -87,6 +87,25 @@ namespace Ooda.Turn
             else if (wasEnabled != null)
                 for (int k = 0; k < rends.Length; k++) if (rends[k] != null) rends[k].enabled = wasEnabled[k];
             hidden = !on;
+            if (rack != null) rack.Show(rackLoaded, rackLeft, hidden);
+        }
+
+        // ---------- the missiles under the wings ----------
+
+        MissileRack rack;
+        int rackLoaded, rackLeft;
+
+        /// <summary>The heat-seekers on the rails: loaded at the start of the fight, left now (MissileRack; hidden with the rest of it under stealth).</summary>
+        public void ShowMissiles(int loaded, int left)
+        {
+            rackLoaded = loaded; rackLeft = left;
+            if (rack == null)
+            {
+                if (loaded <= 0) return;   // nothing to hang (the B-17, a missile-less lesson): no rack made
+                rack = GetComponent<MissileRack>();
+                if (rack == null) rack = gameObject.AddComponent<MissileRack>();
+            }
+            rack.Show(loaded, left, hidden);
         }
 
         /// <summary>The model's own renderers (not the red-hot shell).</summary>
@@ -94,7 +113,9 @@ namespace Ooda.Turn
         {
             var all = GetComponentsInChildren<Renderer>(true);
             var list = new System.Collections.Generic.List<Renderer>(all.Length);
-            foreach (var r in all) if (r != null && (shell == null || !r.transform.IsChildOf(shell.transform))) list.Add(r);
+            var stores = transform.Find(MissileRack.RootName);
+            foreach (var r in all)
+                if (r != null && (shell == null || !r.transform.IsChildOf(shell.transform)) && (stores == null || !r.transform.IsChildOf(stores))) list.Add(r);
             return list.ToArray();
         }
 

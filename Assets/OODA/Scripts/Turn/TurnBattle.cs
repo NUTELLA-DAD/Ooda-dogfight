@@ -432,6 +432,7 @@ namespace Ooda.Turn
         void ShowAllLive()
         {
             for (int i = 0; i < views.Length; i++) if (views[i] != null) views[i].ShowLive(battle.planes[i], battle.time);
+            RacksLive();
         }
 
         bool Bombing => battle != null && battle.routes.Any(r => r != null);
@@ -1504,6 +1505,8 @@ namespace Ooda.Turn
             if (source == null) return null;
             var g = Instantiate(source);
             g.name = name;
+            var stores = g.transform.Find(MissileRack.RootName);   // the ghost is the airframe alone, without the missiles
+            if (stores != null) DestroyImmediate(stores.gameObject);
             foreach (var a in g.GetComponentsInChildren<Animator>(true)) if (a != null) DestroyImmediate(a.gameObject);
             foreach (var mb in g.GetComponentsInChildren<MonoBehaviour>(true)) DestroyImmediate(mb);
             foreach (var ps in g.GetComponentsInChildren<ParticleSystem>(true)) if (ps != null) DestroyImmediate(ps.gameObject);
@@ -1569,6 +1572,7 @@ namespace Ooda.Turn
                 bool crashedNow = last.frames[k][now].down && battle.crashed[k] && now == n;
                 views[k].ShowFrame(last.frames[k][i], last.frames[k][i + 1], u, Time.deltaTime, crashedNow);
             }
+            RacksPlayback(last, now);
 
             DrawLastPaths(now);
             DrawExtras(now);
