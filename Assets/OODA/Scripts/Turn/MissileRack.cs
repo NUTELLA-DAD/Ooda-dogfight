@@ -212,83 +212,120 @@ namespace Ooda.Turn
         }
 
         /// <summary>
-        /// Fit the hardpoints from the airframe's vertices, in the root's frame: L1, R1 at the most inboard station whose cut
-        /// through the wing is thin for its chord (clear of the fuselage, the engine booms and the tailplane), L2, R2 further out.
-        /// Null when no mesh can be read (a game build reads only what the table holds) or nothing like a wing is found.
+        /// Fit the hardpoints from the airframe's triangles, in the root's frame: L1, R1 at the most inboard station whose cut
+        /// through the wing is thin for its chord (clear of the fuselage, the engine booms and the tailplane), L2, R2 further out,
+        /// each pair at one z. Null when no mesh can be read (a game build reads only what the table holds) or nothing like a
+        /// wing is found.
         /// </summary>
         public static List<Vector3> FitPoints(Transform root, out MeshFilter anchor)
         {
             anchor = Anchor(root);
-            var pts = new List<Vector3>();
+            var tris = new List<Vector3>();   // three corners each
             foreach (var mf in Airframe(root))
             {
                 var mesh = mf.sharedMesh;
                 if (!mesh.isReadable && !Application.isEditor) return null;
-                Vector3[] v;
-                try { v = mesh.vertices; } catch { return null; }
-                if (v == null || v.Length == 0) continue;
+                Vector3[] v; int[] t;
+                try { v = mesh.vertices; t = mesh.triangles; } catch { return null; }
+                if (v == null || t == null) continue;
                 var m = root.worldToLocalMatrix * mf.transform.localToWorldMatrix;
-                int step = Mathf.Max(1, v.Length / 150000);
-                for (int i = 0; i < v.Length; i += step) pts.Add(m.MultiplyPoint3x4(v[i]));
+                foreach (int i in t) tris.Add(m.MultiplyPoint3x4(v[i]));
             }
-            if (pts.Count < 100) return null;
-            float half = 0;
-            foreach (var p in pts) half = Mathf.Max(half, Mathf.Abs(p.x));
+            if (tris.Count < 300) return null;
+            float half = 0, zmin = float.MaxValue, zmax = float.MinValue;
+            foreach (var p in tris) { half = Mathf.Max(half, Mathf.Abs(p.x)); zmin = Mathf.Min(zmin, p.z); zmax = Mathf.Max(zmax, p.z); }
             if (half < 2f) return null;
+            float maxChord = Mathf.Max(0.5f * half, 0.35f * (zmax - zmin));   // a boom or a nacelle runs much longer than a wing chord
             // the station: the most inboard one whose wing cut is about as thin (for its chord) as the thinnest
             float bestRatio = float.MaxValue;
             var cuts = new List<(float f, float ratio)>();
             for (float f = 0.32f; f <= 0.66f; f += 0.02f)
             {
-                if (!Cut(pts, f * half, half, out _, out float ratio, out _)) continue;
+                if (!Cut(tris, f * half, maxChord, out _, out float ratio)) continue;
                 cuts.Add((f, ratio));
                 bestRatio = Mathf.Min(bestRatio, ratio);
             }
             if (cuts.Count == 0) return null;
+            // ...and with thin wing under the whole width of the missile's fins, so they stay clear of the fuselage and the booms
+            bool Thin(float x) => Cut(tris, x, maxChord, out _, out float r) && r <= bestRatio * 1.35f;
+            float reach = FinR * Length * 0.7071f + 0.2f;
             float f1 = cuts[0].f;
-            foreach (var c in cuts) if (c.ratio <= bestRatio * 1.35f) { f1 = c.f; break; }
-            float f2 = Mathf.Min(f1 + 0.15f, 0.74f);
+            foreach (var c in cuts)
+            {
+                float x = c.f * half;
+                if (c.ratio <= bestRatio * 1.35f && Thin(x - reach) && Thin(x + reach)) { f1 = c.f; break; }
+            }
+            float f2 = Mathf.Min(f1 + Mathf.Max(0.15f, (2 * reach + 0.2f) / half), 0.74f);
             var res = new List<Vector3>();
             foreach (float f in new[] { f1, f2 })
-                foreach (int side in new[] { -1, 1 })
-                {
-                    if (!Cut(pts, side * f * half, half, out var at, out _, out _)) at = new Vector3(side * f * half, res.Count > 0 ? res[0].y : 0, res.Count > 0 ? res[0].z : 0);
-                    res.Add(at);
-                }
+            {
+                float x = f * half;
+                bool l = Cut(tris, -x, maxChord, out var left, out _), r = Cut(tris, x, maxChord, out var right, out _);
+                if (!l && !r) left = right = res[0];   // (f1 always cuts, so only the outer pair can land here)
+                else if (!l) left = right;
+                else if (!r) right = left;
+                float z = 0.5f * (left.z + right.z);
+                res.Add(new Vector3(-x, left.y, z));
+                res.Add(new Vector3(x, right.y, z));
+            }
             return res;
         }
 
         /// <summary>
-        /// The wing where it crosses x: the longest run of points along z in a thin slice there (the wing, not the tailplane
-        /// behind it); its thickness over its chord, and the hardpoint under its middle. False if there is no wing-like run.
+        /// The wing where it crosses x: the longest unbroken run along z of the airframe's cross-section there (the wing, not
+        /// the tailplane behind it); its thickness over its chord, and the hardpoint under its middle. False if the run is not
+        /// wing-like. Slices the triangles, since a decimated wing has big flat ones with no vertices near the cut.
         /// </summary>
-        static bool Cut(List<Vector3> pts, float x, float half, out Vector3 at, out float ratio, out float chord)
+        static bool Cut(List<Vector3> tris, float x, float maxChord, out Vector3 at, out float ratio)
         {
-            at = default; ratio = float.MaxValue; chord = 0;
-            float band = Mathf.Max(0.08f, 0.012f * half);
-            var zs = new List<Vector3>();
-            foreach (var p in pts) if (Mathf.Abs(p.x - x) < band) zs.Add(p);
-            if (zs.Count < 12) return false;
-            zs.Sort((a, b) => a.z.CompareTo(b.z));
-            // split into runs where the slice has a gap along z
-            int bestA = 0, bestB = 0; float bestLen = -1;
-            int a0 = 0;
-            for (int i = 1; i <= zs.Count; i++)
+            at = default; ratio = float.MaxValue;
+            var segs = new List<(Vector3 a, Vector3 b)>();   // a toward the tail
+            var hits = new List<Vector3>(2);
+            for (int i = 0; i < tris.Count; i += 3)
             {
-                if (i < zs.Count && zs[i].z - zs[i - 1].z < 0.25f) continue;
-                float len = zs[i - 1].z - zs[a0].z;
-                if (len > bestLen) { bestLen = len; bestA = a0; bestB = i; }
-                a0 = i;
+                hits.Clear();
+                for (int e = 0; e < 3; e++)
+                {
+                    Vector3 p = tris[i + e], q = tris[i + (e + 1) % 3];
+                    if (p.x >= x == q.x >= x) continue;
+                    hits.Add(Vector3.Lerp(p, q, (x - p.x) / (q.x - p.x)));
+                }
+                if (hits.Count == 2) segs.Add(hits[0].z <= hits[1].z ? (hits[0], hits[1]) : (hits[1], hits[0]));
             }
-            chord = bestLen;
-            if (chord < 0.4f || chord > 0.5f * half) return false;   // a boom or a nacelle runs much longer than a wing chord
+            if (segs.Count < 4) return false;
+            segs.Sort((s, u) => s.a.z.CompareTo(u.a.z));
+            // the longest stretch along z with no gap in the slice
+            float z0 = segs[0].a.z, z1 = segs[0].b.z, bestZ0 = z0, bestZ1 = z1;
+            foreach (var s in segs)
+            {
+                if (s.a.z > z1 + 0.03f) { z0 = s.a.z; z1 = s.b.z; }
+                else z1 = Mathf.Max(z1, s.b.z);
+                if (z1 - z0 > bestZ1 - bestZ0) { bestZ0 = z0; bestZ1 = z1; }
+            }
+            float chord = bestZ1 - bestZ0;
+            if (chord < 0.4f || chord > maxChord) return false;
             float ymin = float.MaxValue, ymax = float.MinValue;
-            for (int i = bestA; i < bestB; i++) { ymin = Mathf.Min(ymin, zs[i].y); ymax = Mathf.Max(ymax, zs[i].y); }
+            foreach (var s in segs)
+            {
+                if (s.a.z < bestZ0 - 0.001f || s.b.z > bestZ1 + 0.001f) continue;
+                ymin = Mathf.Min(ymin, Mathf.Min(s.a.y, s.b.y));
+                ymax = Mathf.Max(ymax, Mathf.Max(s.a.y, s.b.y));
+            }
             ratio = (ymax - ymin) / chord;
-            float zc = 0.5f * (zs[bestA].z + zs[bestB - 1].z) + 0.04f * chord;
-            float under = float.MaxValue;
-            for (int i = bestA; i < bestB; i++) if (Mathf.Abs(zs[i].z - zc) < 0.2f * chord) under = Mathf.Min(under, zs[i].y);
-            if (under == float.MaxValue) under = ymin;
+            // the underside at the hardpoint's z: the lowest skin within a wing's thickness of the top (not a wheel hanging below it)
+            float zc = 0.5f * (bestZ0 + bestZ1) + 0.04f * chord;
+            var ys = new List<float>();
+            foreach (var s in segs)
+                if (s.a.z <= zc && s.b.z >= zc)
+                    ys.Add(s.b.z > s.a.z ? Mathf.Lerp(s.a.y, s.b.y, (zc - s.a.z) / (s.b.z - s.a.z)) : s.a.y);
+            float under = ymin;
+            if (ys.Count > 0)
+            {
+                float top = float.MinValue;
+                foreach (float y in ys) top = Mathf.Max(top, y);
+                under = top;
+                foreach (float y in ys) if (y >= top - 0.4f * chord) under = Mathf.Min(under, y);
+            }
             at = new Vector3(x, under, zc);
             return true;
         }
