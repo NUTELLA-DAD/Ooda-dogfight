@@ -549,6 +549,9 @@ namespace Ooda.UI
             g.transform.localPosition = at;
             g.transform.localRotation = yaw * Quaternion.Euler(Taildragger(craft) ? -9f : 0f, 0, 0);
             OnWheels(g, craft);
+            // its loadout on the rails (after the wheels: the missiles hang lower than the airframe sits)
+            var tv = g.GetComponent<Ooda.Turn.TurnAircraftView>();
+            if (tv != null) { int load = DogfightSetup.Guns(craft, false).missiles; tv.ShowMissiles(load, load); }
             p.plane = g;
             p.planeCentre = Centre(g);
 
