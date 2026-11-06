@@ -12,9 +12,10 @@ namespace Ooda.EditorTools
     internal static partial class AlpineWorld
     {
         // ---------- the ground colours ----------
-        // 0 meadow, 1 forest, 2 rock, 3 snow, 4 ripe field, 5 fresh pasture. Toon: narrow steps between flat colours.
+        // 0 meadow, 1 forest, 2 rock, 3 snow, 4 ripe wheat (rows along the field), 5 fresh pasture, 6 ripe wheat (rows across),
+        // 7 young green grain. Toon: narrow steps between flat colours. 8 layers draw in the same two terrain passes as 5 to 8.
 
-        public const int CoverLayers = 6;
+        public const int CoverLayers = 8;
 
         /// <summary>How much of each ground colour a point has (they add up to 1).</summary>
         static void GroundCover(float[,] h, float x, float z, float[] w)
@@ -40,9 +41,12 @@ namespace Ooda.EditorTools
             w[1] = forestW; w[2] = rockW; w[3] = snowW;
             w[4] = patch == 1 ? farmW : 0;
             w[5] = patch == 2 ? farmW : 0;
+            w[6] = patch == 3 ? farmW : 0;
+            w[7] = patch == 4 ? farmW : 0;
         }
 
-        /// <summary>Which field a point of the farmland is in: 0 meadow, 1 ripe field, 2 pasture; edge is how far it is from the
+        /// <summary>Which field a point of the farmland is in: 0 meadow, 1 ripe wheat, 2 pasture, 3 ripe wheat with its rows
+        /// across, 4 young green grain; edge is how far it is from the
         /// field's nearest side, m. The fields are a grid of about 300 by 200 m turned 17 degrees, each its own colour.</summary>
         static int FieldPatch(float x, float z, out float edge)
         {
@@ -56,7 +60,7 @@ namespace Ooda.EditorTools
             uint k = (uint)(cu * 73856093) ^ (uint)(cv * 19349663);
             k ^= k >> 13; k *= 0x5bd1e995; k ^= k >> 15;
             float r = (k % 1000) / 1000f;
-            return r < 0.3f ? 0 : r < 0.65f ? 1 : 2;
+            return r < 0.2f ? 0 : r < 0.4f ? 1 : r < 0.55f ? 3 : r < 0.75f ? 4 : 2;
         }
 
         /// <summary>Whether the river's water shows at point k: not inside a lake (its water is there already), not at the sea, and
