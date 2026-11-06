@@ -1,0 +1,11 @@
+tag before; pixelError 3; basemapDistance 6000; instanced True; alphamap 1024 x6 layers, 2 splatmaps; baseMap 512; material Universal Render Pipeline/Terrain/Lit
+layer Meadow: Alpine_Meadow 256x256 DXT1 mips 9 aniso 1 filter Bilinear tile 80 runtime 0.09 MB, file 0.06 MB
+layer Forest: Alpine_Forest 256x256 DXT1 mips 9 aniso 1 filter Bilinear tile 80 runtime 0.09 MB, file 0.05 MB
+layer Rock: Alpine_Rock 256x256 DXT1 mips 9 aniso 1 filter Bilinear tile 120 runtime 0.09 MB, file 0.06 MB
+layer Snow: Alpine_Snow 256x256 DXT1 mips 9 aniso 1 filter Bilinear tile 120 runtime 0.09 MB, file 0.06 MB
+layer Field: Alpine_Field 256x256 DXT1 mips 9 aniso 1 filter Bilinear tile 60 runtime 0.09 MB, file 0.06 MB
+layer Pasture: Alpine_Pasture 256x256 DXT1 mips 9 aniso 1 filter Bilinear tile 60 runtime 0.09 MB, file 0.06 MB
+flicker 150m: bottom third 2.85, middle 3.76, top 2.56 (mean change of brightness per frame, 0-255)
+flicker 400m: bottom third 2.63, middle 2.20, top 1.40 (mean change of brightness per frame, 0-255)
+flicker 800m_horizon: bottom third 2.19, middle 1.63, top 0.73 (mean change of brightness per frame, 0-255)
+flicker 800m_12deg: bottom third 2.66, middle 2.05, top 0.87 (mean change of brightness per frame, 0-255)
