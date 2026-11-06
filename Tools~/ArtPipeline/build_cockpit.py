@@ -272,13 +272,18 @@ RY = rig(0, 0.23, 0).y
 if RY < Y1 - 0.06:
     deck_z = min(rim_at(RY + 0.05, 1), rim_at(RY + 0.05, -1)) - 0.03
     pts = [(x * 0.985, y) for x, y in outline if y > RY]
-    pts.sort(key=lambda p: math.atan2(p[1] - (RY + Y1) / 2, p[0]))
+    # walk round from the front middle (right side, rear, left side) so the two front corners close it without crossing
+    pts.sort(key=lambda p: (math.atan2(p[1] - (RY + Y1) / 2, p[0]) + math.pi / 2) % (2 * math.pi))
     if len(pts) >= 3:
         dv = [bmS.verts.new((x, y, deck_z)) for x, y in pts] + [bmS.verts.new((half_width_at(RY) * -0.985, RY, deck_z)), bmS.verts.new((half_width_at(RY) * 0.985, RY, deck_z))]
         try:
             df = bmS.faces.new(dv); bmesh.ops.triangulate(bmS, faces=[df]); st.paint([f for f in bmS.faces if all(abs(v.co.z - deck_z) < 1e-6 for v in f.verts)], C['interior'])
         except ValueError:
             pass
+        # close the deck's open front down to the floor, or you look past the seat into the hollow fuselage
+        hw = half_width_at(RY) * 0.985
+        cs = ((-hw, RY, FL), (hw, RY, FL), (hw, RY, deck_z), (-hw, RY, deck_z))
+        st.paint([bmS.faces.new([bmS.verts.new(c) for c in cs]), bmS.faces.new([bmS.verts.new(c) for c in reversed(cs)])], C['interior'])
         ry2 = (RY + Y1) / 2
         if Y1 - RY > 0.25:
             st.box(Vector((0, ry2, deck_z + 0.08 * K)), (0.30 * K, 0.18 * K, 0.16 * K), 'olive')

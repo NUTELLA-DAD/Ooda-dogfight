@@ -1,3 +1,4 @@
+# (the Pit_ cockpit meshes use their own atlas, so they are left out)
 # Bake object-space position (of the root body frame) + coverage mask into a float EXR, per blend, for UV-mapped meshes sharing the main texture.
 import bpy, sys, numpy as np
 argv=sys.argv[sys.argv.index('--')+1:]
@@ -12,7 +13,7 @@ nt.links.new(tc.outputs['Object'],em.inputs['Color']); nt.links.new(em.outputs[0
 ti=nt.nodes.new('ShaderNodeTexImage'); ti.image=img; nt.nodes.active=ti
 root=[ob for ob in sc.objects if ob.type=='MESH' and ob.parent is None or (ob.parent and ob.parent.type=='ARMATURE' and ob.type=='MESH')][0]
 tc.object=root
-targets=[ob for ob in sc.objects if ob.type=='MESH' and len(ob.data.uv_layers)>0 and any(s.material and s.material.name.endswith(('_Mat','pbr_material')) for s in ob.material_slots)]
+targets=[ob for ob in sc.objects if ob.type=='MESH' and not ob.name.startswith('Pit_') and len(ob.data.uv_layers)>0 and any(s.material and s.material.name.endswith(('_Mat','pbr_material')) for s in ob.material_slots)]
 print('targets',[t.name for t in targets],'root',root.name)
 bpy.ops.object.select_all(action='DESELECT')
 for t in targets:
