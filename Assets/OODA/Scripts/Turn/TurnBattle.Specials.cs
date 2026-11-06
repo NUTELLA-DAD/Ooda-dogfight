@@ -11,8 +11,10 @@ namespace Ooda.Turn
     /// <summary>
     /// The arcade specials (the rules are Turn/Core/Specials.cs), planned like the rocket for the start of the turn:
     ///
-    /// 4, Balloon mine: a red spiked balloon let go behind you. It hangs where it was dropped, blinks once armed, and goes
-    /// off on the first enemy that flies within its fuse (the faint red ring round it while planning). Ideal for a tailer.
+    /// 4, Balloon mine: Kenny's red balloon with a spiked mine on a line (Resources/Mine), let go behind you at the moment
+    /// you pick on the MFD's trigger bar (drag its red marker; 4 steps it 0, 1, 2, 3 s, then off). It hangs where it was
+    /// dropped and drifts slowly on, blinks once armed, and goes off on the first enemy that flies within its fuse (the faint
+    /// red ring round it while planning). Ideal for a tailer.
     ///
     /// 5, Heat blade: the whole plane glows red hot all turn and its guns stay cold; fly through an enemy and it is cut in half.
     /// You are the brightest thing in the IR view while it glows: every heat-seeker locks you from farther.
@@ -41,8 +43,46 @@ namespace Ooda.Turn
         {
             if (!plan.mine && battle.balloonMines[0] <= 0) { Notice("No balloon mines left."); return; }
             plan.mine = !plan.mine;
-            if (plan.mine) Notice("Balloon mine: let go behind you as the turn starts. It hangs there and catches whoever follows.");
+            if (plan.mine) MineNotice();
             dirty = true;
+        }
+
+        /// <summary>The 4 key: off, then let go at 0, 1, 2 and 3 s into the turn, then off again.</summary>
+        void StepMine()
+        {
+            if (!plan.mine) { if (battle.balloonMines[0] <= 0) { Notice("No balloon mines left."); return; } plan.mine = true; plan.mineAt = 0; }
+            else if (plan.mineAt >= turnSec - 0.01) { plan.mine = false; plan.mineAt = 0; }
+            else plan.mineAt = Math.Min(turnSec, Math.Floor(plan.mineAt + 1.0001));
+            if (plan.mine) MineNotice();
+            dirty = true;
+        }
+
+        void MineNotice() => Notice($"Balloon mine: let go {plan.mineAt:0.0} s into the turn (drag the red marker on the trigger bar, or 4 steps it). It hangs and drifts slowly, and catches whoever follows.");
+
+        /// <summary>Where the mine's marker sits on the trigger bar, and its grab area (a little wider than it).</summary>
+        Rect MineMarker => new Rect(burstRect.x + (float)(Math.Min(plan.mineAt, turnSec) / turnSec) * burstRect.width - 8, burstRect.y - 9, 16, burstRect.height + 12);
+
+        bool PressMine(Vector2 gui) => plan.mine && burstRect.width > 0 && MineMarker.Contains(gui);
+
+        void SetMineFromBar(float guiX)
+        {
+            float t = Mathf.Clamp01((guiX - burstRect.x) / burstRect.width) * turnSec;
+            plan.mineAt = Mathf.Round(t / 0.05f) * 0.05f;
+            dirty = true;
+        }
+
+        /// <summary>The mine on the trigger bar: a red ball on a stalk at its moment, and its time in the label line.</summary>
+        void MineOnBar(Rect bar, GUIStyle lbl)
+        {
+            if (!plan.mine) return;
+            float x = bar.x + (float)(Math.Min(plan.mineAt, turnSec) / turnSec) * bar.width;
+            var red = new Color(1f, 0.25f, 0.2f, 1f);
+            Fill(new Rect(x - 1, bar.y - 2, 2, bar.height + 4), red);
+            Fill(new Rect(x - 4, bar.y - 9, 8, 8), red);
+            Fill(new Rect(x - 2, bar.y - 8, 2, 2), new Color(1f, 0.75f, 0.7f, 1f));
+            var st = new GUIStyle(lbl) { alignment = TextAnchor.MiddleRight };
+            st.normal.textColor = red;
+            GUI.Label(new Rect(bar.x, bar.y - 14, bar.width, 12), $"MINE {plan.mineAt:0.00} S", st);
         }
 
         void ToggleBlade()
@@ -108,11 +148,11 @@ namespace Ooda.Turn
             dirty = true;
         }
 
-        /// <summary>4 balloon mine, 5 heat blade, 6 stealth.</summary>
+        /// <summary>4 balloon mine (stepping its moment), 5 heat blade, 6 stealth, 7 jammer.</summary>
         void SpecialsInput(Keyboard kb)
         {
             bool Pressed(Key k) => kb != null && kb[k].wasPressedThisFrame;
-            if (Pressed(Key.Digit4) || Pressed(Key.Numpad4)) ToggleMine();
+            if (Pressed(Key.Digit4) || Pressed(Key.Numpad4)) StepMine();
             if (Pressed(Key.Digit5) || Pressed(Key.Numpad5)) ToggleBlade();
             if (Pressed(Key.Digit6) || Pressed(Key.Numpad6)) ToggleCloak();
             if (Pressed(Key.Digit7) || Pressed(Key.Numpad7)) ToggleJam();
@@ -127,11 +167,18 @@ namespace Ooda.Turn
                 if (b is Mine mn) Balloon(UnityFrame.Pos(mn.pos), mn.Armed, true, mn.side == battle.side[0]);
             if (preview != null)
                 foreach (var tr in preview.mines)
-                    if (tr.owner == 0 && tr.startFrame <= 1 && tr.points.Count > 0)
+                    if (tr.owner == 0 && tr.startFrame >= 1 && tr.points.Count > 0)
                     {
-                        // the one you're planning to let go: faint, where it ends the turn
+                        // the one you're planning to let go: a mark on your path where it leaves, and faint, where it ends the turn
+                        var drop = UnityFrame.Pos(tr.points[0]);
+                        Vector3 right = view != null ? view.Cam.transform.right : Vector3.right, up = view != null ? view.Cam.transform.up : Vector3.up;
+                        float rr = Mathf.Max(2f, W(drop) * 6f);
+                        var mark = new List<Vector3>(12);
+                        for (int k = 0; k < 12; k++) { float a = k * Mathf.PI / 6; mark.Add(drop + (right * Mathf.Cos(a) + up * Mathf.Sin(a)) * rr); }
+                        lines.Strip(mark, 0.5f, new Color(mineColor.r, mineColor.g, mineColor.b, 0.8f), true);
                         var pts = new List<Vector3>();
                         for (int i = 0; i < tr.points.Count; i += 4) pts.Add(UnityFrame.Pos(tr.points[i]));
+                        pts.Add(UnityFrame.Pos(tr.points[tr.points.Count - 1]));
                         if (pts.Count >= 2) lines.Strip(pts, 0.4f, new Color(mineColor.r, mineColor.g, mineColor.b, 0.35f));
                         Balloon(UnityFrame.Pos(tr.points[tr.points.Count - 1]), false, true, true, 0.5f);
                     }
@@ -150,10 +197,80 @@ namespace Ooda.Turn
             }
         }
 
-        /// <summary>A spiked red balloon on a short dangling line, its light blinking once armed; with ring, the fuse's reach round it.</summary>
+        // ---------- the mine model (Resources/Mine, Kenny's Hi3D balloon mine, cleaned by Tools~/ArtPipeline/mine.py) ----------
+
+        Mesh mineMesh;
+        Material mineMat;
+        bool mineLoaded;
+        readonly List<GameObject> mineModels = new List<GameObject>();
+        int minesShown, minesFrame = -1;
+
+        /// <summary>The model's mesh and material, loaded once; false when it is not in the build (the drawn balloon stands in).</summary>
+        bool MineModelReady()
+        {
+            if (mineLoaded) return mineMesh != null;
+            mineLoaded = true;
+            var model = Resources.Load<GameObject>("Mine");
+            var mf = model != null ? model.GetComponentInChildren<MeshFilter>(true) : null;
+            if (mf == null || mf.sharedMesh == null) { Debug.Log("OODA: no mine model (Resources/Mine): the balloon mines are drawn"); return false; }
+            mineMesh = mf.sharedMesh;
+            var tex = Resources.Load<Texture2D>("Mine_BaseColor");
+            // the aircraft's own lit material as the template, so its shader is surely in the build
+            var like = player != null ? player.GetComponentInChildren<MeshRenderer>() : null;
+            mineMat = like != null && like.sharedMaterial != null ? new Material(like.sharedMaterial) : new Material(Shader.Find("Universal Render Pipeline/Lit"));
+            mineMat.name = "Mine";
+            foreach (var k in new[] { "_BaseMap", "_MainTex" }) if (mineMat.HasProperty(k)) mineMat.SetTexture(k, tex);
+            foreach (var k in new[] { "_BaseColor", "_Color" }) if (mineMat.HasProperty(k)) mineMat.SetColor(k, Color.white);
+            foreach (var k in new[] { "_MetallicGlossMap", "_BumpMap", "_OcclusionMap", "_EmissionMap" }) if (mineMat.HasProperty(k)) mineMat.SetTexture(k, null);
+            if (mineMat.HasProperty("_Metallic")) mineMat.SetFloat("_Metallic", 0.1f);
+            if (mineMat.HasProperty("_Smoothness")) mineMat.SetFloat("_Smoothness", 0.6f);
+            Debug.Log($"OODA: mine model {mineMesh.vertexCount} vertices, {(tex != null ? $"colour map {tex.width}x{tex.height}" : "NO colour map")}, shader {mineMat.shader.name}");
+            return true;
+        }
+
+        /// <summary>Put the next mine model of this frame at p: upright, turning slowly, size times its 4.2 m.</summary>
+        void PlaceMineModel(Vector3 p, float size, float spin)
+        {
+            if (minesFrame != Time.frameCount) { minesFrame = Time.frameCount; minesShown = 0; }
+            if (minesShown == mineModels.Count)
+            {
+                var go = new GameObject("BalloonMine");
+                go.AddComponent<MeshFilter>().sharedMesh = mineMesh;
+                var mr = go.AddComponent<MeshRenderer>(); mr.sharedMaterial = mineMat;
+                mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                mineModels.Add(go);
+            }
+            var m = mineModels[minesShown++];
+            m.SetActive(true);
+            m.transform.SetPositionAndRotation(p, Quaternion.Euler(0, spin, 0));
+            m.transform.localScale = Vector3.one * size;
+        }
+
+        /// <summary>After the frame's drawing: hide the mine models no mine used this frame.</summary>
+        void HideSpareMines()
+        {
+            int used = minesFrame == Time.frameCount ? minesShown : 0;
+            for (int i = used; i < mineModels.Count; i++) if (mineModels[i] != null && mineModels[i].activeSelf) mineModels[i].SetActive(false);
+        }
+
+        /// <summary>
+        /// A balloon mine at p (the mine's middle): the model, or a spiked red balloon drawn on a short dangling line when the
+        /// model isn't in the build or this is the faint one you're planning; its light blinks once armed; with ring, the
+        /// fuse's reach round it.
+        /// </summary>
         void Balloon(Vector3 p, bool armed, bool ring, bool ours, float alpha = 1f)
         {
             Vector3 right = view != null ? view.Cam.transform.right : Vector3.right, up = view != null ? view.Cam.transform.up : Vector3.up;
+            if (alpha >= 1f && MineModelReady())
+            {
+                // life size close by, growing with range so it still reads as a mine a mile off
+                float size = Mathf.Max(1f, W(p) * 1.6f);
+                PlaceMineModel(p, size, Mathf.Repeat(Time.time * 12f + p.x * 3.1f, 360f));
+                if (armed && Mathf.Repeat(Time.time * 1.6f, 1f) < 0.3f)
+                    lines.Line(p + Vector3.up * 3.4f * size, p + Vector3.up * 3.75f * size, 2.2f, ours ? new Color(0.5f, 1f, 0.5f, 1f) : new Color(1f, 0.9f, 0.3f, 1f));
+                if (ring) FuseRing(p, right, up, ours, alpha);
+                return;
+            }
             float r = Mathf.Max(1.6f, W(p) * 7f);
             var red = mineColor; red.a *= alpha;
             var dark = new Color(0.25f, 0.05f, 0.05f, 0.9f * alpha);
@@ -168,7 +285,11 @@ namespace Ooda.Turn
             lines.Line(p + up * r * 0.2f - right * r * 0.25f, p + up * r * 0.35f - right * r * 0.15f, 1.6f, new Color(1f, 0.7f, 0.65f, 0.8f * alpha));   // its shine
             if (armed && Mathf.Repeat(Time.time * 1.6f, 1f) < 0.3f)
                 lines.Line(p + up * r * 0.9f, p + up * r * 1.15f, 2.2f, ours ? new Color(0.5f, 1f, 0.5f, alpha) : new Color(1f, 0.9f, 0.3f, alpha));
-            if (!ring) return;
+            if (ring) FuseRing(p, right, up, ours, alpha);
+        }
+
+        void FuseRing(Vector3 p, Vector3 right, Vector3 up, bool ours, float alpha)
+        {
             float fuse = (float)(Specials.FuseFt * Atmosphere.MPerFt);
             var pts = new List<Vector3>(24);
             for (int k = 0; k < 24; k++) { float a = k * Mathf.PI / 12; pts.Add(p + (right * Mathf.Cos(a) + up * Mathf.Sin(a)) * fuse); }

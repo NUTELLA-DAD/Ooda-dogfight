@@ -276,14 +276,14 @@ namespace Ooda.Turn.Core
 
                 for (int i = 0; i < n; i++) routes[i]?.Advance(planes[i]);
 
-                // Balloon mines: let go behind, in the first step
+                // Balloon mines: let go behind, in the step its plan's moment falls in (the last step at the latest)
                 for (int i = 0; i < n; i++)
                 {
-                    if (!dropMine[i]) continue;
+                    if (!dropMine[i] || k < steps && t + StepSec <= Math.Max(0, plans[i].mineAt) + 1e-9) continue;
                     dropMine[i] = false;
                     if (Out(i)) continue;
                     var m = planes[i];
-                    var mn = Mine.Make(i, side[i], m.state.pos - m.Forward * 50 - m.Up * 6, m.state.vel * 0.25, time + StepSec);
+                    var mn = Mine.Make(i, side[i], m.state.pos - m.Forward * 50 - m.Up * 6, m.state.vel * 0.25, time + StepSec, k);
                     bullets.Add(mn);
                     if (record) StartTrace(res, traceOf, mn, k);
                 }

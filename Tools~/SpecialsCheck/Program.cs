@@ -1,5 +1,5 @@
 // Checks of the arcade specials without Unity (see Turn/Core/Specials.cs): the balloon mine catches a tailer who flies
-// on and spares one who turns away; the heat blade cuts an enemy in half and flies on, keeps the guns cold and runs hot;
+// on and spares one who turns away, goes at the moment planned and drifts slowly; the heat blade cuts an enemy in half and flies on, keeps the guns cold and runs hot;
 // stealth hides you from the AI and the flak but not from a heat-seeker, and firing shows you; the AI pilots use all
 // three; and everything survives a clone, a subset, a swap and the trip to bytes.
 // Usage: dotnet run   (exit code = failures)
@@ -64,6 +64,37 @@ static class Program
             e.balloonMines[0] = 0;
             e.Resolve(new TurnPlan?[] { drop, Ahead(e, 1) }, 3);
             Check(!e.bullets.Any(x => x is Mine), "with none left, nothing goes");
+
+            // let go late in the turn: it leaves where the plane is then, far up the path from where it starts
+            var f = Tail(1200);
+            var late = Ahead(f, 0); late.mine = true; late.mineAt = 2.2;
+            var start = f.planes[0].state.pos;
+            var rf = f.Resolve(new TurnPlan?[] { late, Ahead(f, 1) }, 3);
+            var lm = f.bullets.OfType<Mine>().FirstOrDefault();
+            double secs = rf.mines.Count == 1 ? rf.mines[0].startFrame * rf.dt : -1;
+            double along = lm == null ? 0 : lm.pos.y - start.y;
+            Check(lm != null && Math.Abs(secs - 2.2) <= rf.dt + 1e-9, $"planned for 2.2 s, it goes {secs:F2} s into the turn");
+            Check(along > 900, $"from where the plane was then, {along:F0} ft up the path (a mine at the start would be about -50)");
+            var g = Tail(1200);
+            var past = Ahead(g, 0); past.mine = true; past.mineAt = 9;
+            var rg = g.Resolve(new TurnPlan?[] { past, Ahead(g, 1) }, 3);
+            Check(g.bullets.OfType<Mine>().Count() == 1, $"one planned past the turn's end goes at its last moment (frame {(rg.mines.Count > 0 ? rg.mines[0].startFrame : -1)})");
+
+            // once it hangs it drifts slowly on, the way the plane was going, and never falls
+            var h = Tail(1200);
+            h.Resolve(new TurnPlan?[] { drop, new TurnPlan { aim = new Vec3d(0.6, 0.8, 0).Normalized, throttle = 1 } }, 3);
+            var hm = h.bullets.OfType<Mine>().First();
+            var p0 = hm.pos;
+            double minSpeed = 1e9, maxSpeed = 0;
+            for (int t = 0; t < 4; t++)
+            {
+                h.Resolve(new TurnPlan?[] { Ahead(h, 0), new TurnPlan { aim = h.planes[1].Forward, throttle = 1 } }, 3);
+                if (!hm.alive) break;
+                minSpeed = Math.Min(minSpeed, hm.vel.Length); maxSpeed = Math.Max(maxSpeed, hm.vel.Length);
+            }
+            var moved = hm.pos - p0;
+            Check(hm.alive && moved.y > 60 && moved.Length < 400 && moved.z > -1, $"over 12 s it drifts {moved.Length:F0} ft, {moved.y:F0} north (the way it was let go), {moved.z:F0} up");
+            Check(maxSpeed < 25 && minSpeed > 3, $"slowly: {minSpeed:F0} to {maxSpeed:F0} ft/s");
         }
 
         Console.WriteLine("\nHeat blade");
@@ -195,9 +226,9 @@ static class Program
             int m0 = b.balloonMines[0], s1 = b.stealths[1];
             b.Swap(0, 1);
             Check(b.balloonMines[1] == m0 && b.stealths[0] == s1, "a swap moves them with the plane");
-            var pl = new TurnPlan { mine = true, ram = true, cloak = true };
+            var pl = new TurnPlan { mine = true, mineAt = 1.35, ram = true, cloak = true };
             var pd = Wire.Decode<TurnPlan>(Wire.Encode(pl));
-            Check(pd.mine && pd.ram && pd.cloak, "a plan with all three survives the trip to bytes");
+            Check(pd.mine && pd.mineAt == 1.35 && pd.ram && pd.cloak, "a plan with all three (and the mine's moment) survives the trip to bytes");
         }
 
         Console.WriteLine("\nThe Arcade switch");

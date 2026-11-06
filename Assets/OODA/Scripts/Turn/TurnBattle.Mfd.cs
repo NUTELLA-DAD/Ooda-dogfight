@@ -162,6 +162,7 @@ namespace Ooda.Turn
                     float x = bar.x + (float)((h.fireTime - preview.startTime) / turnSec) * w;
                     Fill(new Rect(x - 1, bar.y - 3, 2, bar.height + 6), h.shooter == 0 ? Color.white : MfdRed);
                 }
+            MineOnBar(bar, lbl);
             lbl.normal.textColor = MfdDim;
             for (int s = 0; s <= (int)turnSec; s++)
                 GUI.Label(new Rect(bar.x + s / (float)turnSec * w - 10, bar.yMax + 3, 20, 11), $"{s}", new GUIStyle(lbl) { alignment = TextAnchor.MiddleCenter });
