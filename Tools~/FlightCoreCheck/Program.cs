@@ -105,7 +105,7 @@ static class Program
     {
         int fails = 0;
         void Check(bool ok, string what) { if (!ok) fails++; Console.WriteLine($"  {(ok ? "ok  " : "FAIL")} {what}"); }
-        var planes = new[] { AircraftNumbers.SpitfireIX(), AircraftNumbers.Bf109G(), AircraftNumbers.P51D(), AircraftNumbers.P38L(), AircraftNumbers.Phantom(), AircraftNumbers.A6M2(), AircraftNumbers.F15C() };
+        var planes = new[] { AircraftNumbers.SpitfireIX(), AircraftNumbers.Bf109G(), AircraftNumbers.P51D(), AircraftNumbers.P38L(), AircraftNumbers.Phantom(), AircraftNumbers.A6M2(), AircraftNumbers.F15C(), AircraftNumbers.Su27() };
         Console.WriteLine("\nTurn performance (WEP or afterburner)");
         foreach (double alt in new[] { 0.0, 10000 })
         {
@@ -138,6 +138,11 @@ static class Program
             "the F-15 sustains about 19 deg/s low down, far past the F-4, and about 27 deg/s at its 354 KIAS corner");
         Check(f15.ClimbFpm(0, true) > 50000 && f15.ClimbFpm(0, true) > f4.ClimbFpm(0, true) && f15.maxRollRateDps > f4.maxRollRateDps,
             "it out-climbs and out-rolls the F-4");
+        var su27 = planes[7];
+        Check(Math.Abs(su27.SustainedTurnDps(0, true) - 21) < 1 && su27.MaxTurnDps(0) > 28 && su27.MaxTurnDps(0) < 31 && su27.SustainedTurnDps(0, true) > f15.SustainedTurnDps(0, true) + 1,
+            "the Su-27 sustains about 21 deg/s low down, past the F-15, and about 29.5 deg/s at its 330 KIAS corner");
+        Check(su27.ClimbFpm(0, true) > 55000 && su27.ClimbFpm(0, true) > f15.ClimbFpm(0, true) && su27.maxRollRateDps > f15.maxRollRateDps && su27.CornerKias < f15.CornerKias,
+            "it out-climbs and out-rolls the F-15 and corners slower");
         return fails;
     }
 }

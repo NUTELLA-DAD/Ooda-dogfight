@@ -279,6 +279,14 @@ static class Program
             Check(eb.ours.SequenceEqual(eagles.ours) && eb.theirs.SequenceEqual(eagles.theirs) && eb.oursPilots[0] == PilotKind.Bear
                   && DogfightSetup.Of(ef.planes[0].numbers) == Craft.F15 && DogfightSetup.Of(ef.planes[2].numbers) == Craft.F15 && ef.missiles[0] == 4 && ef.planes[0].numbers.thrustV0Kt > 1000,
                   "the F-15 survives the trip to bytes and flies as a jet with 4 missiles, on either side, with any pilot");
+            var flankers = new DogfightSetup { ours = new[] { Craft.Su27, Craft.F15 }, theirs = new[] { Craft.Su27 }, randomStart = false,
+                                               oursPilots = new[] { PilotKind.Usual, PilotKind.Fox }, theirsPilots = new[] { PilotKind.Tiger } };
+            var fb = DogfightSetup.FromBytes(flankers.ToBytes());
+            var ff = Scenarios.Dogfight(fb, centre, 3600, 300, 3000);
+            Check(fb.ours.SequenceEqual(flankers.ours) && fb.theirs.SequenceEqual(flankers.theirs) && fb.theirsPilots[0] == PilotKind.Tiger
+                  && DogfightSetup.Of(ff.planes[0].numbers) == Craft.Su27 && DogfightSetup.Of(ff.planes[1].numbers) == Craft.Su27 && DogfightSetup.Of(ff.planes[2].numbers) == Craft.F15
+                  && ff.planes[0].numbers.thrustV0Kt > 1000 && ff.combat[0].radarRangeFt > 0 && ff.combat[0].radarMissiles == 2 && ff.planes[0].numbers.rocketG == 0,
+                  "the Su-27 survives the trip to bytes and flies as a jet with a radar and two radar missiles and no rocket, on either side, with any pilot");
             var easy = Scenarios.Dogfight(new DogfightSetup { ours = new[] { Craft.Bf109 }, theirs = new[] { Craft.Mustang }, randomStart = false }, centre);
             Check(easy.combat[0].hitRadiusFt == 20 && easy.combat[1].hitRadiusFt < 20, "against the AI your guns get the easy aim whatever you fly, and an enemy P-51 doesn't");
 
