@@ -45,7 +45,7 @@ MonoBehaviour:
     rocketG: 0
     rocketSec: 2.5
     rocketCooldownSec: 30
-    brakeG: 1
+    brakeG: 1.4
     alphaZeroLiftDeg: -1
     alphaStallDeg: 20
     departureStallMarginG: 0.75
@@ -57,3 +57,10 @@ MonoBehaviour:
     spinDragPerWeight: 0.6
     incipientRecoverySec: 0.8
     spinRecoverySec: 2.5
+    verticalEntryFtps: 120
+    verticalExitFtps: 150
+    propWash: 0.3
+    lowSpeedYawDps: 75
+    lowSpeedPitchDps: 45
+    lowSpeedRollDps: 60
+    weathervaneDps: 140

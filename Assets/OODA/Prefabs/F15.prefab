@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 6998020257869777887}
   - component: {fileID: 459507200798954225}
+  - component: {fileID: 4276484632647866239}
   - component: {fileID: 6771867875390240679}
   - component: {fileID: 3394798490601909429}
   m_Layer: 0
@@ -48,6 +49,22 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Ooda.Turn.TurnAircraftView
   smokePoint: {fileID: 0}
+--- !u!114 &4276484632647866239
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4461173622554565475}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 46a71c7133b1461d8b77ed285aa5ed19, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Ooda.Flight.ControlSurfaces
+  elevatorDeg: 18
+  aileronDeg: 15
+  rudderDeg: 20
+  fullRollDps: 120
 --- !u!114 &6771867875390240679
 MonoBehaviour:
   m_ObjectHideFlags: 0

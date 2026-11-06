@@ -42,6 +42,7 @@ GameObject:
   - component: {fileID: 700308972035641241}
   - component: {fileID: 5432635473408190919}
   - component: {fileID: 3771126153575277205}
+  - component: {fileID: 4834604308850811316}
   - component: {fileID: 2448628969179943984}
   m_Layer: 0
   m_Name: Spitfire
@@ -96,6 +97,22 @@ MonoBehaviour:
   idleRpm: 400
   maxRpm: 1400
   reverse: 0
+--- !u!114 &4834604308850811316
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2741360652903813743}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 46a71c7133b1461d8b77ed285aa5ed19, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Ooda.Flight.ControlSurfaces
+  elevatorDeg: 18
+  aileronDeg: 15
+  rudderDeg: 20
+  fullRollDps: 120
 --- !u!114 &2448628969179943984
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -904,6 +921,18 @@ PrefabInstance:
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
       objectReference: {fileID: 2100000, guid: ce7c2c48f85319b42b03344827001012, type: 2}
+    - target: {fileID: -7212152154046185751, guid: 3cf082666bc81b34ea7398008fb6bce4, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: ce7c2c48f85319b42b03344827001012, type: 2}
+    - target: {fileID: -6215752512423728209, guid: 3cf082666bc81b34ea7398008fb6bce4, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: ce7c2c48f85319b42b03344827001012, type: 2}
+    - target: {fileID: -298588544215124655, guid: 3cf082666bc81b34ea7398008fb6bce4, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: ce7c2c48f85319b42b03344827001012, type: 2}
     - target: {fileID: 78377678486456165, guid: 3cf082666bc81b34ea7398008fb6bce4, type: 3}
       propertyPath: m_CastShadows
       value: 0
@@ -956,6 +985,10 @@ PrefabInstance:
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
       objectReference: {fileID: 2100000, guid: 6095e23ea00114f449e7fb956d44e18f, type: 2}
+    - target: {fileID: 6157752236627400354, guid: 3cf082666bc81b34ea7398008fb6bce4, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: ce7c2c48f85319b42b03344827001012, type: 2}
     - target: {fileID: 6530330684447140656, guid: 3cf082666bc81b34ea7398008fb6bce4, type: 3}
       propertyPath: m_CastShadows
       value: 0
@@ -972,6 +1005,10 @@ PrefabInstance:
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
       objectReference: {fileID: 2100000, guid: 6095e23ea00114f449e7fb956d44e18f, type: 2}
+    - target: {fileID: 6890993665773036055, guid: 3cf082666bc81b34ea7398008fb6bce4, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: ce7c2c48f85319b42b03344827001012, type: 2}
     - target: {fileID: 7899952451661979714, guid: 3cf082666bc81b34ea7398008fb6bce4, type: 3}
       propertyPath: m_CastShadows
       value: 0

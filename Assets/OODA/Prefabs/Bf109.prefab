@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 51871512005972397}
   - component: {fileID: 7936497787070402749}
   - component: {fileID: 6718540654399714899}
+  - component: {fileID: 5805227579415831182}
   - component: {fileID: 4305586913695445612}
   m_Layer: 0
   m_Name: Bf109
@@ -65,6 +66,22 @@ MonoBehaviour:
   idleRpm: 400
   maxRpm: 1400
   reverse: 0
+--- !u!114 &5805227579415831182
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 868256559171294026}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 46a71c7133b1461d8b77ed285aa5ed19, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Ooda.Flight.ControlSurfaces
+  elevatorDeg: 18
+  aileronDeg: 15
+  rudderDeg: 20
+  fullRollDps: 120
 --- !u!114 &4305586913695445612
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1034,6 +1051,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 51871512005972397}
     m_Modifications:
+    - target: {fileID: -8774774143531057840, guid: 6ac99236b972b68408e9dc25e5c90c00, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: b5f93b75e10db7d4386849ae0f162249, type: 2}
     - target: {fileID: -8679921383154817045, guid: 6ac99236b972b68408e9dc25e5c90c00, type: 3}
       propertyPath: m_LocalPosition.x
       value: -0
@@ -1074,11 +1095,23 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: -8069156767129068344, guid: 6ac99236b972b68408e9dc25e5c90c00, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: b5f93b75e10db7d4386849ae0f162249, type: 2}
     - target: {fileID: -7511558181221131132, guid: 6ac99236b972b68408e9dc25e5c90c00, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
       objectReference: {fileID: 2100000, guid: b5f93b75e10db7d4386849ae0f162249, type: 2}
     - target: {fileID: -6846645534030420615, guid: 6ac99236b972b68408e9dc25e5c90c00, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: b5f93b75e10db7d4386849ae0f162249, type: 2}
+    - target: {fileID: -6053031402937849396, guid: 6ac99236b972b68408e9dc25e5c90c00, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: b5f93b75e10db7d4386849ae0f162249, type: 2}
+    - target: {fileID: -3031084239881914858, guid: 6ac99236b972b68408e9dc25e5c90c00, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
       objectReference: {fileID: 2100000, guid: b5f93b75e10db7d4386849ae0f162249, type: 2}
@@ -1146,6 +1179,10 @@ PrefabInstance:
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
       objectReference: {fileID: 2100000, guid: 6095e23ea00114f449e7fb956d44e18f, type: 2}
+    - target: {fileID: 7099995503542419540, guid: 6ac99236b972b68408e9dc25e5c90c00, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: b5f93b75e10db7d4386849ae0f162249, type: 2}
     - target: {fileID: 7899952451661979714, guid: 6ac99236b972b68408e9dc25e5c90c00, type: 3}
       propertyPath: m_CastShadows
       value: 0
