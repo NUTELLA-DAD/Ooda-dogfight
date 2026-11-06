@@ -119,7 +119,9 @@ namespace Ooda.EditorTools
             var forest = TestWorldBuilder.MakeNoiseTexture("Alpine_Forest", new Color(0.16f, 0.36f, 0.18f), new Color(0.22f, 0.42f, 0.20f));
             var rock = TestWorldBuilder.MakeNoiseTexture("Alpine_Rock", new Color(0.38f, 0.39f, 0.46f), new Color(0.47f, 0.47f, 0.53f));
             var snow = TestWorldBuilder.MakeNoiseTexture("Alpine_Snow", new Color(0.90f, 0.93f, 0.98f), new Color(0.98f, 0.99f, 1f));
-            var field = TestWorldBuilder.MakeNoiseTexture("Alpine_Field", new Color(0.80f, 0.68f, 0.31f), new Color(0.88f, 0.76f, 0.38f));
+            var field = MakeCropTexture("Alpine_Field", Wheat, false);
+            var fieldAcross = MakeCropTexture("Alpine_FieldAcross", Wheat, true);
+            var young = MakeCropTexture("Alpine_YoungGrain", YoungGrain, false);
             var pasture = TestWorldBuilder.MakeNoiseTexture("Alpine_Pasture", new Color(0.48f, 0.72f, 0.24f), new Color(0.56f, 0.80f, 0.30f));
             TerrainLayer Layer(string name, Texture2D tex, float tile)
             {
@@ -132,7 +134,8 @@ namespace Ooda.EditorTools
             data.terrainLayers = new[]
             {
                 Layer("Meadow", meadow, 80), Layer("Forest", forest, 80), Layer("Rock", rock, 120), Layer("Snow", snow, 120),
-                Layer("Field", field, 60), Layer("Pasture", pasture, 60),
+                Layer("Field", field, CropTile), Layer("Pasture", pasture, 60),
+                Layer("FieldAcross", fieldAcross, CropTile), Layer("YoungGrain", young, CropTile),
             };
             var a = new float[SplatRes, SplatRes, CoverLayers];
             var cover = new float[CoverLayers];
@@ -146,7 +149,98 @@ namespace Ooda.EditorTools
                 }
             data.SetAlphamaps(0, 0, a);
             float total = SplatRes * (float)SplatRes;
-            Debug.Log($"OODA: ground cover meadow {cover[0] / total:P0}, forest {cover[1] / total:P0}, rock {cover[2] / total:P0}, snow {cover[3] / total:P0}, fields {cover[4] / total:P0}, pasture {cover[5] / total:P0} ({data.alphamapLayers} layers).");
+            Debug.Log($"OODA: ground cover meadow {cover[0] / total:P0}, forest {cover[1] / total:P0}, rock {cover[2] / total:P0}, snow {cover[3] / total:P0}, wheat {(cover[4] + cover[6]) / total:P0}, young grain {cover[7] / total:P0}, pasture {cover[5] / total:P0} ({data.alphamapLayers} layers).");
+        }
+
+        // ---------- the crops ----------
+        // A crop's ground is rows of plants with bare furrows between, in straight drills parallel to a field's long side (the
+        // fields are turned 17 degrees, FieldPatch). One tile is 480 m, bigger than a field so it never shows repeating. The rows
+        // are 2.5 m apart (wider than real drills, so they read from the air), with a tramline (two bare wheel tracks) every 20 m.
+        // Seamless because every stripe and noise has a whole number of periods across the tile: the rows' direction (7, 23) is
+        // 16.9 degrees. It is only the ground texture: no extra draw calls, the 8 layers take the same two terrain passes as 6.
+
+        const float CropTile = 480f;
+        const int CropRes = 2048;
+
+        struct Crop { public Color crestA, crestB, furrow, track; public float furrowWidth; }
+
+        static readonly Crop Wheat = new Crop
+        {
+            crestA = new Color(0.86f, 0.73f, 0.34f), crestB = new Color(0.93f, 0.81f, 0.43f),
+            furrow = new Color(0.66f, 0.52f, 0.25f), track = new Color(0.58f, 0.46f, 0.27f), furrowWidth = 0.34f,
+        };
+        static readonly Crop YoungGrain = new Crop
+        {
+            crestA = new Color(0.40f, 0.60f, 0.20f), crestB = new Color(0.52f, 0.70f, 0.26f),
+            furrow = new Color(0.47f, 0.38f, 0.24f), track = new Color(0.42f, 0.34f, 0.22f), furrowWidth = 0.46f,
+        };
+
+        /// <summary>A crop's ground texture: rows along the fields' long side, or across them.</summary>
+        static Texture2D MakeCropTexture(string name, Crop c, bool across)
+        {
+            string path = $"{Dir}/{name}.png";
+            // the tramlines' wave, one period every 20 m (480 m / 24); the rows have 8 to a tramline
+            int p = across ? 23 : 7, q = across ? -7 : 23;
+            const int RowsPerTrack = 8;
+            var px = new Color32[CropRes * CropRes];
+            int seed = name.Length * 31 + (across ? 7 : 0) + (int)(c.crestA.g * 1000);   // stable across runs
+            for (int j = 0; j < CropRes; j++)
+                for (int i = 0; i < CropRes; i++)
+                {
+                    float u = i / (float)CropRes, v = j / (float)CropRes;
+                    float track = Frac(p * u + q * v);                 // 0..1 across one tramline's 20 m
+                    float row = Frac(track * RowsPerTrack);            // 0..1 across one row's 2.5 m
+                    // toon: flat colours with a narrow step (about a texel and a half) between them
+                    float aa = 2 * 1.5f * RowsPerTrack * 24 / (float)CropRes;   // in d's units (half a row)
+                    float d = Mathf.Abs(row - 0.5f) * 2;              // 0 at a row's crest, 1 at the furrow
+                    float furrowW = Mathf.Clamp01((d - (1 - c.furrowWidth)) / aa + 0.5f);
+                    // patchy growth: broad thick and thin patches, finer clumps, and the odd ear catching the light
+                    float patch = 0.65f * PeriodicNoise(u, v, 8, seed) + 0.35f * PeriodicNoise(u, v, 40, seed + 1);
+                    float tone = Mathf.Clamp01((patch - 0.35f) / 0.3f);
+                    tone = Mathf.Round(tone * 3) / 3;                  // toon: three tones of the crop, not a smear
+                    Color crest = Color.Lerp(c.crestA, c.crestB, tone);
+                    float ear = Hash01(i, j, seed);
+                    if (ear > 0.93f) crest = Color.Lerp(crest, c.crestB * 1.08f, 0.6f);
+                    else if (ear < 0.05f) crest = Color.Lerp(crest, c.furrow, 0.35f);
+                    Color col = Color.Lerp(crest, c.furrow, furrowW);
+                    // the tramline: two wheel tracks 1.8 m apart down the middle of the 20 m
+                    float t = Mathf.Abs(track - 0.5f) * 20f;          // metres from the tramline's middle
+                    float wheel = Mathf.Abs(t - 0.9f);                 // metres from either wheel's line
+                    float trackW = Mathf.Clamp01((0.28f - wheel) / 0.2f + 0.5f);
+                    col = Color.Lerp(col, c.track, trackW);
+                    px[j * CropRes + i] = col;
+                }
+            var tex = new Texture2D(CropRes, CropRes, TextureFormat.RGB24, true);
+            tex.SetPixels32(px);
+            File.WriteAllBytes(path, tex.EncodeToPNG());
+            Object.DestroyImmediate(tex);
+            AssetDatabase.ImportAsset(path);
+            var imp = (TextureImporter)AssetImporter.GetAtPath(path);
+            imp.maxTextureSize = CropRes;
+            imp.anisoLevel = 8;          // the rows hold when the ground is seen low and far, not a shimmer
+            imp.wrapMode = TextureWrapMode.Repeat;
+            imp.SaveAndReimport();
+            return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+        }
+
+        static float Frac(float x) => x - Mathf.Floor(x);
+
+        static float Hash01(int i, int j, int seed)
+        {
+            uint k = (uint)(i * 73856093) ^ (uint)(j * 19349663) ^ (uint)(seed * 83492791);
+            k ^= k >> 13; k *= 0x5bd1e995; k ^= k >> 15;
+            return (k % 10007) / 10007f;
+        }
+
+        /// <summary>Smooth value noise, 0..1, that wraps: n cells across the tile each way.</summary>
+        static float PeriodicNoise(float u, float v, int n, int seed)
+        {
+            float x = u * n, y = v * n;
+            int x0 = Mathf.FloorToInt(x), y0 = Mathf.FloorToInt(y);
+            float fx = x - x0, fy = y - y0;
+            fx = fx * fx * (3 - 2 * fx); fy = fy * fy * (3 - 2 * fy);
+            float H(int a, int b) => Hash01(((a % n) + n) % n, ((b % n) + n) % n, seed);
+            return Mathf.Lerp(Mathf.Lerp(H(x0, y0), H(x0 + 1, y0), fx), Mathf.Lerp(H(x0, y0 + 1), H(x0 + 1, y0 + 1), fx), fy);
         }
 
         // ---------- trees ----------

@@ -146,7 +146,7 @@ namespace Ooda.EditorTools
             Check(Peaks.Count(p => p.model == MountainModel) >= 70, $"{Peaks.Count(p => p.model == MountainModel)} mountains and {Peaks.Count(p => p.model == FoothillModel)} grass hills");
             var cover = new double[CoverLayers]; var w = new float[CoverLayers];
             for (int j = 0; j < 256; j++) for (int i = 0; i < 256; i++) { GroundCover(h, -Size / 2 + (i + 0.5f) * Size / 256, -Size / 2 + (j + 0.5f) * Size / 256, w); for (int k = 0; k < CoverLayers; k++) cover[k] += w[k] / 65536.0; }
-            Console.WriteLine($"  ground: meadow {cover[0]:P0}, forest {cover[1]:P0}, rock {cover[2]:P0}, snow {cover[3]:P0}, field {cover[4]:P0}, pasture {cover[5]:P0}");
+            Console.WriteLine($"  ground: meadow {cover[0]:P0}, forest {cover[1]:P0}, rock {cover[2]:P0}, snow {cover[3]:P0}, wheat {cover[4] + cover[6]:P0}, young grain {cover[7]:P0}, pasture {cover[5]:P0}");
 
             Draw(outDir, h, rail, states, village, farms, trees, footbridges);
             Console.WriteLine(fails == 0 ? "\nAll checks pass." : $"\n{fails} check(s) failed.");
@@ -159,6 +159,7 @@ namespace Ooda.EditorTools
         {
             new Vector3(0.40f, 0.62f, 0.24f), new Vector3(0.18f, 0.38f, 0.19f), new Vector3(0.50f, 0.48f, 0.52f),
             new Vector3(0.94f, 0.96f, 0.99f), new Vector3(0.84f, 0.72f, 0.34f), new Vector3(0.52f, 0.76f, 0.27f),
+            new Vector3(0.84f, 0.72f, 0.34f), new Vector3(0.46f, 0.60f, 0.23f),
         };
         static readonly Vector3 Turquoise = new Vector3(0.22f, 0.72f, 0.80f), Sea = new Vector3(0.10f, 0.30f, 0.48f), Sky = new Vector3(0.62f, 0.78f, 0.95f);
 
