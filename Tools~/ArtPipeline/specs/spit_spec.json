@@ -1,0 +1,4 @@
+{"object":"Spit_Propeller","blades":4,"tip_r":1.90,"spinner_base":-0.17,"spinner_r":0.52,"spinner_len":1.0,
+ "blade_y":-0.45,"blade_angle0":45,"pitch":3.8,"chord":0.33,"palette":[2064,96,392,392],"atlas":4096,"tip_band":0.9,
+ "colours":{"spinner":[200,64,62],"blade":[40,42,46],"tip":[229,190,40],"ink":[22,20,20],"metal":[160,168,170]},
+ "fairing":{"body":"Spit_Body","pit":"Pit_Static","a":0.45,"y0":-1.72,"y1":0.12,"floor":-0.30,"bulkhead_y":-0.3095}}

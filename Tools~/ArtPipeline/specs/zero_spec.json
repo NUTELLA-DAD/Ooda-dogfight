@@ -1,0 +1,4 @@
+{"object":"Zero_Propeller","blades":3,"tip_r":2.0,"spinner_base":-0.08,"spinner_r":0.40,"spinner_len":0.95,
+ "blade_y":-0.32,"blade_angle0":90,"pitch":3.5,"chord":0.34,"palette":[1736,1500,328,328],"atlas":4096,"tip_band":0.9,
+ "colours":{"spinner":[172,178,186],"blade":[52,52,56],"tip":[229,181,6],"ink":[22,20,20],"metal":[160,168,170]},
+ "fairing":{"body":"Zero_Body","pit":"Pit_Static","a":0.68,"y0":-2.45,"y1":0.75,"floor":-0.30,"bulkhead_y":-0.5935}}

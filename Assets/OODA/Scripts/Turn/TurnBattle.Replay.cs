@@ -36,6 +36,7 @@ namespace Ooda.Turn
             public TurnResult result;     // frames, traces and hits, by tape index
             public Systems[] sysBefore;    // by tape index
             public bool[] crashedAfter;    // by tape index
+            public int[] missilesAfter;    // by tape index: missiles left after the turn (TurnBattle.Racks)
             public float Sec => (float)((result.FrameCount - 1) * result.dt);
         }
 
@@ -48,7 +49,7 @@ namespace Ooda.Turn
         /// <summary>At a restart, once the views are laid out: an empty tape, in this order.</summary>
         void TapeStarts()
         {
-            tape.Clear(); tapePlanes.Clear(); tapeViews.Clear(); tapeSide.Clear(); tapeBomber.Clear();
+            tape.Clear(); tapePlanes.Clear(); tapeViews.Clear(); tapeSide.Clear(); tapeBomber.Clear(); tapeLoaded.Clear();
             for (int i = 0; i < battle.Count; i++) TapeIndex(i);
         }
 
@@ -60,6 +61,7 @@ namespace Ooda.Turn
             tapeViews.Add(i < views.Length ? views[i] : null);
             tapeSide.Add(battle.side[i]);
             tapeBomber.Add(battle.routes[i] != null);
+            tapeLoaded.Add(Loaded(i));
             return tapePlanes.Count - 1;
         }
 
@@ -72,12 +74,13 @@ namespace Ooda.Turn
             for (int i = 0; i < n; i++) map[i] = TapeIndex(i);
             int m = tapePlanes.Count;
             var r = new TurnResult { startTime = last.startTime, dt = last.dt, frames = new AircraftFrame[m][] };
-            var t = new TapeTurn { result = r, sysBefore = new Systems[m], crashedAfter = new bool[m] };
+            var t = new TapeTurn { result = r, sysBefore = new Systems[m], crashedAfter = new bool[m], missilesAfter = new int[m] };
             for (int i = 0; i < n && i < last.frames.Length; i++) r.frames[map[i]] = last.frames[i];
             for (int i = 0; i < n; i++)
             {
                 t.sysBefore[map[i]] = i < systemsBefore.Length ? systemsBefore[i] : battle.SystemsOf(i);
                 t.crashedAfter[map[i]] = battle.crashed[i];
+                t.missilesAfter[map[i]] = battle.missiles[i];
             }
             foreach (var tr in last.traces)
                 r.traces.Add(new Trace { owner = tr.owner >= 0 && tr.owner < n ? map[tr.owner] : tr.owner, startFrame = tr.startFrame, points = tr.points, hit = tr.hit, missile = tr.missile, age0 = tr.age0 });
@@ -152,6 +155,7 @@ namespace Ooda.Turn
                     tapeViews[s].ShowFrame(fr[Mathf.Max(0, e - 1)], fr[e], 1, 0, fr[e].down && r.crashedAfter[s]);
                 }
             }
+            RacksLive();
             UpdateSmoke(battle.AllSystems(), battle.down);
             FocusNearest();
         }
@@ -285,6 +289,7 @@ namespace Ooda.Turn
                 tapeViews[s].ShowFrame(fr[i], fr[i + 1], u, effects ? Time.deltaTime : 0, crashedNow);
                 down[s] = fr[now].down;
             }
+            RacksReplay(t, now);
             if (!effects) return;
 
             for (int s = 0; s < r.frames.Length; s++)

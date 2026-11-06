@@ -69,7 +69,7 @@ namespace Ooda.Turn
 
         string FlightName(int i)
         {
-            string kind = battle.planes[i].numbers.name.Replace("D Mustang", "").Replace(" G-6", "");
+            string kind = battle.planes[i].numbers.name.Replace("D Mustang", "").Replace(" G-6", "").Replace("C Eagle", "");   // "Blue 1 (F-15, lead)" fits the panel
             int f = battle.flightOf[i];
             if (f < 0 || f >= battle.flights.Count) return kind;
             return $"{CallSign(i)} ({kind}{(battle.Leader(f) == i ? ", lead" : "")})";
@@ -254,7 +254,7 @@ namespace Ooda.Turn
 
         static bool SamePlan(TurnPlan a, TurnPlan b) =>
             (a.aim - b.aim).Length < 1e-9 && System.Math.Abs(a.throttle - b.throttle) < 1e-6 && a.wep == b.wep && a.rocket == b.rocket && a.brake == b.brake
-            && a.mine == b.mine && a.ram == b.ram && a.cloak == b.cloak && a.jam == b.jam && a.rudder == b.rudder
+            && a.mine == b.mine && a.mineAt == b.mineAt && a.ram == b.ram && a.cloak == b.cloak && a.jam == b.jam && a.rudder == b.rudder
             && a.burstStart == b.burstStart && a.burstEnd == b.burstEnd && a.missile == b.missile && a.hold == b.hold && a.marks == b.marks;
 
         /// <summary>At the start of each turn's planning: a plane in formation shows its formation plan, so the stick shows what it will do.</summary>

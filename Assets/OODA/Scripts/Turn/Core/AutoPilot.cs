@@ -22,8 +22,10 @@ namespace Ooda.Turn.Core
         public int missileTarget;  // aircraft index; -1 any (the one nearest the nose)
         /// <summary>Hold the flares this turn. By default they go by themselves, a pair at each heat-seeker that closes in.</summary>
         public bool holdFlares;
-        /// <summary>Let a balloon mine go behind you at the start of the turn (see Specials).</summary>
+        /// <summary>Let a balloon mine go behind you this turn, mineAt seconds into it (see Specials).</summary>
         public bool mine;
+        /// <summary>When in the turn the mine goes, in seconds from its start (0, the start, by default; past the turn's end, at its last moment).</summary>
+        public double mineAt;
         /// <summary>The heat blade: red hot all turn, guns cold; any enemy you fly through is cut in half (see Specials).</summary>
         public bool ram;
         /// <summary>Go stealthy at the start of the turn: unseen for two turns, until you fire (see Specials).</summary>

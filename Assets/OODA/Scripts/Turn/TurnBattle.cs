@@ -58,8 +58,8 @@ namespace Ooda.Turn
         [Header("Squadron")]
         [Tooltip("Turn-view prefabs (each with a TurnAircraftView) for the extra aircraft: P-51 wingmen, Bf 109s and B-17s.")]
         public GameObject wingmanPrefab, enemyPrefab, bomberPrefab;
-        [Tooltip("The dogfight's other aircraft (the setup screen picks any type for either side): the Spitfire, the F-4 Phantom, the P-38 and the Zero, each with a TurnAircraftView. The P-51 is wingmanPrefab, the Bf 109 enemyPrefab.")]
-        public GameObject spitfirePrefab, phantomPrefab, p38Prefab, zeroPrefab;
+        [Tooltip("The dogfight's other aircraft (the setup screen picks any type for either side): the Spitfire, the F-4 Phantom, the P-38, the Zero and the F-15, each with a TurnAircraftView. The P-51 is wingmanPrefab, the Bf 109 enemyPrefab.")]
+        public GameObject spitfirePrefab, phantomPrefab, p38Prefab, zeroPrefab, f15Prefab;
         [Tooltip("Where the flak guns stand; their positions are read at the start.")]
         public Transform[] flakSites;
         public int squadronFighters = 8, squadronBombers = 3;
@@ -142,7 +142,7 @@ namespace Ooda.Turn
         Ooda.UI.StickThrottleGauge gauge;   // the stick (bottom middle) and the throttle (bottom left)
         Material tipMat;
 
-        bool dragArrow, dragLook, dragBurst, dragMoves;
+        bool dragArrow, dragLook, dragBurst, dragMoves, dragMine;
         Rect movesRect;
         bool showMoves;            // the Advanced timeline panel is open (T)
         float markT;               // the moment on the moves slider being edited, s into the turn
@@ -389,7 +389,7 @@ namespace Ooda.Turn
         string WepName => battle != null && battle.planes[0].numbers.thrustV0Kt > 1000 ? "BURNER" : "WEP";
 
         /// <summary>The turn view for an aircraft type in the dogfight, or null if the scene has none for it (then the side's usual one stands in).</summary>
-        GameObject CraftPrefab(Craft c) => c == Craft.Spitfire ? spitfirePrefab : c == Craft.Phantom ? phantomPrefab : c == Craft.P38 ? p38Prefab : c == Craft.Zero ? zeroPrefab : c == Craft.Bf109 ? enemyPrefab : wingmanPrefab;
+        GameObject CraftPrefab(Craft c) => c == Craft.Spitfire ? spitfirePrefab : c == Craft.Phantom ? phantomPrefab : c == Craft.P38 ? p38Prefab : c == Craft.Zero ? zeroPrefab : c == Craft.F15 ? f15Prefab : c == Craft.Bf109 ? enemyPrefab : wingmanPrefab;
 
         TurnAircraftView Spawn(GameObject prefab, int i)
         {
@@ -417,7 +417,7 @@ namespace Ooda.Turn
             plan.marks = null;
             plan.missile = false;
             plan.rocket = plan.brake = false;
-            plan.mine = plan.ram = plan.cloak = plan.jam = false;
+            plan.mine = plan.ram = plan.cloak = plan.jam = false; plan.mineAt = 0;
             plan.rudder = 0;
             markT = 0;
             burstPreset = 0;
@@ -432,6 +432,7 @@ namespace Ooda.Turn
         void ShowAllLive()
         {
             for (int i = 0; i < views.Length; i++) if (views[i] != null) views[i].ShowLive(battle.planes[i], battle.time);
+            RacksLive();
         }
 
         bool Bombing => battle != null && battle.routes.Any(r => r != null);
@@ -626,6 +627,7 @@ namespace Ooda.Turn
             WatchOrders();
             SquadShotsCheck();
             DamageShotsCheck();
+            MineShotsCheck();
             BotUpdate();
             NetBotUpdate();
             lines.Begin();
@@ -932,7 +934,8 @@ namespace Ooda.Turn
                 Vector2 gui = new Vector2(pos.x, Screen.height - pos.y) / guiScale;
                 if (pointer.press.wasPressedThisFrame)
                 {
-                    if (phase == Phase.Planning && burstRect.Contains(gui)) { dragBurst = true; SetBurstFromBar(gui.x, true); }
+                    if (phase == Phase.Planning && PressMine(gui)) { dragMine = true; SetMineFromBar(gui.x); }
+                    else if (phase == Phase.Planning && burstRect.Contains(gui)) { dragBurst = true; SetBurstFromBar(gui.x, true); }
                     else if (phase == Phase.Planning && movesRect.Contains(gui)) { dragMoves = true; SetMarkTime(gui.x); }
                     else if (PressStick(gui)) { }
                     else if (PressPedals(gui)) { }
@@ -947,11 +950,12 @@ namespace Ooda.Turn
                     else if (dragStick) DragStick(gui);
                     else if (dragPedals) SetPedals(gui.x);
                     else if (dragThrottle) DragThrottle(gui);
+                    else if (dragMine) SetMineFromBar(gui.x);
                     else if (dragBurst) SetBurstFromBar(gui.x, false);
                     else if (dragMoves) SetMarkTime(gui.x);
                     else if (dragLook && view != null && (mouse == null || !mouse.rightButton.isPressed)) view.Orbit((pos - lastPointer) * 0.25f);
                 }
-                if (pointer.press.wasReleasedThisFrame) { dragArrow = dragLook = dragMoves = dragStick = dragPedals = dragThrottle = false; if (dragBurst) { dragBurst = false; TidyBurst(); } }
+                if (pointer.press.wasReleasedThisFrame) { dragArrow = dragLook = dragMoves = dragStick = dragPedals = dragThrottle = dragMine = false; if (dragBurst) { dragBurst = false; TidyBurst(); } }
                 lastPointer = pos;
             }
 
@@ -1501,6 +1505,8 @@ namespace Ooda.Turn
             if (source == null) return null;
             var g = Instantiate(source);
             g.name = name;
+            var stores = g.transform.Find(MissileRack.RootName);   // the ghost is the airframe alone, without the missiles
+            if (stores != null) DestroyImmediate(stores.gameObject);
             foreach (var a in g.GetComponentsInChildren<Animator>(true)) if (a != null) DestroyImmediate(a.gameObject);
             foreach (var mb in g.GetComponentsInChildren<MonoBehaviour>(true)) DestroyImmediate(mb);
             foreach (var ps in g.GetComponentsInChildren<ParticleSystem>(true)) if (ps != null) DestroyImmediate(ps.gameObject);
@@ -1566,6 +1572,7 @@ namespace Ooda.Turn
                 bool crashedNow = last.frames[k][now].down && battle.crashed[k] && now == n;
                 views[k].ShowFrame(last.frames[k][i], last.frames[k][i + 1], u, Time.deltaTime, crashedNow);
             }
+            RacksPlayback(last, now);
 
             DrawLastPaths(now);
             DrawExtras(now);
@@ -1703,7 +1710,7 @@ namespace Ooda.Turn
             string extra = me.RocketBurning ? "   ROCKET" : me.brakeOut ? "   BRAKE" : "";
             GUI.Label(new Rect(20, 42, 290, 22), $"{me.Kias:F0} KIAS   {me.AltFt:F0} ft   {me.g:F1} G{extra}", label);
             if (ownRow) SystemsRow(new Rect(20, 68, 270, 14), Shown(0), battle.Out(0));
-            Bar(new Rect(20, 88 - u, 270, 14), battle.ammo[0] / battle.combat[0].ammoSec, new Color(0.9f, 0.75f, 0.2f), $"Ammo {battle.ammo[0]:F1} s   Missiles {battle.missiles[0]}   Flares {battle.flares[0]}");
+            Bar(new Rect(20, 88 - u, 270, 14), battle.ammo[0] / battle.combat[0].ammoSec, new Color(0.9f, 0.75f, 0.2f), $"Ammo {battle.ammo[0]:F1} s  Missiles {battle.missiles[0]}  Flares {battle.flares[0]}");
             Vec3d los = them.state.pos - me.state.pos;
             double range = los.Length;
             double ata = Envelope.Angle(me.Forward, los) * 180 / Math.PI;

@@ -7,7 +7,8 @@ namespace Ooda.Turn.Core
     /// The arcade specials, a game liberty like the missiles: each fighter carries a few (CombatNumbers.balloonMines,
     /// heatBlades, stealths) and plans them like the rocket, at the start of a turn.
     ///
-    /// Balloon mine: let go behind you, it slows to a hang in a second and drifts up a little. It arms after ArmSec and goes
+    /// Balloon mine: let go behind you at any moment of the turn you plan (TurnPlan.mineAt), it slows to a hang in a second
+    /// and drifts slowly on (MineDriftFps along the way you were flying, swaying and bobbing). It arms after ArmSec and goes
     /// off on the first enemy that passes within FuseFt, for MineDamage (most of a fighter). It hangs there for LifeSec, so a
     /// tailer who planned to follow you straight flies into it, and anyone can fly into it later.
     ///
@@ -26,7 +27,9 @@ namespace Ooda.Turn.Core
     /// </summary>
     public static class Specials
     {
-        public const double ArmSec = 0.6, LifeSec = 15, FuseFt = 70, MineDamage = 10, MineDragPerSec = 2.5, MineRiseFps = 4;
+        public const double ArmSec = 0.6, LifeSec = 15, FuseFt = 70, MineDamage = 10, MineDragPerSec = 2.5, MineRiseFps = 2;
+        /// <summary>The mine's drift once it hangs: the breeze along the way it was let go, a slow sway across it and a bob, in ft/s.</summary>
+        public const double MineDriftFps = 12, MineSwayFps = 5, MineBobFps = 2;
         public const double BladeReachFt = 45, BladeHeat = 4;
         public const double CloakSec = 6;
         /// <summary>The jammer: how far it reaches, and how long the ones it catches see scrambled ghosts (two planning phases).</summary>
@@ -76,20 +79,39 @@ namespace Ooda.Turn.Core
     /// <summary>A balloon mine hanging in the air (see Specials). It hits like a round, once armed, and hits nothing of its own side.</summary>
     public class Mine : Bullet
     {
-        public static Mine Make(int owner, int side, Vec3d pos, Vec3d vel, double time) => new Mine
+        /// <summary>The breeze it settles into: on the way it was let go at DriftFps, and up at MineRiseFps.</summary>
+        public Vec3d drift;
+        /// <summary>Where its slow sway and bob start, so two mines don't move in step.</summary>
+        public double swayPhase;
+
+        public static Mine Make(int owner, int side, Vec3d pos, Vec3d vel, double time, int seed = 0)
         {
-            owner = owner, side = side, pos = pos, vel = vel, fireTime = time,
-            damage = Specials.MineDamage, hitRadiusFt = Specials.FuseFt, dragPerSec = Specials.MineDragPerSec, lifeSec = Specials.LifeSec,
-        };
+            var flat = new Vec3d(vel.x, vel.y, 0);
+            var along = flat.Length > 1e-6 ? flat * (1 / flat.Length) : new Vec3d(1, 0, 0);
+            return new Mine
+            {
+                owner = owner, side = side, pos = pos, vel = vel, fireTime = time,
+                damage = Specials.MineDamage, hitRadiusFt = Specials.FuseFt, dragPerSec = Specials.MineDragPerSec, lifeSec = Specials.LifeSec,
+                drift = along * Specials.MineDriftFps + new Vec3d(0, 0, Specials.MineRiseFps),
+                swayPhase = 1.7 * seed + 2.3 * owner,
+            };
+        }
 
         public bool Armed => age >= Specials.ArmSec;
 
-        /// <summary>One step: it slows to the air's speed and drifts up a little (it is a balloon: no falling).</summary>
+        /// <summary>
+        /// One step: it slows to a hang in about a second, then drifts on the breeze, swaying side to side and bobbing a
+        /// little (it is a balloon: no falling).
+        /// </summary>
         public void Step(double dt)
         {
             double decay = System.Math.Exp(-dragPerSec * dt);
-            Vec3d v0 = vel, drift = new Vec3d(0, 0, Specials.MineRiseFps);
-            vel = vel * decay + drift * (1 - decay);
+            var flat = new Vec3d(drift.x, drift.y, 0);
+            var side = flat.Length > 1e-6 ? new Vec3d(-flat.y, flat.x, 0) * (1 / flat.Length) : new Vec3d(0, 1, 0);
+            double a = age + swayPhase;
+            Vec3d want = drift + side * (Specials.MineSwayFps * System.Math.Sin(a * 0.45)) + new Vec3d(0, 0, Specials.MineBobFps * System.Math.Sin(a * 1.1));
+            Vec3d v0 = vel;
+            vel = vel * decay + want * (1 - decay);
             pos = pos + (v0 + vel) * (dt / 2);
             age += dt;
         }

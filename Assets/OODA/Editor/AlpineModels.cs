@@ -150,17 +150,32 @@ namespace Ooda.EditorTools
             lod.RecalculateBounds();
         }
 
-        /// <summary>A tree model as a prefab for the terrain's trees: about size metres tall, its foot at the origin.</summary>
-        static GameObject TreePrefab(LandModel m)
+        /// <summary>The far pine in the model's own frame (as its meshes are): a six-sided cone the model's height, its skirt a
+        /// tenth of the way up and as wide as the model, so it takes the same place in the tree's matrix.</summary>
+        static Mesh PineCone(LandModel m)
         {
-            Load(m, false);
-            if (m.near == null) return null;
-            var go = new GameObject(m.name);
-            AddLods(go, m, 0.05f, 0.003f);
-            foreach (var r in go.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = ShadowCastingMode.On;
-            var prefab = PrefabUtility.SaveAsPrefabAsset(go, $"{Dir}/{m.name}.prefab");
-            Object.DestroyImmediate(go);
-            return prefab;
+            string path = $"{Dir}/PineTree_Cone.asset";
+            var mesh = AssetDatabase.LoadAssetAtPath<Mesh>(path);
+            if (mesh == null) { mesh = new Mesh(); AssetDatabase.CreateAsset(mesh, path); }
+            mesh.Clear();
+            const int N = 6;
+            float tall = m.size, rad = tall * 0.2f, skirt = tall * 0.1f;
+            Vector3 M(float x, float y, float z) => new Vector3(x, y, z) / m.fit + m.centre;   // metres to the model's frame
+            var v = new List<Vector3>(); var n = new List<Vector3>(); var t = new List<int>();
+            float lean = rad / (tall - skirt);   // the side's normal tips up by the cone's slope
+            for (int k = 0; k < N; k++)
+            {
+                float a0 = k * Mathf.PI * 2 / N, a1 = (k + 1) * Mathf.PI * 2 / N, am = (a0 + a1) / 2;
+                var nm = new Vector3(Mathf.Sin(am), lean, Mathf.Cos(am)).normalized;
+                int b = v.Count;
+                v.Add(M(0, tall, 0)); v.Add(M(Mathf.Sin(a1) * rad, skirt, Mathf.Cos(a1) * rad)); v.Add(M(Mathf.Sin(a0) * rad, skirt, Mathf.Cos(a0) * rad));
+                n.Add(nm); n.Add(nm); n.Add(nm);
+                t.Add(b); t.Add(b + 2); t.Add(b + 1);   // clockwise seen from outside
+            }
+            mesh.SetVertices(v); mesh.SetNormals(n); mesh.SetTriangles(t, 0);
+            mesh.RecalculateBounds();
+            EditorUtility.SetDirty(mesh);
+            return mesh;
         }
     }
 }

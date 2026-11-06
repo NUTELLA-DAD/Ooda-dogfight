@@ -132,7 +132,7 @@ namespace Ooda.EditorTools
             var village = VillageSpots(h, rail); var farms = FarmSpots(h, rail); var trees = TreeSpots(h, rail); var footbridges = RiverBridges(h);
             Check(village.Count >= 20, $"{village.Count} chalets in the village");
             Check(farms.Count >= 40, $"{farms.Count} farmhouses");
-            Check(trees.Count >= 11000, $"{trees.Count} trees ({trees.Count(t => t.kind == 0)} round, {trees.Count(t => t.kind == 1)} tall, {trees.Count(t => t.kind == 2)} pines)");
+            Check(ForestTrees >= 200000 && trees.Count - ForestTrees >= 8000, $"{trees.Count} trees, {ForestTrees} in the forest, {ForestKm2(h):F0} km² of forest ground off the models ({trees.Count(t => t.kind == 0)} round, {trees.Count(t => t.kind == 1)} tall, {trees.Count(t => t.kind == 2)} pines)");
             { var rv = River(); int wet = 0; for (int k = 0; k < rv.Count; k++) if (RiverWet(h, rv, k)) wet++;
               int dry = rv.Count(p => !InLakeWater(p.p.x, p.p.y) && p.surface >= 0.5f);
               for (int k = 0, s0 = -1; k <= rv.Count; k++)
@@ -146,7 +146,7 @@ namespace Ooda.EditorTools
             Check(Peaks.Count(p => p.model == MountainModel) >= 70, $"{Peaks.Count(p => p.model == MountainModel)} mountains and {Peaks.Count(p => p.model == FoothillModel)} grass hills");
             var cover = new double[CoverLayers]; var w = new float[CoverLayers];
             for (int j = 0; j < 256; j++) for (int i = 0; i < 256; i++) { GroundCover(h, -Size / 2 + (i + 0.5f) * Size / 256, -Size / 2 + (j + 0.5f) * Size / 256, w); for (int k = 0; k < CoverLayers; k++) cover[k] += w[k] / 65536.0; }
-            Console.WriteLine($"  ground: meadow {cover[0]:P0}, forest {cover[1]:P0}, rock {cover[2]:P0}, snow {cover[3]:P0}, field {cover[4]:P0}, pasture {cover[5]:P0}");
+            Console.WriteLine($"  ground: meadow {cover[0]:P0}, forest {cover[1]:P0}, rock {cover[2]:P0}, snow {cover[3]:P0}, wheat {cover[4] + cover[6]:P0}, young grain {cover[7]:P0}, pasture {cover[5]:P0}");
 
             Draw(outDir, h, rail, states, village, farms, trees, footbridges);
             Console.WriteLine(fails == 0 ? "\nAll checks pass." : $"\n{fails} check(s) failed.");
@@ -159,6 +159,7 @@ namespace Ooda.EditorTools
         {
             new Vector3(0.40f, 0.62f, 0.24f), new Vector3(0.18f, 0.38f, 0.19f), new Vector3(0.50f, 0.48f, 0.52f),
             new Vector3(0.94f, 0.96f, 0.99f), new Vector3(0.84f, 0.72f, 0.34f), new Vector3(0.52f, 0.76f, 0.27f),
+            new Vector3(0.84f, 0.72f, 0.34f), new Vector3(0.46f, 0.60f, 0.23f),
         };
         static readonly Vector3 Turquoise = new Vector3(0.22f, 0.72f, 0.80f), Sea = new Vector3(0.10f, 0.30f, 0.48f), Sky = new Vector3(0.62f, 0.78f, 0.95f);
 
@@ -183,6 +184,16 @@ namespace Ooda.EditorTools
                 if (best < bp.half && g < bp.surface) { level = bp.surface; return true; }
             }
             return false;
+        }
+
+        /// <summary>The forest ground's area, km² (the ground's forest colour, outside the models).</summary>
+        static float ForestKm2(float[,] h)
+        {
+            var w = new float[CoverLayers]; double a = 0; const float g = 50f;
+            for (float z = -Size * 0.46f; z < Size * 0.46f; z += g)
+                for (float x = -Size * 0.46f; x < Size * 0.46f; x += g)
+                    if (!UnderMountain(x, z)) { GroundCover(h, x, z, w); a += w[1] * g * g; }
+            return (float)(a / 1e6);
         }
 
         static Vector3 Shade(float[,] h, float x, float z, float[] w)
