@@ -132,7 +132,7 @@ namespace Ooda.EditorTools
             var village = VillageSpots(h, rail); var farms = FarmSpots(h, rail); var trees = TreeSpots(h, rail); var footbridges = RiverBridges(h);
             Check(village.Count >= 20, $"{village.Count} chalets in the village");
             Check(farms.Count >= 40, $"{farms.Count} farmhouses");
-            Check(trees.Count >= 11000, $"{trees.Count} trees ({trees.Count(t => t.kind == 0)} round, {trees.Count(t => t.kind == 1)} tall, {trees.Count(t => t.kind == 2)} pines)");
+            Check(ForestTrees >= 200000 && trees.Count - ForestTrees >= 8000, $"{trees.Count} trees, {ForestTrees} in the forest, {ForestTrees / ForestKm2(h):F0} a km² there ({trees.Count(t => t.kind == 0)} round, {trees.Count(t => t.kind == 1)} tall, {trees.Count(t => t.kind == 2)} pines)");
             { var rv = River(); int wet = 0; for (int k = 0; k < rv.Count; k++) if (RiverWet(h, rv, k)) wet++;
               int dry = rv.Count(p => !InLakeWater(p.p.x, p.p.y) && p.surface >= 0.5f);
               for (int k = 0, s0 = -1; k <= rv.Count; k++)
@@ -183,6 +183,16 @@ namespace Ooda.EditorTools
                 if (best < bp.half && g < bp.surface) { level = bp.surface; return true; }
             }
             return false;
+        }
+
+        /// <summary>The forest's area, km² (the ground's forest colour, outside the mountains).</summary>
+        static float ForestKm2(float[,] h)
+        {
+            var w = new float[CoverLayers]; double a = 0; const float g = 50f;
+            for (float z = -Size * 0.46f; z < Size * 0.46f; z += g)
+                for (float x = -Size * 0.46f; x < Size * 0.46f; x += g)
+                    if (!UnderRock(x, z)) { GroundCover(h, x, z, w); a += w[1] * g * g; }
+            return (float)(a / 1e6);
         }
 
         static Vector3 Shade(float[,] h, float x, float z, float[] w)

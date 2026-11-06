@@ -116,7 +116,8 @@ namespace Ooda.EditorTools
         static void Paint(TerrainData data, float[,] h)
         {
             var meadow = TestWorldBuilder.MakeNoiseTexture("Alpine_Meadow", new Color(0.34f, 0.55f, 0.21f), new Color(0.42f, 0.62f, 0.26f));
-            var forest = TestWorldBuilder.MakeNoiseTexture("Alpine_Forest", new Color(0.16f, 0.36f, 0.18f), new Color(0.22f, 0.42f, 0.20f));
+            // the forest floor in the pines' own blue-green, a little darker, so from far off the gaps between them read as forest
+            var forest = TestWorldBuilder.MakeNoiseTexture("Alpine_Forest", new Color(0.09f, 0.28f, 0.18f), new Color(0.13f, 0.34f, 0.21f));
             var rock = TestWorldBuilder.MakeNoiseTexture("Alpine_Rock", new Color(0.38f, 0.39f, 0.46f), new Color(0.47f, 0.47f, 0.53f));
             var snow = TestWorldBuilder.MakeNoiseTexture("Alpine_Snow", new Color(0.90f, 0.93f, 0.98f), new Color(0.98f, 0.99f, 1f));
             var field = TestWorldBuilder.MakeNoiseTexture("Alpine_Field", new Color(0.80f, 0.68f, 0.31f), new Color(0.88f, 0.76f, 0.38f));
@@ -162,7 +163,7 @@ namespace Ooda.EditorTools
                 color = Color.white, lightmapColor = Color.white, prototypeIndex = s.kind,
             }).ToArray();
             data.SetTreeInstances(trees, true);
-            Debug.Log($"OODA: planted {trees.Length} trees ({spots.Count(t => t.kind == 0)} round, {spots.Count(t => t.kind == 1)} tall, {spots.Count(t => t.kind == 2)} pines).");
+            Debug.Log($"OODA: planted {trees.Length} trees, {ForestTrees} of them in the forest ({spots.Count(t => t.kind == 0)} round, {spots.Count(t => t.kind == 1)} tall, {spots.Count(t => t.kind == 2)} pines).");
         }
 
         class WMats { public Material stone, steel, rail, ballast, sleeper, dark, water, river, wood, plaster, roof, slate, cobbles; }

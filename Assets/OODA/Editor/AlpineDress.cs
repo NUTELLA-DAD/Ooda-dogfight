@@ -25,11 +25,8 @@ namespace Ooda.EditorTools
             float jitter = 120f * (Mathf.PerlinNoise(x * 0.003f + 1, z * 0.003f + 4) - 0.5f);
             float snowLine = Mathf.Lerp(2250f, 1950f, n) + jitter;
             float snowW = Step(snowLine - 100, snowLine, y) * (1 - Step(72, 80, slope));
-            float rockW = Mathf.Max(Step(38, 44, slope), Step(snowLine - 200, snowLine - 50, y)) * (1 - snowW);
-            float clumpLo = Mathf.Lerp(0.38f, 0.60f, s);
-            float forestLo = Mathf.Lerp(240f, 60f, s);
-            float forestW = Step(forestLo, forestLo + 60, y) * (1 - Step(1650 + jitter, 1750 + jitter, y)) * (1 - Step(32, 38, slope))
-                            * Step(clumpLo, clumpLo + 0.08f, Mathf.PerlinNoise(x * 0.0012f + 7, z * 0.0012f + 3)) * (1 - rockW) * (1 - snowW);
+            float rockW = Mathf.Max(Step(RockSlope, RockSlope + 6, slope), Step(snowLine - 200, snowLine - 50, y)) * (1 - snowW);
+            float forestW = ForestShare(x, z, y, slope, s, jitter) * (1 - rockW) * (1 - snowW);
             // the farmland's patchwork: fields of wheat and pasture on the gentle low ground of the south
             float farmW = Step(0.35f, 0.7f, s) * (1 - Step(8, 13, slope)) * (1 - Step(420, 500, y)) * (1 - forestW) * (1 - rockW) * (1 - snowW);
             if (RiverNear(x, z)) farmW = 0;
@@ -40,6 +37,22 @@ namespace Ooda.EditorTools
             w[1] = forestW; w[2] = rockW; w[3] = snowW;
             w[4] = patch == 1 ? farmW : 0;
             w[5] = patch == 2 ? farmW : 0;
+        }
+
+        /// <summary>The slope where bare rock starts (it is all rock 6 degrees steeper); the forest climbs to just under it.</summary>
+        const float RockSlope = 42f;
+
+        /// <summary>
+        /// How much of a point is pine forest, before rock and snow take their share: the high-mountain look, the valley sides
+        /// filled with forest from just above the floor up to the tree line (1650 to 1750 m), up slopes to 40-46 degrees, with
+        /// only a few meadow clearings in the middle and the north; in the south the woods are clumps among the fields.
+        /// </summary>
+        static float ForestShare(float x, float z, float y, float slope, float s, float jitter, bool hill = false)
+        {
+            float clumpLo = Mathf.Lerp(0.28f, 0.60f, s);
+            float forestLo = hill ? 30f : Mathf.Lerp(200f, 60f, s);   // a grass hill is wooded from its foot
+            return Step(forestLo, forestLo + 60, y) * (1 - Step(1650 + jitter, 1750 + jitter, y)) * (1 - Step(RockSlope - 2, RockSlope + 4, slope))
+                   * Step(clumpLo, clumpLo + 0.08f, Mathf.PerlinNoise(x * 0.0012f + 7, z * 0.0012f + 3));
         }
 
         /// <summary>Which field a point of the farmland is in: 0 meadow, 1 ripe field, 2 pasture; edge is how far it is from the
@@ -82,20 +95,55 @@ namespace Ooda.EditorTools
 
         struct TreeSpot { public float x, z, scale, tall, yaw; public int kind; }   // kind 0 round, 1 tall, 2 pine
 
+        /// <summary>The forest's trees stand on a jittered grid this far apart (m): with the pines 1.3 to 2.1 times the model
+        /// (21 to 34 m tall, 8 to 13 m across, like real spruce and fir), their crowns nearly touch.</summary>
+        public const float ForestGap = 15f;
+
         /// <summary>
-        /// The trees: in the middle in clumps, the round leafy tree low down, the tall one above it and pines highest, mixed where
-        /// they meet; pines up the north to the tree line; on the farmland hedgerows along the fields' sides and a few woods.
+        /// The trees. The forest is dense: wherever the ground is forest-green (GroundCover) a tree stands on every cell of a
+        /// jittered grid ForestGap apart, thinning out at the forest's edges; mostly pines, with the round leafy tree and the tall
+        /// one mixed in low down. The grass hills are forested too (their ground is just under them). Then the scattered trees,
+        /// as before: in the meadows, up past the forest to the tree line, and on the farmland hedgerows along the fields' sides
+        /// and a few woods.
         /// </summary>
         static List<TreeSpot> TreeSpots(float[,] h, List<Vector3> rail)
         {
             var rnd = new System.Random(23);
             var trees = new List<TreeSpot>();
-            for (int tries = 0; tries < 260000 && trees.Count < 12000; tries++)
+            var w = new float[CoverLayers];
+            float half = Size * 0.46f;
+            int cells = Mathf.FloorToInt(2 * half / ForestGap);
+            for (int cj = 0; cj < cells; cj++)
+                for (int ci = 0; ci < cells; ci++)
+                {
+                    float x = -half + (ci + 0.1f + 0.8f * (float)rnd.NextDouble()) * ForestGap;
+                    float z = -half + (cj + 0.1f + 0.8f * (float)rnd.NextDouble()) * ForestGap;
+                    double keep = rnd.NextDouble(), pick = rnd.NextDouble(), size = rnd.NextDouble(), yaw = rnd.NextDouble();
+                    float y = SampleArr(h, x, z);
+                    if (y < 25 || y > 1800 || UnderRock(x, z)) continue;
+                    float share;
+                    // on a grass hill the ground under it decides only how high and where: the hill's own grass is what shows,
+                    // so steep is no bar (its rocky ground isn't seen)
+                    if (UnderMountain(x, z)) share = ForestShare(x, z, y, Mathf.Min(Slope(h, x, z), 30f), SouthOf(x, z), 0, true);
+                    else { GroundCover(h, x, z, w); share = w[1]; }
+                    // the edges thin out, and a fine noise opens small gaps inside, so it isn't a carpet
+                    float dense = share * Mathf.Lerp(0.7f, 1.15f, Mathf.PerlinNoise(x * 0.011f + 2, z * 0.011f + 9));
+                    if (keep >= dense) continue;
+                    if (InTown(x, z) || InLake(x, z) || RiverNear(x, z) || InVillage(x, z) || NearRail(rail, x, z, 25f)) continue;
+                    float s = SouthOf(x, z), n = NorthOf(x, z);
+                    float broad = Mathf.Max(s * 0.8f, 1 - Mathf.InverseLerp(250f, 700f, y)) * (1 - n) * 0.45f;   // leafy trees low and south
+                    int kind = pick >= broad ? 2 : pick < broad * 0.6f ? 0 : 1;
+                    float sc = kind == 2 ? 1.3f + (float)size * 0.8f : 0.9f + (float)size * 0.6f;
+                    trees.Add(new TreeSpot { x = x, z = z, scale = sc * Rand(rnd, 0.95f, 1.15f), tall = sc, yaw = (float)yaw * Mathf.PI * 2, kind = kind });
+                }
+            int forest = trees.Count;
+
+            for (int tries = 0, more = 0; tries < 260000 && more < 9000; tries++)
             {
                 float x = ((float)rnd.NextDouble() - 0.5f) * Size * 0.92f, z = ((float)rnd.NextDouble() - 0.5f) * Size * 0.92f;
                 float y = SampleArr(h, x, z);
                 float s = SouthOf(x, z), n = NorthOf(x, z);
-                if (y < 25 || y > Mathf.Lerp(2100f, 1900f, n) || Slope(h, x, z) > 36) continue;
+                if (y < 25 || y > Mathf.Lerp(2100f, 1900f, n) || Slope(h, x, z) > RockSlope) continue;
                 float clump = Mathf.PerlinNoise(x * 0.0012f + 7, z * 0.0012f + 3);
                 bool farm = s > 0.6f && y < 450f;
                 if (farm)
@@ -108,16 +156,25 @@ namespace Ooda.EditorTools
                 else
                 {
                     if (y < Mathf.Lerp(220f, 60f, s)) continue;
-                    if (clump < Mathf.Lerp(0.38f, 0.60f, s)) continue;
+                    GroundCover(h, x, z, w);
+                    if (w[1] > 0.3f) continue;   // the forest has its own
+                    if (w[0] < 0.5f && y < 1600f) continue;   // the meadows and clearings, and the high ground past the tree line
+                    if (rnd.NextDouble() < 0.5) continue;
                 }
                 if (NearRail(rail, x, z, 25f) || InTown(x, z) || UnderMountain(x, z) || InLake(x, z) || RiverNear(x, z) || InVillage(x, z)) continue;
                 float sc = 0.75f + (float)rnd.NextDouble() * 0.7f;
                 int kind = farm ? (rnd.NextDouble() < 0.8 ? 0 : 1)
                          : rnd.NextDouble() < Mathf.InverseLerp(800f, 1200f, y) + n * 0.6f ? 2 : rnd.NextDouble() < Mathf.InverseLerp(350f, 750f, y) ? 1 : 0;
+                if (kind == 2) sc *= 1.3f;
                 trees.Add(new TreeSpot { x = x, z = z, scale = sc, tall = sc * (0.9f + (float)rnd.NextDouble() * 0.3f), yaw = (float)rnd.NextDouble() * Mathf.PI * 2, kind = kind });
+                more++;
             }
+            ForestTrees = forest;
             return trees;
         }
+
+        /// <summary>How many of the last TreeSpots stand in the forest (the rest are scattered).</summary>
+        static int ForestTrees;
 
         // ---------- the village, the farmhouses ----------
 

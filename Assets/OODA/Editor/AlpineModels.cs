@@ -150,17 +150,64 @@ namespace Ooda.EditorTools
             lod.RecalculateBounds();
         }
 
-        /// <summary>A tree model as a prefab for the terrain's trees: about size metres tall, its foot at the origin.</summary>
+        /// <summary>A tree model as a prefab for the terrain's trees: about size metres tall, its foot at the origin. The
+        /// forest is hundreds of thousands of them, so they switch down soon: the full model only near (about 250 m for a
+        /// pine), the far mesh to about 700 m, and past that a pine is a plain six-sided cone in its needles' colour, no
+        /// shadow (a few triangles: the forest a few km off is a mass of them).</summary>
         static GameObject TreePrefab(LandModel m)
         {
             Load(m, false);
             if (m.near == null) return null;
+            m.mat.enableInstancing = true;
             var go = new GameObject(m.name);
-            AddLods(go, m, 0.05f, 0.003f);
-            foreach (var r in go.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = ShadowCastingMode.On;
+            if (m == PineTree) AddPineLods(go, m);
+            else AddLods(go, m, 0.05f, 0.003f);
+            foreach (var r in go.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = r.name == "Cone" ? ShadowCastingMode.Off : ShadowCastingMode.On;
             var prefab = PrefabUtility.SaveAsPrefabAsset(go, $"{Dir}/{m.name}.prefab");
             Object.DestroyImmediate(go);
             return prefab;
+        }
+
+        static void AddPineLods(GameObject go, LandModel m)
+        {
+            AddLods(go, m, 0.08f, 0.03f);
+            var c = new GameObject("Cone");
+            c.transform.SetParent(go.transform, false);
+            c.AddComponent<MeshFilter>().sharedMesh = PineCone(m.size);
+            var r = c.AddComponent<MeshRenderer>();
+            var mat = TestWorldBuilder.Mat("PineTree_Cone", new Color(0.10f, 0.36f, 0.23f), 0.05f);
+            mat.enableInstancing = true;
+            r.sharedMaterial = mat;
+            var lod = go.GetComponent<LODGroup>();
+            var lods = lod.GetLODs();
+            lod.SetLODs(new[] { lods[0], lods[1], new LOD(0.0025f, new Renderer[] { r }) });
+            lod.RecalculateBounds();
+        }
+
+        /// <summary>The far pine: a six-sided cone tall metres high, its skirt a tenth of the way up and as wide as the model.</summary>
+        static Mesh PineCone(float tall)
+        {
+            string path = $"{Dir}/PineTree_Cone.asset";
+            var mesh = AssetDatabase.LoadAssetAtPath<Mesh>(path);
+            if (mesh == null) { mesh = new Mesh(); AssetDatabase.CreateAsset(mesh, path); }
+            mesh.Clear();
+            const int N = 6;
+            float rad = tall * 0.2f, skirt = tall * 0.1f;
+            var v = new List<Vector3>(); var n = new List<Vector3>(); var t = new List<int>();
+            float lean = rad / (tall - skirt);   // the side's normal tips up by the cone's slope
+            for (int k = 0; k < N; k++)
+            {
+                float a0 = k * Mathf.PI * 2 / N, a1 = (k + 1) * Mathf.PI * 2 / N, am = (a0 + a1) / 2;
+                var nm = new Vector3(Mathf.Sin(am), lean, Mathf.Cos(am)).normalized;
+                int b = v.Count;
+                v.Add(new Vector3(0, tall, 0)); v.Add(new Vector3(Mathf.Sin(a1) * rad, skirt, Mathf.Cos(a1) * rad)); v.Add(new Vector3(Mathf.Sin(a0) * rad, skirt, Mathf.Cos(a0) * rad));
+                n.Add(nm); n.Add(nm); n.Add(nm);
+                t.Add(b); t.Add(b + 1); t.Add(b + 2);
+            }
+            mesh.SetVertices(v); mesh.SetNormals(n); mesh.SetTriangles(t, 0);
+            mesh.RecalculateBounds();
+            EditorUtility.SetDirty(mesh);
+            return mesh;
         }
     }
 }
