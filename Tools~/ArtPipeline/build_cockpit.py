@@ -35,7 +35,7 @@ CFG = {
                  mount=(0, -0.95, 0.04), scale=1.55, lift=-0.40, interior='p51_green', seat='seat_p51', grip='pistol'),
     # the F-15's two-seat bubble (f15.py splits it off whole): the pilot under its front half, a deck behind, jet grey inside
     'F15': dict(body='F15_Body', box='F15_Cockpit', canopy='F15_Canopy', a=0.58, y0=-5.42, y1=-1.75, zcut=-0.30, floor=-0.86,
-                mount=(0, -4.0, -0.50), scale=1.35, lift=-0.40, interior='bf109_grey', seat='seat_bf', grip='pistol', taper_hood=True),
+                mount=(0, -4.0, -0.50), scale=1.35, lift=-0.40, interior='bf109_grey', seat='seat_bf', grip='pistol', taper_hood=True, trim='darkmetal'),
 }
 C = CFG[PLANE]
 bpy.ops.wm.open_mainfile(filepath=SRC)
@@ -147,7 +147,12 @@ def new_obj(name, parent=None):
     return ob
 
 class Builder:
-    def __init__(self): self.bm = bmesh.new(); self.uv = self.bm.loops.layers.uv.new('UVMap')
+    def __init__(self): self.bm = bmesh.new(); self.uv = self.bm.loops.layers.uv.new('UVMap'); self.up = []; self.inward = []
+    def face_up(self, faces):   # floors seen from above: kept facing up, whatever recalc_face_normals makes of the tub
+        for f in faces:
+            f.normal_update()
+            if f.normal.z < 0: f.normal_flip()
+        self.up += faces
     def paint(self, faces, sw):
         u, v = SWATCH[sw]
         for f in faces:
@@ -186,6 +191,11 @@ class Builder:
         self.paint(faces, sw); return faces
     def finish(self, ob, smooth=False):
         bmesh.ops.recalc_face_normals(self.bm, faces=self.bm.faces)
+        for f in self.up:
+            if f.is_valid and f.normal.z < 0: f.normal_flip()
+        for f in self.inward:   # the tub's walls, seen from inside it
+            c = f.calc_center_median()
+            if f.is_valid and f.normal.x * c.x + f.normal.y * (c.y - YC) > 0: f.normal_flip()
         for f in self.bm.faces: f.smooth = smooth
         self.bm.to_mesh(ob.data); self.bm.free()
 
@@ -199,8 +209,8 @@ FL = C['floor']
 bot = [bmS.verts.new((x * 0.985, y, FL)) for x, y in outline]
 top = [bmS.verts.new((x * 0.985, y, zr[i] - 0.004)) for i, (x, y) in enumerate(outline)]
 walls = [bmS.faces.new((bot[i], bot[(i + 1) % N], top[(i + 1) % N], top[i])) for i in range(N)]
-st.paint(walls, C['interior'])
-fl = bmS.faces.new(list(reversed(bot))); st.paint([fl], C['interior'])
+st.paint(walls, C['interior']); st.inward += walls
+fl = bmS.faces.new(list(reversed(bot))); st.paint([fl], C['interior']); st.face_up([fl])
 # ribs on the walls: the stringers you see in every period cockpit
 for y in [Y0 + (Y1 - Y0) * k for k in (0.22, 0.38, 0.55, 0.72, 0.86)]:
     hw = half_width_at(y) * 0.97
@@ -218,7 +228,7 @@ for i, (x, y) in enumerate(outline):
     if out.dot(Vector((x, y - YC, 0))) < 0: out = -out
     rings.append([bmS.verts.new(c + (out * math.cos(2 * math.pi * j / prof) + Vector((0, 0, 1)) * math.sin(2 * math.pi * j / prof)) * rr) for j in range(prof)])
 rim = [bmS.faces.new((rings[i][j], rings[(i + 1) % N][j], rings[(i + 1) % N][(j + 1) % prof], rings[i][(j + 1) % prof])) for i in range(N) for j in range(prof)]
-st.paint(rim, 'leather')
+st.paint(rim, C.get('trim', 'leather'))
 
 # instrument panel: 2:1 like the art, as wide as the tub allows at that station
 PY = MOUNT.y + S * (-0.50)
@@ -247,7 +257,7 @@ for k, yy in enumerate((PY + T * 0.9 + 0.03 * K, PY - hood_len)):
     w = min(hw, half_width_at(yy) * 0.97) if C.get('taper_hood') else hw   # a jet's opening narrows to a point: keep the hood inside it
     hv.append([bmS.verts.new((w * math.cos(math.pi * j / seg), yy, ptop + 0.055 * K * math.sin(math.pi * j / seg))) for j in range(seg + 1)])
 hood = [bmS.faces.new((hv[0][j], hv[0][j + 1], hv[1][j + 1], hv[1][j])) for j in range(seg)]
-st.paint(hood, 'leather')
+st.paint(hood, C.get('trim', 'leather'))
 # gunsight on the hood
 gy = PY - 0.06 * K; gz = ptop + 0.055 * K
 st.box(Vector((0, gy, gz + 0.045 * K)), (0.07 * K, 0.11 * K, 0.08 * K), 'darkmetal')
@@ -281,7 +291,10 @@ if RY < Y1 - 0.06:
     if len(pts) >= 3:
         dv = [bmS.verts.new((x, y, deck_z)) for x, y in pts] + [bmS.verts.new((half_width_at(RY) * -0.985, RY, deck_z)), bmS.verts.new((half_width_at(RY) * 0.985, RY, deck_z))]
         try:
-            df = bmS.faces.new(dv); bmesh.ops.triangulate(bmS, faces=[df]); st.paint([f for f in bmS.faces if all(abs(v.co.z - deck_z) < 1e-6 for v in f.verts)], C['interior'])
+            df = bmS.faces.new(dv); bmesh.ops.triangulate(bmS, faces=[df])
+            deck = [f for f in bmS.faces if all(abs(v.co.z - deck_z) < 1e-6 for v in f.verts)]
+            st.face_up(deck)   # or the game culls the deck seen from above and you look through the plane
+            st.paint(deck, C['interior'])
         except ValueError:
             pass
         # close the deck's open front down to the floor, or you look past the seat into the hollow fuselage
