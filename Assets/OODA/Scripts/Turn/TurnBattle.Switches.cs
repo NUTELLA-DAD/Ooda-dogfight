@@ -144,7 +144,8 @@ namespace Ooda.Turn
         {
             var row = new List<SwitchSpec>
             {
-                Sw("FLR HOLD", $"3  ({battle.flares[0]})", plan.holdFlares, battle.flares[0] > 0, LampAmber, ToggleFlares),
+                Sw(battle.combat[0].chaff > 0 ? "CM HOLD" : "FLR HOLD", battle.combat[0].chaff > 0 ? $"3  ({battle.flares[0]}/{battle.chaff[0]})" : $"3  ({battle.flares[0]})",
+                   plan.holdFlares, battle.flares[0] + battle.chaff[0] > 0, LampAmber, ToggleFlares),
             };
             var load = battle.combat[0];
             if (load.balloonMines + load.heatBlades + load.stealths + load.jammers > 0)

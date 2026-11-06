@@ -180,6 +180,8 @@ namespace Ooda.Turn
             if (Pressed(Key.Digit1) || Pressed(Key.Numpad1) || (pad != null && dpadFree && pad.dpad.right.wasPressedThisFrame)) ToggleRocket();
             if (Pressed(Key.Digit2) || Pressed(Key.Numpad2) || (pad != null && dpadFree && pad.dpad.left.wasPressedThisFrame)) ToggleBrake();
             if (Pressed(Key.Digit3) || Pressed(Key.Numpad3)) ToggleFlares();
+            if (Pressed(Key.J)) ArmRadarMissile(!plan.radarMissile);
+            if (Pressed(Key.U)) ToggleRadarPage();
             SpecialsInput(kb);
             if (Pressed(Key.N)) CycleTarget();
             if (Pressed(Key.Tab) || (pad != null && pad.selectButton.wasPressedThisFrame))
@@ -242,6 +244,7 @@ namespace Ooda.Turn
         void DrawExtras(IList<TurnAircraftView> vs, TurnResult r, int now)
         {
             DrawFlares(r, now);
+            DrawChaff(r, now);
             DrawMines(r, now);
             DrawSpecialFrames(vs, r, now);
             for (int k = 0; k < vs.Count && k < r.frames.Length; k++)
