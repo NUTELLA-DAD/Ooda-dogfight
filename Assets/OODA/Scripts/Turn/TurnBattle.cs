@@ -142,7 +142,7 @@ namespace Ooda.Turn
         Ooda.UI.StickThrottleGauge gauge;   // the stick (bottom middle) and the throttle (bottom left)
         Material tipMat;
 
-        bool dragArrow, dragLook, dragBurst, dragMoves;
+        bool dragArrow, dragLook, dragBurst, dragMoves, dragMine;
         Rect movesRect;
         bool showMoves;            // the Advanced timeline panel is open (T)
         float markT;               // the moment on the moves slider being edited, s into the turn
@@ -417,7 +417,7 @@ namespace Ooda.Turn
             plan.marks = null;
             plan.missile = false;
             plan.rocket = plan.brake = false;
-            plan.mine = plan.ram = plan.cloak = plan.jam = false;
+            plan.mine = plan.ram = plan.cloak = plan.jam = false; plan.mineAt = 0;
             plan.rudder = 0;
             markT = 0;
             burstPreset = 0;
@@ -626,6 +626,7 @@ namespace Ooda.Turn
             WatchOrders();
             SquadShotsCheck();
             DamageShotsCheck();
+            MineShotsCheck();
             BotUpdate();
             NetBotUpdate();
             lines.Begin();
@@ -932,7 +933,8 @@ namespace Ooda.Turn
                 Vector2 gui = new Vector2(pos.x, Screen.height - pos.y) / guiScale;
                 if (pointer.press.wasPressedThisFrame)
                 {
-                    if (phase == Phase.Planning && burstRect.Contains(gui)) { dragBurst = true; SetBurstFromBar(gui.x, true); }
+                    if (phase == Phase.Planning && PressMine(gui)) { dragMine = true; SetMineFromBar(gui.x); }
+                    else if (phase == Phase.Planning && burstRect.Contains(gui)) { dragBurst = true; SetBurstFromBar(gui.x, true); }
                     else if (phase == Phase.Planning && movesRect.Contains(gui)) { dragMoves = true; SetMarkTime(gui.x); }
                     else if (PressStick(gui)) { }
                     else if (PressPedals(gui)) { }
@@ -947,11 +949,12 @@ namespace Ooda.Turn
                     else if (dragStick) DragStick(gui);
                     else if (dragPedals) SetPedals(gui.x);
                     else if (dragThrottle) DragThrottle(gui);
+                    else if (dragMine) SetMineFromBar(gui.x);
                     else if (dragBurst) SetBurstFromBar(gui.x, false);
                     else if (dragMoves) SetMarkTime(gui.x);
                     else if (dragLook && view != null && (mouse == null || !mouse.rightButton.isPressed)) view.Orbit((pos - lastPointer) * 0.25f);
                 }
-                if (pointer.press.wasReleasedThisFrame) { dragArrow = dragLook = dragMoves = dragStick = dragPedals = dragThrottle = false; if (dragBurst) { dragBurst = false; TidyBurst(); } }
+                if (pointer.press.wasReleasedThisFrame) { dragArrow = dragLook = dragMoves = dragStick = dragPedals = dragThrottle = dragMine = false; if (dragBurst) { dragBurst = false; TidyBurst(); } }
                 lastPointer = pos;
             }
 

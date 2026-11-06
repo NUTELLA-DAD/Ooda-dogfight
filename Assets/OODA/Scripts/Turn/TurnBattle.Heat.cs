@@ -63,6 +63,7 @@ namespace Ooda.Turn
 
         void LateUpdate()
         {
+            HideSpareMines();
             var kb = Keyboard.current;
             if (kb != null && kb.iKey.wasPressedThisFrame && !menuOpen && !briefing) ToggleIr();
             Camera cam = view != null ? view.Cam : Camera.main;
