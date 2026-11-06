@@ -43,12 +43,11 @@ namespace Ooda.EditorTools
 
         struct Peak { public LandModel model; public string kind; public Vector3 pos; public float yaw, width; public Vector3 scale; }
         static readonly List<Peak> Peaks = new List<Peak>();
-        static bool[,] underModel, underRock;
+        static bool[,] underModel;
+        /// <summary>The highest model surface over each ground cell (float.MinValue where there is none): the trees stand on it.</summary>
+        static float[,] modelTop;
 
         static bool UnderMountain(float x, float z) => underModel != null && underModel[Idx(z), Idx(x)];
-        /// <summary>Under a model where a tree on the ground would be lost in it: a mountain, or a grass hill whose ground could
-        /// not be raised to just under it (near a valley). The other grass hills' ground is, so trees stand on them.</summary>
-        static bool UnderRock(float x, float z) => underRock != null && underRock[Idx(z), Idx(x)];
 
         /// <summary>The model's top surface on a grid over its frame (x and z from -size/2 to size/2), -1 where it isn't.</summary>
         static float[,] ModelHeights(Mesh mesh, float fit, Vector3 centre)
@@ -102,7 +101,8 @@ namespace Ooda.EditorTools
         {
             Peaks.Clear();
             underModel = new bool[Res, Res];
-            underRock = new bool[Res, Res];
+            modelTop = new float[Res, Res];
+            for (int j = 0; j < Res; j++) for (int i = 0; i < Res; i++) modelTop[j, i] = float.MinValue;
             Load(MountainModel, true);
             Load(FoothillModel, true);
             if (MountainModel.near == null) { Debug.LogWarning("OODA: no mountain mesh: the land is noise only."); return; }
@@ -227,12 +227,8 @@ namespace Ooda.EditorTools
             foreach (var (i, j, rel) in Footprint(p, 1))
             {
                 float surf = p.pos.y + rel;
-                if (surf > h[j, i] + 3f)
-                {
-                    underModel[j, i] = true;
-                    if (p.model != FoothillModel || guard[j, i]) underRock[j, i] = true;
-                    else if (surf > h[j, i] + 9f) underRock[j, i] = false;   // a grass hill over a mountain's foot: the hill shows
-                }
+                if (surf > h[j, i] + 3f) underModel[j, i] = true;
+                modelTop[j, i] = Mathf.Max(modelTop[j, i], surf);
                 if (!guard[j, i]) h[j, i] = Mathf.Max(h[j, i], surf - 6f);   // just under the model: it is what you see
             }
         }

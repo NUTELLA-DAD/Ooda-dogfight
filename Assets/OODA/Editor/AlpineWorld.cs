@@ -152,18 +152,37 @@ namespace Ooda.EditorTools
 
         // ---------- trees ----------
 
+        /// <summary>The trees: not the terrain's own (they cost the CPU per tree each frame, and the forest is hundreds of
+        /// thousands), but a Forest object that draws them in instanced squares (Fx/Forest.cs), from a binary file of them.</summary>
         static void Plant(TerrainData data, float[,] h, List<Vector3> rail)
         {
-            data.treePrototypes = new[] { TreePrefab(RoundTree), TreePrefab(TallTree), TreePrefab(PineTree) }.Select(p => new TreePrototype { prefab = p }).ToArray();
+            data.treePrototypes = new TreePrototype[0];
+            data.SetTreeInstances(new TreeInstance[0], false);
             var spots = TreeSpots(h, rail);
-            var trees = spots.Select(s => new TreeInstance
-            {
-                position = new Vector3((s.x + Size / 2) / Size, 0, (s.z + Size / 2) / Size),
-                widthScale = s.scale, heightScale = s.tall, rotation = s.yaw,
-                color = Color.white, lightmapColor = Color.white, prototypeIndex = s.kind,
-            }).ToArray();
-            data.SetTreeInstances(trees, true);
-            Debug.Log($"OODA: planted {trees.Length} trees, {ForestTrees} of them in the forest ({spots.Count(t => t.kind == 0)} round, {spots.Count(t => t.kind == 1)} tall, {spots.Count(t => t.kind == 2)} pines).");
+            var kinds = new[] { RoundTree, TallTree, PineTree };   // the kind numbers of TreeSpot
+            foreach (var k in kinds) { Load(k, false); if (k.mat != null) k.mat.enableInstancing = true; }
+
+            string path = $"{Dir}/Forest.bytes";
+            using (var w = new BinaryWriter(File.Create(path)))
+                foreach (var s in spots)
+                {
+                    w.Write(s.x); w.Write(s.y); w.Write(s.z); w.Write(s.yaw); w.Write(s.scale); w.Write(s.tall); w.Write((float)s.kind);
+                }
+            AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
+
+            var cone = TestWorldBuilder.Mat("PineTree_Cone", new Color(0.10f, 0.36f, 0.23f), 0.05f);
+            cone.enableInstancing = true;
+            var go = new GameObject("Forest");
+            var f = go.AddComponent<Ooda.Fx.Forest>();
+            f.trees = AssetDatabase.LoadAssetAtPath<TextAsset>(path);
+            f.near = kinds.Select(k => k.near).ToArray();
+            f.far = kinds.Select(k => k.far).ToArray();
+            f.low = kinds.Select(k => k == PineTree && k.near != null ? PineCone(k) : null).ToArray();
+            f.materials = kinds.Select(k => k.mat).ToArray();
+            f.lowMaterials = kinds.Select(k => k == PineTree ? cone : null).ToArray();
+            f.local = kinds.Select(k => Matrix4x4.TRS(-k.centre * k.fit, Quaternion.identity, Vector3.one * k.fit)).ToArray();
+            f.enabled = false; f.enabled = true;   // read the file just written
+            Debug.Log($"OODA: planted {spots.Count} trees, {ForestTrees} of them in the forest ({spots.Count(t => t.kind == 0)} round, {spots.Count(t => t.kind == 1)} tall, {spots.Count(t => t.kind == 2)} pines).");
         }
 
         class WMats { public Material stone, steel, rail, ballast, sleeper, dark, water, river, wood, plaster, roof, slate, cobbles; }
