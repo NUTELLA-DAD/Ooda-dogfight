@@ -185,6 +185,7 @@ namespace Ooda.Turn.Core
         /// <summary>Aircraft i's heat as a seeker at eye sees it: its engines, and the heat blade's glow on top.</summary>
         public double HeatOf(int i, Vec3d eye)
         {
+            if (combat[i].iced) return 0;   // cased in ice (see Loadout): nothing for a seeker to see
             double h = Heat.Of(planes[i], combat[i], eye);
             return ramOn[i] ? h + Specials.BladeHeat : h;
         }
@@ -695,7 +696,7 @@ namespace Ooda.Turn.Core
             int best = -1; double bestCos = cos;
             for (int j = 0; j < Count; j++)
             {
-                if (side[j] == side[i] || Out(j)) continue;
+                if (side[j] == side[i] || Out(j) || combat[j].iced) continue;   // iced: nothing for a seeker to see
                 Vec3d r = planes[j].state.pos - m.state.pos;
                 double range = r.Length;
                 if (range < Missile.MinRangeFt || range > Heat.LockRangeFt(HeatOf(j, m.state.pos))) continue;   // a hot one locks from farther
@@ -861,6 +862,7 @@ namespace Ooda.Turn.Core
         /// </summary>
         void Hit(Bullet b, int target, TurnResult res, Vec3d r0, Vec3d r1, double reach)
         {
+            if (b is Missile ir && !ir.radar && combat[target].iced) return;   // a heat-seeker shatters on the ice
             var m = planes[target];
             // where it enters the sphere: back along its path from the closest pass
             Vec3d d = r1 - r0;

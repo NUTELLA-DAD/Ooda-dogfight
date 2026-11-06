@@ -100,11 +100,25 @@ namespace Ooda.Turn.Core
                 return lead + right * lat - dir * back + new Vec3d(0, 0, up);
             }
             bool easy = setup.easyAimOurs;
-            CombatNumbers Guns(Craft c, bool e) { var g = DogfightSetup.Guns(c, e); return setup.arcade ? Specials.Arm(g) : g; }
-            var battle = new Battle(Make(setup.ours[0], me, myHdg), Guns(setup.ours[0], easy),
-                                    Make(setup.theirs[0], foe, foeHdg), Guns(setup.theirs[0], false));
-            for (int k = 1; k < ours; k++) battle.Add(Make(setup.ours[k], Place(me, myHdg, k, -1), myHdg), Guns(setup.ours[k], easy), 0);
-            for (int k = 1; k < theirs; k++) battle.Add(Make(setup.theirs[k], Place(foe, foeHdg, k, 1), foeHdg), Guns(setup.theirs[k], false), 1);
+            // each plane's numbers and guns with its loadout on them (Arcade on): no loadouts picked, everything
+            (FlightModel, CombatNumbers) Plane(bool ourSide, int k, Vec3d pos, double hdg)
+            {
+                var c = ourSide ? setup.ours[k] : setup.theirs[k];
+                var m = Make(c, pos, hdg);
+                var g = DogfightSetup.Guns(c, ourSide && easy);
+                if (setup.arcade)
+                {
+                    var load = setup.LoadoutOf(ourSide, k);
+                    if (load == null) Specials.Arm(g);
+                    else load.Value.FitTo(c).Apply(m.numbers, g);
+                }
+                return (m, g);
+            }
+            var (m0, g0) = Plane(true, 0, me, myHdg);
+            var (m1, g1) = Plane(false, 0, foe, foeHdg);
+            var battle = new Battle(m0, g0, m1, g1);
+            for (int k = 1; k < ours; k++) { var (m, g) = Plane(true, k, Place(me, myHdg, k, -1), myHdg); battle.Add(m, g, 0); }
+            for (int k = 1; k < theirs; k++) { var (m, g) = Plane(false, k, Place(foe, foeHdg, k, 1), foeHdg); battle.Add(m, g, 1); }
             Formations.Organise(battle, 0, WideUnit, BomberUnit);
             return battle;
         }

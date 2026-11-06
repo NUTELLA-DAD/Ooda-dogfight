@@ -33,6 +33,7 @@ namespace Ooda.UI
                     if (saved.Length > 0) chosen = DogfightSetup.FromBytes(Convert.FromBase64String(saved));
                 }
                 catch (Exception e) { Debug.LogWarning($"OODA: the saved dogfight setup could not be read ({e.Message}); starting from the usual one."); }
+                chosen.FitLoadouts();   // every plane brings a loadout from the briefing on (an older one kept from before them gets the default)
                 return chosen;
             }
             set => chosen = value;
@@ -59,8 +60,10 @@ namespace Ooda.UI
         // the picked place: your planes first (0 your lead), then theirs
         int sel;
         bool mission;   // the mission panel (the start, range, height, speed and the map) is up
+        bool loadout;   // the loadout panel (the picked pilot's two capabilities) is up
 
         GUIStyle heading, head, label, dim, button, picked, small, smallPicked, bigFly;
+        GUIStyle barButtonOn, tile, tileOn, tileText;
         GUIStyle barTitle, logo, plaque, plaqueRed, tag, tagPicked, tagRed, tagRedPicked, tagSub, tagSubOn, barButton, ready, vs, hint, count;
         Texture2D white, bar, disc, shade;
         string mapKey;      // the setup the map was laid out for
@@ -87,10 +90,12 @@ namespace Ooda.UI
             if (Kb(k => k.escapeKey) || Pad(p => p.buttonEast))
             {
                 if (mission) { mission = false; return Result.None; }
+                if (loadout) { loadout = false; return Result.None; }
                 return Result.Back;
             }
             if (Kb(k => k.enterKey) || Kb(k => k.numpadEnterKey) || Pad(p => p.buttonSouth) || Pad(p => p.startButton)) return Result.Fly;
-            if (Kb(k => k.mKey) || Pad(p => p.selectButton)) mission = !mission;
+            if (Kb(k => k.mKey) || Pad(p => p.selectButton)) { mission = !mission; loadout = false; }
+            if (Kb(k => k.lKey) || Pad(p => p.rightStickButton)) { loadout = !loadout; mission = false; }
             if (Kb(k => k.gKey) || Pad(p => p.leftStickButton)) Chosen.arcade = !Chosen.arcade;
             if (mission) return Result.None;
             if (Kb(k => k.leftArrowKey) || Kb(k => k.aKey) || Pad(p => p.dpad.left)) MoveSel(-1);
@@ -99,6 +104,9 @@ namespace Ooda.UI
             if (Kb(k => k.cKey) || Pad(p => p.buttonNorth)) ChangeAircraft(shift ? -1 : 1);
             if (Kb(k => k.equalsKey) || Kb(k => k.numpadPlusKey) || Pad(p => p.rightShoulder)) AddPlane(SelOurs);
             if (Kb(k => k.minusKey) || Kb(k => k.numpadMinusKey) || Pad(p => p.leftShoulder)) RemovePlane(SelOurs);
+            if (loadout && kb != null)
+                for (int i = 0; i < Loadout.All.Length && i < 9; i++)
+                    if (kb[UnityEngine.InputSystem.Key.Digit1 + i].wasPressedThisFrame) PickKit(Loadout.All[i]);
             return Result.None;
         }
 
@@ -140,7 +148,19 @@ namespace Ooda.UI
             var s = Chosen;
             if (SelOurs) s.ours[SelIndex] = Step(s.ours[SelIndex], by);
             else s.theirs[SelIndex] = Step(s.theirs[SelIndex], by);
+            s.FitLoadouts();   // a jet can't keep the rocket
         }
+
+        /// <summary>The picked plane's aircraft and loadout.</summary>
+        Craft SelCraft => SelOurs ? Chosen.ours[Mathf.Min(SelIndex, Chosen.Ours - 1)] : Chosen.theirs[Mathf.Min(SelIndex, Chosen.Theirs - 1)];
+        Loadout SelLoadout
+        {
+            get { Chosen.FitLoadouts(); return (SelOurs ? Chosen.oursLoadouts : Chosen.theirsLoadouts)[SelIndex]; }
+            set { Chosen.FitLoadouts(); (SelOurs ? Chosen.oursLoadouts : Chosen.theirsLoadouts)[SelIndex] = value; }
+        }
+
+        /// <summary>Add a capability to the picked pilot's two (it takes the place of the older pick). Picking one again does nothing.</summary>
+        void PickKit(Kit k) => SelLoadout = SelLoadout.Pick(k, SelCraft);
 
         void AddPlane(bool ourSide)
         {
@@ -148,6 +168,7 @@ namespace Ooda.UI
             if (ourSide) { s.ours = DogfightSetup.Resize(s.ours, s.Ours + 1); sel = s.Ours - 1; }
             else { s.theirs = DogfightSetup.Resize(s.theirs, s.Theirs + 1); sel = s.Ours + s.Theirs - 1; }
             s.FitPilots();
+            s.FitLoadouts();
         }
 
         void RemovePlane(bool ourSide)
@@ -156,6 +177,7 @@ namespace Ooda.UI
             if (ourSide) s.ours = DogfightSetup.Resize(s.ours, s.Ours - 1);
             else s.theirs = DogfightSetup.Resize(s.theirs, s.Theirs - 1);
             s.FitPilots();
+            s.FitLoadouts();
             sel = Mathf.Clamp(sel, 0, Count - 1);
             if (!ourSide && sel < s.Ours) sel = s.Ours;   // stay on their side
             if (ourSide && sel >= s.Ours) sel = s.Ours - 1;
@@ -165,7 +187,7 @@ namespace Ooda.UI
         /// closes, parks the setup's planes, moves the ring to the picked pilot, and holds the camera on it all.</summary>
         public void Tick(Camera cam, float dt)
         {
-            if (!open) { if (stage.Built) stage.Close(); mission = false; return; }
+            if (!open) { if (stage.Built) stage.Close(); mission = false; loadout = false; return; }
             if (!stage.Built) { stage.Open(cam); sel = 0; }
             var s = Chosen;
             sel = Mathf.Clamp(sel, 0, Count - 1);
@@ -227,6 +249,13 @@ namespace Ooda.UI
             shade.SetPixel(0, 0, new Color(0.08f, 0.09f, 0.05f, 0.72f));
             shade.Apply();
             barButton = Stencil(22, Cream, olive, oliveHot);
+            barButtonOn = Stencil(22, Gold, oliveHot, oliveHot);
+            tile = Stencil(17, Ink, cream, creamHot);
+            tile.alignment = TextAnchor.UpperLeft; tile.padding = new RectOffset(12, 10, 8, 6);
+            tileOn = Stencil(17, Ink, creamHot, creamHot);
+            tileOn.alignment = TextAnchor.UpperLeft; tileOn.padding = tile.padding;
+            tileText = new GUIStyle(GUI.skin.label) { fontSize = 13, wordWrap = true, alignment = TextAnchor.UpperLeft };
+            tileText.normal.textColor = Ink;
             ready = Stencil(40, new Color(0.25f, 0.16f, 0.02f), gold, goldHot);
             vs = Stencil(38, Gold);
             hint = new GUIStyle(GUI.skin.label) { fontSize = 15, alignment = TextAnchor.MiddleCenter };
@@ -278,6 +307,7 @@ namespace Ooda.UI
             Styles();
             var s = Chosen;
             s.FitPilots();
+            s.FitLoadouts();
             var result = Result.None;
             // laid out for 1280 x 720 and scaled to fit the window
             float k = Mathf.Min(sw / 1280f, sh / 720f);
@@ -316,7 +346,7 @@ namespace Ooda.UI
             var arc = new GUIStyle(s.arcade ? tagPicked : tag) { fontSize = 15 };
             if (GUI.Button(new Rect(w / 2 - 95, TopH + 162, 190, 32), s.arcade ? "ARCADE: ON (G)" : "ARCADE: OFF (G)", arc)) s.arcade = !s.arcade;
             GUI.DrawTexture(new Rect(w / 2 - 150, TopH + 196, 300, 22), shade);
-            GUI.Label(new Rect(w / 2 - 150, TopH + 197, 300, 20), s.arcade ? "BALLOON MINES · HEAT BLADE · STEALTH" : "STRAIGHT DOGFIGHT: NO SPECIALS", tagSub);
+            GUI.Label(new Rect(w / 2 - 150, TopH + 197, 300, 20), s.arcade ? "EACH PILOT BRINGS TWO: L LOADOUT" : "STRAIGHT DOGFIGHT: NO SPECIALS", tagSub);
 
             // the name plates: a row above the foot bar in the order they stand, lead nearest the middle (under each
             // pilot's feet they crowd together as the wingmen step back)
@@ -334,10 +364,17 @@ namespace Ooda.UI
                     if (GUI.Button(new Rect(x - 68, y, 136, 30), who, st)) sel = side == 0 ? i : s.Ours + i;
                     var craft = side == 0 ? s.ours[i] : s.theirs[i];
                     var pk = side == 0 ? s.oursPilots[i] : s.theirsPilots[i];
-                    var sub = new Rect(x - 68, y + 32, 136, 40);
+                    var load = s.LoadoutOf(side == 0, i);
+                    bool showLoad = s.arcade && load != null;
+                    var sub = new Rect(x - 68, y + 32, 136, showLoad ? 58 : 40);
                     GUI.DrawTexture(sub, shade);
                     GUI.Label(new Rect(sub.x, sub.y + 1, sub.width, 20), PilotName(pk, craft).ToUpperInvariant(), on ? tagSubOn : tagSub);
                     GUI.Label(new Rect(sub.x, sub.y + 19, sub.width, 20), DogfightSetup.Short(craft).ToUpperInvariant(), on ? tagSubOn : tagSub);
+                    if (showLoad && GUI.Button(new Rect(sub.x, sub.y + 37, sub.width, 20), load.Value.Describe(), on ? tagSubOn : tagSub))
+                    {
+                        sel = side == 0 ? i : s.Ours + i;
+                        loadout = true; mission = false;
+                    }
                 }
             }
 
@@ -345,28 +382,34 @@ namespace Ooda.UI
             float by = h - BotH;
             GUI.DrawTexture(new Rect(-4, by, w + 8, BotH + 4), bar);
             float bh = 54, bty = by + (BotH - bh) / 2;
-            if (GUI.Button(new Rect(28, bty, 170, bh), "< BACK", barButton)) { if (mission) mission = false; else result = Result.Back; }
-            Divider(214, by);
-            bool f4 = (SelOurs ? s.ours[Mathf.Min(SelIndex, s.Ours - 1)] : s.theirs[Mathf.Min(SelIndex, s.Theirs - 1)]) == Craft.Phantom;
+            if (GUI.Button(new Rect(24, bty, 128, bh), "< BACK", barButton)) { if (mission) mission = false; else if (loadout) loadout = false; else result = Result.Back; }
+            Divider(162, by);
+            bool f4 = SelCraft == Craft.Phantom;
             var keepCol = GUI.color;
             if (f4) GUI.color = new Color(1, 1, 1, 0.5f);
-            if (GUI.Button(new Rect(232, bty, 236, bh), "CHANGE PILOT", barButton)) ChangePilot(Event.current.button == 1 ? -1 : 1);
+            if (GUI.Button(new Rect(176, bty, 210, bh), "CHANGE PILOT", barButton)) ChangePilot(Event.current.button == 1 ? -1 : 1);
             GUI.color = keepCol;
-            Divider(484, by);
-            if (GUI.Button(new Rect(502, bty, 270, bh), "CHANGE AIRCRAFT", barButton)) ChangeAircraft(Event.current.button == 1 ? -1 : 1);
-            Divider(788, by);
-            if (GUI.Button(new Rect(806, bty, Mathf.Max(190, w - 806 - 300), bh), mission ? "CLOSE MISSION" : "MISSION", barButton)) mission = !mission;
+            Divider(396, by);
+            if (GUI.Button(new Rect(410, bty, 248, bh), "CHANGE AIRCRAFT", barButton)) ChangeAircraft(Event.current.button == 1 ? -1 : 1);
+            Divider(668, by);
+            if (GUI.Button(new Rect(682, bty, 152, bh), "LOADOUT", loadout ? barButtonOn : barButton))
+            { loadout = !loadout; mission = false; }
+            Divider(844, by);
+            if (GUI.Button(new Rect(858, bty, Mathf.Max(140, w - 858 - 290), bh), mission ? "CLOSE" : "MISSION", barButton)) { mission = !mission; loadout = false; }
             if (GUI.Button(new Rect(w - 268, by + 8, 240, BotH - 16), "READY", ready)) result = Result.Fly;
             GUI.DrawTexture(new Rect(0, by - 26, w, 26), shade);
             Shadow(new Rect(0, by - 25, w, 24), mission ? "Esc closes the mission panel  ·  Enter flies"
-                : "← → pick a pilot  ·  P change pilot  ·  C change aircraft  ·  + − planes on that side  ·  M mission  ·  G arcade  ·  Enter ready", hint);
+                : loadout ? "← → pick a pilot  ·  1 – 8 add a capability (it replaces the older pick)  ·  L or Esc closes  ·  Enter ready"
+                : "← → pick a pilot  ·  P pilot  ·  C aircraft  ·  L loadout  ·  + − planes on that side  ·  M mission  ·  G arcade  ·  Enter ready", hint);
 
+            var panel = new Rect(w / 2 - 470, TopH + 10, 940, 384);
             if (mission) MissionPanel(new Rect(w / 2 - 560, TopH + 20, 1120, by - TopH - 56), s);
-            else if (Event.current.type == EventType.MouseDown && Event.current.button == 0)
+            else if (loadout) LoadoutPanel(panel, s);
+            if (!mission && Event.current.type == EventType.MouseDown && Event.current.button == 0)
             {
                 // a click on a plane or a pilot picks it
                 Vector2 m = Event.current.mousePosition;
-                if (m.y > TopH && m.y < by)
+                if (m.y > TopH && m.y < by && !(loadout && panel.Contains(m)))
                 {
                     float best = float.MaxValue;
                     int pick = -1;
@@ -446,6 +489,65 @@ namespace Ooda.UI
             }
             GUI.DrawTexture(new Rect(c.x - 52, c.y - 52, 104, 104), disc);
             Shadow(new Rect(c.x - 52, c.y - 52, 104, 104), "VS", vs);
+        }
+
+        /// <summary>
+        /// The loadout panel: the picked pilot's two capabilities (Loadout), a tile for each one he could bring with what it
+        /// does; a click (or its number key) adds it in place of the older pick. Guns, flares and the speed brake always come.
+        /// With Arcade off it says so: a straight dogfight carries the same for everyone.
+        /// </summary>
+        void LoadoutPanel(Rect r, DogfightSetup s)
+        {
+            GUI.Box(r, "");
+            GUI.Box(r, "");
+            var craft = SelCraft;
+            string who = SelOurs ? (SelIndex == 0 ? "LEAD" : $"WINGMAN {SelIndex}") : (SelIndex == 0 ? "BANDIT LEAD" : $"BANDIT {SelIndex + 1}");
+            var pk = SelOurs ? s.oursPilots[SelIndex] : s.theirsPilots[SelIndex];
+            GUI.Label(new Rect(r.x, r.y + 4, r.width, 40), "LOADOUT", heading);
+            var whoStyle = new GUIStyle(head) { alignment = TextAnchor.MiddleCenter };
+            whoStyle.normal.textColor = SelOurs ? Blue : Red;
+            if (GUI.Button(new Rect(r.x + 150, r.y + 46, 44, 32), "<", small)) MoveSel(-1);
+            GUI.Label(new Rect(r.x + 200, r.y + 46, r.width - 400, 32), $"{who}  ·  {PilotName(pk, craft).ToUpperInvariant()}  ·  {DogfightSetup.Name(craft).ToUpperInvariant()}", whoStyle);
+            if (GUI.Button(new Rect(r.xMax - 194, r.y + 46, 44, 32), ">", small)) MoveSel(1);
+
+            var note = new GUIStyle(dim) { wordWrap = true, alignment = TextAnchor.MiddleCenter };
+            if (!s.arcade)
+            {
+                GUI.Label(new Rect(r.x + 40, r.y + 110, r.width - 80, 80),
+                          "Arcade is off: a straight dogfight. Everyone carries guns, heat-seekers, flares, the rocket and the speed brake (a jet its radar missiles too), and no specials.", note);
+                if (GUI.Button(new Rect(r.center.x - 130, r.y + 210, 260, 44), "TURN ARCADE ON", smallPicked)) s.arcade = true;
+                return;
+            }
+
+            var load = SelLoadout;
+            GUI.Label(new Rect(r.x + 20, r.y + 82, r.width - 40, 24), $"Pick two to bring: {load}. Guns, flares and the speed brake always come.", note);
+            const int Cols = 4;
+            float gap = 12, x0 = r.x + 20, y0 = r.y + 114, tw = (r.width - 40 - gap * (Cols - 1)) / Cols, th = 100;
+            for (int i = 0; i < Loadout.All.Length; i++)
+            {
+                var k = Loadout.All[i];
+                var at = new Rect(x0 + (i % Cols) * (tw + gap), y0 + (i / Cols) * (th + gap), tw, th);
+                bool on = load.Has(k), can = Loadout.Allowed(k, craft);
+                var keep = GUI.color;
+                if (!can) GUI.color = new Color(1, 1, 1, 0.45f);
+                if (GUI.Button(at, $"{i + 1}  {Loadout.Name(k).ToUpperInvariant()}", on ? tileOn : tile) && can) PickKit(k);
+                GUI.Label(new Rect(at.x + 12, at.y + 32, at.width - 22, at.height - 36), Loadout.Blurb(k, craft), tileText);
+                GUI.color = keep;
+                if (on)
+                {
+                    // a gold rim round a pick
+                    Fill(new Rect(at.x - 3, at.y - 3, at.width + 6, 3), Gold); Fill(new Rect(at.x - 3, at.yMax, at.width + 6, 3), Gold);
+                    Fill(new Rect(at.x - 3, at.y, 3, at.height), Gold); Fill(new Rect(at.xMax, at.y, 3, at.height), Gold);
+                }
+            }
+            // the same two for the whole flight
+            float fy = y0 + 2 * (th + gap) + 2;
+            if (GUI.Button(new Rect(r.center.x - 160, fy, 320, 34), SelOurs ? "SAME FOR YOUR WHOLE FLIGHT" : "SAME FOR ALL THE BANDITS", small))
+            {
+                var list = SelOurs ? s.oursLoadouts : s.theirsLoadouts;
+                for (int j = 0; j < list.Length; j++) list[j] = load;
+                s.FitLoadouts();
+            }
         }
 
         /// <summary>The mission panel: how the two flights start, how far apart, how high and fast, and the map of where everyone starts.</summary>

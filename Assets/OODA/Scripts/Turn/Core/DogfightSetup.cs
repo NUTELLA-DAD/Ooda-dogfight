@@ -46,8 +46,14 @@ namespace Ooda.Turn.Core
         public int arena = 0;
         /// <summary>Side 0's guns get the forgiving hit radius and the tighter cone (a game liberty for the player against the AI). Off for side against side.</summary>
         public bool easyAimOurs = true;
-        /// <summary>Arcade: every fighter carries the specials (the balloon mine, the heat blade, stealth: see Specials).</summary>
+        /// <summary>Arcade: every fighter brings its loadout (two picks: heat-seekers, the rocket or the specials, see Loadout).
+        /// Off, a straight dogfight: everyone carries heat-seekers and the rocket, and no specials.</summary>
         public bool arcade = true;
+        /// <summary>
+        /// Each plane's loadout with Arcade on, in the same order as ours and theirs (FitLoadouts keeps the lengths together and
+        /// each legal for its aircraft). Null: the old arcade, every fighter carrying everything (the tutorial flies that).
+        /// </summary>
+        public Loadout[] oursLoadouts, theirsLoadouts;
 
         public int Ours => ours.Length;
         public int Theirs => theirs.Length;
@@ -59,7 +65,10 @@ namespace Ooda.Turn.Core
             c.theirs = (Craft[])theirs.Clone();
             c.oursPilots = (PilotKind[])(oursPilots ?? new PilotKind[0]).Clone();
             c.theirsPilots = (PilotKind[])(theirsPilots ?? new PilotKind[0]).Clone();
+            c.oursLoadouts = (Loadout[])oursLoadouts?.Clone();
+            c.theirsLoadouts = (Loadout[])theirsLoadouts?.Clone();
             c.FitPilots();
+            if (c.oursLoadouts != null || c.theirsLoadouts != null) c.FitLoadouts();
             return c;
         }
 
@@ -85,6 +94,41 @@ namespace Ooda.Turn.Core
             var p = new PilotKind[count];
             for (int k = 0; k < count && side != null && k < side.Length; k++) p[k] = side[k];
             return p;
+        }
+
+        /// <summary>
+        /// The loadout lists the same length as the aircraft lists, each legal for its aircraft (a jet that had the rocket
+        /// swaps it): planes added bring what the plane before them brings (or the default), planes past the end go.
+        /// </summary>
+        public void FitLoadouts()
+        {
+            oursLoadouts = FitLoadouts(oursLoadouts, ours);
+            theirsLoadouts = FitLoadouts(theirsLoadouts, theirs);
+        }
+
+        static Loadout[] FitLoadouts(Loadout[] side, Craft[] craft)
+        {
+            if (side != null && side.Length == craft.Length)
+            {
+                bool fits = true;
+                for (int k = 0; k < craft.Length && fits; k++) fits = side[k].Equals(side[k].FitTo(craft[k]));
+                if (fits) return side;
+            }
+            var l = new Loadout[craft.Length];
+            for (int k = 0; k < craft.Length; k++)
+            {
+                var pick = side != null && k < side.Length ? side[k] : k > 0 ? l[k - 1] : Loadout.DefaultFor(craft[k]);
+                l[k] = pick.FitTo(craft[k]);
+            }
+            return l;
+        }
+
+        /// <summary>What plane k of a side brings, or null for everything (no loadouts picked: see oursLoadouts).</summary>
+        public Loadout? LoadoutOf(bool ourSide, int k)
+        {
+            var side = ourSide ? oursLoadouts : theirsLoadouts;
+            if (side == null || k < 0 || k >= side.Length) return null;
+            return side[k];
         }
 
         /// <summary>Who flies plane k of a side (ours or theirs): Usual when not picked.</summary>
@@ -159,9 +203,9 @@ namespace Ooda.Turn.Core
 
         // ---------- over the wire ----------
 
-        // 2 added the pilots, 3 the arena, 4 arcade; an older setup (kept from an older build) still reads, everyone with the
-        // usual pilot over a random arena, with arcade on
-        const byte Version = 4;
+        // 2 added the pilots, 3 the arena, 4 arcade, 5 the loadouts; an older setup (kept from an older build) still reads,
+        // everyone with the usual pilot over a random arena, with arcade on and no loadouts (everything)
+        const byte Version = 5;
 
         public byte[] ToBytes()
         {
@@ -176,6 +220,14 @@ namespace Ooda.Turn.Core
                 for (int k = 0; k < theirs.Length; k++) w.Write((byte)PilotOf(false, k));
                 w.Write(randomArena); w.Write((byte)arena);
                 w.Write(arcade);
+                bool loads = oursLoadouts != null || theirsLoadouts != null;
+                w.Write(loads);
+                if (loads)
+                {
+                    FitLoadouts();
+                    foreach (var l in oursLoadouts) { w.Write((byte)l.a); w.Write((byte)l.b); }
+                    foreach (var l in theirsLoadouts) { w.Write((byte)l.a); w.Write((byte)l.b); }
+                }
                 w.Flush();
                 return ms.ToArray();
             }
@@ -203,6 +255,14 @@ namespace Ooda.Turn.Core
                 }
                 if (version >= 3) { s.randomArena = r.ReadBoolean(); s.arena = r.ReadByte(); }
                 if (version >= 4) s.arcade = r.ReadBoolean();
+                if (version >= 5 && r.ReadBoolean())
+                {
+                    s.oursLoadouts = new Loadout[s.ours.Length];
+                    s.theirsLoadouts = new Loadout[s.theirs.Length];
+                    for (int k = 0; k < s.ours.Length; k++) s.oursLoadouts[k] = new Loadout((Kit)r.ReadByte(), (Kit)r.ReadByte());
+                    for (int k = 0; k < s.theirs.Length; k++) s.theirsLoadouts[k] = new Loadout((Kit)r.ReadByte(), (Kit)r.ReadByte());
+                    s.FitLoadouts();
+                }
                 if (s.arena >= Arenas.Count) s.arena = 0;
                 return s;
             }

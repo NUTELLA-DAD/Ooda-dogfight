@@ -129,12 +129,12 @@ namespace Ooda.Turn
         {
             var m = battle.planes[0];
             int turns = RocketTurns(m);
-            var row = new List<SwitchSpec>
-            {
-                Sw("ROCKET", plan.rocket ? "1 lit" : m.RocketBurning ? "burning" : turns == 0 ? "1 ready" : $"{turns} turn{(turns == 1 ? "" : "s")}",
-                   plan.rocket, plan.rocket || m.RocketReady, LampAmber, ToggleRocket),
-                Sw("BRAKE", "2", plan.brake, true, LampBlue, ToggleBrake),
-            };
+            var row = new List<SwitchSpec>();
+            // no rocket switch on a plane that doesn't carry one (a jet, or a loadout without it)
+            if (m.numbers.rocketG > 0)
+                row.Add(Sw("ROCKET", plan.rocket ? "1 lit" : m.RocketBurning ? "burning" : turns == 0 ? "1 ready" : $"{turns} turn{(turns == 1 ? "" : "s")}",
+                           plan.rocket, plan.rocket || m.RocketReady, LampAmber, ToggleRocket));
+            row.Add(Sw("BRAKE", "2", plan.brake, true, LampBlue, ToggleBrake));
             if (Jet) row.Add(Sw("BURNER", "Space", plan.wep, true, LampRed, () => { plan.wep = !plan.wep; dirty = true; }));
             SwitchRow(x, y, w, row);
         }
@@ -148,13 +148,15 @@ namespace Ooda.Turn
                    plan.holdFlares, battle.flares[0] + battle.chaff[0] > 0, LampAmber, ToggleFlares),
             };
             var load = battle.combat[0];
-            if (load.balloonMines + load.heatBlades + load.stealths + load.jammers > 0)
-            {
+            // the specials this plane's loadout brought (all four with no loadout picked)
+            if (load.balloonMines > 0)
                 row.Add(Sw("MINE", $"4  ({battle.balloonMines[0]})", plan.mine, plan.mine || battle.balloonMines[0] > 0, mineColor, ToggleMine));
+            if (load.heatBlades > 0)
                 row.Add(Sw("BLADE", $"5  ({battle.heatBlades[0]})", plan.ram, plan.ram || battle.heatBlades[0] > 0, bladeColor, ToggleBlade));
+            if (load.stealths > 0)
                 row.Add(Sw(battle.Cloaked(0) ? "STEALTHY" : "STEALTH", $"6  ({battle.stealths[0]})", plan.cloak, plan.cloak || battle.stealths[0] > 0, new Color(stealthColor.r, stealthColor.g, stealthColor.b, 1f), ToggleCloak));
+            if (load.jammers > 0)
                 row.Add(Sw("JAM", $"7  ({battle.jammers[0]})", plan.jam, plan.jam || battle.jammers[0] > 0, jamColor, ToggleJam));
-            }
             SwitchRow(x, y, w, row, true);
             if (JammedNow)
             {

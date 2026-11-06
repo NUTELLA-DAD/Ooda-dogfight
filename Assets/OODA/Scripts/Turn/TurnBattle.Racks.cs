@@ -18,7 +18,7 @@ namespace Ooda.Turn
         {
             if (battle == null) return;
             for (int i = 0; i < views.Length && i < battle.missiles.Length; i++)
-                if (views[i] != null) views[i].ShowMissiles(Loaded(i), battle.missiles[i]);
+                if (views[i] != null) { views[i].ShowMissiles(Loaded(i), battle.missiles[i]); IceCoat.Set(views[i].gameObject, battle.combat[i].iced); }
         }
 
         /// <summary>
@@ -29,7 +29,7 @@ namespace Ooda.Turn
         {
             if (battle == null || r == null) return;
             for (int i = 0; i < views.Length && i < battle.missiles.Length; i++)
-                if (views[i] != null) views[i].ShowMissiles(Loaded(i), battle.missiles[i] + LaunchesAfter(r, i, now));
+                if (views[i] != null) { views[i].ShowMissiles(Loaded(i), battle.missiles[i] + LaunchesAfter(r, i, now)); IceCoat.Set(views[i].gameObject, battle.combat[i].iced); }
         }
 
         /// <summary>The replay: the same from the tape (by tape index), with each turn's count after it.</summary>

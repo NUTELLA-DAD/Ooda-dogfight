@@ -178,7 +178,7 @@ namespace Ooda.Turn.Core
             if (battle.missiles[me] > 0 && battle.routes[me] == null)
             {
                 Vec3d r = battle.planes[them].state.pos - m.state.pos;
-                if (!best.cloak && r.Length < Heat.LockRangeFt(battle.HeatOf(them, m.state.pos)) * 1.2 && Vec3d.Dot(r.Normalized, m.Forward) > Math.Cos(60 * Math.PI / 180))
+                if (!best.cloak && !battle.combat[them].iced && r.Length < Heat.LockRangeFt(battle.HeatOf(them, m.state.pos)) * 1.2 && Vec3d.Dot(r.Normalized, m.Forward) > Math.Cos(60 * Math.PI / 180))
                 { best.missile = true; best.missileTarget = them; }
             }
             // the radar on the target, and a radar missile whenever it is in the cone (it launches only once the lock is a turn old)

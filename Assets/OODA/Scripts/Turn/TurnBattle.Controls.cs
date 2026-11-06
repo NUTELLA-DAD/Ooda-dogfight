@@ -155,6 +155,7 @@ namespace Ooda.Turn
         void ToggleRocket()
         {
             var m = battle.planes[0];
+            if (!plan.rocket && m.numbers.rocketG <= 0) { Notice(Jet ? "A jet has no rocket: Space lights the afterburner." : "No rocket: it isn't in this plane's loadout."); return; }
             if (!plan.rocket && !m.RocketReady)
             {
                 Notice(m.RocketBurning ? "The rocket is still burning." : $"The rocket is recharging: ready in {RocketTurns(m)} turn{(RocketTurns(m) == 1 ? "" : "s")}.");
