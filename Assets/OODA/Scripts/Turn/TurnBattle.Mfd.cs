@@ -153,7 +153,7 @@ namespace Ooda.Turn
             var lbl = new GUIStyle(mfdSmall);
             lbl.normal.textColor = MfdGreen;
             lbl.wordWrap = false; lbl.clipping = TextClipping.Clip;
-            GUI.Label(new Rect(bar.x, bar.y - 14, w, 12), plan.burstEnd > plan.burstStart ? $"TRIG {plan.burstStart:F2}-{plan.burstEnd:F2} S" : plan.mine ? "TRIG SAFE" : w >= 230 ? "TRIG SAFE  (DRAG TO SET A BURST)" : "TRIG SAFE  (DRAG A BURST)", lbl);   // the mine's time takes the right of the line
+            GUI.Label(new Rect(bar.x, bar.y - 14, w, 12), plan.burstEnd > plan.burstStart ? $"TRIG {plan.burstStart:F2}-{plan.burstEnd:F2} S" : plan.mine || plan.well ? "TRIG SAFE" : w >= 230 ? "TRIG SAFE  (DRAG TO SET A BURST)" : "TRIG SAFE  (DRAG A BURST)", lbl);   // the mine's time takes the right of the line
             // the hit window: when rounds fired would connect on the bright ghost
             foreach (var hw in hitWindows)
                 Fill(new Rect(bar.x + (float)(hw.a / turnSec) * w, bar.y + 1, Mathf.Max(2f, (float)((hw.b - hw.a) / turnSec) * w), bar.height - 2), new Color(MfdRed.r, MfdRed.g, MfdRed.b, 0.35f));
@@ -174,6 +174,7 @@ namespace Ooda.Turn
                     Fill(new Rect(x - 1, bar.y - 3, 2, bar.height + 6), h.shooter == 0 ? Color.white : MfdRed);
                 }
             MineOnBar(bar, lbl);
+            WellOnBar(bar, lbl);
             lbl.normal.textColor = MfdDim;
             for (int s = 0; s <= (int)turnSec; s++)
                 GUI.Label(new Rect(bar.x + s / (float)turnSec * w - 10, bar.yMax + 3, 20, 11), $"{s}", new GUIStyle(lbl) { alignment = TextAnchor.MiddleCenter });

@@ -32,6 +32,8 @@ namespace Ooda.Turn.Core
         public int radarMissiles, chaff;
         /// <summary>The arcade specials carried (see Specials): balloon mines, heat-blade charges and stealth charges. None unless Specials.Arm gives them (a dogfight with Arcade on).</summary>
         public int balloonMines, heatBlades, stealths, jammers;
+        /// <summary>Gravity wells carried (see Specials): none unless the loadout (or Specials.Arm) gives them.</summary>
+        public int wells;
         /// <summary>Ice (a loadout pick, see Loadout): the airframe is cased in ice, cold as the sky, so no heat-seeker can lock it and one that blunders into it shatters harmlessly. Radar missiles and guns still bite.</summary>
         public bool iced;
         /// <summary>
@@ -264,7 +266,7 @@ namespace Ooda.Turn.Core
     }
 
     /// <summary>Why a missile lost its target.</summary>
-    public enum MissileLoss { None, Seeker, Gone, Flare, Notch, Radar, Chaff }
+    public enum MissileLoss { None, Seeker, Gone, Flare, Notch, Radar, Chaff, Well }
 
     /// <summary>
     /// Radar and radar missiles, for jets only (a warbird has no radar: CombatNumbers.radarRangeFt 0), kept arcade simple.
@@ -432,6 +434,7 @@ namespace Ooda.Turn.Core
         public bool radar;        // that missile is radar guided
         public bool chaff;        // a chaff cloud (kept in TurnResult.chaff)
         public bool mine;         // a balloon mine's drift (kept in TurnResult.mines); hit: it went off
+        public bool well;         // a gravity well's drift (kept in TurnResult.wells)
         public double age0;       // how old the round (missile, flare) was at startFrame, s
         /// <summary>
         /// Recorded runs only: the closest the packet came to an opposing aircraft (ft), against the target it came

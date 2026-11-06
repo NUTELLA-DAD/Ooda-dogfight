@@ -1,7 +1,8 @@
 // Checks of the arcade specials without Unity (see Turn/Core/Specials.cs): the balloon mine catches a tailer who flies
 // on and spares one who turns away, goes at the moment planned and drifts slowly; the heat blade cuts an enemy in half and flies on, keeps the guns cold and runs hot;
 // stealth hides you from the AI and the flak but not from a heat-seeker, and firing shows you; the AI pilots use all
-// three; and everything survives a clone, a subset, a swap and the trip to bytes.
+// three; the gravity well bends a hard turn tighter, makes a tailer's rounds miss and pulls a heat-seeker off; and
+// everything survives a clone, a subset, a swap and the trip to bytes.
 // Usage: dotnet run   (exit code = failures)
 using System;
 using System.Linq;
@@ -193,7 +194,10 @@ static class Program
             Check(p.mine, "with a 109 on its six, it lets a mine go");
             b.balloonMines[0] = 0; ai.Forget();
             p = ai.Plan(b, 3);
-            Check(p.jam && !p.mine, "no mines left: it sets off the jammer");
+            Check(p.well && !p.mine, "no mines left: it throws a gravity well");
+            b.wells[0] = 0; ai.Forget();
+            p = ai.Plan(b, 3);
+            Check(p.jam && !p.mine && !p.well, "no mines or wells left: it sets off the jammer");
             b.jammers[0] = 0; b.planes[0].systems.Wear(SystemId.Controls, 0.6); ai.Forget();
             p = ai.Plan(b, 3);
             Check(p.cloak && !p.mine && !p.jam, "no mines or jammer left, and hurt: it goes stealthy");
@@ -340,7 +344,149 @@ static class Program
                   "ice survives the trip to bytes");
         }
 
+        GravityWell();
+
         Console.WriteLine(fails == 0 ? "\nAll checks pass." : $"\n{fails} check(s) FAILED.");
         return fails;
+    }
+
+    static double Heading(Vec3d v) => Math.Atan2(v.y, v.x) * 180 / Math.PI;
+
+    /// <summary>How far (degrees) a P-51 at kias turns in two hard turns to its left, throwing a gravity well at the start or not.</summary>
+    static double TurnWith(double kias, bool well)
+    {
+        var b = new Battle(At(AircraftNumbers.P51D(), 0, 0, kias), Specials.Arm(CombatNumbers.P51D()), At(AircraftNumbers.Bf109G(), 50000, 0, 300), Specials.Arm(CombatNumbers.Bf109G()));
+        double total = 0;
+        for (int t = 0; t < 2; t++)
+        {
+            var f = b.planes[0].Forward;
+            var p = new TurnPlan { aim = new Vec3d(-f.y, f.x, 0).Normalized, throttle = 1 };   // 90 degrees left: past the ring, a hard turn
+            if (well && t == 0) p.well = true;
+            double h0 = Heading(b.planes[0].Forward);
+            b.Resolve(new TurnPlan?[] { p, Ahead(b, 1) }, 3, false);
+            double d = Heading(b.planes[0].Forward) - h0;
+            total += d < -180 ? d + 360 : d > 180 ? d - 360 : d;
+        }
+        return total;
+    }
+
+    static void GravityWell()
+    {
+        Console.WriteLine("\nGravity well");
+        {
+            var b = Tail(30000);
+            var throwIt = Ahead(b, 0); throwIt.well = true; throwIt.wellAt = 1;
+            var r = b.Resolve(new TurnPlan?[] { throwIt, Ahead(b, 1) }, 3);
+            var w = b.bullets.OfType<Well>().FirstOrDefault();
+            Check(b.wells[0] == Specials.Wells - 1 && r.wells.Count == 1 && w != null, $"one is thrown, {b.wells[0]} left, its drift recorded");
+            Check(r.wells.Count == 1 && Math.Abs(r.wells[0].startFrame - 1 / Battle.StepSec) <= 1, $"it goes at the moment planned (frame {(r.wells.Count > 0 ? r.wells[0].startFrame : -1)})");
+            Check(w != null && w.pos.y > b.planes[0].state.pos.y - 3000 && w.pos.z > 10000 + 400 && w.vel.Length < 80,
+                  $"it settles ahead and (flying straight) above, to a hang ({(w == null ? 0 : w.vel.Length):F0} ft/s)");
+            Check(!r.hits.Any(), "it hurts no one");
+            for (int t = 0; t < 2; t++) b.Resolve(new TurnPlan?[] { Ahead(b, 0), Ahead(b, 1) }, 3);
+            Check(!b.bullets.OfType<Well>().Any(), $"it is gone after {Specials.WellLifeSec:F0} s");
+        }
+        {
+            double[] kts = { 220, 300, 380 };
+            var gains = kts.Select(k => TurnWith(k, true) / TurnWith(k, false) - 1).ToArray();
+            Check(gains.All(g => g > 0.1), $"thrown into a hard turn, the P-51 turns tighter: {string.Join(", ", kts.Zip(gains, (k, g) => $"{k:F0} kt +{g * 100:F0}%"))} over two turns");
+        }
+        {
+            // a 109 900 ft behind fires all of two turns; the P-51 flies straight, with a well or without
+            int Hits(bool well)
+            {
+                int hits = 0;
+                foreach (double gap in new[] { 600.0, 900, 1200 })
+                {
+                    var b = Tail(gap); b.dispersion = false;
+                    for (int t = 0; t < 2; t++)
+                    {
+                        var p0 = Ahead(b, 0); p0.well = well && t == 0;
+                        var p1 = Ahead(b, 1); p1.burstStart = 0; p1.burstEnd = 3;
+                        hits += b.Resolve(new TurnPlan?[] { p0, p1 }, 3, false).hits.Count(h => h.shooter == 1);
+                    }
+                }
+                return hits;
+            }
+            int without = Hits(false), with = Hits(true);
+            Check(with * 2 < without, $"a 109 shooting from behind lands {with} packets with the well thrown, {without} without");
+        }
+        {
+            // a missile flown straight through a well's core loses its target and is flung off
+            var b = Tail(30000);
+            var me = b.planes[0];
+            var ms = Missile.Make(1, 1, 0, me.state.pos - me.Forward * 6000, me.state.vel + me.Forward * 400, b.time);
+            var wl = Well.Make(0, 0, me.state.pos - me.Forward * 3500, Vec3d.Zero, b.time); wl.age = 1;
+            b.bullets.Add(ms); b.bullets.Add(wl);
+            b.Resolve(new TurnPlan?[] { Ahead(b, 0), Ahead(b, 1) }, 3);
+            Check(!ms.Tracking && ms.lost == MissileLoss.Well, $"a heat-seeker drawn through its core loses its target ({ms.lost})");
+            for (int t = 0; t < 2; t++) b.Resolve(new TurnPlan?[] { Ahead(b, 0), Ahead(b, 1) }, 3);
+            Check(!b.SystemsOf(0).Hurt && !b.down[0], "and misses the plane it was after");
+
+            // in a chase: a 109 fires a heat-seeker from behind, the P-51 throws a well ahead (straight or breaking left) and flies through
+            int Saved(bool well)
+            {
+                int saved = 0;
+                foreach (double gap in new[] { 2500.0, 3500, 4500, 5500 })
+                    foreach (bool brk in new[] { false, true })
+                    {
+                        var c0 = Specials.Arm(CombatNumbers.P51D()); c0.flares = 0;
+                        var c = new Battle(At(AircraftNumbers.P51D(), 0, gap, 300), c0, At(AircraftNumbers.Bf109G(), 0, 0, 300), Specials.Arm(CombatNumbers.Bf109G()));
+                        bool hit = false;
+                        for (int t = 0; t < 4 && !hit; t++)
+                        {
+                            var p0 = Ahead(c, 0); if (brk) p0.aim = new Vec3d(-0.7, 0.7, 0).Normalized;
+                            p0.well = well && t == 0;
+                            var p1 = Ahead(c, 1); p1.missile = t == 0; p1.missileTarget = 0;
+                            hit = c.Resolve(new TurnPlan?[] { p0, p1 }, 3, false).hits.Any(h => h.shooter == 1 && h.damage >= 8);
+                        }
+                        if (!hit) saved++;
+                    }
+                return saved;
+            }
+            int s0 = Saved(false), s1 = Saved(true);
+            Check(s1 >= s0 + 2, $"thrown ahead with a heat-seeker on your tail and no flares, it saves you {s1} times of 8 ({s0} without)");
+        }
+        {
+            // the AI pilots: a missile on it, it throws one
+            var b = Tail(30000);
+            var me = b.planes[0];
+            b.bullets.Add(Missile.Make(1, 1, 0, me.state.pos - me.Forward * 4000, me.state.vel + me.Forward * 400, b.time));
+            b.balloonMines[0] = 0; b.jammers[0] = 0;
+            var p = new EnemyAi { me = 0, sloppiness = 0 }.Plan(b, 3);
+            Check(p.well, "an AI pilot with a heat-seeker on it throws a well");
+        }
+        {
+            // clones, subsets, swaps, bytes
+            var b = Tail(1500);
+            var plan = Ahead(b, 0); plan.well = true;
+            b.Resolve(new TurnPlan?[] { plan, Ahead(b, 1) }, 1.5);
+            var c = b.Clone();
+            Check(c.wells[0] == b.wells[0] && !ReferenceEquals(c.wells, b.wells) && c.bullets.Any(x => x is Well), "a clone keeps the count and the well, in its own array");
+            Check(b.Subset(new[] { 1 }).bullets.Any(x => x is Well), "a subset of the 109 alone still feels the P-51's well");
+            var back = Tail(1500);
+            Wire.Restore(back, Wire.Encode(b));
+            Check(Wire.Hash(back) == Wire.Hash(b) && back.bullets.Any(x => x is Well), "a snapshot brings it across exactly");
+            b.Resolve(new TurnPlan?[] { Ahead(b, 0), Ahead(b, 1) }, 3);
+            back.Resolve(new TurnPlan?[] { Ahead(back, 0), Ahead(back, 1) }, 3);
+            Check(Wire.Hash(back) == Wire.Hash(b), "and both fly the next turn the same");
+            int w0 = b.wells[0], w1 = b.wells[1];
+            b.Swap(0, 1);
+            Check(b.wells[1] == w0 && b.wells[0] == w1, "a swap moves the count with the plane");
+            var pd = Wire.Decode<TurnPlan>(Wire.Encode(new TurnPlan { well = true, wellAt = 2.15 }));
+            Check(pd.well && pd.wellAt == 2.15, "a plan with a well (and its moment) survives the trip to bytes");
+        }
+        {
+            // the loadout pick
+            var l = new Loadout(Kit.Missiles, Kit.Mines).Pick(Kit.Well, Craft.Spitfire);
+            Check(l.Has(Kit.Well) && l.Has(Kit.Mines) && Loadout.Allowed(Kit.Well, Craft.F15), $"any plane can pick it ({l})");
+            var set = new DogfightSetup { randomStart = false, ours = new[] { Craft.Mustang }, theirs = new[] { Craft.Bf109 },
+                                          oursLoadouts = new[] { new Loadout(Kit.Well, Kit.Missiles) }, theirsLoadouts = new[] { new Loadout(Kit.Missiles, Kit.Mines) } };
+            var b = Scenarios.Dogfight(DogfightSetup.FromBytes(set.ToBytes()), Vec3d.Zero);
+            Check(b.wells[0] == Specials.Wells && b.wells[1] == 0 && b.balloonMines[0] == 0, "picked, it brings two wells (and only the picker has them), through the trip to bytes");
+            var noWell = TurnPlan.Straight(b.planes[1]); noWell.well = true;
+            b.Resolve(new TurnPlan?[] { TurnPlan.Straight(b.planes[0]), noWell }, 3);
+            Check(!b.bullets.OfType<Well>().Any(), "without the pick, planning one does nothing");
+        }
     }
 }

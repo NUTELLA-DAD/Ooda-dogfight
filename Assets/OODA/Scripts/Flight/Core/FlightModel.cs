@@ -126,6 +126,20 @@ namespace Ooda.Flight.Core
             return Math.Max(-12, Math.Min(numbers.alphaStallDeg + 8, a));
         }
 
+        /// <summary>
+        /// An outside pull on the whole aircraft (a gravity well, see Turn's Specials), ft/s²: it bends and speeds or slows the
+        /// path without the wing doing it, so the pilot feels none of it (it is free fall).
+        /// </summary>
+        public void Push(Vec3d acc, double dt)
+        {
+            Vec3d v0 = state.vel, v1 = v0 + acc * dt;
+            double v = v1.Length;
+            if (v < MinSpeedFtps) v1 = v > 1e-6 ? v1 * (MinSpeedFtps / v) : v0;
+            state.pos = state.pos + (v1 - v0) * (dt / 2);
+            state.vel = v1;
+            if (!vertical) state.up = state.up.SquareTo(v1.Normalized);
+        }
+
         public void Step(FlightControls c, double dt)
         {
             if (glocLeftSec > 0)

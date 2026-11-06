@@ -8,7 +8,7 @@ namespace Ooda.Turn.Core
     /// To add one: add it here, give it its words in Loadout.Name, Short and Blurb, say in Allowed
     /// which aircraft can take it, and in Loadout.Apply what it puts on the plane.
     /// </summary>
-    public enum Kit { Missiles, Rocket, Mines, Blade, Stealth, Jammer, Radar, Ice }
+    public enum Kit { Missiles, Rocket, Mines, Blade, Stealth, Jammer, Radar, Ice, Well }
 
     /// <summary>
     /// A pilot's loadout: the two capabilities he brings to the fight (with Arcade on in the dogfight setup). Everyone
@@ -79,16 +79,17 @@ namespace Ooda.Turn.Core
             guns.heatBlades = Has(Kit.Blade) ? Specials.Blades : 0;
             guns.stealths = Has(Kit.Stealth) ? Specials.Stealths : 0;
             guns.jammers = Has(Kit.Jammer) ? Specials.Jammers : 0;
+            guns.wells = Has(Kit.Well) ? Specials.Wells : 0;
         }
 
         public static string Name(Kit k) => k == Kit.Missiles ? "Heat-seekers" : k == Kit.Rocket ? "Rocket" : k == Kit.Mines ? "Balloon mines"
                                           : k == Kit.Blade ? "Heat blade" : k == Kit.Stealth ? "Stealth" : k == Kit.Jammer ? "Jammer"
-                                          : k == Kit.Radar ? "Radar missiles" : k == Kit.Ice ? "Ice" : k.ToString();
+                                          : k == Kit.Radar ? "Radar missiles" : k == Kit.Ice ? "Ice" : k == Kit.Well ? "Gravity well" : k.ToString();
 
         /// <summary>A few letters for a name plate.</summary>
         public static string Short(Kit k) => k == Kit.Missiles ? "MSL" : k == Kit.Rocket ? "RKT" : k == Kit.Mines ? "MINE"
                                            : k == Kit.Blade ? "BLADE" : k == Kit.Stealth ? "STLTH" : k == Kit.Jammer ? "JAM"
-                                           : k == Kit.Radar ? "RDR" : k == Kit.Ice ? "ICE" : k.ToString().ToUpperInvariant();
+                                           : k == Kit.Radar ? "RDR" : k == Kit.Ice ? "ICE" : k == Kit.Well ? "WELL" : k.ToString().ToUpperInvariant();
 
         /// <summary>What it does, in a line, for an aircraft (how many it carries).</summary>
         public static string Blurb(Kit k, Craft c)
@@ -104,6 +105,7 @@ namespace Ooda.Turn.Core
                 case Kit.Radar: return Allowed(k, c) ? $"{DogfightSetup.Guns(c, false).radarMissiles} radar missiles: long reach, head-on too; keep them in your radar cone."
                                                      : "Jets only: a warbird has no radar.";
                 case Kit.Ice: return "Cased in ice all fight: heat-seekers can't lock you. Radar missiles and guns still can.";
+                case Kit.Well: return $"{Specials.Wells} wells thrown ahead: they pull planes in to turn tighter, and bend missiles and rounds off course.";
                 default: return "";
             }
         }

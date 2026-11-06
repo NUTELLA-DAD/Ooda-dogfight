@@ -387,13 +387,18 @@ namespace Ooda.Turn.Core
         }
 
         /// <summary>
-        /// Someone on its tail with guns on it: a balloon mine let go in their path; with none left, the jammer; then (hurt) stealth,
-        /// unless it is firing this turn (that would show it again at once).
+        /// A missile on it: a gravity well thrown ahead. Someone on its tail with guns on it: a balloon mine let go in their path;
+        /// with none left, a gravity well; then the jammer; then (hurt) stealth, unless it is firing this turn (that would show it
+        /// again at once).
         /// </summary>
         void Defend(Battle sub, ref TurnPlan plan)
         {
             if (sub.routes[0] != null) return;
             var me0 = sub.planes[0];
+            // a missile closing on it: a gravity well thrown ahead, to fly through and drag the missile in after
+            if (sub.wells[0] > 0)
+                foreach (var b in sub.bullets)
+                    if (b is Missile ms && ms.target == 0 && ms.Tracking && (ms.pos - me0.state.pos).Length < 7000) { plan.well = true; plan.wellAt = 0; return; }
             bool tailed = false;
             for (int j = 0; j < sub.Count; j++)
             {
@@ -407,6 +412,7 @@ namespace Ooda.Turn.Core
             }
             if (!tailed) return;
             if (sub.balloonMines[0] > 0) { plan.mine = true; return; }
+            if (sub.wells[0] > 0) { plan.well = true; plan.wellAt = 0; return; }   // the tailer's rounds bend off, and it turns tighter
             if (sub.jammers[0] > 0) { plan.jam = true; return; }
             bool hurt = sub.SystemsOf(0).AnyDamaged;
             if (sub.stealths[0] > 0 && hurt && plan.burstEnd <= plan.burstStart && !plan.missile) plan.cloak = true;
