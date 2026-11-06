@@ -115,6 +115,7 @@ namespace Ooda.EditorTools
                 spin.reverse = i > 0;
                 if (spin.propeller == null) Debug.LogWarning($"OODA: no {propellers[i]} in {fbx}.");
             }
+            root.AddComponent<ControlSurfaces>();   // ailerons, elevators and rudder swing with the flying
 
             var mount = TestWorldBuilder.FindDeep(model.transform, "PilotMount");
             if (mount == null) { Debug.LogWarning($"OODA: no PilotMount in {fbx}."); mount = root.transform; }
