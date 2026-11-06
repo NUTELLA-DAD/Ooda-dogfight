@@ -106,6 +106,20 @@ namespace Ooda.Turn.Core
         };
 
         /// <summary>
+        /// The Su-27's GSh-30-1, one 30 mm in the right wing root, 150 rounds at about 1,650 a minute: only about 5.5 s of
+        /// fire, but each shell hits much harder than a 20 mm and the single barrel holds a tight cone. Six heat-seekers
+        /// (R-73s) on the wing stations and two radar missiles (R-27s). A big, rugged airframe (72 ft long, 48 ft span),
+        /// so a bigger target than the Eagle and a little tougher. Estimates to tune by feel.
+        /// </summary>
+        public static CombatNumbers Su27() => new CombatNumbers
+        {
+            guns = "GSh-30-1 30 mm", muzzleFps = 2820, damage = 1.9, ammoSec = 5.5, spreadMil = 2.6, dragPerSec = 0.32,
+            toughness = 18, sizeFt = 7, missiles = 6, flares = 8,
+            heatIdle = 1.2, heatFull = 2.4, heatWep = 2.7,   // two AL-31Fs: hot, and blazing in afterburner
+            radarRangeFt = 33000, radarMissiles = 2, chaff = 6,   // the N001 and two R-27s
+        };
+
+        /// <summary>
         /// The B-17G as a target: 104 ft span, so a much bigger hit sphere; four engines and a big airframe take
         /// about three times a fighter's damage. Its own gunners come later: no guns for now. Estimates to tune.
         /// </summary>

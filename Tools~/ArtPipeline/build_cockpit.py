@@ -36,6 +36,9 @@ CFG = {
     # the F-15's two-seat bubble (f15.py splits it off whole): the pilot under its front half, a deck behind, jet grey inside
     'F15': dict(body='F15_Body', box='F15_Cockpit', canopy='F15_Canopy', a=0.58, y0=-5.42, y1=-1.75, zcut=-0.30, floor=-0.86,
                 mount=(0, -4.0, -0.50), scale=1.35, lift=-0.40, interior='bf109_grey', seat='seat_bf', grip='pistol', taper_hood=True, trim='darkmetal'),
+    # the Su-27's bubble (su27.py splits it off whole): the pilot under its front half, the spine's hump behind, jet grey inside
+    'Su27': dict(body='Su27_Body', box='Su27_Cockpit', canopy='Su27_Canopy', a=0.56, y0=-5.75, y1=-2.15, zcut=0.78, floor=0.22,
+                 mount=(0, -4.15, 0.58), scale=1.35, lift=-0.40, interior='bf109_grey', seat='seat_bf', grip='pistol', taper_hood=True, trim='darkmetal'),
 }
 C = CFG[PLANE]
 bpy.ops.wm.open_mainfile(filepath=SRC)

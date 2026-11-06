@@ -69,7 +69,7 @@ namespace Ooda.Turn
 
         string FlightName(int i)
         {
-            string kind = battle.planes[i].numbers.name.Replace("D Mustang", "").Replace(" G-6", "").Replace("C Eagle", "");   // "Blue 1 (F-15, lead)" fits the panel
+            string kind = battle.planes[i].numbers.name.Replace("D Mustang", "").Replace(" G-6", "").Replace("C Eagle", "").Replace(" Flanker", "");   // "Blue 1 (F-15, lead)" fits the panel
             int f = battle.flightOf[i];
             if (f < 0 || f >= battle.flights.Count) return kind;
             return $"{CallSign(i)} ({kind}{(battle.Leader(f) == i ? ", lead" : "")})";
