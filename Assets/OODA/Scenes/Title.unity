@@ -74567,79 +74567,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1357863774}
   m_Mesh: {fileID: -2432090755550338912, guid: 9c92b8bab87085949a74fa1401294795, type: 3}
---- !u!1 &1361689484
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1361689486}
-  - component: {fileID: 1361689485}
-  m_Layer: 0
-  m_Name: TitleScreen
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &1361689485
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1361689484}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d8e94180667ab7c419fad72bb1896863, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Ooda.UI.TitleScreen
-  fighterPrefab: {fileID: 567333442783511349, guid: 757bbda78f7255749a0d58ec352a6eb0, type: 3}
-  bomberPrefab: {fileID: 8493976788984994622, guid: 2bc54c77c752c3344a79aea3d4272549, type: 3}
-  craftPrefabs:
-  - {fileID: 567333442783511349, guid: 757bbda78f7255749a0d58ec352a6eb0, type: 3}
-  - {fileID: 2741360652903813743, guid: 093c49c7cbef0554eaa8f5ce38d19369, type: 3}
-  - {fileID: 868256559171294026, guid: c91e3e81a7d679c49bfc17c605a97cfd, type: 3}
-  - {fileID: 313786767711474122, guid: ea916ac679f793449a3dc3482bd08936, type: 3}
-  - {fileID: 1400311707898786422, guid: 6aaecccf27efa3443b04cae8e347b4ba, type: 3}
-  - {fileID: 4089902560007334589, guid: c8137d7898ec0f1478998eab09d60775, type: 3}
-  route:
-  - {x: 0, y: 320, z: -8300}
-  - {x: -500, y: 349.34784, z: -6800}
-  - {x: 300, y: 380.65216, z: -5200}
-  - {x: 0, y: 410, z: -3700}
-  - {x: 0, y: 472, z: -2800}
-  - {x: 0, y: 480, z: -600}
-  - {x: 513.0302, y: 593.92163, z: 809.53894}
-  - {x: 0, y: 707.84326, z: 2219.078}
-  - {x: 0, y: 829.0762, z: 3719.078}
-  - {x: 633.9274, y: 938.9505, z: 5078.5396}
-  - {x: 245.69885, y: 1056.0525, z: 6527.428}
-  cam: {fileID: 240195514}
-  terrain: {fileID: 966096890}
-  battleScene: TurnBattle
-  jetScene: JetTest
-  kias: 135
-  shotSec: 7
-  fadeSec: 0.6
-  formationScale: 0.65
---- !u!4 &1361689486
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1361689484}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1363114792
 GameObject:
   m_ObjectHideFlags: 0
@@ -107949,6 +107876,80 @@ Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: a42c9c59db228974c91c50e4cdf1fdc1, type: 3}
   m_PrefabInstance: {fileID: 1977709251}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1979141576
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1979141578}
+  - component: {fileID: 1979141577}
+  m_Layer: 0
+  m_Name: TitleScreen
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1979141577
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1979141576}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d8e94180667ab7c419fad72bb1896863, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Ooda.UI.TitleScreen
+  fighterPrefab: {fileID: 567333442783511349, guid: 757bbda78f7255749a0d58ec352a6eb0, type: 3}
+  bomberPrefab: {fileID: 8493976788984994622, guid: 2bc54c77c752c3344a79aea3d4272549, type: 3}
+  craftPrefabs:
+  - {fileID: 567333442783511349, guid: 757bbda78f7255749a0d58ec352a6eb0, type: 3}
+  - {fileID: 2741360652903813743, guid: 093c49c7cbef0554eaa8f5ce38d19369, type: 3}
+  - {fileID: 868256559171294026, guid: c91e3e81a7d679c49bfc17c605a97cfd, type: 3}
+  - {fileID: 313786767711474122, guid: ea916ac679f793449a3dc3482bd08936, type: 3}
+  - {fileID: 1400311707898786422, guid: 6aaecccf27efa3443b04cae8e347b4ba, type: 3}
+  - {fileID: 4089902560007334589, guid: c8137d7898ec0f1478998eab09d60775, type: 3}
+  - {fileID: 4461173622554565475, guid: 8cd86058e5a54e64b931251255f8bf2e, type: 3}
+  route:
+  - {x: 0, y: 320, z: -8300}
+  - {x: -500, y: 349.34784, z: -6800}
+  - {x: 300, y: 380.65216, z: -5200}
+  - {x: 0, y: 410, z: -3700}
+  - {x: 0, y: 472, z: -2800}
+  - {x: 0, y: 480, z: -600}
+  - {x: 513.0302, y: 593.92163, z: 809.53894}
+  - {x: 0, y: 707.84326, z: 2219.078}
+  - {x: 0, y: 829.0762, z: 3719.078}
+  - {x: 633.9274, y: 938.9505, z: 5078.5396}
+  - {x: 245.69885, y: 1056.0525, z: 6527.428}
+  cam: {fileID: 240195514}
+  terrain: {fileID: 966096890}
+  battleScene: TurnBattle
+  jetScene: JetTest
+  kias: 135
+  shotSec: 7
+  fadeSec: 0.6
+  formationScale: 0.65
+--- !u!4 &1979141578
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1979141576}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1979172976
 GameObject:
   m_ObjectHideFlags: 0
@@ -117622,4 +117623,4 @@ SceneRoots:
   - {fileID: 1260310427}
   - {fileID: 203684094}
   - {fileID: 121082174}
-  - {fileID: 1361689486}
+  - {fileID: 1979141578}
