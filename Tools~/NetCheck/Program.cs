@@ -272,6 +272,13 @@ static class Program
             Check(zb.ours.SequenceEqual(zeros.ours) && zb.oursPilots.SequenceEqual(zeros.oursPilots) && zb.theirsPilots[0] == PilotKind.Fox
                   && DogfightSetup.Of(zf.planes[0].numbers) == Craft.Zero && DogfightSetup.Of(zf.planes[1].numbers) == Craft.Zero && zf.combat[1].toughness < zf.combat[2].toughness,
                   "the Zero, the fox, the koi and the lion survive the trip to bytes; the Zero flies as a Zero on either side, and breaks easier");
+            var eagles = new DogfightSetup { ours = new[] { Craft.F15 }, theirs = new[] { Craft.Zero, Craft.F15 }, randomStart = false,
+                                             oursPilots = new[] { PilotKind.Bear }, theirsPilots = new[] { PilotKind.Usual, PilotKind.Usual } };
+            var eb = DogfightSetup.FromBytes(eagles.ToBytes());
+            var ef = Scenarios.Dogfight(eb, centre, 3600, 300, 3000);
+            Check(eb.ours.SequenceEqual(eagles.ours) && eb.theirs.SequenceEqual(eagles.theirs) && eb.oursPilots[0] == PilotKind.Bear
+                  && DogfightSetup.Of(ef.planes[0].numbers) == Craft.F15 && DogfightSetup.Of(ef.planes[2].numbers) == Craft.F15 && ef.missiles[0] == 4 && ef.planes[0].numbers.thrustV0Kt > 1000,
+                  "the F-15 survives the trip to bytes and flies as a jet with 4 missiles, on either side, with any pilot");
             var easy = Scenarios.Dogfight(new DogfightSetup { ours = new[] { Craft.Bf109 }, theirs = new[] { Craft.Mustang }, randomStart = false }, centre);
             Check(easy.combat[0].hitRadiusFt == 20 && easy.combat[1].hitRadiusFt < 20, "against the AI your guns get the easy aim whatever you fly, and an enemy P-51 doesn't");
 

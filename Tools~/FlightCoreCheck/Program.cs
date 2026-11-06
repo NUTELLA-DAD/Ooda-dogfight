@@ -105,7 +105,7 @@ static class Program
     {
         int fails = 0;
         void Check(bool ok, string what) { if (!ok) fails++; Console.WriteLine($"  {(ok ? "ok  " : "FAIL")} {what}"); }
-        var planes = new[] { AircraftNumbers.SpitfireIX(), AircraftNumbers.Bf109G(), AircraftNumbers.P51D(), AircraftNumbers.P38L(), AircraftNumbers.Phantom(), AircraftNumbers.A6M2() };
+        var planes = new[] { AircraftNumbers.SpitfireIX(), AircraftNumbers.Bf109G(), AircraftNumbers.P51D(), AircraftNumbers.P38L(), AircraftNumbers.Phantom(), AircraftNumbers.A6M2(), AircraftNumbers.F15C() };
         Console.WriteLine("\nTurn performance (WEP or afterburner)");
         foreach (double alt in new[] { 0.0, 10000 })
         {
@@ -133,6 +133,11 @@ static class Program
             "the Zero out-turns them all: a 16 s circle, the tightest radius at the slowest corner speed");
         Check(zero.ClimbFpm(0, true) < bf.ClimbFpm(0, true) && zero.vneKias < p51.vneKias && zero.maxRollRateDps < p51.maxRollRateDps,
             "but it climbs slower than the Bf 109 and dives and rolls worse than the Mustang");
+        var f15 = planes[6];
+        Check(Math.Abs(f15.SustainedTurnDps(0, true) - 19) < 1 && f15.MaxTurnDps(0) > 25 && f15.MaxTurnDps(0) < 29 && f15.SustainedTurnDps(0, true) > f4.SustainedTurnDps(0, true) + 3,
+            "the F-15 sustains about 19 deg/s low down, far past the F-4, and about 27 deg/s at its 354 KIAS corner");
+        Check(f15.ClimbFpm(0, true) > 50000 && f15.ClimbFpm(0, true) > f4.ClimbFpm(0, true) && f15.maxRollRateDps > f4.maxRollRateDps,
+            "it out-climbs and out-rolls the F-4");
         return fails;
     }
 }

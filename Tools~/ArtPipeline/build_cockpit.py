@@ -33,6 +33,9 @@ CFG = {
     # the Zero's long greenhouse (zero.py splits it off as the canopy): the pilot under its front frames
     'Zero': dict(body='Zero_Body', box='Zero_Cockpit', canopy='Zero_Canopy', a=0.68, y0=-2.45, y1=0.75, zcut=0.36, floor=-0.30,
                  mount=(0, -0.95, 0.04), scale=1.55, lift=-0.40, interior='p51_green', seat='seat_p51', grip='pistol'),
+    # the F-15's two-seat bubble (f15.py splits it off whole): the pilot under its front half, a deck behind, jet grey inside
+    'F15': dict(body='F15_Body', box='F15_Cockpit', canopy='F15_Canopy', a=0.58, y0=-5.42, y1=-1.75, zcut=-0.30, floor=-0.86,
+                mount=(0, -4.0, -0.50), scale=1.35, lift=-0.40, interior='bf109_grey', seat='seat_bf', grip='pistol', taper_hood=True),
 }
 C = CFG[PLANE]
 bpy.ops.wm.open_mainfile(filepath=SRC)
@@ -241,7 +244,8 @@ hw = pw / 2 * 1.02
 seg = 12
 hv = []
 for k, yy in enumerate((PY + T * 0.9 + 0.03 * K, PY - hood_len)):
-    hv.append([bmS.verts.new((hw * math.cos(math.pi * j / seg), yy, ptop + 0.055 * K * math.sin(math.pi * j / seg))) for j in range(seg + 1)])
+    w = min(hw, half_width_at(yy) * 0.97) if C.get('taper_hood') else hw   # a jet's opening narrows to a point: keep the hood inside it
+    hv.append([bmS.verts.new((w * math.cos(math.pi * j / seg), yy, ptop + 0.055 * K * math.sin(math.pi * j / seg))) for j in range(seg + 1)])
 hood = [bmS.faces.new((hv[0][j], hv[0][j + 1], hv[1][j + 1], hv[1][j])) for j in range(seg)]
 st.paint(hood, 'leather')
 # gunsight on the hood
@@ -272,13 +276,18 @@ RY = rig(0, 0.23, 0).y
 if RY < Y1 - 0.06:
     deck_z = min(rim_at(RY + 0.05, 1), rim_at(RY + 0.05, -1)) - 0.03
     pts = [(x * 0.985, y) for x, y in outline if y > RY]
-    pts.sort(key=lambda p: math.atan2(p[1] - (RY + Y1) / 2, p[0]))
+    # walk round from the front middle (right side, rear, left side) so the two front corners close it without crossing
+    pts.sort(key=lambda p: (math.atan2(p[1] - (RY + Y1) / 2, p[0]) + math.pi / 2) % (2 * math.pi))
     if len(pts) >= 3:
         dv = [bmS.verts.new((x, y, deck_z)) for x, y in pts] + [bmS.verts.new((half_width_at(RY) * -0.985, RY, deck_z)), bmS.verts.new((half_width_at(RY) * 0.985, RY, deck_z))]
         try:
             df = bmS.faces.new(dv); bmesh.ops.triangulate(bmS, faces=[df]); st.paint([f for f in bmS.faces if all(abs(v.co.z - deck_z) < 1e-6 for v in f.verts)], C['interior'])
         except ValueError:
             pass
+        # close the deck's open front down to the floor, or you look past the seat into the hollow fuselage
+        hw = half_width_at(RY) * 0.985
+        cs = ((-hw, RY, FL), (hw, RY, FL), (hw, RY, deck_z), (-hw, RY, deck_z))
+        st.paint([bmS.faces.new([bmS.verts.new(c) for c in cs]), bmS.faces.new([bmS.verts.new(c) for c in reversed(cs)])], C['interior'])
         ry2 = (RY + Y1) / 2
         if Y1 - RY > 0.25:
             st.box(Vector((0, ry2, deck_z + 0.08 * K)), (0.30 * K, 0.18 * K, 0.16 * K), 'olive')

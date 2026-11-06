@@ -259,12 +259,15 @@ namespace Ooda.Turn
             if (name.Contains("P-38")) return TwinBooms;
             if (name.Contains("B-17")) return FourWing;
             if (name.Contains("F-4") || name.Contains("Phantom")) return JetTail;
+            if (name.Contains("F-15")) return EagleTail;
             return OneNose;
         }
         static readonly Vector3[] OneNose = { new Vector3(0.45f, 0.2f, 2.4f), new Vector3(-0.45f, 0.2f, 2.4f) };
         static readonly Vector3[] TwinBooms = { new Vector3(2.4f, 0.2f, 1.6f), new Vector3(-2.4f, 0.2f, 1.6f) };
         static readonly Vector3[] FourWing = { new Vector3(3.8f, 0.4f, 2.4f), new Vector3(-3.8f, 0.4f, 2.4f), new Vector3(7.8f, 0.4f, 1.6f), new Vector3(-7.8f, 0.4f, 1.6f) };
         static readonly Vector3[] JetTail = { new Vector3(0.65f, 0f, -8.2f), new Vector3(-0.65f, 0f, -8.2f) };
+        static readonly Vector3[] EagleTail = { new Vector3(0.75f, -1.2f, -7.5f), new Vector3(-0.75f, -1.2f, -7.5f) };   // f15.py's NozzleL and NozzleR
+        static bool IsJetTail(Vector3[] spots) => spots == JetTail || spots == EagleTail;
 
         void AircraftGlow(TurnAircraftView v, CombatNumbers c, bool down, bool rocket, bool ram = false)
         {
@@ -284,10 +287,11 @@ namespace Ooda.Turn
             double each = heat / spots.Length;
             foreach (var s in spots) HeatGlow(t.TransformPoint(s), each);
             // the hot exhaust trailing behind: a plume, long for a jet in afterburner or the rocket
-            float plume = (v.Wep && spots == JetTail) || rocket ? 1f : 0.35f;
-            Vector3 back = -t.forward, from = spots == JetTail ? t.TransformPoint(new Vector3(0, 0, -8.2f)) : t.position;
+            bool jet = IsJetTail(spots);
+            float plume = (v.Wep && jet) || rocket ? 1f : 0.35f;
+            Vector3 back = -t.forward, from = jet ? t.TransformPoint(new Vector3(0, spots[0].y, spots[0].z)) : t.position;
             for (int k = 1; k <= 4; k++)
-                HeatGlow(from + back * (k * 3.5f * plume * (spots == JetTail ? 1.6f : 1f)), heat * plume * (1 - k * 0.2f) * 0.6);
+                HeatGlow(from + back * (k * 3.5f * plume * (jet ? 1.6f : 1f)), heat * plume * (1 - k * 0.2f) * 0.6);
         }
 
         // ---------- flares in playback ----------

@@ -324,6 +324,29 @@ namespace Ooda.Flight.Core
             spinRateDps = 120, spinDragPerWeight = 0.6,
         };
 
+        /// <summary>
+        /// The F-15C Eagle, clean, at a combat weight of about 44,500 lb. Seeded from public figures (608 sq ft wing, aspect
+        /// ratio 3.0, two F100-PW-220s at about 14,600 lbf dry and 23,800 lbf in afterburner so a little over 1:1 lit, +9 G,
+        /// a clean stall near 118 KIAS, a roll near 250 deg/s, about Mach 1.2 at sea level and Mach 2.5 high up), on the
+        /// F-4's jet thrust and transonic drag. Fitted (afterburner, sea level) to about 19 deg/s sustained (a 19 s circle,
+        /// far past the F-4's 14) and about 27 deg/s at a 354 KIAS corner; near 650 kt dry and 760 kt (Mach 1.15) in
+        /// afterburner low down, about Mach 2.35 at 36,000 ft, and a climb over 50,000 ft/min. Estimates to tune by feel.
+        /// </summary>
+        public static AircraftNumbers F15C() => new AircraftNumbers
+        {
+            name = "F-15C Eagle",
+            propWash = 0.3, maxG = 9, minG = -3, stallKias = 118, negStallKias = 150, vneKias = 800,
+            rollPerKtasDps = 0.6, maxRollRateDps = 250, rollFullRateSec = 0.3,
+            gOnsetGps = 10, gOnsetAccelGps2 = 40,
+            rudderSideG = 0.3, rudderFullKias = 250,
+            thrustK = 2700, thrustV0Kt = 4000, thrustDensityExp = 0.8, thrustFlatSigma = 1.0,
+            maxStaticThrustPerWeight = 99, wepFactor = 1.63, dragA = 8.0e-7, dragB = 3300,
+            ramPerMach2 = 0.35, waveRise = 2.0, waveFallPerMach = 0.4, waveFloor = 0.55,
+            rocketG = 0, brakeG = 1.4,
+            alphaZeroLiftDeg = -1, alphaStallDeg = 24,
+            spinRateDps = 110, spinDragPerWeight = 0.6,
+        };
+
         /// <summary>The OODA tool's T-6A set (core/t6a-turn-data.js T6A_FIT and T6A_LIMITS), kept to check the port.</summary>
         public static AircraftNumbers T6A() => new AircraftNumbers
         {
