@@ -66,6 +66,7 @@ namespace Ooda.EditorTools
             if (roster == null) roster = root.AddComponent<PilotRoster>();
             roster.usual = usual;
             Set(roster, usual, usualPilot);
+            if (usual == PilotKind.Koi) KoiFishbowl.Fit(usualPilot);
             var rails = usualPilot.GetComponent<PilotRails>();
             var look0 = usualPilot.GetComponent<PilotHeadLook>();
             bool controls = usualPilot.GetComponent<PilotControls>() != null;
@@ -89,6 +90,7 @@ namespace Ooda.EditorTools
                 anim.runtimeAnimatorController = ctrl;
                 anim.applyRootMotion = false;
                 anim.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+                if (w.kind == PilotKind.Koi) KoiFishbowl.Fit(p);   // the koi flies in its fishbowl helmet
                 if (rails != null)
                 {
                     var pr = p.AddComponent<PilotRails>();
