@@ -20,6 +20,11 @@ L = {
                 sh0=(0.05,0.02,0.53), sh=(0.16,0.03,0.52), el=(0.25,0.03,0.515), wr=(0.34,0.03,0.51), tip=(0.48,0.03,0.51),
                 hip=(0.075,0,0.27), kn=(0.09,-0.01,0.155), an=(0.10,0.02,0.06), toe=(0.10,-0.07,0.02), toeTip=(0.10,-0.13,0.02),
                 headZ=0.625, y=0.0),
+ # the penguin is nearly all head and belly: short flippers at chest height, and legs that are only the feet under him
+ 'Penguin': dict(hips=(0,0.02,0.19), spine=0.28, chest=0.38, neck=(0,0.02,0.52), head=(0,0.02,0.56), headTop=(0,0.02,0.96),
+                sh0=(0.05,0.03,0.48), sh=(0.17,0.03,0.48), el=(0.27,0.03,0.475), wr=(0.37,0.03,0.47), tip=(0.45,0.03,0.47),
+                hip=(0.09,0.02,0.16), kn=(0.12,0.01,0.10), an=(0.15,0.0,0.04), toe=(0.17,-0.06,0.015), toeTip=(0.18,-0.12,0.01),
+                headZ=0.575, y=0.02),
  # the GLB characters (glb_prep.py ... feet) stand with the tail behind them, so their bodies sit forward of y 0
  'Fox': dict(hips=(0,-0.09,0.36), spine=0.42, chest=0.50, neck=(0,-0.10,0.59), head=(0,-0.11,0.625), headTop=(0,-0.11,0.95),
                 sh0=(0.05,-0.09,0.56), sh=(0.14,-0.09,0.55), el=(0.26,-0.09,0.55), wr=(0.37,-0.09,0.545), tip=(0.49,-0.09,0.545),

@@ -12,9 +12,9 @@ namespace Ooda.Pilot
     public class PilotRoster : MonoBehaviour
     {
         public PilotKind usual = PilotKind.Wolf;
-        public GameObject tiger, wolf, wizard, skeleton, bear, fox, koi, lion;
+        public GameObject tiger, wolf, wizard, skeleton, bear, fox, koi, lion, penguin;
 
-        GameObject[] Everyone => new[] { tiger, wolf, wizard, skeleton, bear, fox, koi, lion };
+        GameObject[] Everyone => new[] { tiger, wolf, wizard, skeleton, bear, fox, koi, lion, penguin };
 
         public GameObject For(PilotKind k)
         {
@@ -26,7 +26,7 @@ namespace Ooda.Pilot
 
         GameObject Slot(PilotKind k) =>
             k == PilotKind.Tiger ? tiger : k == PilotKind.Wolf ? wolf : k == PilotKind.Wizard ? wizard : k == PilotKind.Skeleton ? skeleton : k == PilotKind.Bear ? bear
-            : k == PilotKind.Fox ? fox : k == PilotKind.Koi ? koi : k == PilotKind.Lion ? lion : null;
+            : k == PilotKind.Fox ? fox : k == PilotKind.Koi ? koi : k == PilotKind.Lion ? lion : k == PilotKind.Penguin ? penguin : null;
 
         /// <summary>Show pilot k (Usual: the type's own) and hide the rest.</summary>
         public void Use(PilotKind k)

@@ -8,10 +8,10 @@ using UnityEngine;
 namespace Ooda.EditorTools
 {
     /// <summary>
-    /// Every pilot in every fighter: the tiger, the wolf, the wizard, the skeleton, the bear, the fox, the koi and the lion share one rig (the wolf's, fitted
+    /// Every pilot in every fighter: the tiger, the wolf, the wizard, the skeleton, the bear, the fox, the koi, the lion and the penguin share one rig (the wolf's, fitted
     /// to each) and one set of clips, so each sits in a cockpit the same way. A fighter's builder seats its usual pilot;
     /// AddRoster then seats the others in the same place, on the same rails, inactive, and puts a PilotRoster on the
-    /// plane that shows the one the dogfight briefing picks. The wizard's, skeleton's, bear's, fox's, koi's and lion's FBXs are made from the Hi3D
+    /// plane that shows the one the dogfight briefing picks. The wizard's, skeleton's, bear's, fox's, koi's, lion's and penguin's FBXs are made from the Hi3D
     /// models by Tools~/ArtPipeline/rig.py and pilot_anims.py.
     /// </summary>
     internal static class PilotCast
@@ -31,6 +31,7 @@ namespace Ooda.EditorTools
             new Who { kind = PilotKind.Fox, label = "FoxPilot", fbx = Art + "/FoxPilot/FoxPilot.fbx", baseMap = Art + "/FoxPilot/Fox_BaseColor.png", metalSmooth = Art + "/FoxPilot/Fox_MetallicSmoothness.png" },
             new Who { kind = PilotKind.Koi, label = "KoiPilot", fbx = Art + "/KoiPilot/KoiPilot.fbx", baseMap = Art + "/KoiPilot/Koi_BaseColor.png", metalSmooth = Art + "/KoiPilot/Koi_MetallicSmoothness.png" },
             new Who { kind = PilotKind.Lion, label = "LionPilot", fbx = Art + "/LionPilot/LionPilot.fbx", baseMap = Art + "/LionPilot/Lion_BaseColor.png", metalSmooth = Art + "/LionPilot/Lion_MetallicSmoothness.png" },
+            new Who { kind = PilotKind.Penguin, label = "PenguinPilot", fbx = Art + "/PenguinPilot/PenguinPilot.fbx", baseMap = Art + "/PenguinPilot/Penguin_BaseColor.png", metalSmooth = Art + "/PenguinPilot/Penguin_MetallicSmoothness.png" },
         };
 
         static bool imported;
@@ -109,6 +110,7 @@ namespace Ooda.EditorTools
             else if (k == PilotKind.Fox) r.fox = g;
             else if (k == PilotKind.Koi) r.koi = g;
             else if (k == PilotKind.Lion) r.lion = g;
+            else if (k == PilotKind.Penguin) r.penguin = g;
         }
     }
 }
