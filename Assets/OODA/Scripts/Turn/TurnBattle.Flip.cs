@@ -8,7 +8,7 @@ using UnityEngine;
 namespace Ooda.Turn
 {
     /// <summary>
-    /// 0, Gravity flip (the rules are Flip and Specials in Turn/Core/Specials.cs): set off at the start of the turn, it opens a
+    /// ' (the quote key), Gravity flip (the rules are Flip and Specials in Turn/Core/Specials.cs): set off at the start of the turn, it opens a
     /// bubble of upside-down gravity round where you are, fixed in the sky for two turns. Everyone in it but you falls up:
     /// their planes, their wrecks, their rounds and missiles. While planning, the bubble you are about to open shows round
     /// you, the open ones show as green spheres full of chevrons rising, and the ghost paths and tracers show the arcs bent
