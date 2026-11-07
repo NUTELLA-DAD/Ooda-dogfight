@@ -21,6 +21,7 @@ namespace Ooda.Turn
         {
             if (magnetShotsStarted || Array.IndexOf(Environment.GetCommandLineArgs(), "-magnetshots") < 0) return;
             magnetShotsStarted = true;
+            bot = false;   // the shots fly it (the bot would commit the first turn the frame planning starts)
             StartCoroutine(MagnetShots());
         }
 
@@ -41,7 +42,6 @@ namespace Ooda.Turn
             IEnumerator Shot(string name, float wait = 1.2f) { yield return new WaitForSeconds(wait); yield return Grab(System.IO.Path.Combine(dir, $"magnet_{name}.bmp")); }
             IEnumerator Planning() { while (phase != Phase.Planning || reading != null || thinking != null) yield return null; }
             yield return Planning();
-            bot = false;   // the shots fly it from here
             if (botPilot == null) botPilot = new Core.EnemyAi { me = 0, role = Core.EnemyAi.Role.Fighter, rng = new Core.Lcg(4242), ignoreObstacles = true };
             SetMagnet(true);
 
