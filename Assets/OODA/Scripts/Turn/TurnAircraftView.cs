@@ -231,12 +231,14 @@ namespace Ooda.Turn
         /// The heat blade: the whole airframe glows red hot, a glowing copy of each of its meshes laid over it (additive, so it
         /// lights up whatever colour is under it), pulsing with glow (0 to 1). Off hides the copies again.
         /// </summary>
-        public void SetRedHot(bool on, float glow = 1f)
+        /// <summary>The heat blade's glow over the paint: red, pulsing by glow, toward white hot by white (0 to 1, the sonic boom).</summary>
+        public void SetRedHot(bool on, float glow = 1f, float white = 0f)
         {
             if (!on || hidden) { if (shell != null) shell.SetActive(false); return; }
             if (shell == null) BuildShell();
             shell.SetActive(true);
             var c = new Color(1f, 0.16f + 0.18f * glow, 0.04f, 0.55f + 0.4f * glow);
+            c = Color.Lerp(c, new Color(1f, 0.93f, 0.78f, 0.8f + 0.2f * glow), Mathf.Clamp01(white));
             shellMat.SetColor("_BaseColor", c);
             shellMat.color = c;
         }

@@ -19,6 +19,9 @@ namespace Ooda.Turn.Core
         public List<Trace> wells = new List<Trace>();
         /// <summary>The chaff clouds' drift (see Radar), apart too: they hit nothing and show nothing to a heat-seeker.</summary>
         public List<Trace> chaff = new List<Trace>();
+        /// <summary>The sonic booms this turn and the planes they shoved (see Specials): kept even when frames aren't recorded.</summary>
+        public List<BoomEvent> booms = new List<BoomEvent>();
+        public List<BoomShoveEvent> shoves = new List<BoomShoveEvent>();
         public int FrameCount => frames[0].Length;
     }
 
@@ -267,11 +270,16 @@ namespace Ooda.Turn.Core
                     if (side[j] != side[i] && !Out(j) && (planes[j].state.pos - planes[i].state.pos).Length <= Specials.JamRangeFt)
                         jammedUntil[j] = Math.Max(jammedUntil[j], time + Specials.JamSec);
             }
+            // the sonic boom, built and spent inside the turn (the blade cools as it ends): each one's build, whether it has
+            // broken the barrier, and whom its shock cone has shoved already
+            var ramHeat = new double[n];
+            var sonic = new bool[n];
+            var shoved = new bool[n, n];
             var res = new TurnResult { startTime = time, dt = StepSec, frames = new AircraftFrame[n][] };
             var traceOf = record ? new Dictionary<Bullet, Trace>() : null;
             if (record)
             {
-                for (int i = 0; i < n; i++) { res.frames[i] = new AircraftFrame[steps + 1]; res.frames[i][0] = Frame(i, false); }
+                for (int i = 0; i < n; i++) { res.frames[i] = new AircraftFrame[steps + 1]; res.frames[i][0] = Frame(i, false, ramHeat[i], sonic[i]); }
                 foreach (var b in bullets) StartTrace(res, traceOf, b, 0);
             }
 
@@ -280,7 +288,8 @@ namespace Ooda.Turn.Core
                 double t = (k - 1) * StepSec;   // time into the turn at the start of this step
                 bool[] firing = new bool[n];
                 var before = new Vec3d[n];
-                for (int i = 0; i < n; i++) before[i] = planes[i].state.pos;
+                var velBefore = new Vec3d[n];
+                for (int i = 0; i < n; i++) { before[i] = planes[i].state.pos; velBefore[i] = planes[i].state.vel; }
 
                 // Aircraft
                 for (int i = 0; i < n; i++)
@@ -481,16 +490,21 @@ namespace Ooda.Turn.Core
                         if (crashed[i] || crashed[j] || strike != null && (strike.Held(i) || strike.Held(j))) continue;
                         bool foes = side[i] != side[j];
                         bool bi = foes && ramOn[i] && !down[i], bj = foes && ramOn[j] && !down[j];
-                        double reach = (bi || bj ? Specials.BladeReachFt : CollisionFt) + combat[i].sizeFt + combat[j].sizeFt;
+                        double blade = bi && sonic[i] || bj && sonic[j] ? Specials.BoomBladeReachFt : Specials.BladeReachFt;   // white hot past the barrier
+                        double reach = (bi || bj ? blade : CollisionFt) + combat[i].sizeFt + combat[j].sizeFt;
                         if (!Passes(before[i] - before[j], planes[i].state.pos - planes[j].state.pos, reach)) continue;
                         if (bi && !bj) Slice(i, j, res);
                         else if (bj && !bi) Slice(j, i, res);
                         else down[i] = down[j] = true;
                     }
 
+                // The heat blade's sonic boom (after the cut, so the shock never pushes a plane out of the blade's way): built
+                // by flying straight, then the shock cone scatters the enemies level with and behind the booming plane
+                SonicBoom(k, velBefore, ramHeat, sonic, shoved, res);
+
                 time += StepSec;
                 strike?.Step(this);
-                if (record) for (int i = 0; i < n; i++) res.frames[i][k] = Frame(i, firing[i]);
+                if (record) for (int i = 0; i < n; i++) res.frames[i][k] = Frame(i, firing[i], ramHeat[i], sonic[i]);
                 onStep?.Invoke(this, k);
             }
             for (int i = 0; i < n; i++) ramOn[i] = false;   // the blade cools as the turn ends
@@ -532,6 +546,45 @@ namespace Ooda.Turn.Core
             }
         }
 
+        /// <summary>
+        /// One step of the sonic boom (see Specials) for every plane with the blade lit: flying straight it is pushed on and
+        /// builds toward the barrier (a jet past BoomMach breaks it at once); once broken, its shock cone shoves each enemy
+        /// beside or behind it within reach off course, once a turn.
+        /// </summary>
+        void SonicBoom(int k, Vec3d[] velBefore, double[] ramHeat, bool[] sonic, bool[,] shoved, TurnResult res)
+        {
+            int n = Count;
+            for (int i = 0; i < n; i++)
+            {
+                if (!ramOn[i] || Out(i) || sonic[i]) continue;
+                var m = planes[i];
+                double turnDegPerSec = Envelope.Angle(velBefore[i], m.state.vel) * 180 / Math.PI / StepSec;
+                if (m.Mach >= Specials.BoomMach) ramHeat[i] = 1;
+                else if (turnDegPerSec < Specials.BoomStraightDegPerSec)
+                {
+                    m.Push(m.Forward * (Specials.BoomPushG * Atmosphere.GFtps2), StepSec);
+                    ramHeat[i] = Math.Min(1, ramHeat[i] + StepSec / Specials.BoomChargeSec);
+                }
+                if (ramHeat[i] < 1 - 1e-9) continue;
+                ramHeat[i] = 1; sonic[i] = true;
+                res.booms.Add(new BoomEvent { owner = i, frame = k, pos = m.state.pos, dir = m.Forward });
+            }
+            for (int i = 0; i < n; i++)
+            {
+                if (!sonic[i] || !ramOn[i] || Out(i)) continue;
+                var mi = planes[i];
+                for (int j = 0; j < n; j++)
+                {
+                    if (j == i || shoved[i, j] || side[j] == side[i] || Out(j)) continue;
+                    Vec3d dv = Specials.BoomShove(planes[j].state.pos - mi.state.pos, mi.Forward);
+                    if (dv.Length < 1e-6) continue;
+                    shoved[i, j] = true;
+                    planes[j].Push(dv * (1 / StepSec), StepSec);
+                    res.shoves.Add(new BoomShoveEvent { owner = i, target = j, frame = k, pos = planes[j].state.pos, dv = dv });
+                }
+            }
+        }
+
         /// <summary>The heat blade on aircraft a cuts aircraft b in half: down at once, recorded as a hit for the flash and the tally.</summary>
         void Slice(int a, int b, TurnResult res)
         {
@@ -546,7 +599,7 @@ namespace Ooda.Turn.Core
             down[b] = true;
         }
 
-        AircraftFrame Frame(int i, bool firing)
+        AircraftFrame Frame(int i, bool firing, double heat = 0, bool sonic = false)
         {
             var m = planes[i];
             return new AircraftFrame
@@ -554,6 +607,7 @@ namespace Ooda.Turn.Core
                 time = time, pos = m.state.pos, vel = m.state.vel, up = m.state.up,
                 alphaDeg = m.AlphaDeg, g = m.g, throttle = m.throttle, firing = firing, stalled = m.stalled, departed = m.Departed, down = down[i],
                 rocket = m.RocketBurning, brake = m.brakeOut, wep = m.wepOn, ram = ramOn[i] && !down[i], cloaked = Cloaked(i), nose = m.Forward,
+                ramHeat = ramOn[i] && !down[i] ? heat : 0, sonic = ramOn[i] && !down[i] && sonic,
                 greyOut = down[i] ? 0 : m.GreyOut, bailed = m.systems.bailed, bailAt = m.systems.bailAt, bailPos = m.systems.bailPos, bailVel = m.systems.bailVel,
             };
         }

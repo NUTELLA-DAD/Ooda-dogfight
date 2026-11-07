@@ -17,6 +17,8 @@ namespace Ooda.Turn
     /// red ring round it while planning). Ideal for a tailer.
     ///
     /// 5, Heat blade: the whole plane glows red hot all turn and its guns stay cold; fly through an enemy and it is cut in half.
+    /// Fly straight with it lit and it builds to a sonic boom (TurnBattle.Boom.cs): white hot, a longer cut, and a shock cone
+    /// that shoves the enemies level with and behind you off course.
     /// You are the brightest thing in the IR view while it glows: every heat-seeker locks you from farther.
     ///
     /// 7, Jammer: the enemies near you see scrambled ghosts for two turns (their AI pilots plan against where you aren't).
@@ -90,8 +92,8 @@ namespace Ooda.Turn
             if (!plan.ram && battle.heatBlades[0] <= 0) { Notice("The heat blade is spent."); return; }
             plan.ram = !plan.ram;
             if (plan.ram) Notice(plan.burstEnd > plan.burstStart
-                ? "Heat blade lit: your guns stay cold this turn. Fly through an enemy to cut it in half."
-                : "Heat blade lit: fly through an enemy to cut it in half. Every heat-seeker can see you.");
+                ? "Heat blade lit: your guns stay cold this turn. Fly straight to break the barrier, cut through what's ahead."
+                : "Heat blade lit: fly straight 1.5 s to break the barrier. The boom shoves enemies beside and behind you; cut through what's ahead.");
             dirty = true;
         }
 
@@ -309,8 +311,9 @@ namespace Ooda.Turn
                 var f = r.frames[k][Mathf.Min(now, r.frames[k].Length - 1)];
                 bool enemy = !replaying && k < battle.Count && battle.side[k] != battle.side[0];
                 Stealth(vs[k], f.cloaked && !f.down, enemy, k);
-                RedHot(vs[k], f.ram && !f.down, k);
+                RedHot(vs[k], f.ram && !f.down, k, (float)f.ramHeat, f.sonic);
             }
+            DrawBooms(vs, r, now);
         }
 
         /// <summary>While planning: hide the stealthy enemies, outline your own, and glow your ghost if the blade is lit.</summary>
@@ -321,6 +324,7 @@ namespace Ooda.Turn
             if (plan.ram && holoMine != null && holoMine.activeSelf) BladeLook(holoMine.transform, 0);
             DrawLiveMines();
             DrawLiveWells();
+            DrawPreviewBooms();
         }
 
         /// <summary>Everyone shown again (the fight is over, or no one is stealthy).</summary>
@@ -387,14 +391,17 @@ namespace Ooda.Turn
             }
         }
 
-        /// <summary>The heat blade on a plane: the whole airframe glowing red, pulsing, with the heat haze trailing.</summary>
-        void RedHot(TurnAircraftView v, bool on, int k)
+        /// <summary>
+        /// The heat blade on a plane: the whole airframe glowing red, pulsing, with the heat haze trailing; it climbs toward
+        /// white as the sonic boom builds (heat 0 to 1), and burns white hot, pulsing faster, past the barrier.
+        /// </summary>
+        void RedHot(TurnAircraftView v, bool on, int k, float heat = 0f, bool sonic = false)
         {
-            float pulse = 0.5f + 0.5f * Mathf.Sin(Time.time * 9f + k * 1.3f);
-            v.SetRedHot(on, pulse);
+            float pulse = 0.5f + 0.5f * Mathf.Sin(Time.time * (sonic ? 16f : 9f + 5f * heat) + k * 1.3f);
+            v.SetRedHot(on, pulse, sonic ? 1f : 0.7f * heat);
             if (!on) return;
             var t = v.transform;
-            var haze = bladeColor; haze.a = 0.35f;
+            var haze = Color.Lerp(bladeColor, boomColor, sonic ? 1f : 0.6f * heat); haze.a = 0.35f;
             lines.Line(t.position - t.forward * 4.5f, t.position - t.forward * 16f, 1.6f, haze);
         }
 

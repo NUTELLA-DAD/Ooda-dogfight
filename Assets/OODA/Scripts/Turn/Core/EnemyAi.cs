@@ -173,7 +173,7 @@ namespace Ooda.Turn.Core
             if (Blade(sub, tries, turnSec, out var cut)) return cut;   // a pass that cuts the target in half: nothing else this turn
             Extras(sub, ref best, turnSec);
             PlanBurst(sub, ref best, turnSec);
-            Defend(sub, ref best);
+            Defend(sub, ref best, turnSec);
             // a missile at the target whenever it might come into the seeker's cone this turn (it launches only once locked)
             if (battle.missiles[me] > 0 && battle.routes[me] == null)
             {
@@ -391,7 +391,7 @@ namespace Ooda.Turn.Core
         /// with none left, a gravity well; then the jammer; then (hurt) stealth, unless it is firing this turn (that would show it
         /// again at once).
         /// </summary>
-        void Defend(Battle sub, ref TurnPlan plan)
+        void Defend(Battle sub, ref TurnPlan plan, double turnSec)
         {
             if (sub.routes[0] != null) return;
             var me0 = sub.planes[0];
@@ -412,10 +412,31 @@ namespace Ooda.Turn.Core
             }
             if (!tailed) return;
             if (sub.balloonMines[0] > 0) { plan.mine = true; return; }
+            if (Boom(sub, ref plan, turnSec)) return;   // the shock cone knocks the tailer off its shot
             if (sub.wells[0] > 0) { plan.well = true; plan.wellAt = 0; return; }   // the tailer's rounds bend off, and it turns tighter
             if (sub.jammers[0] > 0) { plan.jam = true; return; }
             bool hurt = sub.SystemsOf(0).AnyDamaged;
             if (sub.stealths[0] > 0 && hurt && plan.burstEnd <= plan.burstStart && !plan.missile) plan.cloak = true;
+        }
+
+        /// <summary>
+        /// The sonic boom against a tailer: with a heat blade left and no burst planned (the blade keeps the guns cold), the
+        /// plan flown again red hot, and if that turns too hard to build it, flown straight on instead; it takes the first
+        /// whose boom goes off and whose shock cone shoves an enemy, leaving it flying.
+        /// </summary>
+        bool Boom(Battle sub, ref TurnPlan plan, double turnSec)
+        {
+            if (sub.heatBlades[0] <= 0 || plan.burstEnd > plan.burstStart || plan.missile || plan.cloak || sub.planes[0].Departed) return false;
+            var straight = plan; straight.aim = sub.planes[0].Forward; straight.marks = null;
+            foreach (var t in new[] { plan, straight })
+            {
+                var p = t; p.ram = true;
+                var sim = sub.Clone();
+                sim.dispersion = false;
+                var r = sim.Resolve(new TurnPlan?[] { p }, turnSec, false);
+                if (!sim.down[0] && !sim.crashed[0] && r.shoves.Exists(s => s.owner == 0)) { plan = p; return true; }
+            }
+            return false;
         }
 
         /// <summary>Fire across the part of the turn whose rounds would hit the projected target, if any.</summary>

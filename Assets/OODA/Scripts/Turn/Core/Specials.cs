@@ -18,6 +18,14 @@ namespace Ooda.Turn.Core
     /// BladeReachFt of is cut in half (down at once) and you fly on; two blades meeting both go down. It makes you the hottest
     /// thing in the sky (BladeHeat on top of the engine): every heat-seeker locks you from farther and flares hardly help.
     ///
+    /// Sonic boom (the heat blade's second half): while the blade is lit and you fly straight (the path turning under
+    /// BoomStraightDegPerSec), it pushes you on (BoomPushG) and the glow builds from red to white hot; after BoomChargeSec of
+    /// straight flight (turning pauses it), or at once in a jet already past BoomMach, you break the barrier with a boom.
+    /// From then to the end of the turn the blade is white hot and cuts from BoomBladeReachFt, and the shock cone trailing
+    /// behind you shoves every enemy within BoomReachFt that is level with or behind you (more than BoomClearDeg off the nose) off
+    /// course, once a turn each: up to BoomShoveFps straight away from you, less the farther off. The one dead ahead you
+    /// are cutting is never pushed out of the way; the ones beside and behind are scattered. Your own side is spared.
+    ///
     /// Jammer: every enemy within JamRangeFt sees a scrambled picture for JamSec (the next two planning phases): their AI
     /// pilots plan against the others where they aren't (Scramble), and a jammed player's ghosts and projections jump about.
     ///
@@ -39,6 +47,12 @@ namespace Ooda.Turn.Core
         /// <summary>The mine's drift once it hangs: the breeze along the way it was let go, a slow sway across it and a bob, in ft/s.</summary>
         public const double MineDriftFps = 12, MineSwayFps = 5, MineBobFps = 2;
         public const double BladeReachFt = 45, BladeHeat = 4;
+        /// <summary>The sonic boom: the straight flight that builds it, the push while it builds, and the Mach that sets it off at once.</summary>
+        public const double BoomChargeSec = 1.5, BoomStraightDegPerSec = 10, BoomPushG = 0.8, BoomMach = 0.95;
+        /// <summary>The sonic boom's shock cone: how far it shoves, how hard at its closest, and how far off the nose it clears.</summary>
+        public const double BoomReachFt = 2000, BoomShoveFps = 200, BoomClearDeg = 80;
+        /// <summary>The white-hot blade's reach once the barrier is broken.</summary>
+        public const double BoomBladeReachFt = 90;
         public const double CloakSec = 6;
         /// <summary>The jammer: how far it reaches, and how long the ones it catches see scrambled ghosts (two planning phases).</summary>
         public const double JamRangeFt = 9000, JamSec = 6.5;
@@ -77,6 +91,18 @@ namespace Ooda.Turn.Core
         /// inside), then falling with the square of the range, and none past its reach.
         /// </summary>
         public static double WellFalloff(double r) => r >= WellReachFt ? 0 : r <= WellCoreFt ? Math.Max(0, r) / WellCoreFt : WellCoreFt * WellCoreFt / (r * r);
+
+        /// <summary>
+        /// The sonic boom's shove on a plane at rel from the booming one (flying along fwd): a change of velocity straight
+        /// away from it, strongest close in and none past BoomReachFt or ahead of the nose. Zero when it is spared.
+        /// </summary>
+        public static Vec3d BoomShove(Vec3d rel, Vec3d fwd)
+        {
+            double d = rel.Length;
+            if (d >= BoomReachFt || d < 1e-6) return Vec3d.Zero;
+            if (Vec3d.Dot(rel, fwd) / d > Math.Cos(BoomClearDeg * Math.PI / 180)) return Vec3d.Zero;   // ahead of the nose: the cut, not the shove
+            return rel * (BoomShoveFps * (1 - d / BoomReachFt) / d);
+        }
 
         /// <summary>Give a fighter its arcade load (the same numbers, changed in place, returned for chaining).</summary>
         public static CombatNumbers Arm(CombatNumbers c)

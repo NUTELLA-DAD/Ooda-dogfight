@@ -415,6 +415,9 @@ namespace Ooda.Turn.Core
         public bool rocket, brake;   // the rocket burning, the speed brake out
         public bool wep;             // war emergency power in (a jet's afterburner lit)
         public bool ram, cloaked;
+        /// <summary>The heat blade's build toward the sonic boom, 0 to 1 (white hot at 1), and whether it has broken the barrier.</summary>
+        public double ramHeat;
+        public bool sonic;
         /// <summary>The pilot's G stress, 0 to 1 (1 blacked out: G-LOC); see FlightModel.GreyOut.</summary>
         public double greyOut;
         /// <summary>The pilot has bailed out: when (battle time; meaningless while bailed is false), from where and how fast.</summary>
@@ -425,6 +428,20 @@ namespace Ooda.Turn.Core
         public Vec3d nose;
         /// <summary>The nose along vel when it isn't recorded.</summary>
         public Vec3d Nose => nose.Length > 0.5 ? nose : vel.Normalized;    // the heat blade glowing; stealthy (unseen by the other side)
+    }
+
+    /// <summary>A sonic boom (see Specials): who broke the barrier, at which frame of the turn, where and flying which way.</summary>
+    public class BoomEvent
+    {
+        public int owner, frame;
+        public Vec3d pos, dir;
+    }
+
+    /// <summary>A plane the sonic boom shoved off course: by whose boom, at which frame, and the change in its velocity (ft/s).</summary>
+    public class BoomShoveEvent
+    {
+        public int owner, target, frame;
+        public Vec3d pos, dv;
     }
 
     /// <summary>One packet's path through a turn, for drawing tracers: a point for each frame from startFrame.</summary>
