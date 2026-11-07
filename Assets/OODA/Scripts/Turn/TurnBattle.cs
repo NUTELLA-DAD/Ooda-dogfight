@@ -631,6 +631,7 @@ namespace Ooda.Turn
             SquadShotsCheck();
             DamageShotsCheck();
             MineShotsCheck();
+            MagnetShotsCheck();
             BotUpdate();
             NetBotUpdate();
             lines.Begin();
