@@ -10,7 +10,7 @@ namespace Ooda.Turn
     /// <summary>
     /// ' (apostrophe), Jet stream (the rules are JetStream and Lane in Turn/Core/JetStream.cs): a wind lane laid at the moment
     /// you pick on the MFD's trigger bar (drag its sky-blue marker; ' steps it 0, 1, 2, 3 s, then off). Laid ahead it blows
-    /// along your arrow, so you point it by planning the turn; ; (semicolon) or the JET switch turns it round, back down your
+    /// along your arrow, so you point it by planning the turn; \ (backslash) or the JET switch turns it round, back down your
     /// path at whoever is on your tail. While planning, the lanes blowing now show as see-through tubes of streaming wind
     /// with chevrons the way they blow, and the one you are about to lay shows where it will lie: your ghost path already
     /// rides it. It carries everyone, you too.
@@ -41,7 +41,7 @@ namespace Ooda.Turn
             dirty = true;
         }
 
-        /// <summary>The ; key: the lane turned round, ahead along the arrow or back at a tailer (laid at 0 s if it was off).</summary>
+        /// <summary>The \ key: the lane turned round, ahead along the arrow or back at a tailer (laid at 0 s if it was off).</summary>
         void FlipLane()
         {
             if (!plan.lane) { if (battle.lanes[0] <= 0) { Notice("No jet streams left."); return; } plan.lane = true; plan.laneAt = 0; plan.laneBack = true; }
@@ -51,8 +51,8 @@ namespace Ooda.Turn
         }
 
         void LaneNotice() => Notice(plan.laneBack
-            ? $"Jet stream, laid back {plan.laneAt:0.0} s in: a 180 kt headwind down your path for three turns. Anyone on your tail wades upstream and falls back; ; turns it round."
-            : $"Jet stream, laid ahead {plan.laneAt:0.0} s in: a 180 kt wind along your arrow for three turns. Ride it to run or close in; ; turns it back at a tailer.");
+            ? $"Jet stream, laid back {plan.laneAt:0.0} s in: a 180 kt headwind down your path for three turns. Anyone on your tail wades upstream and falls back; \\ turns it round."
+            : $"Jet stream, laid ahead {plan.laneAt:0.0} s in: a 180 kt wind along your arrow for three turns. Ride it to run or close in; \\ turns it back at a tailer.");
 
         Rect LaneMarker => new Rect(burstRect.x + (float)(Math.Min(plan.laneAt, turnSec) / turnSec) * burstRect.width - 8, burstRect.y - 9, 16, burstRect.height + 12);
 
