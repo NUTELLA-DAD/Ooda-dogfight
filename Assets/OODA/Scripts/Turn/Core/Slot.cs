@@ -32,6 +32,25 @@ namespace Ooda.Turn.Core
         /// Station keeping for one turn: fly the leader's velocity plus whatever closes the gap to the slot (where it will be
         /// at the end of the turn) over closeSec, with the throttle set for that speed.
         /// </summary>
+        /// <summary>How far over the ground (ft) a wingman keeps its path, and how long (s) past the turn it looks.</summary>
+        public const double ClearFt = 250, LookSec = 2;
+
+        /// <summary>The climb (rise over run) that keeps a path from pos along the level heading (dx, dy) at speed (ft/s)
+        /// for sec seconds ClearFt over the ground all the way; 0 or less if level is clear. Steps of about 90 ft, so it
+        /// never steps over a tower.</summary>
+        public static double ClimbToClear(Battle b, Vec3d pos, double dx, double dy, double speed, double sec)
+        {
+            double run = speed * sec, worst = double.NegativeInfinity;
+            int n = Math.Max(8, Math.Min(120, (int)Math.Ceiling(run / 90)));
+            for (int k = 1; k <= n; k++)
+            {
+                double d = run * k / n;
+                double g = b.groundFt(pos.x + dx * d, pos.y + dy * d);
+                worst = Math.Max(worst, (g + ClearFt - pos.z) / d);
+            }
+            return worst;
+        }
+
         public TurnPlan Plan(Battle b, int me, double turnSec)
         {
             var m = b.planes[me];
@@ -55,9 +74,14 @@ namespace Ooda.Turn.Core
             double steep = far ? Math.Max(0.02, Math.Min(0.3, (m.Kias - l.Kias - 30) / 300)) : 0.15;
             double climb = Math.Max(-steep, Math.Min(steep, aim.z));
             double h = Math.Sqrt(Math.Max(1e-9, aim.x * aim.x + aim.y * aim.y));
+            // the slot off to one side can run into what the leader misses (a ridge, a tower in the city): if flying this way
+            // for the turn and a little after would come within ClearFt of the ground, climb over it, steeper the nearer it is
+            double need = ClimbToClear(b, m.state.pos, aim.x / h, aim.y / h, speed, turnSec + LookSec);
+            bool pullUp = need > climb;
+            if (pullUp) climb = Math.Min(0.6, need);
             aim = new Vec3d(aim.x / h * Math.Sqrt(1 - climb * climb), aim.y / h * Math.Sqrt(1 - climb * climb), climb);
             double throttle = far && Vec3d.Dot(gap, m.Forward) > 0 ? 1 : Math.Max(0.1, Math.Min(1, 0.55 + (wantSpeed - speed) / speed * 6));
-            if (gap.z > 150) throttle = Math.Max(throttle, 0.8);   // the slot is above: the climb needs the power
+            if (gap.z > 150 || pullUp) throttle = Math.Max(throttle, 0.8);   // the slot (or the ground ahead) is above: the climb needs the power
             return new TurnPlan { aim = aim, throttle = throttle };
         }
     }

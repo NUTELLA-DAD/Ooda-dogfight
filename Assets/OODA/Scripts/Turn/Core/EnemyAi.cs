@@ -35,6 +35,9 @@ namespace Ooda.Turn.Core
         public double safeClearFt = 600;
         /// <summary>How far ahead (s) past the end of the turn it checks its path is clear of the ground: room to turn away next turn.</summary>
         public double lookSec = 4;
+        /// <summary>The most it steps (ft) along that look ahead; 0 checks just 8 points, enough for valley walls. Among the
+        /// city's towers it is set to about a block's width, so a straight line ahead never skips over one.</summary>
+        public double lookStepFt = 0;
         /// <summary>How many aircraft besides itself and its target it keeps in mind (the nearest).</summary>
         public int awareOf = 4;
         /// <summary>How near a projected pass counts as a firing chance, as a multiple of the real hit radius.</summary>
@@ -326,12 +329,13 @@ namespace Ooda.Turn.Core
             // where it is heading after the turn: straight on for lookSec, is the ground (a valley wall) in the way?
             double ahead = double.PositiveInfinity;
             Vec3d p0 = mine.state.pos, v0 = mine.state.vel;
-            for (int s = 1; s <= 8; s++)
+            int steps = lookStepFt > 0 ? Math.Max(8, Math.Min(96, (int)Math.Ceiling(lookSec * v0.Length / lookStepFt))) : 8;
+            for (int s = 1; s <= steps; s++)
             {
-                double t = lookSec * s / 8;
+                double t = lookSec * s / steps;
                 Vec3d q = p0 + v0 * t;
                 double c = q.z - sim.groundFt(q.x, q.y);
-                if (c < 0) { score -= 40 * (1 - (double)(s - 1) / 8); ahead = 0; break; }
+                if (c < 0) { score -= 40 * (1 - (double)(s - 1) / steps); ahead = 0; break; }
                 ahead = Math.Min(ahead, c);
             }
             if (ahead < safeClearFt) score -= (safeClearFt - ahead) / 150;
