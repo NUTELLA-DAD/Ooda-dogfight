@@ -83,7 +83,7 @@ namespace Ooda.Turn
                 t.missilesAfter[map[i]] = battle.missiles[i];
             }
             foreach (var tr in last.traces)
-                r.traces.Add(new Trace { owner = tr.owner >= 0 && tr.owner < n ? map[tr.owner] : tr.owner, startFrame = tr.startFrame, points = tr.points, hit = tr.hit, missile = tr.missile, radar = tr.radar, age0 = tr.age0 });
+                r.traces.Add(new Trace { owner = tr.owner >= 0 && tr.owner < n ? map[tr.owner] : tr.owner, startFrame = tr.startFrame, points = tr.points, hit = tr.hit, missile = tr.missile, radar = tr.radar, magnet = tr.magnet, age0 = tr.age0 });
             foreach (var tr in last.flares)
                 r.flares.Add(new Trace { owner = tr.owner >= 0 && tr.owner < n ? map[tr.owner] : tr.owner, startFrame = tr.startFrame, points = tr.points, age0 = tr.age0 });
             foreach (var tr in last.chaff)
@@ -305,7 +305,7 @@ namespace Ooda.Turn
             {
                 var tr = r.traces[ti];
                 if (tr.missile) { DrawMissile(tr, ti, now, (float)r.dt); continue; }
-                GlowTracer(tr, ti, now, TapeTracerColor(tr.owner));
+                GlowTracer(tr, ti, now, MagnetTint(tr, TapeTracerColor(tr.owner)));
             }
 
             double t0 = r.startTime;

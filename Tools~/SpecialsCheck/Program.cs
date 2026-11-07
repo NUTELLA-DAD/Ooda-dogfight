@@ -1,7 +1,7 @@
 // Checks of the arcade specials without Unity (see Turn/Core/Specials.cs): the balloon mine catches a tailer who flies
 // on and spares one who turns away, goes at the moment planned and drifts slowly; the heat blade cuts an enemy in half and flies on, keeps the guns cold and runs hot;
 // stealth hides you from the AI and the flak but not from a heat-seeker, and firing shows you; the AI pilots use all
-// three; the gravity well bends a hard turn tighter, makes a tailer's rounds miss and pulls a heat-seeker off; and
+// three; the gravity well bends a hard turn tighter, makes a tailer's rounds miss and pulls a heat-seeker off; magnet rounds pull a near miss in, and only that; and
 // everything survives a clone, a subset, a swap and the trip to bytes.
 // Usage: dotnet run   (exit code = failures)
 using System;
@@ -345,6 +345,7 @@ static class Program
         }
 
         GravityWell();
+        MagnetRounds();
 
         Console.WriteLine(fails == 0 ? "\nAll checks pass." : $"\n{fails} check(s) FAILED.");
         return fails;
@@ -487,6 +488,82 @@ static class Program
             var noWell = TurnPlan.Straight(b.planes[1]); noWell.well = true;
             b.Resolve(new TurnPlan?[] { TurnPlan.Straight(b.planes[0]), noWell }, 3);
             Check(!b.bullets.OfType<Well>().Any(), "without the pick, planning one does nothing");
+        }
+    }
+
+    /// <summary>A 109 (1) gap ft behind a P-51 (0) that sits off ft to its right (and a little high), both heading north; the 109 with magnet rounds or not.</summary>
+    static Battle Offset(double gap, double off, bool magnet)
+    {
+        var c1 = Specials.Arm(CombatNumbers.Bf109G()); c1.magnet = magnet;
+        var b = new Battle(At(AircraftNumbers.P51D(), off, gap, 300), Specials.Arm(CombatNumbers.P51D()), At(AircraftNumbers.Bf109G(), 0, 0, 300), c1);
+        b.dispersion = false;
+        b.Spare(0);   // keep it flying to count the whole burst
+        return b;
+    }
+
+    /// <summary>The packets of a one-turn burst from the 109 that hit the P-51 flying straight.</summary>
+    static int BurstHits(Battle b)
+    {
+        var p1 = Ahead(b, 1); p1.burstStart = 0; p1.burstEnd = 3;
+        return b.Resolve(new TurnPlan?[] { Ahead(b, 0), p1 }, 3, true).hits.Count(h => h.shooter == 1 && h.target == 0);
+    }
+
+    static void MagnetRounds()
+    {
+        Console.WriteLine("\nMagnet rounds");
+        {
+            int h0 = BurstHits(Offset(700, 0, false)), m0 = BurstHits(Offset(700, 0, true));
+            int h20 = BurstHits(Offset(700, 20, false)), m20 = BurstHits(Offset(700, 20, true));
+            int h40 = BurstHits(Offset(700, 40, false)), m40 = BurstHits(Offset(700, 40, true));
+            Check(m0 == h0 && h0 > 0, $"a burst dead on hits the same with them or without ({m0} and {h0} packets)");
+            Check(h20 == 0 && m20 > 0, $"a burst passing 20 ft wide at 700 ft is pulled in ({m20} packets hit, {h20} without)");
+            Check(m40 == 0, $"one 40 ft wide stays a miss: the pull is limited ({m40})");
+            Check(BurstHits(Offset(400, 20, true)) == 0 && BurstHits(Offset(400, 15, true)) > 0, "close in there is less time to bend: at 400 ft only a 15 ft miss is pulled in");
+        }
+        {
+            // a friend where the enemy was: no pull, the rounds fly just as they would without
+            var a = Offset(700, 20, true); var c = Offset(700, 20, false);
+            a.side[0] = 1; c.side[0] = 1;
+            var pa = Ahead(a, 1); pa.burstStart = 0; pa.burstEnd = 1;
+            a.Resolve(new TurnPlan?[] { Ahead(a, 0), pa }, 1, false); c.Resolve(new TurnPlan?[] { Ahead(c, 0), pa }, 1, false);
+            var ba = a.bullets.Where(x => !(x is Missile)).ToList(); var bc = c.bullets.Where(x => !(x is Missile)).ToList();
+            Check(ba.Count == bc.Count && ba.Count > 0 && ba.Zip(bc, (x, y) => (x.pos - y.pos).Length).Max() < 1e-6, "they never curve toward a friend");
+        }
+        {
+            // what the preview and the AI see: a clone flies them the same
+            var b = Offset(700, 20, true);
+            int fromClone = BurstHits(b.Clone());
+            Check(fromClone == BurstHits(b), $"a clone (the tracer preview) curves them the same ({fromClone})");
+        }
+        {
+            // the AI pilot: it fires at a near miss it would let pass without them
+            bool Fires(bool magnet, double off) { var b = Offset(1000, off, magnet); var p = new EnemyAi { me = 1, sloppiness = 0 }.Plan(b, 3); return p.burstEnd > p.burstStart; }
+            double off = 0;
+            for (double o = 20; o <= 80; o += 5) if (!Fires(false, o)) { off = o; break; }
+            Check(off > 0 && Fires(true, off), $"an AI pilot with them fires at a target {off} ft off his line, one without holds his fire");
+        }
+        {
+            // the trip to bytes: a snapshot with magnet rounds in the air flies on the same
+            var b = Offset(700, 20, true);
+            var p1 = Ahead(b, 1); p1.burstStart = 0; p1.burstEnd = 3;
+            b.Resolve(new TurnPlan?[] { Ahead(b, 0), p1 }, 1.5);
+            var back = Offset(700, 20, true);
+            Wire.Restore(back, Wire.Encode(b));
+            Check(Wire.Hash(back) == Wire.Hash(b) && back.bullets.Any(x => x.magnet), "a snapshot brings the magnet rounds in the air across exactly");
+            var hb = b.Resolve(new TurnPlan?[] { Ahead(b, 0), p1 }, 1.5).hits.Count;
+            var hk = back.Resolve(new TurnPlan?[] { Ahead(back, 0), p1 }, 1.5).hits.Count;
+            Check(Wire.Hash(back) == Wire.Hash(b) && hb == hk, "and both fly the rest of the burst the same");
+        }
+        {
+            // the loadout pick
+            var l = new Loadout(Kit.Missiles, Kit.Mines).Pick(Kit.Magnet, Craft.F15);
+            Check(l.Has(Kit.Magnet) && Loadout.Short(Kit.Magnet) == "MAG", $"any plane can pick it ({l})");
+            var set = new DogfightSetup { randomStart = false, ours = new[] { Craft.Mustang }, theirs = new[] { Craft.Bf109 },
+                                          oursLoadouts = new[] { new Loadout(Kit.Magnet, Kit.Missiles) }, theirsLoadouts = new[] { new Loadout(Kit.Missiles, Kit.Mines) } };
+            var b = Scenarios.Dogfight(DogfightSetup.FromBytes(set.ToBytes()), Vec3d.Zero);
+            Check(b.combat[0].magnet && !b.combat[1].magnet, "picked, the picker's rounds (only his) are magnet rounds, through the trip to bytes");
+            set.arcade = false;
+            Check(!Scenarios.Dogfight(DogfightSetup.FromBytes(set.ToBytes()), Vec3d.Zero).combat[0].magnet, "with Arcade off, none");
         }
     }
 }

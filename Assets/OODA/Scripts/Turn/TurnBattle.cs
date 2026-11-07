@@ -102,6 +102,8 @@ namespace Ooda.Turn
         public Color projectionColor = new Color(1f, 0.3f, 0.25f, 0.8f);
         public Color myTracer = new Color(1f, 0.75f, 0.2f, 0.9f);
         public Color theirTracer = new Color(1f, 0.35f, 0.5f, 0.9f);
+        [Tooltip("Magnet rounds (the loadout pick): their tracers are tinted toward this.")]
+        public Color magnetTracer = new Color(0.7f, 0.35f, 1f, 0.95f);
         public Color overpullColor = new Color(1f, 0.15f, 0.1f, 1f);
         public Color holoColor = new Color(0.25f, 0.85f, 1f, 0.35f);
         public Color holoEnemyColor = new Color(1f, 0.3f, 0.25f, 0.3f);
@@ -1397,14 +1399,14 @@ namespace Ooda.Turn
             {
                 if (tr.owner != 0 && !showProjection || HiddenFromMe(tr.owner) || JammedFrom(tr.owner)) continue;
                 if (tr.missile) { DrawPreviewTrace(tr, tr.radar && tr.owner != 0 ? new Color(1f, 0.35f, 0.3f, 0.85f) : new Color(1f, 1f, 1f, 0.8f), 1.0f, 0.3f); continue; }
-                DrawPreviewTrace(tr, OutcomeColor(tr, TracerColor(tr.owner)), tr.hit ? 0.5f : 0.35f, tr.hit ? 0.5f : 0.1f);
+                DrawPreviewTrace(tr, OutcomeColor(tr, MagnetTint(tr, TracerColor(tr.owner))), tr.hit ? 0.5f : 0.35f, tr.hit ? 0.5f : 0.1f);
             }
             // The gun line: where a burst would go, faint, until a burst is set
             if (showGunLine && !sightView && gunPreview != null && plan.burstEnd == plan.burstStart)
                 foreach (var tr in gunPreview.traces)
                 {
                     if (tr.owner != 0 || tr.missile) continue;
-                    var col = OutcomeColor(tr, myTracer);
+                    var col = OutcomeColor(tr, MagnetTint(tr, myTracer));
                     col.a *= gunLineAlpha;
                     DrawPreviewTrace(tr, col, 0.3f, col.a * 0.3f);
                 }
@@ -1452,6 +1454,9 @@ namespace Ooda.Turn
             for (int k = k0; k >= tr.startFrame && k > now - smokeFrames; k--) smokePath.Add(UnityFrame.Pos(tr.points[k - tr.startFrame]));
             fx.MissileSmoke(smokePath, (now - k0) * dt, dt, seed, 60000 + index, k0);
         }
+
+        /// <summary>A magnet round's tracer: its colour tinted violet, so you can tell the rounds that curve.</summary>
+        Color MagnetTint(Trace tr, Color c) => tr.magnet ? Color.Lerp(c, magnetTracer, 0.6f) : c;
 
         Color TracerColor(int owner) => owner == 0 ? myTracer
             : owner < 0 ? (-1 - owner < battle.flak.Length && battle.flak[-1 - owner].carrier >= 0 ? wingTracer : flakTracer)   // a B-17 gunner's, or the flak's
@@ -1586,7 +1591,7 @@ namespace Ooda.Turn
             {
                 var tr = last.traces[ti];
                 if (tr.missile) { DrawMissile(tr, ti, now, (float)last.dt); continue; }
-                GlowTracer(tr, ti, now, TracerColor(tr.owner));
+                GlowTracer(tr, ti, now, MagnetTint(tr, TracerColor(tr.owner)));
             }
 
             // Hits: a flash where they land, and the damage so far shown as smoke

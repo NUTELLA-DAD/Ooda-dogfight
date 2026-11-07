@@ -308,7 +308,7 @@ namespace Ooda.Turn
             foreach (var tr in gunPreview.traces)
             {
                 if (tr.owner != 0 || tr.missile || Math.Abs(tr.startFrame * gunPreview.dt - at) > 0.4) continue;
-                var col = OutcomeColor(tr, myTracer);
+                var col = OutcomeColor(tr, MagnetTint(tr, myTracer));
                 col.a *= 0.6f;
                 DrawPreviewTrace(tr, col, 0.35f, col.a * 0.3f);
             }

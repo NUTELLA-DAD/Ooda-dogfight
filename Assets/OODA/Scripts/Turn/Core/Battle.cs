@@ -441,6 +441,7 @@ namespace Ooda.Turn.Core
                     }
                     else
                     {
+                        if (b.magnet) b.vel = b.vel + Magnet.Pull(this, b.pos, b.vel, b.side, out _) * StepSec;   // curves toward the nearest enemy it passes
                         double decay = Math.Exp(-b.dragPerSec * StepSec);
                         Vec3d vAir = b.vel;
                         b.vel = new Vec3d(vAir.x * decay, vAir.y * decay, vAir.z * decay - Atmosphere.GFtps2 * StepSec);
@@ -559,7 +560,7 @@ namespace Ooda.Turn.Core
 
         static void StartTrace(TurnResult res, Dictionary<Bullet, Trace> traceOf, Bullet b, int frame)
         {
-            var tr = new Trace { owner = b.owner, startFrame = frame, missile = b is Missile, radar = b is Missile rm && rm.radar, chaff = b is Chaff, mine = b is Mine, well = b is Well, age0 = b.age };
+            var tr = new Trace { owner = b.owner, startFrame = frame, missile = b is Missile, radar = b is Missile rm && rm.radar, chaff = b is Chaff, mine = b is Mine, well = b is Well, magnet = b.magnet, age0 = b.age };
             tr.points.Add(b.pos);
             traceOf[b] = tr;
             if (b is Flare) res.flares.Add(tr); else if (b is Chaff) res.chaff.Add(tr); else if (b is Mine) res.mines.Add(tr); else if (b is Well) res.wells.Add(tr); else res.traces.Add(tr);
@@ -704,7 +705,7 @@ namespace Ooda.Turn.Core
             return new Bullet
             {
                 owner = i, side = side[i], damage = cn.damage, hitRadiusFt = cn.hitRadiusFt, dragPerSec = cn.dragPerSec, lifeSec = cn.lifeSec,
-                pos = m.state.pos + dir * 12 + vel * late, vel = vel, age = late, fireTime = time + StepSec - late,
+                pos = m.state.pos + dir * 12 + vel * late, vel = vel, age = late, fireTime = time + StepSec - late, magnet = cn.magnet,
             };
         }
 
