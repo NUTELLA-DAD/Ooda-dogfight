@@ -1689,7 +1689,7 @@ MonoBehaviour:
   - {fileID: 3713174687807892476}
   size: 1
   flicker: 0.25
-  look: 0
+  look: 2
 --- !u!4 &8776602245698044949 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -7164028711087630452, guid: 520d9fb7a66674d41b7f5e354ea3d069, type: 3}
