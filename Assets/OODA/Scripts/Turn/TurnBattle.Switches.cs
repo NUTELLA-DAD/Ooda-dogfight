@@ -172,6 +172,8 @@ namespace Ooda.Turn
             }
             if (load.snowClouds > 0)
                 row.Add(Sw("SNOW", $";  ({battle.snowClouds[0]})", plan.snow, plan.snow || battle.snowClouds[0] > 0, snowColor, ToggleSnow));
+            if (load.lanes > 0)
+                row.Add(Sw(plan.lane && plan.laneBack ? "JET BACK" : "JET", $"'  ({battle.lanes[0]})", plan.lane, plan.lane || battle.lanes[0] > 0, laneColor, ToggleLane));
             SwitchRow(x, y, w, row, true);
             if (JammedNow)
             {

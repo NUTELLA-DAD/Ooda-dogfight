@@ -6,7 +6,8 @@
 // the time slow bomb bursts on the nearest threat and slows the other side's planes, rounds and missiles in it; and
 // the blink hops ahead along the path at the moment planned, dodges a tailer's rounds and a heat-seeker, stops short of
 // the ground, and the AI uses it; and the snow cloud rimes over whoever flies through it (a tailer more than you), costs turn, speed and climb until it melts,
-// and hides the rimed plane from heat-seekers; and everything survives a clone, a subset, a swap and the trip to bytes.
+// and hides the rimed plane from heat-seekers; and the jet stream carries a plane along (its airspeed unchanged), pushes a tailer back and blows a stream of rounds off its
+// line; and everything survives a clone, a subset, a swap and the trip to bytes.
 // Usage: dotnet run   (exit code = failures)
 using System;
 using System.Linq;
@@ -280,7 +281,7 @@ static class Program
             b.wells[0] = 0; ai.Forget();
             p = ai.Plan(b, 3);
             Check(p.jam && !p.mine && !p.well, "no mines or wells left: it sets off the jammer");
-            b.jammers[0] = 0; b.planes[0].systems.Wear(SystemId.Controls, 0.6); ai.Forget();
+            b.jammers[0] = 0; b.lanes[0] = 0; b.planes[0].systems.Wear(SystemId.Controls, 0.6); ai.Forget();
             p = ai.Plan(b, 3);
             Check(p.cloak && !p.mine && !p.jam, "no mines or jammer left, and hurt: it goes stealthy");
 
@@ -433,6 +434,7 @@ static class Program
         RicochetShield();
         Grapple();
         SnowCloudCheck();
+        JetStreamLane();
 
         Console.WriteLine(fails == 0 ? "\nAll checks pass." : $"\n{fails} check(s) FAILED.");
         return fails;
@@ -1293,6 +1295,146 @@ static class Program
             var none = TurnPlan.Straight(b.planes[1]); none.snow = true;
             b.Resolve(new TurnPlan?[] { TurnPlan.Straight(b.planes[0]), none }, 3);
             Check(!b.bullets.OfType<SnowCloud>().Any(), "without the pick, planning one does nothing");
+        }
+    }
+
+    static void JetStreamLane()
+    {
+        Console.WriteLine("\nJet stream");
+        {
+            var b = Tail(30000);
+            var lay = Ahead(b, 0); lay.lane = true; lay.laneAt = 1;
+            var r = b.Resolve(new TurnPlan?[] { lay, Ahead(b, 1) }, 3);
+            var ln = b.bullets.OfType<Lane>().FirstOrDefault();
+            Check(b.lanes[0] == JetStream.Lanes - 1 && r.lanes.Count == 1 && ln != null, $"one is laid, {b.lanes[0]} left, recorded for playback");
+            Check(r.lanes.Count == 1 && Math.Abs(r.lanes[0].startFrame - 1 / Battle.StepSec) <= 1, $"it is laid at the moment planned (frame {(r.lanes.Count > 0 ? r.lanes[0].startFrame : -1)})");
+            Check(ln != null && Vec3d.Dot(ln.dir, b.planes[0].Forward) > 0.99 && ln.Inside(b.planes[0].state.pos) > 0.5, "laid ahead flying straight, it blows along the nose, with the plane inside it");
+            Check(!r.hits.Any(), "it hurts no one");
+            for (int t = 0; t < 3; t++) b.Resolve(new TurnPlan?[] { Ahead(b, 0), Ahead(b, 1) }, 3);
+            Check(!b.bullets.OfType<Lane>().Any(), $"it is gone after {JetStream.LifeSec:F0} s");
+        }
+        {
+            // riding it: the same straight flight with and without, a turn and a half
+            double Run(bool lane, out double tas)
+            {
+                var b = Tail(30000);
+                var y0 = b.planes[0].state.pos.y;
+                var p = Ahead(b, 0); p.lane = lane;
+                b.Resolve(new TurnPlan?[] { p, Ahead(b, 1) }, 3);
+                b.Resolve(new TurnPlan?[] { Ahead(b, 0), Ahead(b, 1) }, 3);
+                tas = b.planes[0].state.vel.Length;
+                return b.planes[0].state.pos.y - y0;
+            }
+            double with = Run(true, out double tasWith), without = Run(false, out double tasWithout);
+            Check(with - without > JetStream.WindFps * 6 * 0.8, $"riding it, a P-51 goes {with - without:F0} ft farther in two turns ({JetStream.WindFps * 6:F0} at full wind)");
+            Check(Math.Abs(tasWith - tasWithout) < 3, $"and its airspeed is the same ({tasWith:F0} against {tasWithout:F0} ft/s): it is wind, not thrust");
+        }
+        {
+            // laid back at a 109 on its tail: the gap opens
+            double Gap(bool lane)
+            {
+                var b = Tail(1500);
+                for (int t = 0; t < 2; t++)
+                {
+                    var p = Ahead(b, 0); p.lane = lane && t == 0; p.laneBack = true;
+                    b.Resolve(new TurnPlan?[] { p, Ahead(b, 1) }, 3);
+                }
+                return (b.planes[0].state.pos - b.planes[1].state.pos).Length;
+            }
+            double with = Gap(true), without = Gap(false);
+            Check(with - without > 500, $"laid back at a tailer, the gap after two turns is {with:F0} ft ({without:F0} without): it wades out of its front end");
+        }
+        {
+            // a packet of rounds fired across a crosswind lane is blown off its line (well away from the planes)
+            double Drift(bool lane)
+            {
+                var b = Tail(30000);
+                var from = new Vec3d(40000, -1500, 10000);
+                var rd = new Bullet { owner = 1, side = 1, damage = 1, hitRadiusFt = 1, dragPerSec = 0.3, lifeSec = 3, pos = from, vel = new Vec3d(0, 2800, 0), fireTime = b.time };
+                b.bullets.Add(rd);
+                if (lane) { var ln = Lane.Make(0, 0, new Vec3d(40000 - JetStream.LengthFt / 2, 0, 10000), new Vec3d(1, 0, 0), false, b.time); ln.age = 1; b.bullets.Add(ln); }
+                b.Resolve(new TurnPlan?[] { Ahead(b, 0), Ahead(b, 1) }, 1, false);
+                return rd.pos.x - from.x;
+            }
+            double off = Drift(true) - Drift(false);
+            Check(off > 100, $"a packet of rounds fired across a crosswind lane is blown {off:F0} ft off its line");
+            // laid back at a 109 shooting from 900 ft behind: its rounds land less
+            int Hits(bool lane)
+            {
+                int hits = 0;
+                foreach (double gap in new[] { 600.0, 900, 1200 })
+                {
+                    var b = Tail(gap); b.dispersion = false;
+                    for (int t = 0; t < 2; t++)
+                    {
+                        var p0 = Ahead(b, 0); p0.lane = lane && t == 0; p0.laneBack = true;
+                        var p1 = Ahead(b, 1); p1.burstStart = 0; p1.burstEnd = 3;
+                        hits += b.Resolve(new TurnPlan?[] { p0, p1 }, 3, false).hits.Count(h => h.shooter == 1);
+                    }
+                }
+                return hits;
+            }
+            int without = Hits(false), with = Hits(true);
+            Console.WriteLine($"  (laid back at a 109 shooting from behind, it lands {with} packets, {without} without)");
+        }
+        {
+            // a heat-seeker inside it is carried too
+            var b = Tail(30000);
+            var me = b.planes[0];
+            var ms = Missile.Make(1, 1, 0, me.state.pos - me.Forward * 20000, me.state.vel, b.time);
+            var ms2 = (Missile)ms.Copy();
+            var c = b.Clone();
+            b.bullets.Add(ms);
+            c.bullets.Add(ms2);
+            var east = new Vec3d(1, 0, 0);
+            var ln = Lane.Make(0, 0, ms2.pos - east * 3000, east, false, c.time); ln.age = 1;
+            c.bullets.Add(ln);
+            b.Resolve(new TurnPlan?[] { Ahead(b, 0), Ahead(b, 1) }, 1, false);
+            c.Resolve(new TurnPlan?[] { Ahead(c, 0), Ahead(c, 1) }, 1, false);
+            Check(ms2.pos.x - ms.pos.x > 50, $"a missile in a crosswind lane is blown {ms2.pos.x - ms.pos.x:F0} ft east in a second");
+        }
+        {
+            // the AI pilots: tailed, with no mines, wells or jammer, it lays one back
+            var b = Tail(1200);
+            b.balloonMines[0] = 0; b.wells[0] = 0; b.jammers[0] = 0; b.heatBlades[0] = 0; b.slowBombs[0] = 0; b.mirrors[0] = 0; b.snowClouds[0] = 0; b.blinks[0] = 0;
+            var p = new EnemyAi { me = 0, sloppiness = 0 }.Plan(b, 3);
+            Check(p.lane, $"an AI pilot with a 109 on its six lays a jet stream ({(p.laneBack ? "back at it" : "ahead")})");
+            var far = Tail(60000);
+            far.balloonMines[0] = 0; far.wells[0] = 0; far.jammers[0] = 0;
+            var q = new EnemyAi { me = 1, sloppiness = 0 }.Plan(far, 3);
+            Console.WriteLine($"  (a 109 eleven miles behind its target {(q.lane ? "lays one to close in" : "keeps them")})");
+        }
+        {
+            // clones, subsets, swaps, bytes
+            var b = Tail(1500);
+            var plan = Ahead(b, 0); plan.lane = true; plan.laneBack = true;
+            b.Resolve(new TurnPlan?[] { plan, Ahead(b, 1) }, 1.5);
+            var c = b.Clone();
+            Check(c.lanes[0] == b.lanes[0] && !ReferenceEquals(c.lanes, b.lanes) && c.bullets.Any(x => x is Lane), "a clone keeps the count and the lane, in its own array");
+            Check(b.Subset(new[] { 1 }).bullets.Any(x => x is Lane), "a subset of the 109 alone still feels the P-51's lane");
+            var back = Tail(1500);
+            Wire.Restore(back, Wire.Encode(b));
+            Check(Wire.Hash(back) == Wire.Hash(b) && back.bullets.OfType<Lane>().Any(l => l.back), "a snapshot brings it across exactly");
+            b.Resolve(new TurnPlan?[] { Ahead(b, 0), Ahead(b, 1) }, 3);
+            back.Resolve(new TurnPlan?[] { Ahead(back, 0), Ahead(back, 1) }, 3);
+            Check(Wire.Hash(back) == Wire.Hash(b), "and both fly the next turn the same");
+            int l0 = b.lanes[0], l1 = b.lanes[1];
+            b.Swap(0, 1);
+            Check(b.lanes[1] == l0 && b.lanes[0] == l1, "a swap moves the count with the plane");
+            var pd = Wire.Decode<TurnPlan>(Wire.Encode(new TurnPlan { lane = true, laneBack = true, laneAt = 1.35 }));
+            Check(pd.lane && pd.laneBack && pd.laneAt == 1.35, "a plan with a jet stream (its way and its moment) survives the trip to bytes");
+        }
+        {
+            // the loadout pick
+            var l = new Loadout(Kit.Missiles, Kit.Mines).Pick(Kit.Jet, Craft.Zero);
+            Check(l.Has(Kit.Jet) && l.Has(Kit.Mines) && Loadout.Allowed(Kit.Jet, Craft.Su27), $"any plane can pick it ({l})");
+            var set = new DogfightSetup { randomStart = false, ours = new[] { Craft.Mustang }, theirs = new[] { Craft.Bf109 },
+                                          oursLoadouts = new[] { new Loadout(Kit.Jet, Kit.Missiles) }, theirsLoadouts = new[] { new Loadout(Kit.Missiles, Kit.Mines) } };
+            var b = Scenarios.Dogfight(DogfightSetup.FromBytes(set.ToBytes()), Vec3d.Zero);
+            Check(b.lanes[0] == JetStream.Lanes && b.lanes[1] == 0 && b.wells[0] == 0, "picked, it brings two lanes (and only the picker has them), through the trip to bytes");
+            var none = TurnPlan.Straight(b.planes[1]); none.lane = true;
+            b.Resolve(new TurnPlan?[] { TurnPlan.Straight(b.planes[0]), none }, 3);
+            Check(!b.bullets.OfType<Lane>().Any(), "without the pick, planning one does nothing");
         }
     }
 }

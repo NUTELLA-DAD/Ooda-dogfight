@@ -144,7 +144,7 @@ namespace Ooda.Turn
         Ooda.UI.StickThrottleGauge gauge;   // the stick (bottom middle) and the throttle (bottom left)
         Material tipMat;
 
-        bool dragArrow, dragLook, dragBurst, dragMoves, dragMine, dragWell, dragBlink, dragGrapple, dragSnow;
+        bool dragArrow, dragLook, dragBurst, dragMoves, dragMine, dragWell, dragBlink, dragGrapple, dragSnow, dragLane;
         Rect movesRect;
         bool showMoves;            // the Advanced timeline panel is open (T)
         float markT;               // the moment on the moves slider being edited, s into the turn
@@ -426,6 +426,7 @@ namespace Ooda.Turn
             plan.mirror = false;
             plan.grapple = false; plan.grappleAt = 0;
             plan.snow = false; plan.snowAt = 0;
+            plan.lane = plan.laneBack = false; plan.laneAt = 0;
             plan.rudder = 0;
             markT = 0;
             burstPreset = 0;
@@ -953,6 +954,7 @@ namespace Ooda.Turn
                     else if (phase == Phase.Planning && PressBlink(gui)) { dragBlink = true; SetBlinkFromBar(gui.x); }
                     else if (phase == Phase.Planning && PressGrapple(gui)) { dragGrapple = true; SetGrappleFromBar(gui.x); }
                     else if (phase == Phase.Planning && PressSnow(gui)) { dragSnow = true; SetSnowFromBar(gui.x); }
+                    else if (phase == Phase.Planning && PressLane(gui)) { dragLane = true; SetLaneFromBar(gui.x); }
                     else if (phase == Phase.Planning && burstRect.Contains(gui)) { dragBurst = true; SetBurstFromBar(gui.x, true); }
                     else if (phase == Phase.Planning && movesRect.Contains(gui)) { dragMoves = true; SetMarkTime(gui.x); }
                     else if (PressStick(gui)) { }
@@ -974,11 +976,12 @@ namespace Ooda.Turn
                     else if (dragBlink) SetBlinkFromBar(gui.x);
                     else if (dragGrapple) SetGrappleFromBar(gui.x);
                     else if (dragSnow) SetSnowFromBar(gui.x);
+                    else if (dragLane) SetLaneFromBar(gui.x);
                     else if (dragBurst) SetBurstFromBar(gui.x, false);
                     else if (dragMoves) SetMarkTime(gui.x);
                     else if (dragLook && view != null && (mouse == null || !mouse.rightButton.isPressed)) view.Orbit((pos - lastPointer) * 0.25f);
                 }
-                if (pointer.press.wasReleasedThisFrame) { dragArrow = dragLook = dragMoves = dragStick = dragPedals = dragThrottle = dragMine = dragWell = dragSlow = dragBlink = dragGrapple = dragSnow = false; if (dragBurst) { dragBurst = false; TidyBurst(); } }
+                if (pointer.press.wasReleasedThisFrame) { dragArrow = dragLook = dragMoves = dragStick = dragPedals = dragThrottle = dragMine = dragWell = dragSlow = dragBlink = dragGrapple = dragSnow = dragLane = false; if (dragBurst) { dragBurst = false; TidyBurst(); } }
                 lastPointer = pos;
             }
 
@@ -1868,7 +1871,7 @@ namespace Ooda.Turn
                     "Drag on the timeline to fire; F fires where hits are predicted.\n\n" +
                     "Keys: WASD arrow (S pulls up, like the stick), Shift/Ctrl throttle,\n" +
                     "Space full throttle (a jet: burner), 1 rocket, 2 speed brake, 3 hold flares, I IR view, Tab next plane, N next target,\n" +
-                    "4 mine, 5 blade, 6 stealth, 7 jammer, 8 gravity well, / ricochet shield, 0 grapple (again to cut), B bursts, G missile, T timeline,\n" +
+                    "4 mine, 5 blade, 6 stealth, 7 jammer, 8 gravity well, / ricochet shield, 0 grapple (again to cut), ' jet stream (\\ turns it round), B bursts, G missile, T timeline,\n" +
                     "A jet: J radar missile, U the radar page; notch a radar missile (fly square across it).\n" +
                     "Z/C rudder pedals (slow and nose-high, the rudder swings the nose: hammerhead).\n" +
                     "Enter fly, R replay, P projection, V view, X straight, M mission, H help.\n" +

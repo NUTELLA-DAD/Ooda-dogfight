@@ -44,6 +44,8 @@ namespace Ooda.Turn.Core
         public int grapples;
         /// <summary>Snow clouds carried (see Specials): none unless the loadout gives them.</summary>
         public int snowClouds;
+        /// <summary>Jet stream lanes carried (see JetStream): none unless the loadout (or Specials.Arm) gives them.</summary>
+        public int lanes;
         /// <summary>Ice (a loadout pick, see Loadout): the airframe is cased in ice, cold as the sky, so no heat-seeker can lock it and one that blunders into it shatters harmlessly. Radar missiles and guns still bite.</summary>
         public bool iced;
         /// <summary>Magnet rounds (a loadout pick, see Magnet): the rounds curve toward the nearest enemy they pass.</summary>
