@@ -140,6 +140,37 @@ namespace Ooda.Flight.Core
             if (!vertical) state.up = state.up.SquareTo(v1.Normalized);
         }
 
+        /// <summary>
+        /// The last step's tug from outside (a grapple's line, see Turn's Specials), ft/s²: unlike a gravity well's pull the
+        /// pilot feels it, on top of the wing's G (see PilotStress), so a hard swing on the line can grey him out.
+        /// </summary>
+        public Vec3d tug;
+
+        /// <summary>The tug the pilot feels, in G (none without a line on him).</summary>
+        public double TugG => tug.Length / Atmosphere.GFtps2;
+
+        /// <summary>A line pulling on the aircraft (ft/s²): it bends the path like Push, and the pilot feels it next step.</summary>
+        public void Tug(Vec3d acc, double dt)
+        {
+            Push(acc, dt);
+            tug = acc;
+        }
+
+        /// <summary>
+        /// A sudden yank (a grapple's line going bar-taut and snapping): the speed changes by dv at once, and the pilot takes
+        /// stressGs of G-seconds on top of what he has, enough to grey him out or knock him cold.
+        /// </summary>
+        public void Jolt(Vec3d dv, double stressGs)
+        {
+            Vec3d v1 = state.vel + dv;
+            double v = v1.Length;
+            if (v < MinSpeedFtps) v1 = v > 1e-6 ? v1 * (MinSpeedFtps / v) : state.vel;
+            state.vel = v1;
+            if (!vertical) state.up = state.up.SquareTo(v1.Normalized);
+            if (!BlackedOut) gStress += Math.Max(0, stressGs);
+            if (gStress >= GlocLimit && !BlackedOut) { glocLeftSec = GlocSec; glocs++; gStress = GlocLimit * 0.5; }
+        }
+
         public void Step(FlightControls c, double dt)
         {
             if (glocLeftSec > 0)
@@ -153,9 +184,12 @@ namespace Ooda.Flight.Core
 
         void PilotStress(double dt)
         {
+            // a line on him (a grapple) adds its tug to the wing's G, as he feels them together
+            double felt = tug.x == 0 && tug.y == 0 && tug.z == 0 ? g : (state.up * g + tug * (1 / Atmosphere.GFtps2)).Length;
+            tug = Vec3d.Zero;   // the line sets it again after the step if it still pulls
             if (BlackedOut) return;
-            if (g > GlocOnsetG) gStress += (g - GlocOnsetG) * dt;
-            else if (g < GlocRecoverG) gStress = Math.Max(0, gStress - GlocRecoverPerSec * dt);
+            if (felt > GlocOnsetG) gStress += (felt - GlocOnsetG) * dt;
+            else if (felt < GlocRecoverG) gStress = Math.Max(0, gStress - GlocRecoverPerSec * dt);
             if (gStress >= GlocLimit) { glocLeftSec = GlocSec; glocs++; gStress = GlocLimit * 0.5; }
         }
 

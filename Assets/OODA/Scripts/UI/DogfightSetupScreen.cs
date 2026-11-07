@@ -530,7 +530,7 @@ namespace Ooda.UI
                 bool on = load.Has(k), can = Loadout.Allowed(k, craft);
                 var keep = GUI.color;
                 if (!can) GUI.color = new Color(1, 1, 1, 0.45f);
-                if (GUI.Button(at, $"{(i < 9 ? (i + 1).ToString() : i == 9 ? "0" : "")}  {Loadout.Name(k).ToUpperInvariant()}", on ? tileOn : tile) && can) PickKit(k);
+                if (GUI.Button(at, $"{(i < 9 ? ((i + 1).ToString() : i == 9 ? "0" : "")) % 10}  {Loadout.Name(k).ToUpperInvariant()}", on ? tileOn : tile) && can) PickKit(k);
                 GUI.Label(new Rect(at.x + 12, at.y + 32, at.width - 22, at.height - 36), Loadout.Blurb(k, craft), tileText);
                 GUI.color = keep;
                 if (on)

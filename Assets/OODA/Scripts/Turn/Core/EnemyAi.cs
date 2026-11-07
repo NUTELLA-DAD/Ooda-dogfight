@@ -137,10 +137,10 @@ namespace Ooda.Turn.Core
                 sub.bullets.RemoveAll(b => b.owner < 0 && (b.pos - m.state.pos).Length > 8000);
                 // and none of its own side's (they cannot hit it, and its score is about what happens to it)
                 int mySide = sub.side[0];
-                sub.bullets.RemoveAll(b => b.side == mySide);
+                sub.bullets.RemoveAll(b => b.side == mySide && !(b is Tether));   // its own grapple's line still pulls it
                 // and no gun round too far away to reach it before it falls or the turn ends
                 double myFps = m.state.vel.Length;
-                sub.bullets.RemoveAll(b => !(b is Missile) && (b.pos - m.state.pos).Length > (b.vel.Length + myFps) * Math.Min(turnSec, Math.Max(0, b.lifeSec - b.age)) + 300);
+                sub.bullets.RemoveAll(b => !(b is Missile) && !(b is Tether) && (b.pos - m.state.pos).Length > (b.vel.Length + myFps) * Math.Min(turnSec, Math.Max(0, b.lifeSec - b.age)) + 300);
                 var env = Envelope.Compute(m, turnSec);
                 bool slow = m.Kias < 220;
                 turner = TurnerWeight(m, sub.planes[1]);
@@ -172,6 +172,7 @@ namespace Ooda.Turn.Core
             var m = battle.planes[me];
             if (Blade(sub, tries, turnSec, out var cut)) return cut;   // a pass that cuts the target in half: nothing else this turn
             Extras(sub, ref best, turnSec);
+            if (best.grapple) best.missileTarget = them;   // tried on the small battle's 1: the target, by its real number
             PlanBurst(sub, ref best, turnSec);
             Defend(sub, ref best, turnSec);
             // a missile at the target whenever it might come into the seeker's cone this turn (it launches only once locked)
@@ -360,9 +361,27 @@ namespace Ooda.Turn.Core
             {
                 var b = plan; b.brake = true; b.throttle = 0; b.wep = false;
                 double s = Score(sub, b, turnSec);
-                if (s > baseScore + brakeMargin) plan = b;
+                if (s > baseScore + brakeMargin) { plan = b; baseScore = s; }
+            }
+            // the grapple: hook the target to swing round onto it (a try that yanks it hurts its own systems, so it scores badly
+            // unless the yank is worth it); with a line of its own out, cut it when flying free leaves it better placed
+            var line = sub.LineOf(0);
+            if (line == null && sub.grapples[0] > 0 && sub.GrappleTarget(0, 1) >= 0)
+            {
+                var g = plan; g.grapple = true; g.grappleAt = 0; g.missileTarget = 1;
+                double s = Score(sub, g, turnSec);
+                if (s > baseScore + grappleMargin) { plan = g; baseScore = s; }
+            }
+            else if (line != null)
+            {
+                var c = plan; c.grapple = true; c.grappleAt = 0;
+                double s = Score(sub, c, turnSec);
+                if (s > baseScore + grappleMargin) plan = c;
             }
         }
+
+        /// <summary>How much better (in score) a grapple's hook (or a cut) must leave it before it does it.</summary>
+        public double grappleMargin = 0.1;
 
         /// <summary>
         /// The heat blade: with a charge and the target close, each try flown again red hot; if one cuts the target in half
@@ -486,7 +505,7 @@ namespace Ooda.Turn.Core
             for (int j = 0; j < sim.Count; j++) sim.combat[j] = sim.combat[j].Copy();
             sim.combat[0].hitRadiusFt *= burstSlack;
             // rounds already in the air are not this burst's
-            sim.bullets.Clear();
+            sim.bullets.RemoveAll(b => !(b is Tether));   // a grapple's line still swings it
             var r = sim.Resolve(new TurnPlan?[] { test }, turnSec, false);
             double first = double.PositiveInfinity, last = double.NegativeInfinity;
             foreach (var h in r.hits)

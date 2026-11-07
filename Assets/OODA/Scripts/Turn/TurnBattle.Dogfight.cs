@@ -185,7 +185,7 @@ namespace Ooda.Turn
                 p.aim = aim; p.overpull = 0; p.marks = null; p.burstStart = 0; p.burstEnd = ts; p.missile = false;
                 var s = Sim();
                 for (int j = 0; j < s.Count; j++) if (s.side[j] != s.side[0]) s.Spare(j);
-                s.bullets.Clear();
+                s.bullets.RemoveAll(b => !(b is Tether));   // rounds in the air are not this burst's; a grapple's line still swings it
                 var plans = (TurnPlan?[])others.Clone();
                 plans[0] = p;
                 var res = s.Resolve(plans, ts, true);

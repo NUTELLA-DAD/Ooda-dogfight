@@ -19,6 +19,8 @@ namespace Ooda.Turn.Core
         public List<Trace> wells = new List<Trace>();
         /// <summary>The time slow bombs' flight and bubble (see Specials), apart too: they hit nothing.</summary>
         public List<Trace> bubbles = new List<Trace>();
+        /// <summary>The grapples' lines (see Specials), each from the frame it was out to the last it held.</summary>
+        public List<TetherTrace> tethers = new List<TetherTrace>();
         /// <summary>The chaff clouds' drift (see Radar), apart too: they hit nothing and show nothing to a heat-seeker.</summary>
         public List<Trace> chaff = new List<Trace>();
         /// <summary>The sonic booms this turn and the planes they shoved (see Specials): kept even when frames aren't recorded.</summary>
@@ -69,6 +71,8 @@ namespace Ooda.Turn.Core
         /// <summary>Ricochet shield charges left, and the shield up until this battle time (see Specials).</summary>
         public int[] mirrors = new int[0];
         public double[] mirrorUntil = new double[0];
+        /// <summary>Grapple hooks left (see Specials).</summary>
+        public int[] grapples = new int[0];
         /// <summary>Jammed (seeing scrambled ghosts) until this battle time.</summary>
         public double[] jammedUntil = new double[0];
         /// <summary>The heat blade glowing this turn; stealthy until this battle time.</summary>
@@ -129,6 +133,7 @@ namespace Ooda.Turn.Core
             Array.Resize(ref blinks, n + 1); blinks[n] = c.blinks;
             Array.Resize(ref mirrors, n + 1); mirrors[n] = c.mirrors;
             Array.Resize(ref mirrorUntil, n + 1);
+            Array.Resize(ref grapples, n + 1); grapples[n] = c.grapples;
             Array.Resize(ref jammedUntil, n + 1);
             Array.Resize(ref ramOn, n + 1);
             Array.Resize(ref cloakUntil, n + 1);
@@ -175,13 +180,14 @@ namespace Ooda.Turn.Core
             void S<T>(T[] arr) { var t = arr[a]; arr[a] = arr[b]; arr[b] = t; }
             int Map(int i) => i == a ? b : i == b ? a : i;
             side = (int[])side.Clone(); combat = (CombatNumbers[])combat.Clone();   // new arrays: clones share these two
-            S(planes); S(combat); S(side); S(routes); S(flightOf); S(number); S(orders); S(ammo); S(missiles); S(flares); S(radarMissiles); S(chaff); S(radarTrack); S(trackSec); S(balloonMines); S(heatBlades); S(stealths); S(jammers); S(wells); S(slowBombs); S(blinks); S(mirrors); S(mirrorUntil); S(jammedUntil); S(ramOn); S(cloakUntil); S(down); S(crashed); S(hitObstacle); S(fireClock);
+            S(planes); S(combat); S(side); S(routes); S(flightOf); S(number); S(orders); S(ammo); S(missiles); S(flares); S(radarMissiles); S(chaff); S(radarTrack); S(trackSec); S(balloonMines); S(heatBlades); S(stealths); S(jammers); S(wells); S(slowBombs); S(blinks); S(mirrors); S(mirrorUntil); S(grapples); S(jammedUntil); S(ramOn); S(cloakUntil); S(down); S(crashed); S(hitObstacle); S(fireClock);
             foreach (var bl in bullets)
             {
                 if (bl.owner >= 0) bl.owner = Map(bl.owner);
                 if (bl.missed >= 0) bl.missed = Map(bl.missed);
                 if (bl is Missile ms && ms.target >= 0) ms.target = Map(ms.target);
                 if (bl is Missile ma && ma.aimedAt >= 0) ma.aimedAt = Map(ma.aimedAt);
+                if (bl is Tether tl && tl.target >= 0) tl.target = Map(tl.target);
             }
             for (int i = 0; i < Count; i++) if (radarTrack[i] >= 0) radarTrack[i] = Map(radarTrack[i]);
             foreach (var g in flak)
@@ -227,7 +233,7 @@ namespace Ooda.Turn.Core
             c.flights = flights.ConvertAll(f => f.Copy());
             c.ammo = (double[])ammo.Clone(); c.missiles = (int[])missiles.Clone(); c.flares = (int[])flares.Clone();
             c.radarMissiles = (int[])radarMissiles.Clone(); c.chaff = (int[])chaff.Clone(); c.radarTrack = (int[])radarTrack.Clone(); c.trackSec = (double[])trackSec.Clone();
-            c.balloonMines = (int[])balloonMines.Clone(); c.heatBlades = (int[])heatBlades.Clone(); c.stealths = (int[])stealths.Clone(); c.jammers = (int[])jammers.Clone(); c.wells = (int[])wells.Clone(); c.slowBombs = (int[])slowBombs.Clone(); c.blinks = (int[])blinks.Clone(); c.mirrors = (int[])mirrors.Clone(); c.mirrorUntil = (double[])mirrorUntil.Clone(); c.jammedUntil = (double[])jammedUntil.Clone();
+            c.balloonMines = (int[])balloonMines.Clone(); c.heatBlades = (int[])heatBlades.Clone(); c.stealths = (int[])stealths.Clone(); c.jammers = (int[])jammers.Clone(); c.wells = (int[])wells.Clone(); c.slowBombs = (int[])slowBombs.Clone(); c.blinks = (int[])blinks.Clone(); c.mirrors = (int[])mirrors.Clone(); c.mirrorUntil = (double[])mirrorUntil.Clone(); c.grapples = (int[])grapples.Clone(); c.jammedUntil = (double[])jammedUntil.Clone();
             c.ramOn = (bool[])ramOn.Clone(); c.cloakUntil = (double[])cloakUntil.Clone();
             c.down = (bool[])down.Clone(); c.crashed = (bool[])crashed.Clone(); c.hitObstacle = (bool[])hitObstacle.Clone();
             c.fireClock = (double[])fireClock.Clone();
@@ -271,7 +277,7 @@ namespace Ooda.Turn.Core
             int steps = (int)Math.Round(turnSec / StepSec);
             var launched = new bool[n];
             var radarLaunched = new bool[n];
-            bool[] dropMine = new bool[n], throwWell = new bool[n], throwSlow = new bool[n], blinkNow = new bool[n], blinked = new bool[n];
+            bool[] dropMine = new bool[n], throwWell = new bool[n], throwSlow = new bool[n], blinkNow = new bool[n], blinked = new bool[n], hookArmed = new bool[n], cutArmed = new bool[n];
             for (int i = 0; i < n; i++)
             {
                 ramOn[i] = false;
@@ -283,6 +289,7 @@ namespace Ooda.Turn.Core
                 if (plans[i].slow && slowBombs[i] > 0) { throwSlow[i] = true; slowBombs[i]--; }
                 if (plans[i].blink && blinks[i] > 0) { blinkNow[i] = true; blinks[i]--; }
                 if (plans[i].mirror && mirrors[i] > 0 && !Mirrored(i)) { mirrorUntil[i] = time + Specials.MirrorSec; mirrors[i]--; }
+                if (plans[i].grapple) { if (LineOf(i) != null) cutArmed[i] = true; else if (grapples[i] > 0) hookArmed[i] = true; }   // a hook is spent only when it catches
             }
             for (int i = 0; i < n; i++)
             {
@@ -347,6 +354,8 @@ namespace Ooda.Turn.Core
                     before[i] = before[i] + hop;
                     blinked[i] = hop.Length > 1;
                 }
+                // Grapples: hooks catch (or lines are cut) from their planned moment, then every line pulls its two ends
+                Grapple(plans, hookArmed, cutArmed, t, res, traceOf, k);
 
                 for (int i = 0; i < n; i++) routes[i]?.Advance(planes[i]);
                 TrackRadars(plans);
@@ -460,6 +469,7 @@ namespace Ooda.Turn.Core
                     }
                     // inside a time slow bubble it lives only part of the step
                     double dt = anySlow ? StepSec * SlowClock(b.pos) : StepSec;
+                    if (b is Tether) continue;   // the lines move with their planes (Grapple)
                     if (b is Well wl)
                     {
                         wl.Step(StepSec);
@@ -731,6 +741,126 @@ namespace Ooda.Turn.Core
             res.ricochets.Add(new HitEvent { time = time + StepSec, shooter = shooter, target = target, pos = b.pos, fireTime = b.fireTime, local = normal, system = -1 });
         }
 
+        /// <summary>Aircraft i's grapple line out now, or null.</summary>
+        public Tether LineOf(int i)
+        {
+            foreach (var b in bullets) if (b is Tether t && t.owner == i && t.alive) return t;
+            return null;
+        }
+
+        /// <summary>The line holding aircraft i, either end (its own first), or null.</summary>
+        public Tether LineOn(int i)
+        {
+            Tether on = null;
+            foreach (var b in bullets) if (b is Tether t && t.alive) { if (t.owner == i) return t; if (t.target == i) on = t; }
+            return on;
+        }
+
+        /// <summary>
+        /// Who aircraft i's grapple can hook now: the wanted one if in reach, else the enemy nearest its nose inside
+        /// GrappleConeDeg and GrappleReachFt (not one it can't see: stealthy); -1 none.
+        /// </summary>
+        public int GrappleTarget(int i, int wanted = -1)
+        {
+            var m = planes[i];
+            double cos = Math.Cos(Specials.GrappleConeDeg * Math.PI / 180);
+            int best = -1; double bestCos = cos;
+            for (int j = 0; j < Count; j++)
+            {
+                if (side[j] == side[i] || Out(j) || Cloaked(j)) continue;
+                Vec3d r = planes[j].state.pos - m.state.pos;
+                double range = r.Length;
+                if (range > Specials.GrappleReachFt || range < 1) continue;
+                double c = Vec3d.Dot(r * (1 / range), m.Forward);
+                if (c < cos) continue;
+                if (j == wanted) return j;
+                if (c > bestCos) { bestCos = c; best = j; }
+            }
+            return best;
+        }
+
+        /// <summary>
+        /// One step of the grapples: a hook planned for now catches the first enemy in reach (from its moment on, through the
+        /// rest of the turn), a cut planned for now lets its line go, then every line pulls (Tether.Step). A line that snaps
+        /// yanks both ends (Yank); one whose time is up, or with an end down, just goes.
+        /// </summary>
+        void Grapple(TurnPlan[] plans, bool[] hookArmed, bool[] cutArmed, double t, TurnResult res, Dictionary<Bullet, Trace> traceOf, int k)
+        {
+            int n = Count;
+            for (int i = 0; i < n; i++)
+            {
+                if (!hookArmed[i] && !cutArmed[i]) continue;
+                if (t + StepSec <= Math.Max(0, plans[i].grappleAt) + 1e-9) continue;
+                if (Out(i)) { hookArmed[i] = cutArmed[i] = false; continue; }
+                if (cutArmed[i])
+                {
+                    cutArmed[i] = false;
+                    var line = LineOf(i);
+                    if (line != null)
+                    {
+                        line.alive = false;
+                        if (traceOf != null && traceOf.TryGetValue(line, out var tr0) && tr0 is TetherTrace tc) tc.cut = true;
+                    }
+                    continue;
+                }
+                int j = GrappleTarget(i, plans[i].missileTarget);
+                if (j < 0 || grapples[i] <= 0) continue;   // nobody in reach yet: it keeps looking to the turn's end
+                hookArmed[i] = false;
+                grapples[i]--;
+                var m = planes[i];
+                var tl = Tether.Make(i, side[i], j, m.state.pos, (planes[j].state.pos - m.state.pos).Length, time + StepSec);
+                bullets.Add(tl);
+                if (traceOf != null) StartTrace(res, traceOf, tl, k);
+            }
+            for (int bi = bullets.Count - 1; bi >= 0; bi--)
+            {
+                if (!(bullets[bi] is Tether tl)) continue;
+                TetherTrace tt = null;
+                if (traceOf != null && traceOf.TryGetValue(tl, out var tr)) tt = tr as TetherTrace;
+                int a = tl.owner, b = tl.target;
+                bool holds = tl.alive && a >= 0 && a < n && b >= 0 && b < n && !Out(a) && !Out(b) && tl.age < tl.lifeSec;
+                if (holds)
+                {
+                    bool fresh = tt != null && tt.startFrame == k;   // hooked this very step: its first point is already down
+                    if (tl.Step(planes[a], planes[b], StepSec, out Vec3d ja, out Vec3d jb))
+                    {
+                        Yank(a, b, ja, res);
+                        Yank(b, a, jb, res);
+                        if (tt != null) { tt.snapFrame = k; tt.jolt0 = ja.Length; tt.jolt1 = jb.Length; }
+                        holds = false;
+                    }
+                    if (tt != null)
+                    {
+                        if (fresh) { tt.points[0] = planes[a].state.pos; tt.tensionG[0] = (float)tl.tensionG; }
+                        else { tt.points.Add(planes[a].state.pos); tt.tensionG.Add((float)tl.tensionG); }
+                    }
+                }
+                if (!holds) bullets.RemoveAt(bi);
+            }
+        }
+
+        /// <summary>
+        /// A grapple's line snapping yanks aircraft i (the other end is by): its speed changes by dv at once, its pilot takes
+        /// the jolt as G-seconds (it can knock him cold) and every system wears with it (recorded as a hit, from no one).
+        /// </summary>
+        void Yank(int i, int by, Vec3d dv, TurnResult res)
+        {
+            var m = planes[i];
+            double jolt = dv.Length;
+            m.Jolt(dv, Specials.GrappleStressPerG * jolt / Atmosphere.GFtps2);
+            var e = new HitEvent
+            {
+                time = time + StepSec, shooter = Tether.Nobody, target = i, pos = m.state.pos, fireTime = time, damage = 0,
+                local = Vec3d.Zero, system = -1, wear = Math.Min(0.9, Specials.GrappleWearPerFps * jolt),
+            };
+            if (!down[i] && !m.systems.spared)
+            {
+                for (int s = 0; s < Systems.Count; s++) m.systems.Wear((SystemId)s, e.wear);
+                if (m.systems.Lost) { GoDown(i); e.downed = true; }
+            }
+            res.hits.Add(e);
+        }
+
         /// <summary>The heat blade on aircraft a cuts aircraft b in half: down at once, recorded as a hit for the flash and the tally.</summary>
         void Slice(int a, int b, TurnResult res)
         {
@@ -754,12 +884,20 @@ namespace Ooda.Turn.Core
                 alphaDeg = m.AlphaDeg, g = m.g, throttle = m.throttle, firing = firing, stalled = m.stalled, departed = m.Departed, down = down[i],
                 rocket = m.RocketBurning, brake = m.brakeOut, wep = m.wepOn, ram = ramOn[i] && !down[i], cloaked = Cloaked(i), mirror = Mirrored(i), nose = m.Forward,
                 ramHeat = ramOn[i] && !down[i] ? heat : 0, sonic = ramOn[i] && !down[i] && sonic,
-                greyOut = down[i] ? 0 : m.GreyOut, bailed = m.systems.bailed, bailAt = m.systems.bailAt, bailPos = m.systems.bailPos, bailVel = m.systems.bailVel,
+                greyOut = down[i] ? 0 : m.GreyOut, tugG = m.TugG, bailed = m.systems.bailed, bailAt = m.systems.bailAt, bailPos = m.systems.bailPos, bailVel = m.systems.bailVel,
             };
         }
 
         static void StartTrace(TurnResult res, Dictionary<Bullet, Trace> traceOf, Bullet b, int frame)
         {
+            if (b is Tether tl)
+            {
+                var tt = new TetherTrace { owner = tl.owner, target = tl.target, startFrame = frame, tether = true, age0 = tl.age, hookedNow = frame > 0 };
+                tt.points.Add(tl.pos); tt.tensionG.Add((float)tl.tensionG);
+                traceOf[b] = tt;
+                res.tethers.Add(tt);
+                return;
+            }
             var tr = new Trace { owner = b.owner, startFrame = frame, missile = b is Missile, radar = b is Missile rm && rm.radar, chaff = b is Chaff, mine = b is Mine, well = b is Well, magnet = b.magnet, bubble = b is TimeBubble, age0 = b.age };
             tr.points.Add(b.pos);
             traceOf[b] = tr;
@@ -1042,7 +1180,7 @@ namespace Ooda.Turn.Core
             c.planes = new FlightModel[n]; c.combat = new CombatNumbers[n]; c.side = new int[n]; c.routes = new Route[n];
             c.ammo = new double[n]; c.missiles = new int[n]; c.flares = new int[n]; c.down = new bool[n];
             c.radarMissiles = new int[n]; c.chaff = new int[n]; c.radarTrack = new int[n]; c.trackSec = new double[n];
-            c.balloonMines = new int[n]; c.heatBlades = new int[n]; c.stealths = new int[n]; c.jammers = new int[n]; c.wells = new int[n]; c.slowBombs = new int[n]; c.blinks = new int[n]; c.mirrors = new int[n]; c.mirrorUntil = new double[n]; c.jammedUntil = new double[n]; c.ramOn = new bool[n]; c.cloakUntil = new double[n]; c.crashed = new bool[n]; c.hitObstacle = new bool[n]; c.fireClock = new double[n];
+            c.balloonMines = new int[n]; c.heatBlades = new int[n]; c.stealths = new int[n]; c.jammers = new int[n]; c.wells = new int[n]; c.grapples = new int[n]; c.slowBombs = new int[n]; c.blinks = new int[n]; c.mirrors = new int[n]; c.mirrorUntil = new double[n]; c.jammedUntil = new double[n]; c.ramOn = new bool[n]; c.cloakUntil = new double[n]; c.crashed = new bool[n]; c.hitObstacle = new bool[n]; c.fireClock = new double[n];
             var map = new Dictionary<int, int>();
             for (int j = 0; j < n; j++)
             {
@@ -1050,7 +1188,7 @@ namespace Ooda.Turn.Core
                 c.planes[j] = planes[i].Clone(); c.combat[j] = combat[i]; c.side[j] = side[i]; c.routes[j] = routes[i]?.Copy();
                 c.ammo[j] = ammo[i]; c.missiles[j] = missiles[i]; c.flares[j] = flares[i];
                 c.radarMissiles[j] = radarMissiles[i]; c.chaff[j] = chaff[i]; c.trackSec[j] = trackSec[i];
-                c.balloonMines[j] = balloonMines[i]; c.heatBlades[j] = heatBlades[i]; c.stealths[j] = stealths[i]; c.jammers[j] = jammers[i]; c.wells[j] = wells[i]; c.slowBombs[j] = slowBombs[i]; c.blinks[j] = blinks[i]; c.mirrors[j] = mirrors[i]; c.mirrorUntil[j] = mirrorUntil[i]; c.jammedUntil[j] = jammedUntil[i]; c.ramOn[j] = ramOn[i]; c.cloakUntil[j] = cloakUntil[i];
+                c.balloonMines[j] = balloonMines[i]; c.heatBlades[j] = heatBlades[i]; c.stealths[j] = stealths[i]; c.jammers[j] = jammers[i]; c.wells[j] = wells[i]; c.slowBombs[j] = slowBombs[i]; c.blinks[j] = blinks[i]; c.mirrors[j] = mirrors[i]; c.mirrorUntil[j] = mirrorUntil[i]; c.grapples[j] = grapples[i]; c.jammedUntil[j] = jammedUntil[i]; c.ramOn[j] = ramOn[i]; c.cloakUntil[j] = cloakUntil[i];
                 c.down[j] = down[i]; c.crashed[j] = crashed[i]; c.hitObstacle[j] = hitObstacle[i]; c.fireClock[j] = fireClock[i];
             }
             for (int j = 0; j < n; j++)
@@ -1065,6 +1203,14 @@ namespace Ooda.Turn.Core
             c.bullets = new List<Bullet>();
             foreach (var b in bullets)
             {
+                if (b is Tether tt0)
+                {
+                    // a line holds only with both its ends kept
+                    if (!map.TryGetValue(tt0.owner, out int to) || !map.TryGetValue(tt0.target, out int tg)) continue;
+                    var tc = (Tether)tt0.Copy(); tc.owner = to; tc.target = tg;
+                    c.bullets.Add(tc);
+                    continue;
+                }
                 var ms = b as Missile;
                 bool aimedIn = ms != null && ms.target >= 0 && map.ContainsKey(ms.target);
                 if (b.owner >= 0 && !map.ContainsKey(b.owner) && !aimedIn && !(b is Mine) && !(b is Well) && !(b is TimeBubble)) continue;   // keep a missile chasing someone kept, whoever fired it, and every mine and well hanging there

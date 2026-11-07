@@ -45,6 +45,12 @@ namespace Ooda.Turn.Core
         public bool blink;
         /// <summary>When in the turn the blink goes, in seconds from its start.</summary>
         public double blinkAt;
+        /// <summary>
+        /// The grapple (see Specials): from grappleAt seconds into the turn, hook the first enemy in reach ahead (missileTarget
+        /// first) on a line. With a line of yours already out, it cuts that line at grappleAt instead (let go at the end of a swing).
+        /// </summary>
+        public bool grapple;
+        public double grappleAt;
         /// <summary>The heat blade: red hot all turn, guns cold; any enemy you fly through is cut in half (see Specials).</summary>
         public bool ram;
         /// <summary>Go stealthy at the start of the turn: unseen for two turns, until you fire (see Specials).</summary>

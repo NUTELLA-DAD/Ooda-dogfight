@@ -14,6 +14,8 @@ namespace Ooda.Flight.Core
     public class AircraftNumbers
     {
         public string name = "Aircraft";
+        /// <summary>Combat weight, lb: only for how two planes tied together share a pull (the grapple, see Turn's Specials).</summary>
+        public double weightLb = 9000;
 
         // Limits
         public double maxG = 8;
@@ -198,6 +200,7 @@ namespace Ooda.Flight.Core
         /// </summary>
         public static AircraftNumbers P51D() => new AircraftNumbers
         {
+            weightLb = 9200,
             name = "P-51D Mustang",
             stallKias = 88,
             thrustK = 86.14, thrustV0Kt = 17.9, dragA = 1.51e-6, dragB = 1287,
@@ -212,6 +215,7 @@ namespace Ooda.Flight.Core
         /// </summary>
         public static AircraftNumbers SpitfireIX() => new AircraftNumbers
         {
+            weightLb = 7400,
             name = "Spitfire IX",
             maxG = 8, minG = -4, stallKias = 76, negStallKias = 99, vneKias = 390,
             rollPerKtasDps = 0.4, maxRollRateDps = 80,
@@ -230,6 +234,7 @@ namespace Ooda.Flight.Core
         /// </summary>
         public static AircraftNumbers Bf109G() => new AircraftNumbers
         {
+            weightLb = 6900,
             name = "Bf 109 G-6",
             maxG = 7.5, minG = -3.5, stallKias = 88, negStallKias = 110, vneKias = 405,
             rollPerKtasDps = 0.42, maxRollRateDps = 90,
@@ -249,6 +254,7 @@ namespace Ooda.Flight.Core
         /// </summary>
         public static AircraftNumbers P38L() => new AircraftNumbers
         {
+            weightLb = 17500,
             name = "P-38L Lightning",
             maxG = 7, minG = -3.5, stallKias = 91, negStallKias = 115, vneKias = 375,
             rollPerKtasDps = 0.36, maxRollRateDps = 75, rollFullRateSec = 0.4,
@@ -270,6 +276,7 @@ namespace Ooda.Flight.Core
         /// </summary>
         public static AircraftNumbers A6M2() => new AircraftNumbers
         {
+            weightLb = 5300,
             name = "A6M2 Zero",
             maxG = 7, minG = -3.5, stallKias = 64, negStallKias = 85, vneKias = 340,
             rollPerKtasDps = 0.45, maxRollRateDps = 70,
@@ -288,6 +295,7 @@ namespace Ooda.Flight.Core
         /// </summary>
         public static AircraftNumbers B17G() => new AircraftNumbers
         {
+            weightLb = 55000,
             rocketG = 0, brakeG = 0,
             name = "B-17G Flying Fortress",
             maxG = 3, minG = -1, stallKias = 87, negStallKias = 120, vneKias = 235,
@@ -311,6 +319,7 @@ namespace Ooda.Flight.Core
         /// </summary>
         public static AircraftNumbers Phantom() => new AircraftNumbers
         {
+            weightLb = 46000,
             name = "F-4 Phantom II",
             propWash = 0.3, maxG = 7.33, minG = -3, stallKias = 150, negStallKias = 188, vneKias = 750,
             rollPerKtasDps = 0.55, maxRollRateDps = 200, rollFullRateSec = 0.35,
@@ -334,6 +343,7 @@ namespace Ooda.Flight.Core
         /// </summary>
         public static AircraftNumbers F15C() => new AircraftNumbers
         {
+            weightLb = 44500,
             name = "F-15C Eagle",
             propWash = 0.3, maxG = 9, minG = -3, stallKias = 118, negStallKias = 150, vneKias = 800,
             rollPerKtasDps = 0.6, maxRollRateDps = 250, rollFullRateSec = 0.3,
@@ -358,6 +368,7 @@ namespace Ooda.Flight.Core
         /// </summary>
         public static AircraftNumbers Su27() => new AircraftNumbers
         {
+            weightLb = 48500,
             name = "Su-27 Flanker",
             propWash = 0.3, maxG = 9, minG = -3, stallKias = 110, negStallKias = 145, vneKias = 760,
             rollPerKtasDps = 0.65, maxRollRateDps = 270, rollFullRateSec = 0.3,
@@ -374,6 +385,7 @@ namespace Ooda.Flight.Core
         /// <summary>The OODA tool's T-6A set (core/t6a-turn-data.js T6A_FIT and T6A_LIMITS), kept to check the port.</summary>
         public static AircraftNumbers T6A() => new AircraftNumbers
         {
+            weightLb = 6500,
             name = "T-6A Texan II",
             maxG = 7, minG = -3.5, stallKias = 86, negStallKias = 110, vneKias = 316,
             rollPerKtasDps = 0.58, maxRollRateDps = 200, rollFullRateSec = 0.3,

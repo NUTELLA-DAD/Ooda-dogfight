@@ -165,6 +165,11 @@ namespace Ooda.Turn
                 row.Add(Sw("BLINK", $"Y  ({battle.blinks[0]})", plan.blink, plan.blink || battle.blinks[0] > 0, blinkColor, ToggleBlink));
             if (load.mirrors > 0)
                 row.Add(Sw(battle.Mirrored(0) ? "SHIELD UP" : "SHIELD", $"/  ({battle.mirrors[0]})", plan.mirror, plan.mirror || battle.mirrors[0] > 0, mirrorColor, ToggleMirror));
+            if (load.grapples > 0)
+            {
+                bool lineOut = battle.LineOf(0) != null;
+                row.Add(Sw(lineOut ? "CUT LINE" : "GRAPPLE", $"0  ({battle.grapples[0]})", plan.grapple, plan.grapple || lineOut || battle.grapples[0] > 0, grappleColor, ToggleGrapple));
+            }
             SwitchRow(x, y, w, row, true);
             if (JammedNow)
             {

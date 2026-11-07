@@ -144,7 +144,7 @@ namespace Ooda.Turn
         Ooda.UI.StickThrottleGauge gauge;   // the stick (bottom middle) and the throttle (bottom left)
         Material tipMat;
 
-        bool dragArrow, dragLook, dragBurst, dragMoves, dragMine, dragWell, dragBlink;
+        bool dragArrow, dragLook, dragBurst, dragMoves, dragMine, dragWell, dragBlink, dragGrapple;
         Rect movesRect;
         bool showMoves;            // the Advanced timeline panel is open (T)
         float markT;               // the moment on the moves slider being edited, s into the turn
@@ -424,6 +424,7 @@ namespace Ooda.Turn
             plan.slow = false; plan.slowAt = 0;
             plan.blink = false; plan.blinkAt = 0;
             plan.mirror = false;
+            plan.grapple = false; plan.grappleAt = 0;
             plan.rudder = 0;
             markT = 0;
             burstPreset = 0;
@@ -637,6 +638,7 @@ namespace Ooda.Turn
             MagnetShotsCheck();
             BlinkShotsCheck();
             RicochetShotsCheck();
+            GrappleShotsCheck();
             BotUpdate();
             NetBotUpdate();
             lines.Begin();
@@ -947,6 +949,7 @@ namespace Ooda.Turn
                     else if (phase == Phase.Planning && PressWell(gui)) { dragWell = true; SetWellFromBar(gui.x); }
                     else if (phase == Phase.Planning && PressSlow(gui)) { dragSlow = true; SetSlowFromBar(gui.x); }
                     else if (phase == Phase.Planning && PressBlink(gui)) { dragBlink = true; SetBlinkFromBar(gui.x); }
+                    else if (phase == Phase.Planning && PressGrapple(gui)) { dragGrapple = true; SetGrappleFromBar(gui.x); }
                     else if (phase == Phase.Planning && burstRect.Contains(gui)) { dragBurst = true; SetBurstFromBar(gui.x, true); }
                     else if (phase == Phase.Planning && movesRect.Contains(gui)) { dragMoves = true; SetMarkTime(gui.x); }
                     else if (PressStick(gui)) { }
@@ -966,11 +969,12 @@ namespace Ooda.Turn
                     else if (dragWell) SetWellFromBar(gui.x);
                     else if (dragSlow) SetSlowFromBar(gui.x);
                     else if (dragBlink) SetBlinkFromBar(gui.x);
+                    else if (dragGrapple) SetGrappleFromBar(gui.x);
                     else if (dragBurst) SetBurstFromBar(gui.x, false);
                     else if (dragMoves) SetMarkTime(gui.x);
                     else if (dragLook && view != null && (mouse == null || !mouse.rightButton.isPressed)) view.Orbit((pos - lastPointer) * 0.25f);
                 }
-                if (pointer.press.wasReleasedThisFrame) { dragArrow = dragLook = dragMoves = dragStick = dragPedals = dragThrottle = dragMine = dragWell = dragSlow = dragBlink = false; if (dragBurst) { dragBurst = false; TidyBurst(); } }
+                if (pointer.press.wasReleasedThisFrame) { dragArrow = dragLook = dragMoves = dragStick = dragPedals = dragThrottle = dragMine = dragWell = dragSlow = dragBlink = dragGrapple = false; if (dragBurst) { dragBurst = false; TidyBurst(); } }
                 lastPointer = pos;
             }
 
@@ -1258,7 +1262,7 @@ namespace Ooda.Turn
             var gsim = battle.Clone();
             gsim.dispersion = false;
             for (int j = 0; j < gsim.Count; j++) if (gsim.side[j] != gsim.side[0]) gsim.Spare(j);
-            gsim.bullets.Clear();
+            gsim.bullets.RemoveAll(b => !(b is Tether));   // a grapple's line still swings the gun line
             gunPreview = gsim.Resolve(WithLikeliest(full), turnSec, true);
             // the hit window: when a round fired connects, short gaps merged
             hitWindows.Clear();
@@ -1860,7 +1864,7 @@ namespace Ooda.Turn
                     "Drag on the timeline to fire; F fires where hits are predicted.\n\n" +
                     "Keys: WASD arrow (S pulls up, like the stick), Shift/Ctrl throttle,\n" +
                     "Space full throttle (a jet: burner), 1 rocket, 2 speed brake, 3 hold flares, I IR view, Tab next plane, N next target,\n" +
-                    "4 mine, 5 blade, 6 stealth, 7 jammer, 8 gravity well, / ricochet shield, B bursts, G missile, T timeline,\n" +
+                    "4 mine, 5 blade, 6 stealth, 7 jammer, 8 gravity well, / ricochet shield, 0 grapple (again to cut), B bursts, G missile, T timeline,\n" +
                     "A jet: J radar missile, U the radar page; notch a radar missile (fly square across it).\n" +
                     "Z/C rudder pedals (slow and nose-high, the rudder swings the nose: hammerhead).\n" +
                     "Enter fly, R replay, P projection, V view, X straight, M mission, H help.\n" +
