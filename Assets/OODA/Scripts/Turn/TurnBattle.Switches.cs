@@ -160,7 +160,7 @@ namespace Ooda.Turn
             if (load.wells > 0)
                 row.Add(Sw("WELL", $"8  ({battle.wells[0]})", plan.well, plan.well || battle.wells[0] > 0, wellColor, ToggleWell));
             if (load.slowBombs > 0)
-                row.Add(Sw("SLOW", $"Y  ({battle.slowBombs[0]})", plan.slow, plan.slow || battle.slowBombs[0] > 0, slowColor, ToggleSlow));
+                row.Add(Sw("SLOW", $"`  ({battle.slowBombs[0]})", plan.slow, plan.slow || battle.slowBombs[0] > 0, slowColor, ToggleSlow));
             if (load.blinks > 0)
                 row.Add(Sw("BLINK", $"Y  ({battle.blinks[0]})", plan.blink, plan.blink || battle.blinks[0] > 0, blinkColor, ToggleBlink));
             if (load.mirrors > 0)
@@ -175,7 +175,7 @@ namespace Ooda.Turn
             if (load.lanes > 0)
                 row.Add(Sw(plan.lane && plan.laneBack ? "JET BACK" : "JET", $"'  ({battle.lanes[0]})", plan.lane, plan.lane || battle.lanes[0] > 0, laneColor, ToggleLane));
             if (load.flips > 0)
-                row.Add(Sw("FLIP", $"'  ({battle.flips[0]})", plan.flip, plan.flip || battle.flips[0] > 0, flipColor, ToggleFlip));
+                row.Add(Sw("FLIP", $"End  ({battle.flips[0]})", plan.flip, plan.flip || battle.flips[0] > 0, flipColor, ToggleFlip));
             if (load.portals > 0)
             {
                 row.Add(Sw("PORTAL", $"9  ({battle.portals[0]})", plan.portal, plan.portal || battle.portals[0] > 0, portalEntryColor, TogglePortal));

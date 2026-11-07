@@ -402,7 +402,7 @@ namespace Ooda.UI
                 : loadout ? "← → pick a pilot  ·  1 – 0 add a capability (it replaces the older pick)  ·  L or Esc closes  ·  Enter ready"
                 : "← → pick a pilot  ·  P pilot  ·  C aircraft  ·  L loadout  ·  + − planes on that side  ·  M mission  ·  G arcade  ·  Enter ready", hint);
 
-            var panel = new Rect(w / 2 - 530, TopH + 10, 1060, 384);
+            var panel = new Rect(w / 2 - 530, TopH + 10, 1060, 384 + (KitRows > 2 ? 90 : 0));   // a third row of picks makes it taller
             if (mission) MissionPanel(new Rect(w / 2 - 560, TopH + 20, 1120, by - TopH - 56), s);
             else if (loadout) LoadoutPanel(panel, s);
             if (!mission && Event.current.type == EventType.MouseDown && Event.current.button == 0)
@@ -496,6 +496,8 @@ namespace Ooda.UI
         /// does; a click (or its number key) adds it in place of the older pick. Guns, flares and the speed brake always come.
         /// With Arcade off it says so: a straight dogfight carries the same for everyone.
         /// </summary>
+        static int KitRows => Loadout.All.Length > 12 ? 3 : 2;
+
         void LoadoutPanel(Rect r, DogfightSetup s)
         {
             GUI.Box(r, "");
@@ -521,8 +523,8 @@ namespace Ooda.UI
 
             var load = SelLoadout;
             GUI.Label(new Rect(r.x + 20, r.y + 82, r.width - 40, 24), $"Pick two to bring: {load}. Guns, flares and the speed brake always come.", note);
-            int Cols = (Loadout.All.Length + 1) / 2;   // two rows
-            float gap = 12, x0 = r.x + 20, y0 = r.y + 114, tw = (r.width - 40 - gap * (Cols - 1)) / Cols, th = 100;
+            int Rows = KitRows, Cols = (Loadout.All.Length + Rows - 1) / Rows;   // two rows, three once there are more than twelve picks
+            float gap = Rows > 2 ? 10 : 12, x0 = r.x + 20, y0 = r.y + 114, tw = (r.width - 40 - gap * (Cols - 1)) / Cols, th = Rows > 2 ? 96 : 100;
             for (int i = 0; i < Loadout.All.Length; i++)
             {
                 var k = Loadout.All[i];
@@ -541,7 +543,7 @@ namespace Ooda.UI
                 }
             }
             // the same two for the whole flight
-            float fy = y0 + 2 * (th + gap) + 2;
+            float fy = y0 + Rows * (th + gap) + 2;
             if (GUI.Button(new Rect(r.center.x - 160, fy, 320, 34), SelOurs ? "SAME FOR YOUR WHOLE FLIGHT" : "SAME FOR ALL THE BANDITS", small))
             {
                 var list = SelOurs ? s.oursLoadouts : s.theirsLoadouts;

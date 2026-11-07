@@ -426,10 +426,13 @@ namespace Ooda.Turn.Core
         }
 
         /// <summary>
-        /// A missile on it: a blink just before it arrives, else a gravity well thrown ahead. Anyone close with their guns on it, from any side: the ricochet shield, so
-        /// their rounds come back at them. Someone on its tail with guns on
-        /// it: a balloon mine let go in their path; with none left, a gravity flip (if they are close enough to catch in it); then a gravity well, then a blink; then a portal out onto the tailer's six; then the jammer; then (hurt) stealth, unless it is firing this turn (that would show it again at once). A time slow bomb: at a missile on it (with no well), at a tailer (with no mines), or at the target it
-        /// is about to shoot at close in, to make it a sitting duck.
+        /// A missile arriving this turn: a blink just before it hits. A heat-seeker closing: a snow cloud round it. Any other
+        /// missile closing: a gravity well thrown ahead, else a time slow bomb at it. Anyone close with their guns on it, from
+        /// any side: the ricochet shield, so their rounds come back at them. Not tailed but about to shoot someone close in: a
+        /// slow bomb at them. Someone on its tail with guns on it, in turn as each runs out: a balloon mine let go in their
+        /// path; the heat blade's sonic boom; a slow bomb at them; a snow cloud for them to fly through; a gravity flip if they
+        /// are close enough to catch; a gravity well; a blink ahead; a portal out onto their six; the jammer; a jet stream laid
+        /// back in their face; then (hurt) stealth, unless it is firing this turn (that would show it again at once).
         /// </summary>
         void Defend(Battle sub, ref TurnPlan plan, double turnSec)
         {
