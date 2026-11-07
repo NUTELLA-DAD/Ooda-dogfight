@@ -99,7 +99,7 @@ namespace Ooda.Turn.Core
                 case Kit.Missiles: return $"{DogfightSetup.Guns(c, false).missiles} IR missiles: lock from behind, fire, and make them flare.";
                 case Kit.Rocket: return Allowed(k, c) ? "A 2.5 s shove of 60 kt to run or catch up; ten turns to recharge." : "Jets can't carry it: the afterburner does that job.";
                 case Kit.Mines: return $"{Specials.Mines} mines dropped behind you that hang in the air for anyone on your tail.";
-                case Kit.Blade: return $"{Specials.Blades} charge: glow red hot for a turn and cut through anyone you pass close.";
+                case Kit.Blade: return $"{Specials.Blades} charge: glow red hot for a turn and cut through anyone you pass close; fly straight to boom the ones beside and behind off course.";
                 case Kit.Stealth: return $"{Specials.Stealths} charge: unseen for two turns (heat-seekers still lock you).";
                 case Kit.Jammer: return $"{Specials.Jammers} charge: scramble what enemies near you see for two turns.";
                 case Kit.Radar: return Allowed(k, c) ? $"{DogfightSetup.Guns(c, false).radarMissiles} radar missiles: long reach, head-on too; keep them in your radar cone."

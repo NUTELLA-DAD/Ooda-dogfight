@@ -133,6 +133,76 @@ static class Program
             Check(coldLock == -1 && hotLock == 1, $"a seeker 12,000 ft behind locks it only while it glows (heat {hot.HeatOf(1, hot.planes[0].state.pos):F1})");
         }
 
+        Console.WriteLine("\nSonic boom");
+        {
+            // flown straight with the blade lit: it builds, pushes on and breaks the barrier
+            var b = Tail(900);
+            var cold = Tail(900);
+            var ram = Ahead(b, 0); ram.ram = true;
+            var r = b.Resolve(new TurnPlan?[] { ram, Ahead(b, 1) }, 3);
+            var rc = cold.Resolve(new TurnPlan?[] { Ahead(cold, 0), Ahead(cold, 1) }, 3);
+            var boom = r.booms.FirstOrDefault(e => e.owner == 0);
+            double boomSec = boom == null ? -1 : boom.frame * r.dt;
+            Check(boom != null && Math.Abs(boomSec - Specials.BoomChargeSec) < 0.1, $"flown straight lit, it booms after {boomSec:F2} s");
+            var f0 = r.frames[0];
+            bool builds = true;
+            for (int k = 2; k < f0.Length; k++) if (f0[k].ramHeat + 1e-9 < f0[k - 1].ramHeat) builds = false;
+            Check(builds && f0[f0.Length / 4].ramHeat > 0.1 && f0[f0.Length / 4].ramHeat < 0.9 && f0[f0.Length - 1].ramHeat >= 1, "the glow builds red to white hot over it");
+            Check(!f0[boom == null ? 1 : boom.frame - 1].sonic && f0[f0.Length - 1].sonic, "and it is past the barrier from the boom on");
+            double kt = b.planes[0].Kias - cold.planes[0].Kias;
+            Check(kt > 10, $"building it pushes the P-51 on ({kt:F0} kt faster than without)");
+            var sh = r.shoves.FirstOrDefault(e => e.owner == 0 && e.target == 1);
+            double off = (b.planes[1].state.pos - cold.planes[1].state.pos).Length;
+            Check(sh != null && sh.dv.Length > 0.5 * Specials.BoomShoveFps * (1 - 900.0 / Specials.BoomReachFt) && off > 100,
+                $"the 109 900 ft behind is shoved off course ({(sh == null ? 0 : sh.dv.Length):F0} ft/s, {off:F0} ft off its line by the turn's end)");
+            Check(r.shoves.Count(e => e.target == 1) == 1, "once a turn");
+            Check(rc.booms.Count == 0 && rc.shoves.Count == 0, "without the blade: no boom");
+
+            var far = Tail(2600);
+            var rf = far.Resolve(new TurnPlan?[] { ram, Ahead(far, 1) }, 3);
+            Check(rf.booms.Count == 1 && rf.shoves.Count == 0, "one 2,600 ft behind is out of its reach");
+
+            var turn = Tail(900);
+            var hard = new TurnPlan { aim = new Vec3d(1, 0.2, 0).Normalized, throttle = 1, ram = true };
+            var rt = turn.Resolve(new TurnPlan?[] { hard, Ahead(turn, 1) }, 3);
+            Check(rt.booms.Count == 0 && rt.frames[0].Last().ramHeat < 1, $"a hard turn never builds it (heat {rt.frames[0].Last().ramHeat:F2})");
+
+            var friend = Tail(900);
+            friend.side[1] = 0;
+            var rw = friend.Resolve(new TurnPlan?[] { ram, Ahead(friend, 1) }, 3);
+            Check(rw.booms.Count == 1 && rw.shoves.Count == 0, "your own side is spared");
+
+            // ahead of the nose: the boom never pushes your cut away
+            var h = HeadOn(2900);
+            var rh = h.Resolve(new TurnPlan?[] { ram, Ahead(h, 1) }, 3);
+            Check(rh.booms.Count == 1 && rh.booms[0].frame * rh.dt < 2 && h.down[1] && !h.down[0] && rh.shoves.Count == 0,
+                "head-on, it booms first and still cuts the 109 dead ahead in half, unshoved");
+
+            // white hot: past the barrier it cuts from farther
+            double wide = Specials.BladeReachFt + (Specials.BoomBladeReachFt - Specials.BladeReachFt) / 2 + 9;
+            var w = HeadOn(2900); w.planes[1] = At(AircraftNumbers.Bf109G(), wide, 2900, 300, South);
+            w.Resolve(new TurnPlan?[] { ram, Ahead(w, 1) }, 3);
+            var wc = HeadOn(2500); wc.planes[1] = At(AircraftNumbers.Bf109G(), wide, 2500, 300, South);
+            var early = Ahead(wc, 0); early.ram = true;
+            var rwc = wc.Resolve(new TurnPlan?[] { early, Ahead(wc, 1) }, 1.2);   // passing before the boom
+            Check(w.down[1] && !w.down[0], $"white hot, a pass {wide:F0} ft wide cuts the 109");
+            Check(rwc.booms.Count == 0, "and before the barrier the pass is still to come");
+
+            // a jet already near Mach 1 booms at once
+            var jet = new Battle(new FlightModel(AircraftNumbers.F15C(), PointMass.Make(new Vec3d(0, 900, 10000), Atmosphere.SoundKt(10000), North)) { throttle = 1 },
+                Specials.Arm(CombatNumbers.F15C()), At(AircraftNumbers.Bf109G(), 0, 0, 300), Specials.Arm(CombatNumbers.Bf109G()));
+            var jr = Ahead(jet, 0); jr.ram = true;
+            var rj = jet.Resolve(new TurnPlan?[] { jr, Ahead(jet, 1) }, 3);
+            Check(rj.booms.Count == 1 && rj.booms[0].frame <= 1, $"an F-15 at Mach 1 booms the moment it lights (frame {(rj.booms.Count > 0 ? rj.booms[0].frame : -1)})");
+
+            // the same on every machine: a clone flies it identically
+            var m1 = Tail(900); var m2 = m1.Clone();
+            m1.Resolve(new TurnPlan?[] { ram, Ahead(m1, 1) }, 3, false);
+            m2.Resolve(new TurnPlan?[] { ram, Ahead(m2, 1) }, 3, true);
+            Check((m1.planes[1].state.pos - m2.planes[1].state.pos).Length < 1e-9 && (m1.planes[0].state.vel - m2.planes[0].state.vel).Length < 1e-9,
+                "recorded or not, two copies fly it exactly the same");
+        }
+
         Console.WriteLine("\nStealth");
         {
             var b = Tail(1500);   // the 109 behind the P-51
@@ -194,7 +264,10 @@ static class Program
             Check(p.mine, "with a 109 on its six, it lets a mine go");
             b.balloonMines[0] = 0; ai.Forget();
             p = ai.Plan(b, 3);
-            Check(p.well && !p.mine, "no mines left: it throws a gravity well");
+            Check(p.ram && !p.mine && p.burstEnd <= p.burstStart, "no mines left: it lights the heat ram to boom the tailer off its shot");
+            b.heatBlades[0] = 0; ai.Forget();
+            p = ai.Plan(b, 3);
+            Check(p.well && !p.mine && !p.ram, "no mines or blade left: it throws a gravity well");
             b.wells[0] = 0; ai.Forget();
             p = ai.Plan(b, 3);
             Check(p.jam && !p.mine && !p.well, "no mines or wells left: it sets off the jammer");
