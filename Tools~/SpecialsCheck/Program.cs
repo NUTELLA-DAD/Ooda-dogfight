@@ -1,7 +1,8 @@
 // Checks of the arcade specials without Unity (see Turn/Core/Specials.cs): the balloon mine catches a tailer who flies
 // on and spares one who turns away, goes at the moment planned and drifts slowly; the heat blade cuts an enemy in half and flies on, keeps the guns cold and runs hot;
 // stealth hides you from the AI and the flak but not from a heat-seeker, and firing shows you; the AI pilots use all
-// three; the gravity well bends a hard turn tighter, makes a tailer's rounds miss and pulls a heat-seeker off; and
+// three; the gravity well bends a hard turn tighter, makes a tailer's rounds miss and pulls a heat-seeker off; the grapple
+// hooks the enemy ahead, swings you round him tighter and drags him, and snaps in a violent yank when you pull opposite ways; and
 // everything survives a clone, a subset, a swap and the trip to bytes.
 // Usage: dotnet run   (exit code = failures)
 using System;
@@ -345,6 +346,7 @@ static class Program
         }
 
         GravityWell();
+        Grapple();
 
         Console.WriteLine(fails == 0 ? "\nAll checks pass." : $"\n{fails} check(s) FAILED.");
         return fails;
@@ -487,6 +489,153 @@ static class Program
             var noWell = TurnPlan.Straight(b.planes[1]); noWell.well = true;
             b.Resolve(new TurnPlan?[] { TurnPlan.Straight(b.planes[0]), noWell }, 3);
             Check(!b.bullets.OfType<Well>().Any(), "without the pick, planning one does nothing");
+        }
+    }
+
+    /// <summary>A P-51 (0) heading north at 300 KIAS and a 109 (1) at (x, y) heading the way given.</summary>
+    static Battle Pair(double x, double y, double heading = North, double kias = 300) =>
+        new Battle(At(AircraftNumbers.P51D(), 0, 0, 300), Specials.Arm(CombatNumbers.P51D()), At(AircraftNumbers.Bf109G(), x, y, kias, heading), Specials.Arm(CombatNumbers.Bf109G()));
+
+    static double Turned(Vec3d from, Vec3d to) { double d = Heading(to) - Heading(from); return d < -180 ? d + 360 : d > 180 ? d - 360 : d; }
+
+    /// <summary>
+    /// The P-51 at 380 KIAS comes in 800 ft behind a 109 at 250 that breaks hard left, and pulls hard left after it for two
+    /// turns (too fast to stay inside its turn); hooked at the start, or not. How far each turned, how far apart they end,
+    /// the most the P-51's pilot felt the line, and whether it held.
+    /// </summary>
+    static (double mine, double his, double gap, double peakTug, bool held) Swing(bool hook)
+    {
+        var b = new Battle(At(AircraftNumbers.P51D(), 0, 0, 380), Specials.Arm(CombatNumbers.P51D()), At(AircraftNumbers.Bf109G(), 0, 800, 250), Specials.Arm(CombatNumbers.Bf109G()));
+        double mine = 0, his = 0, peak = 0;
+        bool held = true;
+        for (int t = 0; t < 2; t++)
+        {
+            var f0 = b.planes[0].Forward; var f1 = b.planes[1].Forward;
+            var p0 = new TurnPlan { aim = new Vec3d(-f0.y, f0.x, 0).Normalized, throttle = 1 };
+            p0.grapple = hook && t == 0; p0.missileTarget = 1;
+            var p1 = new TurnPlan { aim = new Vec3d(-f1.y, f1.x, 0).Normalized, throttle = 1 };
+            var r = b.Resolve(new TurnPlan?[] { p0, p1 }, 3, true, (bb, k) => peak = Math.Max(peak, bb.planes[0].TugG));
+            if (r.tethers.Any(tr => tr.snapFrame >= 0)) held = false;
+            mine += Turned(f0, b.planes[0].Forward); his += Turned(f1, b.planes[1].Forward);
+        }
+        return (mine, his, (b.planes[1].state.pos - b.planes[0].state.pos).Length, peak, held);
+    }
+
+    static void Grapple()
+    {
+        Console.WriteLine("\nGrapple");
+        {
+            var b = Tail(1200);
+            var p1 = Ahead(b, 1); p1.grapple = true; p1.grappleAt = 1; p1.missileTarget = 0;
+            var r = b.Resolve(new TurnPlan?[] { Ahead(b, 0), p1 }, 3);
+            var line = b.LineOf(1);
+            Check(b.grapples[1] == Specials.Grapples - 1 && line != null && line.target == 0 && r.tethers.Count == 1, $"the 109 hooks the P-51 ahead, {b.grapples[1]} hook left, the line recorded");
+            Check(r.tethers.Count == 1 && Math.Abs(r.tethers[0].startFrame - 1 / Battle.StepSec) <= 1 && r.tethers[0].hookedNow, $"it hooks at the moment planned (frame {(r.tethers.Count > 0 ? r.tethers[0].startFrame : -1)})");
+            Check(r.tethers.Count == 1 && r.tethers[0].EndFrame == r.FrameCount - 1 && r.tethers[0].snapFrame < 0 && !r.hits.Any(), "flown the same way it holds to the turn's end and hurts no one");
+            Check(line != null && line.lengthFt < 1200 - 100, $"it reels in ({(line == null ? 0 : line.lengthFt):F0} ft of line)");
+            for (int t = 0; t < 2; t++) b.Resolve(new TurnPlan?[] { Ahead(b, 0), Ahead(b, 1) }, 3);
+            Check(b.LineOf(1) == null, $"it lets go after {Specials.GrappleLifeSec:F0} s");
+            Check((b.planes[0].state.pos - b.planes[1].state.pos).Length > 100 && !b.down[0] && !b.down[1], "and they never collide");
+
+            var far = Tail(Specials.GrappleReachFt + 1500);
+            var pf = Ahead(far, 1); pf.grapple = true;
+            far.Resolve(new TurnPlan?[] { Ahead(far, 0), pf }, 3);
+            Check(far.LineOf(1) == null && far.grapples[1] == Specials.Grapples, "out of reach it catches no one and the hook isn't spent");
+            var behind = Tail(1200);
+            var pb = Ahead(behind, 0); pb.grapple = true;
+            behind.Resolve(new TurnPlan?[] { pb, Ahead(behind, 1) }, 3);
+            Check(behind.LineOf(0) == null, "nor one behind you");
+        }
+        {
+            var with = Swing(true); var without = Swing(false);
+            Check(with.held && with.mine > without.mine + 15, $"too fast to stay inside a 109's break, hooked to it the P-51 swings round {with.mine:F0} deg in two turns, {without.mine:F0} without");
+            Check(with.gap < without.gap - 250, $"and stays on it, {with.gap:F0} ft behind ({without.gap:F0} ft overshooting without)");
+            Check(with.his < without.his - 5, $"the 109 is dragged: it turns {with.his:F0} deg ({without.his:F0} free)");
+            Check(with.peakTug > 2 && with.peakTug < Specials.GrappleHoldG, $"the pilot feels the line, up to {with.peakTug:F1} G");
+        }
+        {
+            // opposite ways: the P-51 hooks a 109 passing the other way
+            var b = Pair(300, 1500, South);
+            var p0 = Ahead(b, 0); p0.grapple = true; p0.missileTarget = 1;
+            double v0 = b.planes[0].state.vel.Length, v1 = b.planes[1].state.vel.Length;
+            int gl0 = b.planes[0].glocs;
+            var r = b.Resolve(new TurnPlan?[] { p0, Ahead(b, 1) }, 3);
+            var tr = r.tethers.FirstOrDefault();
+            var yanks = r.hits.Where(h => h.shooter == Tether.Nobody).ToList();
+            Check(tr != null && tr.snapFrame > tr.startFrame && b.LineOf(0) == null, $"pulled opposite ways the line snaps ({(tr == null ? -1 : (tr.snapFrame - tr.startFrame) * Battle.StepSec):F2} s after the hook)");
+            Check(tr != null && tr.jolt0 > 100 && tr.jolt1 > 100, $"in a violent yank: {(tr == null ? 0 : tr.jolt0):F0} ft/s jolt on the P-51, {(tr == null ? 0 : tr.jolt1):F0} on the 109");
+            Check(yanks.Count == 2 && yanks.All(h => h.wear > 0.25) && b.SystemsOf(0).Hurt && b.SystemsOf(1).Hurt,
+                  $"both airframes are hurt (wear {string.Join(", ", yanks.Select(h => h.wear.ToString("F2")))}), and no gun counts it as a hit");
+            Check(b.planes[0].glocs > gl0 || b.planes[0].GreyOut > 0.6, $"and the jolt greys the pilot out or knocks him cold (grey {b.planes[0].GreyOut:F2}, blackouts {b.planes[0].glocs - gl0})");
+            Check(b.planes[0].state.vel.Length < v0 - 40, $"it takes speed off ({v0:F0} to {b.planes[0].state.vel.Length:F0} ft/s)");
+
+            // a light plane on a heavy one takes the worst of it
+            var z = new Battle(At(AircraftNumbers.A6M2(), 0, 0, 300), Specials.Arm(CombatNumbers.P51D()), At(AircraftNumbers.P38L(), 300, 1500, 300, South), Specials.Arm(CombatNumbers.Bf109G()));
+            var pz = Ahead(z, 0); pz.grapple = true;
+            var rz = z.Resolve(new TurnPlan?[] { pz, Ahead(z, 1) }, 3);
+            var tz = rz.tethers.FirstOrDefault();
+            Check(tz != null && tz.snapFrame >= 0 && tz.jolt0 > tz.jolt1 * 2, $"a Zero yanked by a P-38 takes {(tz == null ? 0 : tz.jolt0):F0} ft/s, the P-38 {(tz == null ? 0 : tz.jolt1):F0}");
+        }
+        {
+            // cut: plan it again with the line out
+            var b = Tail(1200);
+            var p1 = Ahead(b, 1); p1.grapple = true;
+            b.Resolve(new TurnPlan?[] { Ahead(b, 0), p1 }, 3);
+            var cut = Ahead(b, 1); cut.grapple = true; cut.grappleAt = 1.5;
+            var r = b.Resolve(new TurnPlan?[] { Ahead(b, 0), cut }, 3);
+            var tr = r.tethers.FirstOrDefault();
+            Check(b.LineOf(1) == null && tr != null && tr.cut && Math.Abs(tr.EndFrame - 1.5 / Battle.StepSec) <= 2 && b.grapples[1] == Specials.Grapples - 1,
+                  $"planned again with the line out it cuts it at its moment (frame {(tr == null ? -1 : tr.EndFrame)}), spending no hook");
+        }
+        {
+            // clones, subsets, swaps, bytes
+            var b = Tail(1200);
+            var p1 = Ahead(b, 1); p1.grapple = true;
+            b.Resolve(new TurnPlan?[] { Ahead(b, 0), p1 }, 1.5);
+            var c = b.Clone();
+            Check(c.grapples[1] == b.grapples[1] && !ReferenceEquals(c.grapples, b.grapples) && c.LineOf(1) != null && !ReferenceEquals(c.LineOf(1), b.LineOf(1)), "a clone keeps the count and the line, its own copy");
+            var sub = b.Subset(new[] { 1, 0 });
+            Check(sub.LineOf(0) != null && sub.LineOf(0).target == 1, "a subset with both ends renumbers the line");
+            Check(b.Subset(new[] { 1 }).LineOf(0) == null, "and one with only one end drops it");
+            var back = Tail(1200);
+            Wire.Restore(back, Wire.Encode(b));
+            Check(Wire.Hash(back) == Wire.Hash(b) && back.LineOf(1) != null, "a snapshot brings it across exactly");
+            var turn0 = new TurnPlan { aim = new Vec3d(-0.5, 0.86, 0).Normalized, throttle = 1 };
+            b.Resolve(new TurnPlan?[] { turn0, Ahead(b, 1) }, 3);
+            back.Resolve(new TurnPlan?[] { turn0, Ahead(back, 1) }, 3);
+            Check(Wire.Hash(back) == Wire.Hash(b), "and both fly the next turn the same");
+            var d = Tail(1200);
+            d.Resolve(new TurnPlan?[] { Ahead(d, 0), p1 }, 1.5);
+            d.Swap(0, 1);
+            Check(d.LineOf(0) != null && d.LineOf(0).target == 1 && d.grapples[0] == Specials.Grapples - 1, "a swap moves the line and the count with the plane");
+            var pd = Wire.Decode<TurnPlan>(Wire.Encode(new TurnPlan { grapple = true, grappleAt = 1.35 }));
+            Check(pd.grapple && pd.grappleAt == 1.35, "a plan with a grapple (and its moment) survives the trip to bytes");
+        }
+        {
+            // the AI pilots: behind a P-51 breaking hard, with a hook
+            int used = 0;
+            foreach (double side in new[] { -1.0, 1.0 })
+                foreach (double gap in new[] { 900.0, 1500, 2100 })
+                {
+                    var b = Tail(gap);
+                    b.balloonMines[1] = b.heatBlades[1] = b.stealths[1] = b.jammers[1] = b.wells[1] = 0;
+                    b.planes[0].state.up = new Vec3d(side * 0.8, 0, 0.6).Normalized;   // banked into a break
+                    var p = new EnemyAi { me = 1, sloppiness = 0 }.Plan(b, 3);
+                    if (p.grapple) used++;
+                }
+            Check(used >= 1, $"an AI pilot behind a breaking target hooks it ({used} of 6)");
+            var h = Pair(300, 1500, South);
+            var ph = new EnemyAi { me = 0, sloppiness = 0 }.Plan(h, 3);
+            Check(!ph.grapple, "but doesn't hook one passing the other way (it would only hurt itself)");
+        }
+        {
+            // the loadout pick
+            var l = new Loadout(Kit.Missiles, Kit.Mines).Pick(Kit.Grapple, Craft.F15);
+            Check(l.Has(Kit.Grapple) && l.Has(Kit.Mines), $"any plane can pick it ({l})");
+            var set = new DogfightSetup { randomStart = false, ours = new[] { Craft.Mustang }, theirs = new[] { Craft.Bf109 },
+                                          oursLoadouts = new[] { new Loadout(Kit.Grapple, Kit.Missiles) }, theirsLoadouts = new[] { new Loadout(Kit.Missiles, Kit.Mines) } };
+            var b = Scenarios.Dogfight(DogfightSetup.FromBytes(set.ToBytes()), Vec3d.Zero);
+            Check(b.grapples[0] == Specials.Grapples && b.grapples[1] == 0, "picked, it brings two hooks (and only the picker has them), through the trip to bytes");
         }
     }
 }

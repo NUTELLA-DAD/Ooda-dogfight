@@ -34,6 +34,8 @@ namespace Ooda.Turn.Core
         public int balloonMines, heatBlades, stealths, jammers;
         /// <summary>Gravity wells carried (see Specials): none unless the loadout (or Specials.Arm) gives them.</summary>
         public int wells;
+        /// <summary>Grapple hooks carried (see Specials): none unless the loadout (or Specials.Arm) gives them.</summary>
+        public int grapples;
         /// <summary>Ice (a loadout pick, see Loadout): the airframe is cased in ice, cold as the sky, so no heat-seeker can lock it and one that blunders into it shatters harmlessly. Radar missiles and guns still bite.</summary>
         public bool iced;
         /// <summary>
@@ -414,6 +416,8 @@ namespace Ooda.Turn.Core
         public bool ram, cloaked;
         /// <summary>The pilot's G stress, 0 to 1 (1 blacked out: G-LOC); see FlightModel.GreyOut.</summary>
         public double greyOut;
+        /// <summary>A grapple's line tugging on it, in G (felt by the pilot on top of the wing's G).</summary>
+        public double tugG;
         /// <summary>The pilot has bailed out: when (battle time; meaningless while bailed is false), from where and how fast.</summary>
         public bool bailed;
         public double bailAt;
@@ -435,6 +439,7 @@ namespace Ooda.Turn.Core
         public bool chaff;        // a chaff cloud (kept in TurnResult.chaff)
         public bool mine;         // a balloon mine's drift (kept in TurnResult.mines); hit: it went off
         public bool well;         // a gravity well's drift (kept in TurnResult.wells)
+        public bool tether;       // a grapple's line (a TetherTrace, kept in TurnResult.tethers): points are the hooker's end
         public double age0;       // how old the round (missile, flare) was at startFrame, s
         /// <summary>
         /// Recorded runs only: the closest the packet came to an opposing aircraft (ft), against the target it came
@@ -445,5 +450,24 @@ namespace Ooda.Turn.Core
         /// <summary>A near miss: it did not hit, but passed within twice the hit distance.</summary>
         public bool Near => !hit && closestTarget >= 0 && closestFt <= 2 * reachFt;
         public Vec3d? At(int frame) => frame >= startFrame && frame - startFrame < points.Count ? points[frame - startFrame] : (Vec3d?)null;
+    }
+
+    /// <summary>
+    /// A grapple's line through a turn (see Tether): owner hooked target; from startFrame to the last frame it held (points has
+    /// one per frame, the owner's end; tensionG the pull along it each frame, in G on the lighter of the two). snapFrame is the
+    /// frame it snapped in a violent yank (-1 it didn't), with each end's jolt, in ft/s of sudden change in speed.
+    /// </summary>
+    public class TetherTrace : Trace
+    {
+        public int target = -1;
+        public System.Collections.Generic.List<float> tensionG = new System.Collections.Generic.List<float>();
+        public int snapFrame = -1;
+        public double jolt0, jolt1;
+        /// <summary>Hooked in this turn (rather than out already when it began).</summary>
+        public bool hookedNow;
+        /// <summary>Cut by its owner (rather than snapping, running out or one end going down).</summary>
+        public bool cut;
+        public int EndFrame => startFrame + points.Count - 1;
+        public float TensionAt(int frame) => frame >= startFrame && frame - startFrame < tensionG.Count ? tensionG[frame - startFrame] : 0f;
     }
 }

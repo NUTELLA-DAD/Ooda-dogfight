@@ -32,6 +32,18 @@ namespace Ooda.Turn.Core
     /// grows toward the core's edge (WellCoreFt) and falls with the square of the range past it, out to WellReachFt. Inside
     /// your turn it adds to your wing's pull, so you turn tighter; a missile that is drawn inside WellCaptureFt loses its
     /// target for good and is flung on. It does no damage itself.
+    ///
+    /// Grapple: from the moment of the turn you plan (TurnPlan.grappleAt) a hook flies at the first enemy inside GrappleReachFt
+    /// and GrappleConeDeg of your nose (the one you are after first) and holds him on a line as long as the gap was, reeling in
+    /// at GrappleReelFps to GrappleMinFt, for GrappleLifeSec (two turns) or until you cut it (plan it again with the line out).
+    /// The line only pulls, never pushes: slack while you close, and once taut a stiff, springy rope (GrappleK, damped by
+    /// GrappleC on the rate you pull apart) shared between you by weight, so a heavy plane drags a light one round. Flown past
+    /// or round him it is a pivot: you swing far tighter than your wing could turn you, and he is dragged the other way. It
+    /// holds with up to GrappleHoldG between you (past that its brake pays line out) and you both feel it (FlightModel.Tug):
+    /// a hard swing greys you out. Taut with you pulling apart faster than GrappleSnapFps (flying opposite ways) it goes
+    /// bar-taut and snaps in a violent yank: up to GrappleJoltMaxFps of your speed apart is
+    /// taken out at once, shared by weight, and each end takes the jolt: G-seconds enough to knock a pilot cold
+    /// (GrappleStressPerG) and wear on every system (GrappleWearPerFps), worst on the lighter plane.
     /// </summary>
     public static class Specials
     {
@@ -58,7 +70,22 @@ namespace Ooda.Turn.Core
         /// <summary>A missile drawn this close to the middle of a gravity well loses its target for good.</summary>
         public const double WellCaptureFt = 450;
         /// <summary>What each fighter carries with Arcade on.</summary>
-        public const int Mines = 2, Blades = 1, Stealths = 1, Jammers = 1, Wells = 2;
+        public const int Mines = 2, Blades = 1, Stealths = 1, Jammers = 1, Wells = 2, Grapples = 2;
+        /// <summary>The grapple's reach: an enemy within GrappleReachFt and GrappleConeDeg of the nose can be hooked.</summary>
+        public const double GrappleReachFt = 2500, GrappleConeDeg = 50;
+        /// <summary>The line: it holds GrappleLifeSec, reeling in at GrappleReelFps to no shorter than GrappleMinFt.</summary>
+        public const double GrappleLifeSec = 6, GrappleReelFps = 80, GrappleMinFt = 350;
+        /// <summary>The rope's spring (per s², on the stretch) and damping (per s, on the rate the two pull apart).</summary>
+        public const double GrappleK = 30, GrappleC = 4;
+        /// <summary>
+        /// The line holds them with up to GrappleHoldG between them (a brake on its drum pays line out past that, so a hard
+        /// swing drags rather than breaks); but taut with the two pulling apart faster than GrappleSnapFps (opposite ways) it snaps.
+        /// </summary>
+        public const double GrappleHoldG = 12, GrappleSnapFps = 420;
+        /// <summary>The snap's yank: at most this much of the speed apart taken out at once, ft/s.</summary>
+        public const double GrappleJoltMaxFps = 320;
+        /// <summary>What the yank does to each end: G-seconds of stress per G-second of jolt, and wear on every system per ft/s.</summary>
+        public const double GrappleStressPerG = 1.2, GrappleWearPerFps = 0.0025;
 
         /// <summary>Where a gravity well thrown now from m, flying plan p, settles: ahead and into the turn.</summary>
         public static Vec3d WellLanding(FlightModel m, TurnPlan p)
@@ -81,7 +108,7 @@ namespace Ooda.Turn.Core
         /// <summary>Give a fighter its arcade load (the same numbers, changed in place, returned for chaining).</summary>
         public static CombatNumbers Arm(CombatNumbers c)
         {
-            c.balloonMines = Mines; c.heatBlades = Blades; c.stealths = Stealths; c.jammers = Jammers; c.wells = Wells;
+            c.balloonMines = Mines; c.heatBlades = Blades; c.stealths = Stealths; c.jammers = Jammers; c.wells = Wells; c.grapples = Grapples;
             return c;
         }
     }
@@ -201,6 +228,69 @@ namespace Ooda.Turn.Core
             vel = vel * Math.Exp(-dragPerSec * dt);
             pos = pos + (v0 + vel) * (dt / 2);
             age += dt;
+        }
+    }
+    /// <summary>
+    /// A grapple's line (see Specials): owner hooked target and the line between them pulls them together whenever it is
+    /// taut. It rides in the battle's bullets (at the owner's end, hitting nothing) so a clone, a subset, a swap and the wire
+    /// carry it like a mine.
+    /// </summary>
+    public class Tether : Bullet
+    {
+        /// <summary>The shooter recorded on a snap's hits: no one (so the gun previews never count a yank as a hit).</summary>
+        public const int Nobody = -100000;
+
+        public int target = -1;
+        /// <summary>How long the line is now, ft: the gap when it hooked, reeling in.</summary>
+        public double lengthFt;
+        /// <summary>Last step's pull along it, in G on the lighter of the two (0 slack).</summary>
+        public double tensionG;
+
+        public static Tether Make(int owner, int side, int target, Vec3d pos, double lengthFt, double time) => new Tether
+        {
+            owner = owner, side = side, target = target, pos = pos, fireTime = time, lengthFt = lengthFt,
+            damage = 0, hitRadiusFt = 0, lifeSec = Specials.GrappleLifeSec,
+        };
+
+        /// <summary>
+        /// One step of the line between a (its owner) and b (the one hooked): reel in, then if taut pull both by weight
+        /// (FlightModel.Tug). True when it snaps instead: joltA and joltB are the sudden changes in speed the yank gives each
+        /// (the caller applies them, with the harm). It does not move either plane when it snaps.
+        /// </summary>
+        public bool Step(FlightModel a, FlightModel b, double dt, out Vec3d joltA, out Vec3d joltB)
+        {
+            joltA = joltB = Vec3d.Zero;
+            age += dt;
+            pos = a.state.pos; vel = a.state.vel;
+            lengthFt = Math.Max(Specials.GrappleMinFt, lengthFt - Specials.GrappleReelFps * dt);
+            Vec3d r = b.state.pos - a.state.pos;
+            double d = r.Length;
+            tensionG = 0;
+            if (d <= lengthFt || d < 1e-6) return false;   // slack
+            Vec3d u = r * (1 / d);
+            double stretch = d - lengthFt, apart = Vec3d.Dot(b.state.vel - a.state.vel, u);
+            double pull = Math.Max(0, Specials.GrappleK * stretch + Specials.GrappleC * apart);   // ft/s² between them
+            double ma = Math.Max(1, a.numbers.weightLb), mb = Math.Max(1, b.numbers.weightLb);
+            double shareA = mb / (ma + mb), shareB = ma / (ma + mb);
+            if (apart > Specials.GrappleSnapFps)
+            {
+                tensionG = Specials.GrappleHoldG * 2 * Math.Max(shareA, shareB);   // for the picture: bar-taut as it parts
+                double dv = Math.Min(Math.Max(0, apart), Specials.GrappleJoltMaxFps);
+                joltA = u * (dv * shareA);
+                joltB = u * (-dv * shareB);
+                alive = false;
+                return true;
+            }
+            double hold = Specials.GrappleHoldG * Atmosphere.GFtps2;
+            if (pull > hold)
+            {
+                pull = hold;
+                lengthFt = Math.Max(lengthFt, d - Math.Max(0, hold - Specials.GrappleC * apart) / Specials.GrappleK);   // the brake pays out
+            }
+            tensionG = pull * Math.Max(shareA, shareB) / Atmosphere.GFtps2;
+            a.Tug(u * (pull * shareA), dt);
+            b.Tug(u * (-pull * shareB), dt);
+            return false;
         }
     }
 }

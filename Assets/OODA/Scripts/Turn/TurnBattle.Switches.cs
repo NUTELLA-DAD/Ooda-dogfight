@@ -159,6 +159,11 @@ namespace Ooda.Turn
                 row.Add(Sw("JAM", $"7  ({battle.jammers[0]})", plan.jam, plan.jam || battle.jammers[0] > 0, jamColor, ToggleJam));
             if (load.wells > 0)
                 row.Add(Sw("WELL", $"8  ({battle.wells[0]})", plan.well, plan.well || battle.wells[0] > 0, wellColor, ToggleWell));
+            if (load.grapples > 0)
+            {
+                bool lineOut = battle.LineOf(0) != null;
+                row.Add(Sw(lineOut ? "CUT LINE" : "GRAPPLE", $"0  ({battle.grapples[0]})", plan.grapple, plan.grapple || lineOut || battle.grapples[0] > 0, grappleColor, ToggleGrapple));
+            }
             SwitchRow(x, y, w, row, true);
             if (JammedNow)
             {
