@@ -82,6 +82,13 @@ namespace Ooda.Turn.Core
     /// yours, a tailer through the whole of it. Rime costs lift, speed, climb and roll until it melts off, but while it lies
     /// on the airframe (past Systems.RimeColdAt) no heat-seeker can lock the plane, and one already on its way shatters on
     /// it, as on the Ice pick. It hits nothing and does no damage.
+    ///
+    /// Gravity flip: set off at the start of the turn, it opens a bubble of upside-down gravity FlipReachFt round where you
+    /// are, fixed in the sky, for FlipSec (this turn and the next). Inside it everything falls up: every plane but yours
+    /// (both sides, wrecks too) is pushed up at FlipG, so gravity pulls up at 1 G instead of down at 1 G, and rounds,
+    /// missiles, flares and chaff arc up instead of dropping. You keep your weight: the tailer behind you floats up off your
+    /// line, a diver overshoots upward, and a wreck falls into the sky. Full strength out to FlipCoreFt, fading to nothing at
+    /// its edge. It does no damage itself.
     /// </summary>
     public static class Specials
     {
@@ -133,8 +140,14 @@ namespace Ooda.Turn.Core
         public const double SnowLifeSec = 12, SnowFadeSec = 2;
         /// <summary>The rime a plane picks up each second in the middle of a full snow cloud (less toward its edge).</summary>
         public const double RimePerSec = 0.75;
+        /// <summary>The gravity flip's bubble: full strength out to FlipCoreFt, fading to nothing at FlipReachFt.</summary>
+        public const double FlipCoreFt = 1500, FlipReachFt = 2000;
+        /// <summary>The gravity flip: open for FlipSec (two turns), opening over FlipOpenSec and fading over its last FlipFadeSec.</summary>
+        public const double FlipSec = 6, FlipOpenSec = 0.25, FlipFadeSec = 0.5;
+        /// <summary>The gravity flip's push up, in G: 2 turns 1 G down into 1 G up.</summary>
+        public const double FlipG = 2;
         /// <summary>What each fighter carries with Arcade on.</summary>
-        public const int Mines = 2, Blades = 1, Stealths = 1, Jammers = 1, Wells = 2, SlowBombs = 2, Blinks = 2, Mirrors = 2, Grapples = 2, SnowClouds = 2;
+        public const int Mines = 2, Blades = 1, Stealths = 1, Jammers = 1, Wells = 2, SlowBombs = 2, Blinks = 2, Mirrors = 2, Grapples = 2, SnowClouds = 2, Flips = 2;
         /// <summary>The time slow bomb's throw: at the nearest threat within SlowReachFt, flying SlowFlySec to burst (none in reach: SlowAheadFt ahead).</summary>
         public const double SlowReachFt = 5000, SlowFlySec = 0.6, SlowAheadFt = 1200, SlowClearFt = 200;
         /// <summary>The time slow bubble: SlowRadiusFt round its middle (full slow inside SlowCoreShare of it, easing to none at the edge), for SlowLifeSec after it bursts, fading over SlowFadeSec.</summary>
@@ -237,7 +250,7 @@ namespace Ooda.Turn.Core
         /// <summary>Give a fighter its arcade load (the same numbers, changed in place, returned for chaining).</summary>
         public static CombatNumbers Arm(CombatNumbers c)
         {
-            c.balloonMines = Mines; c.heatBlades = Blades; c.stealths = Stealths; c.jammers = Jammers; c.wells = Wells; c.slowBombs = SlowBombs; c.blinks = Blinks; c.mirrors = Mirrors; c.grapples = Grapples; c.lanes = JetStream.Lanes;
+            c.balloonMines = Mines; c.heatBlades = Blades; c.stealths = Stealths; c.jammers = Jammers; c.wells = Wells; c.slowBombs = SlowBombs; c.blinks = Blinks; c.mirrors = Mirrors; c.grapples = Grapples; c.lanes = JetStream.Lanes; c.flips = Flips;
             return c;
         }
     }
@@ -519,5 +532,50 @@ namespace Ooda.Turn.Core
             pos = pos + (v0 + vel) * (dt / 2);
             age += dt;
         }
+    }
+
+    /// <summary>
+    /// A gravity flip's bubble (see Specials): fixed in the sky where it was set off, it pushes everything inside it up, all
+    /// but the plane that set it off. It hits nothing and does no damage; it rides in the battle's bullets so a clone, a
+    /// subset, a swap and the wire carry it like a well.
+    /// </summary>
+    public class Flip : Bullet
+    {
+        public static Flip Make(int owner, int side, Vec3d pos, double time) => new Flip
+        {
+            owner = owner, side = side, pos = pos, vel = Vec3d.Zero, fireTime = time,
+            damage = 0, hitRadiusFt = 0, dragPerSec = 0, lifeSec = Specials.FlipSec,
+        };
+
+        /// <summary>How hard it flips now, 0 to 1: opening over FlipOpenSec, fading over the last FlipFadeSec.</summary>
+        public double Strength
+        {
+            get
+            {
+                if (age >= lifeSec) return 0;
+                double open = Math.Min(1, age / Specials.FlipOpenSec);
+                double fade = Math.Min(1, (lifeSec - age) / Specials.FlipFadeSec);
+                return Math.Max(0, Math.Min(open, fade));
+            }
+        }
+
+        public bool Open => Strength > 0;
+
+        /// <summary>How much of its flip reaches p, 0 to 1: all of it inside the core, fading to nothing at the edge.</summary>
+        public static double Share(double r) => r <= Specials.FlipCoreFt ? 1 : r >= Specials.FlipReachFt ? 0 : (Specials.FlipReachFt - r) / (Specials.FlipReachFt - Specials.FlipCoreFt);
+
+        /// <summary>Inside its reach (whatever its strength).</summary>
+        public bool Holds(Vec3d p) => (p - pos).Length < Specials.FlipReachFt;
+
+        /// <summary>Its push up on something at p, ft/s² (none on the plane who, if that is the one that set it off; -1 for a round).</summary>
+        public Vec3d Lift(Vec3d p, int who = -1)
+        {
+            if (who >= 0 && who == owner) return Vec3d.Zero;
+            double s = Strength * Share((p - pos).Length);
+            return s <= 0 ? Vec3d.Zero : new Vec3d(0, 0, s * Specials.FlipG * Atmosphere.GFtps2);
+        }
+
+        /// <summary>One step: it stays where it was set off and only ages.</summary>
+        public void Step(double dt) => age += dt;
     }
 }

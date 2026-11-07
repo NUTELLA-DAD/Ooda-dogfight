@@ -25,6 +25,8 @@ namespace Ooda.Turn.Core
         public List<Trace> snow = new List<Trace>();
         /// <summary>The jet stream lanes (see JetStream) blowing at some time in the turn: they lie still and hit nothing.</summary>
         public List<LaneTrace> lanes = new List<LaneTrace>();
+        /// <summary>The gravity flips' bubbles (see Specials), apart too: they hit nothing.</summary>
+        public List<Trace> flips = new List<Trace>();
         /// <summary>The chaff clouds' drift (see Radar), apart too: they hit nothing and show nothing to a heat-seeker.</summary>
         public List<Trace> chaff = new List<Trace>();
         /// <summary>The sonic booms this turn and the planes they shoved (see Specials): kept even when frames aren't recorded.</summary>
@@ -81,6 +83,8 @@ namespace Ooda.Turn.Core
         public int[] snowClouds = new int[0];
         /// <summary>Jet stream lanes left (see JetStream).</summary>
         public int[] lanes = new int[0];
+        /// <summary>Gravity flips left (see Specials).</summary>
+        public int[] flips = new int[0];
         /// <summary>Jammed (seeing scrambled ghosts) until this battle time.</summary>
         public double[] jammedUntil = new double[0];
         /// <summary>The heat blade glowing this turn; stealthy until this battle time.</summary>
@@ -144,6 +148,7 @@ namespace Ooda.Turn.Core
             Array.Resize(ref grapples, n + 1); grapples[n] = c.grapples;
             Array.Resize(ref snowClouds, n + 1); snowClouds[n] = c.snowClouds;
             Array.Resize(ref lanes, n + 1); lanes[n] = c.lanes;
+            Array.Resize(ref flips, n + 1); flips[n] = c.flips;
             Array.Resize(ref jammedUntil, n + 1);
             Array.Resize(ref ramOn, n + 1);
             Array.Resize(ref cloakUntil, n + 1);
@@ -190,7 +195,7 @@ namespace Ooda.Turn.Core
             void S<T>(T[] arr) { var t = arr[a]; arr[a] = arr[b]; arr[b] = t; }
             int Map(int i) => i == a ? b : i == b ? a : i;
             side = (int[])side.Clone(); combat = (CombatNumbers[])combat.Clone();   // new arrays: clones share these two
-            S(planes); S(combat); S(side); S(routes); S(flightOf); S(number); S(orders); S(ammo); S(missiles); S(flares); S(radarMissiles); S(chaff); S(radarTrack); S(trackSec); S(balloonMines); S(heatBlades); S(stealths); S(jammers); S(wells); S(slowBombs); S(blinks); S(mirrors); S(mirrorUntil); S(grapples); S(snowClouds); S(lanes); S(jammedUntil); S(ramOn); S(cloakUntil); S(down); S(crashed); S(hitObstacle); S(fireClock);
+            S(planes); S(combat); S(side); S(routes); S(flightOf); S(number); S(orders); S(ammo); S(missiles); S(flares); S(radarMissiles); S(chaff); S(radarTrack); S(trackSec); S(balloonMines); S(heatBlades); S(stealths); S(jammers); S(wells); S(slowBombs); S(blinks); S(mirrors); S(mirrorUntil); S(grapples); S(snowClouds); S(lanes); S(flips); S(jammedUntil); S(ramOn); S(cloakUntil); S(down); S(crashed); S(hitObstacle); S(fireClock);
             foreach (var bl in bullets)
             {
                 if (bl.owner >= 0) bl.owner = Map(bl.owner);
@@ -249,7 +254,7 @@ namespace Ooda.Turn.Core
             c.flights = flights.ConvertAll(f => f.Copy());
             c.ammo = (double[])ammo.Clone(); c.missiles = (int[])missiles.Clone(); c.flares = (int[])flares.Clone();
             c.radarMissiles = (int[])radarMissiles.Clone(); c.chaff = (int[])chaff.Clone(); c.radarTrack = (int[])radarTrack.Clone(); c.trackSec = (double[])trackSec.Clone();
-            c.balloonMines = (int[])balloonMines.Clone(); c.heatBlades = (int[])heatBlades.Clone(); c.stealths = (int[])stealths.Clone(); c.jammers = (int[])jammers.Clone(); c.wells = (int[])wells.Clone(); c.slowBombs = (int[])slowBombs.Clone(); c.blinks = (int[])blinks.Clone(); c.mirrors = (int[])mirrors.Clone(); c.mirrorUntil = (double[])mirrorUntil.Clone(); c.grapples = (int[])grapples.Clone(); c.snowClouds = (int[])snowClouds.Clone(); c.lanes = (int[])lanes.Clone(); c.jammedUntil = (double[])jammedUntil.Clone();
+            c.balloonMines = (int[])balloonMines.Clone(); c.heatBlades = (int[])heatBlades.Clone(); c.stealths = (int[])stealths.Clone(); c.jammers = (int[])jammers.Clone(); c.wells = (int[])wells.Clone(); c.slowBombs = (int[])slowBombs.Clone(); c.blinks = (int[])blinks.Clone(); c.mirrors = (int[])mirrors.Clone(); c.mirrorUntil = (double[])mirrorUntil.Clone(); c.grapples = (int[])grapples.Clone(); c.snowClouds = (int[])snowClouds.Clone(); c.lanes = (int[])lanes.Clone(); c.flips = (int[])flips.Clone(); c.jammedUntil = (double[])jammedUntil.Clone();
             c.ramOn = (bool[])ramOn.Clone(); c.cloakUntil = (double[])cloakUntil.Clone();
             c.down = (bool[])down.Clone(); c.crashed = (bool[])crashed.Clone(); c.hitObstacle = (bool[])hitObstacle.Clone();
             c.fireClock = (double[])fireClock.Clone();
@@ -308,6 +313,8 @@ namespace Ooda.Turn.Core
                 if (plans[i].grapple) { if (LineOf(i) != null) cutArmed[i] = true; else if (grapples[i] > 0) hookArmed[i] = true; }   // a hook is spent only when it catches
                 if (plans[i].snow && snowClouds[i] > 0) { letSnow[i] = true; snowClouds[i]--; }
                 if (plans[i].lane && lanes[i] > 0) { layLane[i] = true; lanes[i]--; }
+                // Gravity flip: a bubble of upside-down gravity opens where it is now, at once
+                if (plans[i].flip && flips[i] > 0) { flips[i]--; bullets.Add(Flip.Make(i, side[i], planes[i].state.pos, time)); }
             }
             for (int i = 0; i < n; i++)
             {
@@ -378,6 +385,8 @@ namespace Ooda.Turn.Core
                 IcePlanes();
                 // Jet streams: every plane inside one rides its wind (both sides: you too)
                 BlowPlanes();
+                // Gravity flips: everyone inside one falls up, all but the plane that set it off (wrecks too)
+                FlipPlanes();
 
                 for (int i = 0; i < n; i++) routes[i]?.Advance(planes[i]);
                 TrackRadars(plans);
@@ -495,7 +504,7 @@ namespace Ooda.Turn.Core
                 DropChaff(plans, res, traceOf, k);
 
                 // Rounds: gravity and drag, then a check against each other aircraft over the step
-                bool anyWell = AnyWellOpen(), anyLane = AnyLaneOpen();
+                bool anyWell = AnyWellOpen(), anyLane = AnyLaneOpen(), anyFlip = AnyFlipOpen();
                 anySlow = AnyBubbleUp();
                 for (int bi = bullets.Count - 1; bi >= 0; bi--)
                 {
@@ -538,6 +547,16 @@ namespace Ooda.Turn.Core
                     }
                     // the jet streams carry it along, whatever it is (a round, a missile, a mine, a flare or chaff)
                     if (anyLane) b.pos = b.pos + LaneWind(b.pos) * StepSec;
+                    if (b is Flip fp)
+                    {
+                        fp.Step(StepSec);
+                        if (fp.age > fp.lifeSec) fp.alive = false;
+                        if (bt != null) bt.points.Add(b.pos);
+                        if (!b.alive) bullets.RemoveAt(bi);
+                        continue;
+                    }
+                    // the gravity flips: in one, it falls up (a balloon mine holds itself where it is)
+                    if (anyFlip && !(b is Mine)) b.vel = b.vel + FlipLift(b.pos) * StepSec;
                     if (anyWell && !(b is Mine) && !(b is Flare) && !(b is Chaff))
                     {
                         // the gravity wells bend it: a missile hard, a round (light) harder still
@@ -975,6 +994,41 @@ namespace Ooda.Turn.Core
             res.hits.Add(e);
         }
 
+        /// <summary>Any gravity flip open now.</summary>
+        bool AnyFlipOpen()
+        {
+            foreach (var b in bullets) if (b is Flip f && f.Open) return true;
+            return false;
+        }
+
+        /// <summary>The push up of every open gravity flip on something at p, ft/s² (who: the plane there, spared its own; -1 a round).</summary>
+        public Vec3d FlipLift(Vec3d p, int who = -1)
+        {
+            Vec3d a = Vec3d.Zero;
+            foreach (var b in bullets) if (b is Flip f && f.Open) a = a + f.Lift(p, who);
+            return a;
+        }
+
+        /// <summary>In someone else's gravity flip now: aircraft i falls up here.</summary>
+        public bool Flipped(int i)
+        {
+            if (i < 0 || i >= Count || crashed[i]) return false;
+            foreach (var b in bullets) if (b is Flip f && f.Open && f.owner != i && f.Holds(planes[i].state.pos)) return true;
+            return false;
+        }
+
+        /// <summary>One step of the gravity flips' push on every plane in one, the wrecks falling too (not the one that set it off).</summary>
+        void FlipPlanes()
+        {
+            if (!AnyFlipOpen()) return;
+            for (int i = 0; i < Count; i++)
+            {
+                if (crashed[i] || strike != null && strike.Held(i)) continue;
+                Vec3d a = FlipLift(planes[i].state.pos, i);
+                if (a.Length > 1e-9) planes[i].Push(a, StepSec);
+            }
+        }
+
         /// <summary>The heat blade on aircraft a cuts aircraft b in half: down at once, recorded as a hit for the flash and the tally.</summary>
         void Slice(int a, int b, TurnResult res)
         {
@@ -1017,10 +1071,10 @@ namespace Ooda.Turn.Core
                 res.lanes.Add(new LaneTrace { owner = b.owner, startFrame = frame, age0 = b.age, start = ln.pos, dir = ln.dir, back = ln.back });
                 return;
             }
-            var tr = new Trace { owner = b.owner, startFrame = frame, missile = b is Missile, radar = b is Missile rm && rm.radar, chaff = b is Chaff, mine = b is Mine, well = b is Well, magnet = b.magnet, bubble = b is TimeBubble, snow = b is SnowCloud, age0 = b.age };
+            var tr = new Trace { owner = b.owner, startFrame = frame, missile = b is Missile, radar = b is Missile rm && rm.radar, chaff = b is Chaff, mine = b is Mine, well = b is Well, magnet = b.magnet, bubble = b is TimeBubble, snow = b is SnowCloud, flip = b is Flip, age0 = b.age };
             tr.points.Add(b.pos);
             traceOf[b] = tr;
-            if (b is Flare) res.flares.Add(tr); else if (b is Chaff) res.chaff.Add(tr); else if (b is Mine) res.mines.Add(tr); else if (b is Well) res.wells.Add(tr); else if (b is TimeBubble) res.bubbles.Add(tr); else if (b is SnowCloud) res.snow.Add(tr); else res.traces.Add(tr);
+            if (b is Flare) res.flares.Add(tr); else if (b is Chaff) res.chaff.Add(tr); else if (b is Mine) res.mines.Add(tr); else if (b is Well) res.wells.Add(tr); else if (b is TimeBubble) res.bubbles.Add(tr); else if (b is SnowCloud) res.snow.Add(tr); else if (b is Flip) res.flips.Add(tr); else res.traces.Add(tr);
         }
 
         /// <summary>Aircraft i's radar can see aircraft j: an enemy still flying, not stealthy, inside its cone and out to range (times rangeFactor).</summary>
@@ -1299,7 +1353,7 @@ namespace Ooda.Turn.Core
             c.planes = new FlightModel[n]; c.combat = new CombatNumbers[n]; c.side = new int[n]; c.routes = new Route[n];
             c.ammo = new double[n]; c.missiles = new int[n]; c.flares = new int[n]; c.down = new bool[n];
             c.radarMissiles = new int[n]; c.chaff = new int[n]; c.radarTrack = new int[n]; c.trackSec = new double[n];
-            c.balloonMines = new int[n]; c.heatBlades = new int[n]; c.stealths = new int[n]; c.jammers = new int[n]; c.wells = new int[n]; c.lanes = new int[n]; c.snowClouds = new int[n]; c.grapples = new int[n]; c.slowBombs = new int[n]; c.blinks = new int[n]; c.mirrors = new int[n]; c.mirrorUntil = new double[n]; c.jammedUntil = new double[n]; c.ramOn = new bool[n]; c.cloakUntil = new double[n]; c.crashed = new bool[n]; c.hitObstacle = new bool[n]; c.fireClock = new double[n];
+            c.balloonMines = new int[n]; c.heatBlades = new int[n]; c.stealths = new int[n]; c.jammers = new int[n]; c.wells = new int[n]; c.flips = new int[n]; c.lanes = new int[n]; c.snowClouds = new int[n]; c.grapples = new int[n]; c.slowBombs = new int[n]; c.blinks = new int[n]; c.mirrors = new int[n]; c.mirrorUntil = new double[n]; c.jammedUntil = new double[n]; c.ramOn = new bool[n]; c.cloakUntil = new double[n]; c.crashed = new bool[n]; c.hitObstacle = new bool[n]; c.fireClock = new double[n];
             var map = new Dictionary<int, int>();
             for (int j = 0; j < n; j++)
             {
@@ -1307,7 +1361,7 @@ namespace Ooda.Turn.Core
                 c.planes[j] = planes[i].Clone(); c.combat[j] = combat[i]; c.side[j] = side[i]; c.routes[j] = routes[i]?.Copy();
                 c.ammo[j] = ammo[i]; c.missiles[j] = missiles[i]; c.flares[j] = flares[i];
                 c.radarMissiles[j] = radarMissiles[i]; c.chaff[j] = chaff[i]; c.trackSec[j] = trackSec[i];
-                c.balloonMines[j] = balloonMines[i]; c.heatBlades[j] = heatBlades[i]; c.stealths[j] = stealths[i]; c.jammers[j] = jammers[i]; c.wells[j] = wells[i]; c.slowBombs[j] = slowBombs[i]; c.blinks[j] = blinks[i]; c.mirrors[j] = mirrors[i]; c.mirrorUntil[j] = mirrorUntil[i]; c.grapples[j] = grapples[i]; c.snowClouds[j] = snowClouds[i]; c.lanes[j] = lanes[i]; c.jammedUntil[j] = jammedUntil[i]; c.ramOn[j] = ramOn[i]; c.cloakUntil[j] = cloakUntil[i];
+                c.balloonMines[j] = balloonMines[i]; c.heatBlades[j] = heatBlades[i]; c.stealths[j] = stealths[i]; c.jammers[j] = jammers[i]; c.wells[j] = wells[i]; c.slowBombs[j] = slowBombs[i]; c.blinks[j] = blinks[i]; c.mirrors[j] = mirrors[i]; c.mirrorUntil[j] = mirrorUntil[i]; c.grapples[j] = grapples[i]; c.snowClouds[j] = snowClouds[i]; c.lanes[j] = lanes[i]; c.flips[j] = flips[i]; c.jammedUntil[j] = jammedUntil[i]; c.ramOn[j] = ramOn[i]; c.cloakUntil[j] = cloakUntil[i];
                 c.down[j] = down[i]; c.crashed[j] = crashed[i]; c.hitObstacle[j] = hitObstacle[i]; c.fireClock[j] = fireClock[i];
             }
             for (int j = 0; j < n; j++)
@@ -1332,7 +1386,7 @@ namespace Ooda.Turn.Core
                 }
                 var ms = b as Missile;
                 bool aimedIn = ms != null && ms.target >= 0 && map.ContainsKey(ms.target);
-                if (b.owner >= 0 && !map.ContainsKey(b.owner) && !aimedIn && !(b is Mine) && !(b is Well) && !(b is TimeBubble) && !(b is SnowCloud) && !(b is Lane)) continue;   // keep a missile chasing someone kept, whoever fired it, and every mine, well and snow cloud hanging there
+                if (b.owner >= 0 && !map.ContainsKey(b.owner) && !aimedIn && !(b is Mine) && !(b is Well) && !(b is TimeBubble) && !(b is SnowCloud) && !(b is Lane) && !(b is Flip)) continue;   // keep a missile chasing someone kept, whoever fired it, and every mine, well and snow cloud hanging there
                 var bc = b.Copy();
                 if (b.owner >= 0) bc.owner = map.TryGetValue(b.owner, out int oj) ? oj : -1000;
                 if (b.missed >= 0) bc.missed = map.TryGetValue(b.missed, out int mj) ? mj : -1;

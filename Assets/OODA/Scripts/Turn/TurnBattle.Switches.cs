@@ -174,7 +174,10 @@ namespace Ooda.Turn
                 row.Add(Sw("SNOW", $";  ({battle.snowClouds[0]})", plan.snow, plan.snow || battle.snowClouds[0] > 0, snowColor, ToggleSnow));
             if (load.lanes > 0)
                 row.Add(Sw(plan.lane && plan.laneBack ? "JET BACK" : "JET", $"'  ({battle.lanes[0]})", plan.lane, plan.lane || battle.lanes[0] > 0, laneColor, ToggleLane));
+            if (load.flips > 0)
+                row.Add(Sw("FLIP", $"'  ({battle.flips[0]})", plan.flip, plan.flip || battle.flips[0] > 0, flipColor, ToggleFlip));
             SwitchRow(x, y, w, row, true);
+            FlipWarning(x, y, w);
             if (JammedNow)
             {
                 var w2 = new GUIStyle(GUI.skin.label) { fontSize = 15, fontStyle = FontStyle.Bold };

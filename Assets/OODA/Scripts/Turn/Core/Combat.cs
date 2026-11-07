@@ -46,6 +46,8 @@ namespace Ooda.Turn.Core
         public int snowClouds;
         /// <summary>Jet stream lanes carried (see JetStream): none unless the loadout (or Specials.Arm) gives them.</summary>
         public int lanes;
+        /// <summary>Gravity flips carried (see Specials): none unless the loadout (or Specials.Arm) gives them.</summary>
+        public int flips;
         /// <summary>Ice (a loadout pick, see Loadout): the airframe is cased in ice, cold as the sky, so no heat-seeker can lock it and one that blunders into it shatters harmlessly. Radar missiles and guns still bite.</summary>
         public bool iced;
         /// <summary>Magnet rounds (a loadout pick, see Magnet): the rounds curve toward the nearest enemy they pass.</summary>
@@ -481,6 +483,7 @@ namespace Ooda.Turn.Core
         public bool bubble;       // a time slow bomb's flight and bubble (kept in TurnResult.bubbles)
         public bool tether;       // a grapple's line (a TetherTrace, kept in TurnResult.tethers): points are the hooker's end
         public bool snow;         // a snow cloud's drift (kept in TurnResult.snow)
+        public bool flip;         // a gravity flip's bubble (kept in TurnResult.flips)
         public double age0;       // how old the round (missile, flare) was at startFrame, s
         /// <summary>The round bounced off a ricochet shield (see Specials) at points[bounceAt], -1 never; from there it is the shield's (bouncer).</summary>
         public int bounceAt = -1, bouncer = -1;

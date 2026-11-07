@@ -427,6 +427,7 @@ namespace Ooda.Turn
             plan.grapple = false; plan.grappleAt = 0;
             plan.snow = false; plan.snowAt = 0;
             plan.lane = plan.laneBack = false; plan.laneAt = 0;
+            plan.flip = false;
             plan.rudder = 0;
             markT = 0;
             burstPreset = 0;
@@ -1871,7 +1872,7 @@ namespace Ooda.Turn
                     "Drag on the timeline to fire; F fires where hits are predicted.\n\n" +
                     "Keys: WASD arrow (S pulls up, like the stick), Shift/Ctrl throttle,\n" +
                     "Space full throttle (a jet: burner), 1 rocket, 2 speed brake, 3 hold flares, I IR view, Tab next plane, N next target,\n" +
-                    "4 mine, 5 blade, 6 stealth, 7 jammer, 8 gravity well, / ricochet shield, 0 grapple (again to cut), ' jet stream (\\ turns it round), B bursts, G missile, T timeline,\n" +
+                    "4 mine, 5 blade, 6 stealth, 7 jammer, 8 gravity well, / ricochet shield, 0 grapple (again to cut), ' jet stream (\\ turns it round), ' gravity flip, B bursts, G missile, T timeline,\n" +
                     "A jet: J radar missile, U the radar page; notch a radar missile (fly square across it).\n" +
                     "Z/C rudder pedals (slow and nose-high, the rudder swings the nose: hammerhead).\n" +
                     "Enter fly, R replay, P projection, V view, X straight, M mission, H help.\n" +

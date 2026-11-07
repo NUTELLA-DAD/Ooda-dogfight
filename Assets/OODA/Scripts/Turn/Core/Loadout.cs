@@ -8,7 +8,7 @@ namespace Ooda.Turn.Core
     /// To add one: add it here, give it its words in Loadout.Name, Short and Blurb, say in Allowed
     /// which aircraft can take it, and in Loadout.Apply what it puts on the plane.
     /// </summary>
-    public enum Kit { Missiles, Rocket, Mines, Blade, Stealth, Jammer, Radar, Ice, Well, Magnet, Slow, Blink, Mirror, Grapple, Snow, Jet }
+    public enum Kit { Missiles, Rocket, Mines, Blade, Stealth, Jammer, Radar, Ice, Well, Magnet, Slow, Blink, Mirror, Grapple, Snow, Jet, Flip }
 
     /// <summary>
     /// A pilot's loadout: the two capabilities he brings to the fight (with Arcade on in the dogfight setup). Everyone
@@ -88,16 +88,17 @@ namespace Ooda.Turn.Core
             guns.grapples = Has(Kit.Grapple) ? Specials.Grapples : 0;
             guns.snowClouds = Has(Kit.Snow) ? Specials.SnowClouds : 0;
             guns.lanes = Has(Kit.Jet) ? JetStream.Lanes : 0;
+            guns.flips = Has(Kit.Flip) ? Specials.Flips : 0;
         }
 
         public static string Name(Kit k) => k == Kit.Missiles ? "Heat-seekers" : k == Kit.Rocket ? "Rocket" : k == Kit.Mines ? "Balloon mines"
                                           : k == Kit.Blade ? "Heat blade" : k == Kit.Stealth ? "Stealth" : k == Kit.Jammer ? "Jammer"
-                                          : k == Kit.Radar ? "Radar missiles" : k == Kit.Ice ? "Ice" : k == Kit.Well ? "Gravity well" : k == Kit.Magnet ? "Magnet rounds" : k == Kit.Slow ? "Time slow bomb" : k == Kit.Blink ? "Blink" : k == Kit.Mirror ? "Ricochet shield" : k == Kit.Grapple ? "Grapple" : k == Kit.Snow ? "Snow cloud" : k == Kit.Jet ? "Jet stream" : k.ToString();
+                                          : k == Kit.Radar ? "Radar missiles" : k == Kit.Ice ? "Ice" : k == Kit.Well ? "Gravity well" : k == Kit.Magnet ? "Magnet rounds" : k == Kit.Slow ? "Time slow bomb" : k == Kit.Blink ? "Blink" : k == Kit.Mirror ? "Ricochet shield" : k == Kit.Grapple ? "Grapple" : k == Kit.Snow ? "Snow cloud" : k == Kit.Jet ? "Jet stream" : k == Kit.Flip ? "Gravity flip" : k.ToString();
 
         /// <summary>A few letters for a name plate.</summary>
         public static string Short(Kit k) => k == Kit.Missiles ? "MSL" : k == Kit.Rocket ? "RKT" : k == Kit.Mines ? "MINE"
                                            : k == Kit.Blade ? "BLADE" : k == Kit.Stealth ? "STLTH" : k == Kit.Jammer ? "JAM"
-                                           : k == Kit.Radar ? "RDR" : k == Kit.Ice ? "ICE" : k == Kit.Well ? "WELL" : k == Kit.Magnet ? "MAG" : k == Kit.Slow ? "SLOW" : k == Kit.Blink ? "BLINK" : k == Kit.Mirror ? "RICO" : k == Kit.Grapple ? "HOOK" : k == Kit.Snow ? "SNOW" : k == Kit.Jet ? "JET" : k.ToString().ToUpperInvariant();
+                                           : k == Kit.Radar ? "RDR" : k == Kit.Ice ? "ICE" : k == Kit.Well ? "WELL" : k == Kit.Magnet ? "MAG" : k == Kit.Slow ? "SLOW" : k == Kit.Blink ? "BLINK" : k == Kit.Mirror ? "RICO" : k == Kit.Grapple ? "HOOK" : k == Kit.Snow ? "SNOW" : k == Kit.Jet ? "JET" : k == Kit.Flip ? "FLIP" : k.ToString().ToUpperInvariant();
 
         /// <summary>What it does, in a line, for an aircraft (how many it carries).</summary>
         public static string Blurb(Kit k, Craft c)
@@ -121,6 +122,7 @@ namespace Ooda.Turn.Core
                 case Kit.Grapple: return $"{Specials.Grapples} hooks on a line: swing round an enemy to turn tighter and drag him; pull the other way and it yanks you both, hard.";
                 case Kit.Snow: return $"{Specials.SnowClouds} snow clouds let go round you: anyone flying through is iced, slower and heavier until it melts, but heat-seekers can't lock them.";
                 case Kit.Jet: return $"{JetStream.Lanes} jet streams: a 180 kt wind lane along your arrow (or back at a tailer) that carries planes, rounds and missiles.";
+                case Kit.Flip: return $"{Specials.Flips} flips: for two turns everyone near you but you falls up, and their rounds and missiles with them.";
                 default: return "";
             }
         }

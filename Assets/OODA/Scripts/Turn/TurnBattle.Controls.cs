@@ -253,6 +253,7 @@ namespace Ooda.Turn
             DrawTethers(vs, r, now);
             DrawSnow(r, now);
             DrawLanes(r, now);
+            DrawFlips(r, now);
             DrawSpecialFrames(vs, r, now);
             for (int k = 0; k < vs.Count && k < r.frames.Length; k++)
             {
