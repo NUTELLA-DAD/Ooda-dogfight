@@ -159,6 +159,11 @@ namespace Ooda.Turn
                 row.Add(Sw("JAM", $"7  ({battle.jammers[0]})", plan.jam, plan.jam || battle.jammers[0] > 0, jamColor, ToggleJam));
             if (load.wells > 0)
                 row.Add(Sw("WELL", $"8  ({battle.wells[0]})", plan.well, plan.well || battle.wells[0] > 0, wellColor, ToggleWell));
+            if (load.portals > 0)
+            {
+                row.Add(Sw("PORTAL", $"9  ({battle.portals[0]})", plan.portal, plan.portal || battle.portals[0] > 0, portalEntryColor, TogglePortal));
+                if (plan.portal) row.Add(Sw("EXIT", placingExit ? "click" : "Shift+9", placingExit, true, portalExitColor, () => { placingExit = !placingExit; if (placingExit) PortalNotice(); }));
+            }
             SwitchRow(x, y, w, row, true);
             if (JammedNow)
             {

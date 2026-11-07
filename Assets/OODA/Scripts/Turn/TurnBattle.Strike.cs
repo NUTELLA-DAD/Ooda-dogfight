@@ -138,6 +138,7 @@ namespace Ooda.Turn
 
         void UpdateBriefing()
         {
+            PortalsBegin();
             lines.Begin();
             lines.End();
             tip.gameObject.SetActive(false);
