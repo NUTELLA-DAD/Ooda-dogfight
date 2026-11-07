@@ -159,6 +159,8 @@ namespace Ooda.Turn
                 row.Add(Sw("JAM", $"7  ({battle.jammers[0]})", plan.jam, plan.jam || battle.jammers[0] > 0, jamColor, ToggleJam));
             if (load.wells > 0)
                 row.Add(Sw("WELL", $"8  ({battle.wells[0]})", plan.well, plan.well || battle.wells[0] > 0, wellColor, ToggleWell));
+            if (load.lanes > 0)
+                row.Add(Sw(plan.lane && plan.laneBack ? "JET BACK" : "JET", $"'  ({battle.lanes[0]})", plan.lane, plan.lane || battle.lanes[0] > 0, laneColor, ToggleLane));
             SwitchRow(x, y, w, row, true);
             if (JammedNow)
             {

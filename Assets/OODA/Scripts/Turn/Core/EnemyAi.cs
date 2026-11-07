@@ -137,10 +137,10 @@ namespace Ooda.Turn.Core
                 sub.bullets.RemoveAll(b => b.owner < 0 && (b.pos - m.state.pos).Length > 8000);
                 // and none of its own side's (they cannot hit it, and its score is about what happens to it)
                 int mySide = sub.side[0];
-                sub.bullets.RemoveAll(b => b.side == mySide);
+                sub.bullets.RemoveAll(b => b.side == mySide && !(b is Lane));   // (a jet stream blows on it whoever laid it)
                 // and no gun round too far away to reach it before it falls or the turn ends
                 double myFps = m.state.vel.Length;
-                sub.bullets.RemoveAll(b => !(b is Missile) && (b.pos - m.state.pos).Length > (b.vel.Length + myFps) * Math.Min(turnSec, Math.Max(0, b.lifeSec - b.age)) + 300);
+                sub.bullets.RemoveAll(b => !(b is Missile) && !(b is Lane) && (b.pos - m.state.pos).Length > (b.vel.Length + myFps) * Math.Min(turnSec, Math.Max(0, b.lifeSec - b.age)) + 300);
                 var env = Envelope.Compute(m, turnSec);
                 bool slow = m.Kias < 220;
                 turner = TurnerWeight(m, sub.planes[1]);
@@ -339,6 +339,8 @@ namespace Ooda.Turn.Core
 
         /// <summary>How much better (in score) the rocket must leave it before it spends it, and the same for the speed brake.</summary>
         public double rocketMargin = 0.25, brakeMargin = 0.15;
+        /// <summary>How much better a turn must score with a jet stream laid (ahead or back) for it to spend one: they last three turns, so it doesn't waste them.</summary>
+        public double laneMargin = 0.3;
 
         /// <summary>
         /// The rocket and the speed brake: the chosen arrow flown again with the rocket lit (if it is ready), and with the
@@ -360,7 +362,20 @@ namespace Ooda.Turn.Core
             {
                 var b = plan; b.brake = true; b.throttle = 0; b.wep = false;
                 double s = Score(sub, b, turnSec);
-                if (s > baseScore + brakeMargin) plan = b;
+                if (s > baseScore + brakeMargin) { plan = b; baseScore = s; }
+            }
+            if (sub.lanes[0] > 0)
+            {
+                // a jet stream: ahead along its arrow (to run or close in) or back at the one behind it, whichever scores best
+                TurnPlan best = plan;
+                double bestScore = baseScore + laneMargin;
+                foreach (bool back in new[] { false, true })
+                {
+                    var l = plan; l.lane = true; l.laneBack = back; l.laneAt = 0;
+                    double s = Score(sub, l, turnSec);
+                    if (s > bestScore) { best = l; bestScore = s; }
+                }
+                plan = best;
             }
         }
 
@@ -388,8 +403,8 @@ namespace Ooda.Turn.Core
 
         /// <summary>
         /// A missile on it: a gravity well thrown ahead. Someone on its tail with guns on it: a balloon mine let go in their path;
-        /// with none left, a gravity well; then the jammer; then (hurt) stealth, unless it is firing this turn (that would show it
-        /// again at once).
+        /// with none left, a gravity well; then the jammer; then a jet stream laid back in the tailer's face; then (hurt) stealth,
+        /// unless it is firing this turn (that would show it again at once).
         /// </summary>
         void Defend(Battle sub, ref TurnPlan plan)
         {
@@ -414,6 +429,7 @@ namespace Ooda.Turn.Core
             if (sub.balloonMines[0] > 0) { plan.mine = true; return; }
             if (sub.wells[0] > 0) { plan.well = true; plan.wellAt = 0; return; }   // the tailer's rounds bend off, and it turns tighter
             if (sub.jammers[0] > 0) { plan.jam = true; return; }
+            if (sub.lanes[0] > 0 && !plan.lane) { plan.lane = true; plan.laneBack = true; plan.laneAt = 0; return; }   // a headwind in the tailer's face: it falls back, its rounds fall short
             bool hurt = sub.SystemsOf(0).AnyDamaged;
             if (sub.stealths[0] > 0 && hurt && plan.burstEnd <= plan.burstStart && !plan.missile) plan.cloak = true;
         }

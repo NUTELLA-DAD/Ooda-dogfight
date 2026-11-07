@@ -37,6 +37,10 @@ namespace Ooda.Turn.Core
         public bool well;
         /// <summary>When in the turn the well is thrown, in seconds from its start.</summary>
         public double wellAt;
+        /// <summary>Lay a jet stream this turn, laneAt seconds into it: a wind lane along your arrow, or with laneBack back down your path at a tailer (see JetStream).</summary>
+        public bool lane, laneBack;
+        /// <summary>When in the turn the jet stream is laid, in seconds from its start.</summary>
+        public double laneAt;
         /// <summary>The heat blade: red hot all turn, guns cold; any enemy you fly through is cut in half (see Specials).</summary>
         public bool ram;
         /// <summary>Go stealthy at the start of the turn: unseen for two turns, until you fire (see Specials).</summary>
