@@ -29,8 +29,9 @@ namespace Ooda.Turn.Core
     public static class Arenas
     {
         /// <summary>
-        /// The four: among the snowy peaks in the north, over the high rail pass, over the chalet lake and its village in
-        /// the middle, and over the farmland and the strike town in the south.
+        /// The five: among the snowy peaks in the north, over the high rail pass, over the chalet lake and its village in
+        /// the middle, over the farmland and the strike town in the south, and the skyscraper city on its own island out
+        /// at sea to the east (City: its towers are the ground there, so they are as solid as the rock).
         /// </summary>
         public static readonly Arena[] All =
         {
@@ -42,7 +43,13 @@ namespace Ooda.Turn.Core
                         x = 0, z = -1700, altFt = 3000, axisDeg = 0, halfLengthM = 3000, halfWidthM = 800 },
             new Arena { name = "Town & Farmland", blurb = "Open fields, the factory town and the coast. The most room to turn.",
                         x = 1400, z = -5900, altFt = 2600, axisDeg = 90, halfLengthM = 3200, halfWidthM = 1400 },
+            new Arena { name = "Skyline City", blurb = "Down the river through a city of towers. Weave the street canyons or climb over the roofs: hit one and you are done.",
+                        x = City.CentreX, z = City.CentreZ, altFt = 1100, axisDeg = 0, halfLengthM = 3000, halfWidthM = City.RiverHalfM },
         };
+
+        /// <summary>The city's arena's number in All.</summary>
+        public const int CityIndex = 4;
+        public static bool IsCity(int i) => i == CityIndex;
 
         public static int Count => All.Length;
 

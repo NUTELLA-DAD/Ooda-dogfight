@@ -190,6 +190,7 @@ namespace Ooda.Turn
             tip.SetParent(transform, false);
             if (terrain == null) terrain = Terrain.activeTerrain;
             grid = MakeGrid(terrain);
+            CityStart();   // the skyscraper city's towers, out at sea (TurnBattle.City)
             gauge = Ooda.UI.StickThrottleGauge.Create();
             if (gauge != null && view != null && view.Cam != null) view.Cam.cullingMask &= ~(1 << Ooda.UI.StickThrottleGauge.Layer);
             if (view != null) { view.player = player.transform; view.enemy = enemy.transform; }
@@ -289,7 +290,7 @@ namespace Ooda.Turn
                 }
                 default: battle = tutorial ? TutorialBattle() : DogfightBattle(); break;
             }
-            if (grid != null) battle.groundFt = grid.At; else battle.groundFt = GroundFt;
+            battle.groundFt = WorldGroundFt;   // the island's ground, and the city's towers (TurnBattle.City)
             battle.obstacleHit = ObstacleHit;
             battle.wires = MakeWires();
             NetSeat();
@@ -368,6 +369,7 @@ namespace Ooda.Turn
                     role = ours ? (i % 2 == 0 ? EnemyAi.Role.Escort : EnemyAi.Role.Fighter) : (i % 2 == 1 ? EnemyAi.Role.Hunter : EnemyAi.Role.Fighter),
                 };
             }
+            CityPilots();       // in the city: braver about the roofs, and looking ahead finely enough not to skip a tower
             TutorialPilots();   // training: the lesson's foe (no pilot for the drone) and its first step
             NetSitDown();   // online: into your own first plane
             systemsBefore = battle.AllSystems();
@@ -1219,7 +1221,7 @@ namespace Ooda.Turn
             bool stalls = preview.frames[0].Any(f => f.stalled);
             // flown into the ground or an obstacle (not shot down first and falling)
             previewCrashes = !battle.Out(0) && sim.crashed[0] && !sim.SystemsOf(0).Lost;
-            if (previewCrashes) warning = sim.hitObstacle[0] ? "OBSTACLE: this turn hits a cable or structure" : "TERRAIN: this turn flies into the ground";
+            if (previewCrashes) warning = sim.hitObstacle[0] ? "OBSTACLE: this turn hits a cable or structure" : CrashedIntoTower(sim, 0) ? "BUILDING: this turn flies into a tower" : "TERRAIN: this turn flies into the ground";
             else if (battle.planes[0].BlackedOut) warning = $"G-LOC: you are blacked out, you come round in {battle.planes[0].glocLeftSec:F0} s";
             else if (preview.frames[0].Any(f => f.greyOut >= 1)) warning = "G-LOC: this many G for this long blacks you out";
             else if (battle.planes[0].Departed)

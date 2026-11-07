@@ -580,9 +580,9 @@ namespace Ooda.UI
             s.range = (DogfightSetup.Range)rg; s.height = (DogfightSetup.Height)hgt; s.speed = (DogfightSetup.Pace)sp;
             // where on the island: Random or one of the arenas (short names on the buttons, the arena's own words under them)
             int ar = s.randomArena ? 0 : s.arena + 1;
-            Choice(new Rect(x, y, colW, 42), "ARENA", new[] { "Random", "Peaks", "Pass", "Lake", "Town" }, ref ar); y += 48;
+            Choice(new Rect(x, y, colW, 42), "ARENA", new[] { "Random", "Peaks", "Pass", "Lake", "Town", "City" }, ref ar); y += 48;
             s.randomArena = ar == 0; if (ar > 0) s.arena = ar - 1;
-            GUI.Label(new Rect(x + 100, y, colW - 100, 46), s.randomArena ? "Over one of the four arenas at random: the Peak Maze, the High Pass, Chalet Lake or the Town & Farmland."
+            GUI.Label(new Rect(x + 100, y, colW - 100, 46), s.randomArena ? "Over one of the five arenas at random: the Peak Maze, the High Pass, Chalet Lake, the Town & Farmland or Skyline City."
                                                                          : $"{Arenas.Get(s.arena).name}: {Arenas.Get(s.arena).blurb}", new GUIStyle(dim) { wordWrap = true, alignment = TextAnchor.UpperLeft });
             float mx = x + colW + 24;
             Map(new Rect(mx, r.y + 58, r.xMax - 20 - mx, r.height - 78), s);
@@ -692,6 +692,8 @@ namespace Ooda.UI
             double span = Math.Max(Math.Max(maxX - minX, maxY - minY), 2500) * 1.25;
             float ppf = (float)(Math.Min(inner.width, inner.height) / span);   // pixels per foot
             Vector2 At(Vec3d p) => new Vector2(inner.center.x + (float)(p.x - cx) * ppf, inner.center.y - (float)(p.y - cy) * ppf);
+            // over the city, its towers under the planes (CityMap)
+            if (!show.randomArena && Arenas.IsCity(show.arena)) CityMap.Draw(inner, cx, cy, ppf);
 
             // a 1 km scale bar and N
             float km = 3280.84f * ppf;
