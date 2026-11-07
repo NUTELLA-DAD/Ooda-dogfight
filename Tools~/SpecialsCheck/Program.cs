@@ -2,6 +2,7 @@
 // on and spares one who turns away, goes at the moment planned and drifts slowly; the heat blade cuts an enemy in half and flies on, keeps the guns cold and runs hot;
 // stealth hides you from the AI and the flak but not from a heat-seeker, and firing shows you; the AI pilots use all
 // three; the gravity well bends a hard turn tighter, makes a tailer's rounds miss and pulls a heat-seeker off; and
+// the gravity flip makes everyone near you but you fall up, with their rounds and their wrecks; and
 // everything survives a clone, a subset, a swap and the trip to bytes.
 // Usage: dotnet run   (exit code = failures)
 using System;
@@ -194,7 +195,10 @@ static class Program
             Check(p.mine, "with a 109 on its six, it lets a mine go");
             b.balloonMines[0] = 0; ai.Forget();
             p = ai.Plan(b, 3);
-            Check(p.well && !p.mine, "no mines left: it throws a gravity well");
+            Check(p.flip && !p.mine, "no mines left: it flips gravity on the tailer");
+            b.flips[0] = 0; ai.Forget();
+            p = ai.Plan(b, 3);
+            Check(p.well && !p.mine && !p.flip, "no mines or flips left: it throws a gravity well");
             b.wells[0] = 0; ai.Forget();
             p = ai.Plan(b, 3);
             Check(p.jam && !p.mine && !p.well, "no mines or wells left: it sets off the jammer");
@@ -345,6 +349,7 @@ static class Program
         }
 
         GravityWell();
+        GravityFlip();
 
         Console.WriteLine(fails == 0 ? "\nAll checks pass." : $"\n{fails} check(s) FAILED.");
         return fails;
@@ -487,6 +492,142 @@ static class Program
             var noWell = TurnPlan.Straight(b.planes[1]); noWell.well = true;
             b.Resolve(new TurnPlan?[] { TurnPlan.Straight(b.planes[0]), noWell }, 3);
             Check(!b.bullets.OfType<Well>().Any(), "without the pick, planning one does nothing");
+        }
+    }
+
+    static void GravityFlip()
+    {
+        Console.WriteLine("\nGravity flip");
+        {
+            var b = Tail(1000);
+            Vec3d at = b.planes[0].state.pos;
+            var flip = Ahead(b, 0); flip.flip = true;
+            var r = b.Resolve(new TurnPlan?[] { flip, Ahead(b, 1) }, 3);
+            var f = b.bullets.OfType<Flip>().FirstOrDefault();
+            Check(b.flips[0] == Specials.Flips - 1 && r.flips.Count == 1 && f != null, $"one is set off, {b.flips[0]} left, its bubble recorded");
+            Check(f != null && (f.pos - at).Length < 1 && r.flips[0].startFrame == 0, "it opens at once, where the plane was, and stays there");
+            Check(!r.hits.Any(), "it hurts no one");
+            b.Resolve(new TurnPlan?[] { Ahead(b, 0), Ahead(b, 1) }, 3);
+            Check(b.bullets.OfType<Flip>().Any(), "it is still open the turn after");
+            b.Resolve(new TurnPlan?[] { Ahead(b, 0), Ahead(b, 1) }, 3);
+            Check(!b.bullets.OfType<Flip>().Any(), $"and gone after {Specials.FlipSec:F0} s");
+        }
+        {
+            // a 109 1,000 ft behind: it floats up off the P-51's line, and the P-51 keeps its weight
+            Battle Fly(bool flip)
+            {
+                var b = Tail(1000);
+                var p0 = Ahead(b, 0); p0.flip = flip;
+                b.Resolve(new TurnPlan?[] { p0, Ahead(b, 1) }, 3, false);
+                return b;
+            }
+            var off = Fly(false); var on = Fly(true);
+            double rise = on.planes[1].AltFt - off.planes[1].AltFt, mine = on.planes[0].AltFt - off.planes[0].AltFt;
+            Check(rise > 75, $"the tailer, flying its plan straight on, still floats up {rise:F0} ft in one turn");
+            Check(Math.Abs(mine) < 1, $"the one that set it off is spared ({mine:F1} ft)");
+            Check(on.Flipped(1) && !on.Flipped(0), "the tailer is in it, the thrower isn't flipped");
+        }
+        {
+            // its rounds arc up instead of dropping
+            double EndZ(bool flip)
+            {
+                var b = Tail(1000); b.dispersion = false;
+                b.bullets.Add(new Bullet { owner = 1, side = 1, pos = b.planes[1].state.pos + new Vec3d(400, 0, 0), vel = new Vec3d(0, 2000, 0), lifeSec = 3, dragPerSec = 0.2 });
+                var p0 = Ahead(b, 0); p0.flip = flip;
+                var r = b.Resolve(new TurnPlan?[] { p0, Ahead(b, 1) }, 1.0);
+                var tr = r.traces[0];
+                return tr.points[tr.points.Count - 1].z - tr.points[0].z;
+            }
+            double down = EndZ(false), up = EndZ(true);
+            Check(down < -5 && up > 5, $"a round in the bubble climbs {up:F0} ft over a second (it drops {-down:F0} ft without)");
+        }
+        {
+            // a wreck in it falls up
+            double WreckZ(bool flip)
+            {
+                var b = Tail(1000);
+                b.down[1] = true;
+                var p0 = Ahead(b, 0); p0.flip = flip;
+                b.Resolve(new TurnPlan?[] { p0, Ahead(b, 1) }, 3, false);
+                return b.planes[1].AltFt;
+            }
+            double fall = WreckZ(false), flipped = WreckZ(true);
+            Check(flipped - fall > 150, $"a wreck in the bubble ends the turn {flipped - fall:F0} ft higher than one that falls");
+        }
+        {
+            // too far: nothing
+            var b = Tail(Specials.FlipReachFt + 400);
+            var p0 = Ahead(b, 0); p0.flip = true;
+            var c = Tail(Specials.FlipReachFt + 400);
+            b.Resolve(new TurnPlan?[] { p0, Ahead(b, 1) }, 1, false);
+            c.Resolve(new TurnPlan?[] { Ahead(c, 0), Ahead(c, 1) }, 1, false);
+            Check(Math.Abs(b.planes[1].AltFt - c.planes[1].AltFt) < 1, "a plane past its edge feels nothing");
+        }
+        {
+            // a 109 on the six shooting for two turns lands fewer hits
+            int Hits(bool flip)
+            {
+                int hits = 0;
+                foreach (double gap in new[] { 600.0, 900, 1200 })
+                {
+                    var b = Tail(gap); b.dispersion = false;
+                    for (int t = 0; t < 2; t++)
+                    {
+                        var p0 = Ahead(b, 0); p0.flip = flip && t == 0;
+                        var p1 = Ahead(b, 1); p1.burstStart = 0; p1.burstEnd = 3;
+                        hits += b.Resolve(new TurnPlan?[] { p0, p1 }, 3, false).hits.Count(h => h.shooter == 1);
+                    }
+                }
+                return hits;
+            }
+            int without = Hits(false), with = Hits(true);
+            Check(with * 2 < without, $"a 109 shooting from behind lands {with} packets with the flip, {without} without");
+        }
+        {
+            // the AI: a tailer close behind and no mines left, it flips
+            var b = Tail(900);
+            b.balloonMines[0] = 0;
+            var p = new EnemyAi { me = 0, sloppiness = 0 }.Plan(b, 3);
+            Check(p.flip && !p.mine, "an AI pilot with a 109 close on its six and no mines flips gravity on it");
+            var far = Tail(2800); far.balloonMines[0] = 0;
+            var pf = new EnemyAi { me = 0, sloppiness = 0 }.Plan(far, 3);
+            Check(!pf.flip, "one too far back to catch is left alone");
+        }
+        {
+            // clones, subsets, swaps, bytes
+            var b = Tail(1000);
+            var plan = Ahead(b, 0); plan.flip = true;
+            b.Resolve(new TurnPlan?[] { plan, Ahead(b, 1) }, 1.5);
+            var c = b.Clone();
+            Check(c.flips[0] == b.flips[0] && !ReferenceEquals(c.flips, b.flips) && c.bullets.Any(x => x is Flip), "a clone keeps the count and the bubble, in its own array");
+            var sub = b.Subset(new[] { 1 });
+            Check(sub.bullets.Any(x => x is Flip) && sub.Flipped(0), "a subset of the 109 alone still falls up in the P-51's flip");
+            var back = Tail(1000);
+            Wire.Restore(back, Wire.Encode(b));
+            Check(Wire.Hash(back) == Wire.Hash(b) && back.bullets.Any(x => x is Flip), "a snapshot brings it across exactly");
+            b.Resolve(new TurnPlan?[] { Ahead(b, 0), Ahead(b, 1) }, 3);
+            back.Resolve(new TurnPlan?[] { Ahead(back, 0), Ahead(back, 1) }, 3);
+            Check(Wire.Hash(back) == Wire.Hash(b), "and both fly the next turn the same");
+            var s = Tail(1000);
+            var sp = Ahead(s, 0); sp.flip = true;
+            s.Resolve(new TurnPlan?[] { sp, Ahead(s, 1) }, 1.5);
+            int f0 = s.flips[0], f1 = s.flips[1];
+            s.Swap(0, 1);
+            Check(s.flips[1] == f0 && s.flips[0] == f1 && s.Flipped(0) && !s.Flipped(1), "a swap moves the count and the spared plane with it");
+            var pd = Wire.Decode<TurnPlan>(Wire.Encode(new TurnPlan { flip = true }));
+            Check(pd.flip, "a plan with a flip survives the trip to bytes");
+        }
+        {
+            // the loadout pick
+            var l = new Loadout(Kit.Missiles, Kit.Mines).Pick(Kit.Flip, Craft.Spitfire);
+            Check(l.Has(Kit.Flip) && l.Has(Kit.Mines) && Loadout.Allowed(Kit.Flip, Craft.F15), $"any plane can pick it ({l})");
+            var set = new DogfightSetup { randomStart = false, ours = new[] { Craft.Mustang }, theirs = new[] { Craft.Bf109 },
+                                          oursLoadouts = new[] { new Loadout(Kit.Flip, Kit.Missiles) }, theirsLoadouts = new[] { new Loadout(Kit.Missiles, Kit.Mines) } };
+            var b = Scenarios.Dogfight(DogfightSetup.FromBytes(set.ToBytes()), Vec3d.Zero);
+            Check(b.flips[0] == Specials.Flips && b.flips[1] == 0 && b.wells[0] == 0, "picked, it brings two flips (and only the picker has them), through the trip to bytes");
+            var no = TurnPlan.Straight(b.planes[1]); no.flip = true;
+            b.Resolve(new TurnPlan?[] { TurnPlan.Straight(b.planes[0]), no }, 3);
+            Check(!b.bullets.OfType<Flip>().Any(), "without the pick, planning one does nothing");
         }
     }
 }

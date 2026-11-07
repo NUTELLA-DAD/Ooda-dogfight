@@ -34,6 +34,8 @@ namespace Ooda.Turn.Core
         public int balloonMines, heatBlades, stealths, jammers;
         /// <summary>Gravity wells carried (see Specials): none unless the loadout (or Specials.Arm) gives them.</summary>
         public int wells;
+        /// <summary>Gravity flips carried (see Specials): none unless the loadout (or Specials.Arm) gives them.</summary>
+        public int flips;
         /// <summary>Ice (a loadout pick, see Loadout): the airframe is cased in ice, cold as the sky, so no heat-seeker can lock it and one that blunders into it shatters harmlessly. Radar missiles and guns still bite.</summary>
         public bool iced;
         /// <summary>
@@ -435,6 +437,7 @@ namespace Ooda.Turn.Core
         public bool chaff;        // a chaff cloud (kept in TurnResult.chaff)
         public bool mine;         // a balloon mine's drift (kept in TurnResult.mines); hit: it went off
         public bool well;         // a gravity well's drift (kept in TurnResult.wells)
+        public bool flip;         // a gravity flip's bubble (kept in TurnResult.flips)
         public double age0;       // how old the round (missile, flare) was at startFrame, s
         /// <summary>
         /// Recorded runs only: the closest the packet came to an opposing aircraft (ft), against the target it came

@@ -159,7 +159,10 @@ namespace Ooda.Turn
                 row.Add(Sw("JAM", $"7  ({battle.jammers[0]})", plan.jam, plan.jam || battle.jammers[0] > 0, jamColor, ToggleJam));
             if (load.wells > 0)
                 row.Add(Sw("WELL", $"8  ({battle.wells[0]})", plan.well, plan.well || battle.wells[0] > 0, wellColor, ToggleWell));
+            if (load.flips > 0)
+                row.Add(Sw("FLIP", $"0  ({battle.flips[0]})", plan.flip, plan.flip || battle.flips[0] > 0, flipColor, ToggleFlip));
             SwitchRow(x, y, w, row, true);
+            FlipWarning(x, y, w);
             if (JammedNow)
             {
                 var w2 = new GUIStyle(GUI.skin.label) { fontSize = 15, fontStyle = FontStyle.Bold };

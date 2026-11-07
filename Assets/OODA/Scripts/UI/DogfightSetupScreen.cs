@@ -105,8 +105,8 @@ namespace Ooda.UI
             if (Kb(k => k.equalsKey) || Kb(k => k.numpadPlusKey) || Pad(p => p.rightShoulder)) AddPlane(SelOurs);
             if (Kb(k => k.minusKey) || Kb(k => k.numpadMinusKey) || Pad(p => p.leftShoulder)) RemovePlane(SelOurs);
             if (loadout && kb != null)
-                for (int i = 0; i < Loadout.All.Length && i < 9; i++)
-                    if (kb[UnityEngine.InputSystem.Key.Digit1 + i].wasPressedThisFrame) PickKit(Loadout.All[i]);
+                for (int i = 0; i < Loadout.All.Length && i < 10; i++)
+                    if (kb[i < 9 ? UnityEngine.InputSystem.Key.Digit1 + i : UnityEngine.InputSystem.Key.Digit0].wasPressedThisFrame) PickKit(Loadout.All[i]);
             return Result.None;
         }
 
@@ -399,7 +399,7 @@ namespace Ooda.UI
             if (GUI.Button(new Rect(w - 268, by + 8, 240, BotH - 16), "READY", ready)) result = Result.Fly;
             GUI.DrawTexture(new Rect(0, by - 26, w, 26), shade);
             Shadow(new Rect(0, by - 25, w, 24), mission ? "Esc closes the mission panel  ·  Enter flies"
-                : loadout ? "← → pick a pilot  ·  1 – 9 add a capability (it replaces the older pick)  ·  L or Esc closes  ·  Enter ready"
+                : loadout ? "← → pick a pilot  ·  1 – 0 add a capability (it replaces the older pick)  ·  L or Esc closes  ·  Enter ready"
                 : "← → pick a pilot  ·  P pilot  ·  C aircraft  ·  L loadout  ·  + − planes on that side  ·  M mission  ·  G arcade  ·  Enter ready", hint);
 
             var panel = new Rect(w / 2 - 530, TopH + 10, 1060, 384);
@@ -530,7 +530,7 @@ namespace Ooda.UI
                 bool on = load.Has(k), can = Loadout.Allowed(k, craft);
                 var keep = GUI.color;
                 if (!can) GUI.color = new Color(1, 1, 1, 0.45f);
-                if (GUI.Button(at, $"{i + 1}  {Loadout.Name(k).ToUpperInvariant()}", on ? tileOn : tile) && can) PickKit(k);
+                if (GUI.Button(at, $"{(i + 1) % 10}  {Loadout.Name(k).ToUpperInvariant()}", on ? tileOn : tile) && can) PickKit(k);
                 GUI.Label(new Rect(at.x + 12, at.y + 32, at.width - 22, at.height - 36), Loadout.Blurb(k, craft), tileText);
                 GUI.color = keep;
                 if (on)
