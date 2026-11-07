@@ -368,7 +368,7 @@ namespace Ooda.Turn.Core
             {
                 var b = plan; b.brake = true; b.throttle = 0; b.wep = false;
                 double s = Score(sub, b, turnSec);
-                if (s > baseScore + brakeMargin) { { plan = b; baseScore = s; } baseScore = s; }
+                if (s > baseScore + brakeMargin) { plan = b; baseScore = s; }
             }
             // the grapple: hook the target to swing round onto it (a try that yanks it hurts its own systems, so it scores badly
             // unless the yank is worth it); with a line of its own out, cut it when flying free leaves it better placed

@@ -693,7 +693,7 @@ namespace Ooda.Turn.Core
 
                 time += StepSec;
                 strike?.Step(this);
-                if (record) for (int i = 0; i < n; i++) { { res.frames[i][k] = Frame(i, firing[i], ramHeat[i], sonic[i]); res.frames[i][k].blink = blinked[i]; } res.frames[i][k].warped = warped[i]; }
+                if (record) for (int i = 0; i < n; i++) { res.frames[i][k] = Frame(i, firing[i], ramHeat[i], sonic[i]); res.frames[i][k].blink = blinked[i]; res.frames[i][k].warped = warped[i]; }
                 onStep?.Invoke(this, k);
             }
             for (int i = 0; i < n; i++) ramOn[i] = false;   // the blade cools as the turn ends

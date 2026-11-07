@@ -89,7 +89,7 @@ The F-4, the F-15 and the Su-27 carry a radar and two radar missiles (Sparrows; 
 
 ### The loadout: two picks each
 
-With **Arcade** on, each pilot brings **two** capabilities to the fight, picked in the squadron briefing: **Loadout** on the foot bar (**L**, the pad's right stick press), or click the picks on a name plate. The panel shows the picked pilot (the arrows step through them, bandits too) and a tile for each capability with what it does; a click or its number key (1 to 9, then 0 for the tenth, and 0 for the tenth, then 0 for the tenth, then 0) adds it in place of the older pick. **Same for your whole flight** copies the two to the rest of the side. The name plates show each plane's two (MSL + MINE). Everyone always carries his guns, his flares (a jet its chaff and radar too) and the speed brake. The picks:
+With **Arcade** on, each pilot brings **two** capabilities to the fight, picked in the squadron briefing: **Loadout** on the foot bar (**L**, the pad's right stick press), or click the picks on a name plate. The panel shows the picked pilot (the arrows step through them, bandits too) and a tile for each capability with what it does; a click or its number key (1 to 9, then 0 for the tenth; the rest by click) adds it in place of the older pick. **Same for your whole flight** copies the two to the rest of the side. The name plates show each plane's two (MSL + MINE). Everyone always carries his guns, his flares (a jet its chaff and radar too) and the speed brake. The picks:
 
 | Pick | What it brings |
 |---|---|
