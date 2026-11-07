@@ -36,6 +36,8 @@ namespace Ooda.Turn.Core
         public int wells;
         /// <summary>Ice (a loadout pick, see Loadout): the airframe is cased in ice, cold as the sky, so no heat-seeker can lock it and one that blunders into it shatters harmlessly. Radar missiles and guns still bite.</summary>
         public bool iced;
+        /// <summary>Magnet rounds (a loadout pick, see Magnet): the rounds curve toward the nearest enemy they pass.</summary>
+        public bool magnet;
         /// <summary>
         /// The engines' heat as a seeker sees it from dead astern (see Heat): at idle, at full throttle, and the factor for
         /// WEP (a jet's afterburner). A piston fighter at full throttle is 1, the yardstick for the seeker's lock range.
@@ -158,6 +160,7 @@ namespace Ooda.Turn.Core
         public double age;
         public double fireTime;   // battle time it left the guns
         public bool alive = true;
+        public bool magnet;       // a magnet round (see Magnet): it curves toward the nearest enemy it passes
         public Bullet Copy() => (Bullet)MemberwiseClone();
     }
 
@@ -435,6 +438,7 @@ namespace Ooda.Turn.Core
         public bool chaff;        // a chaff cloud (kept in TurnResult.chaff)
         public bool mine;         // a balloon mine's drift (kept in TurnResult.mines); hit: it went off
         public bool well;         // a gravity well's drift (kept in TurnResult.wells)
+        public bool magnet;       // a magnet round's path (see Magnet): drawn with a violet tint
         public double age0;       // how old the round (missile, flare) was at startFrame, s
         /// <summary>
         /// Recorded runs only: the closest the packet came to an opposing aircraft (ft), against the target it came
