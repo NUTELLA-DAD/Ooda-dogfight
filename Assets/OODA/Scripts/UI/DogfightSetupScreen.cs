@@ -613,7 +613,7 @@ namespace Ooda.UI
         /// With -setupshots folder on the command line: open the briefing on three setups and save each as a BMP there, then
         /// quit: 2 v 2 Spitfire and F-4 against Bf 109s flown by the skeleton and the spectre, the wizard on yours; 4 v 3 mixed with the bear leading, the penguin on his wing and a wingman picked, against
         /// a Zero flown by the fox, a Mustang with the lion and the F-4;
-        /// and the 4 v 3 with the mission panel up. Doesn't touch the setup kept for next time.
+        /// the 4 v 3 with the mission panel up; and a Zero with the koi in its fishbowl, picked. Doesn't touch the setup kept for next time.
         /// </summary>
         public System.Collections.IEnumerator Shots(string folder)
         {
@@ -637,6 +637,12 @@ namespace Ooda.UI
             yield return new WaitForSecondsRealtime(1f);
             yield return Grab(System.IO.Path.Combine(folder, "briefing_mission.bmp"));
             mission = false;
+            // the koi in its fishbowl, picked, so the glass shows up close
+            chosen = new DogfightSetup { ours = new[] { Craft.Zero }, theirs = new[] { Craft.Bf109 }, randomStart = false, start = Scenarios.Start.HeadOn,
+                                      oursPilots = new[] { PilotKind.Koi }, theirsPilots = new[] { PilotKind.Usual } };
+            sel = 0;
+            yield return new WaitForSecondsRealtime(2f);
+            yield return Grab(System.IO.Path.Combine(folder, "briefing_koi.bmp"));
             chosen = keep;
             Application.Quit();
         }
