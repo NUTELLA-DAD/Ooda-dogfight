@@ -1016,10 +1016,17 @@ MonoBehaviour:
   upperLegR: {fileID: 8586477233096092194}
   footL: {fileID: 6517739850289625100}
   footR: {fileID: 8098644092319759214}
+  toesL: {fileID: 3646874212516351500}
   glowing:
   - {fileID: 7536690964037619169}
   size: 1
   flicker: 0.25
+  look: 0
+--- !u!4 &3646874212516351500 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 924539845846416264, guid: 520d9fb7a66674d41b7f5e354ea3d069, type: 3}
+  m_PrefabInstance: {fileID: 4488097412640896388}
+  m_PrefabAsset: {fileID: 0}
 --- !u!4 &4161983203461173871 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 520d9fb7a66674d41b7f5e354ea3d069, type: 3}

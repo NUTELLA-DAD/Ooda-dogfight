@@ -1586,6 +1586,11 @@ Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 520d9fb7a66674d41b7f5e354ea3d069, type: 3}
   m_PrefabInstance: {fileID: 7302728521100972953}
   m_PrefabAsset: {fileID: 0}
+--- !u!4 &7605490097077151761 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 924539845846416264, guid: 520d9fb7a66674d41b7f5e354ea3d069, type: 3}
+  m_PrefabInstance: {fileID: 7302728521100972953}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &7609369455425711816 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 520d9fb7a66674d41b7f5e354ea3d069, type: 3}
@@ -1679,10 +1684,12 @@ MonoBehaviour:
   upperLegR: {fileID: 3186621883712982079}
   footL: {fileID: 100141217499749905}
   footR: {fileID: 3131204401114504563}
+  toesL: {fileID: 7605490097077151761}
   glowing:
   - {fileID: 3713174687807892476}
   size: 1
   flicker: 0.25
+  look: 0
 --- !u!4 &8776602245698044949 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -7164028711087630452, guid: 520d9fb7a66674d41b7f5e354ea3d069, type: 3}

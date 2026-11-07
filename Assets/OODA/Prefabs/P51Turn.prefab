@@ -2053,7 +2053,14 @@ MonoBehaviour:
   upperLegR: {fileID: 4064900790885223011}
   footL: {fileID: 1527722941908473933}
   footR: {fileID: 4549778926159272751}
+  toesL: {fileID: 9069241334427102797}
   glowing:
   - {fileID: 2870924603425500576}
   size: 1
   flicker: 0.25
+  look: 0
+--- !u!4 &9069241334427102797 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 924539845846416264, guid: 520d9fb7a66674d41b7f5e354ea3d069, type: 3}
+  m_PrefabInstance: {fileID: 8144983016306873797}
+  m_PrefabAsset: {fileID: 0}
