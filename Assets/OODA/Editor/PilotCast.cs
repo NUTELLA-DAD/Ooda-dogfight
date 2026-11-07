@@ -8,10 +8,10 @@ using UnityEngine;
 namespace Ooda.EditorTools
 {
     /// <summary>
-    /// Every pilot in every fighter: the tiger, the wolf, the wizard, the skeleton, the bear, the fox, the koi and the lion share one rig (the wolf's, fitted
+    /// Every pilot in every fighter: the tiger, the wolf, the wizard, the skeleton, the bear, the fox, the koi, the lion and the spectre share one rig (the wolf's, fitted
     /// to each) and one set of clips, so each sits in a cockpit the same way. A fighter's builder seats its usual pilot;
     /// AddRoster then seats the others in the same place, on the same rails, inactive, and puts a PilotRoster on the
-    /// plane that shows the one the dogfight briefing picks. The wizard's, skeleton's, bear's, fox's, koi's and lion's FBXs are made from the Hi3D
+    /// plane that shows the one the dogfight briefing picks. The wizard's, skeleton's, bear's, fox's, koi's, lion's and spectre's FBXs are made from the Hi3D
     /// models by Tools~/ArtPipeline/rig.py and pilot_anims.py.
     /// </summary>
     internal static class PilotCast
@@ -19,7 +19,7 @@ namespace Ooda.EditorTools
         const string Art = "Assets/OODA/Art";
         const string Gen = "Assets/OODA/Generated";
 
-        struct Who { public PilotKind kind; public string fbx, label, baseMap, metalSmooth; }
+        struct Who { public PilotKind kind; public string fbx, label, baseMap, metalSmooth, emission; }
 
         static readonly Who[] All =
         {
@@ -31,6 +31,8 @@ namespace Ooda.EditorTools
             new Who { kind = PilotKind.Fox, label = "FoxPilot", fbx = Art + "/FoxPilot/FoxPilot.fbx", baseMap = Art + "/FoxPilot/Fox_BaseColor.png", metalSmooth = Art + "/FoxPilot/Fox_MetallicSmoothness.png" },
             new Who { kind = PilotKind.Koi, label = "KoiPilot", fbx = Art + "/KoiPilot/KoiPilot.fbx", baseMap = Art + "/KoiPilot/Koi_BaseColor.png", metalSmooth = Art + "/KoiPilot/Koi_MetallicSmoothness.png" },
             new Who { kind = PilotKind.Lion, label = "LionPilot", fbx = Art + "/LionPilot/LionPilot.fbx", baseMap = Art + "/LionPilot/Lion_BaseColor.png", metalSmooth = Art + "/LionPilot/Lion_MetallicSmoothness.png" },
+            new Who { kind = PilotKind.Spectre, label = "SpectrePilot", fbx = Art + "/SpectrePilot/SpectrePilot.fbx", baseMap = Art + "/SpectrePilot/Spectre_BaseColor.png", metalSmooth = Art + "/SpectrePilot/Spectre_MetallicSmoothness.png",
+                      emission = Art + "/SpectrePilot/Spectre_Emission.png" },
         };
 
         static bool imported;
@@ -78,6 +80,7 @@ namespace Ooda.EditorTools
                 p.transform.localRotation = usualPilot.transform.localRotation;
                 p.transform.localScale = usualPilot.transform.localScale;
                 var mat = TestWorldBuilder.Textured(w.label, w.baseMap, w.metalSmooth);
+                if (w.emission != null) Glow(mat, w.emission);
                 foreach (var r in p.GetComponentsInChildren<Renderer>())
                     r.sharedMaterials = Enumerable.Repeat(mat, r.sharedMaterials.Length).ToArray();
                 var anim = p.GetComponent<Animator>();
@@ -94,9 +97,37 @@ namespace Ooda.EditorTools
                 var look = p.AddComponent<PilotHeadLook>();
                 if (look0 != null) look.aircraft = look0.aircraft;
                 if (controls) TestWorldBuilder.AddPilotControls(p);
+                if (w.kind == PilotKind.Spectre) AddFlames(p);
                 p.SetActive(false);
                 Set(roster, w.kind, p);
             }
+        }
+
+        /// <summary>The spectre's eyes and gloves lit by his emission map, bright enough to glow in daylight.</summary>
+        static void Glow(Material m, string map)
+        {
+            var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(map);
+            if (tex == null) { Debug.LogWarning($"OODA: no {map}; the spectre won't glow."); return; }
+            m.SetTexture("_EmissionMap", tex);
+            m.SetColor("_EmissionColor", new Color(0.6f, 1.6f, 2.2f));   // HDR: cyan, over 1 so it reads white-hot
+            m.EnableKeyword("_EMISSION");
+            m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
+            EditorUtility.SetDirty(m);
+        }
+
+        /// <summary>The spectre's ghost fire on his head, hands and ankles (SpectreFlames), its bones found through his avatar.</summary>
+        static void AddFlames(GameObject p)
+        {
+            var anim = p.GetComponent<Animator>();
+            if (anim == null || anim.avatar == null || !anim.avatar.isHuman) { Debug.LogWarning("OODA: the spectre has no humanoid avatar; no flames."); return; }
+            var f = p.AddComponent<SpectreFlames>();
+            Transform B(HumanBodyBones b) => anim.GetBoneTransform(b);
+            f.hips = B(HumanBodyBones.Hips); f.head = B(HumanBodyBones.Head);
+            f.handL = B(HumanBodyBones.LeftHand); f.handR = B(HumanBodyBones.RightHand);
+            f.lowerArmL = B(HumanBodyBones.LeftLowerArm); f.lowerArmR = B(HumanBodyBones.RightLowerArm);
+            f.upperLegL = B(HumanBodyBones.LeftUpperLeg); f.upperLegR = B(HumanBodyBones.RightUpperLeg);
+            f.footL = B(HumanBodyBones.LeftFoot); f.footR = B(HumanBodyBones.RightFoot);
+            f.glowing = p.GetComponentsInChildren<Renderer>(true);
         }
 
         static void Set(PilotRoster r, PilotKind k, GameObject g)
@@ -109,6 +140,7 @@ namespace Ooda.EditorTools
             else if (k == PilotKind.Fox) r.fox = g;
             else if (k == PilotKind.Koi) r.koi = g;
             else if (k == PilotKind.Lion) r.lion = g;
+            else if (k == PilotKind.Spectre) r.spectre = g;
         }
     }
 }

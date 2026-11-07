@@ -735,6 +735,7 @@ namespace Ooda.UI
             foreach (var b in g.GetComponentsInChildren<MonoBehaviour>(true)) b.enabled = false;
             var anim = g.GetComponent<Animator>();
             anim.enabled = false;
+            var flames = g.GetComponent<Ooda.Pilot.SpectreFlames>();   // the spectre keeps his fire standing, lit once he is posed
             g.SetActive(true);
             foreach (var r in g.GetComponentsInChildren<SkinnedMeshRenderer>(true)) { r.updateWhenOffscreen = true; r.enabled = true; }
             g.transform.localPosition = spot;
@@ -763,6 +764,7 @@ namespace Ooda.UI
                 g.transform.position += Vector3.up * (parent.TransformPoint(spot).y + ankle - feet);
             }
             st.home = g.transform.localPosition;
+            if (flames != null) flames.enabled = true;
             return st;
         }
 
