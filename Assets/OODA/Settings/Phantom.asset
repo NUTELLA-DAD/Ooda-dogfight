@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Ooda.Flight.AircraftPerformance
   numbers:
     name: F-4 Phantom II
+    weightLb: 46000
     maxG: 7.33
     minG: -3
     stallKias: 150
