@@ -185,6 +185,7 @@ namespace Ooda.Turn.Core
             foreach (var tr in r.traces) { tr.owner = Map(tr.owner); tr.closestTarget = Map(tr.closestTarget); }
             foreach (var tr in r.mines) tr.owner = Map(tr.owner);
             foreach (var tr in r.wells) tr.owner = Map(tr.owner);
+            foreach (var tr in r.portals) tr.owner = Map(tr.owner);
             return r;
         }
 

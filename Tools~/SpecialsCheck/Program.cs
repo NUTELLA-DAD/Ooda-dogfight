@@ -2,6 +2,7 @@
 // on and spares one who turns away, goes at the moment planned and drifts slowly; the heat blade cuts an enemy in half and flies on, keeps the guns cold and runs hot;
 // stealth hides you from the AI and the flak but not from a heat-seeker, and firing shows you; the AI pilots use all
 // three; the gravity well bends a hard turn tighter, makes a tailer's rounds miss and pulls a heat-seeker off; and
+// the portals carry planes, rounds and missiles through both ways and the AI uses them; and
 // everything survives a clone, a subset, a swap and the trip to bytes.
 // Usage: dotnet run   (exit code = failures)
 using System;
@@ -189,6 +190,7 @@ static class Program
         {
             // the P-51's pilot, with a 109 on its tail and guns on it, lets a mine go
             var b = Tail(1000);
+            b.portals[0] = 0;   // (the portals' own checks are under Portals)
             var ai = new EnemyAi { me = 0, sloppiness = 0 };
             var p = ai.Plan(b, 3);
             Check(p.mine, "with a 109 on its six, it lets a mine go");
@@ -345,6 +347,7 @@ static class Program
         }
 
         GravityWell();
+        Portals();
 
         Console.WriteLine(fails == 0 ? "\nAll checks pass." : $"\n{fails} check(s) FAILED.");
         return fails;
@@ -487,6 +490,153 @@ static class Program
             var noWell = TurnPlan.Straight(b.planes[1]); noWell.well = true;
             b.Resolve(new TurnPlan?[] { TurnPlan.Straight(b.planes[0]), noWell }, 3);
             Check(!b.bullets.OfType<Well>().Any(), "without the pick, planning one does nothing");
+        }
+    }
+
+    /// <summary>A plan that opens a portal at once on the plane's path, the exit at (x, y, z) facing face.</summary>
+    static TurnPlan Through(Battle b, int i, Vec3d exit, Vec3d face, double at = 0)
+    {
+        var p = Ahead(b, i);
+        p.portal = true; p.portalAt = at; p.portalExit = exit; p.portalExitFace = face;
+        return p;
+    }
+
+    static void Portals()
+    {
+        Console.WriteLine("\nPortals");
+        var east = new Vec3d(1, 0, 0);
+        {
+            // a P-51 heading north opens a pair at 1 s, the exit 8,000 ft east of it facing east: it comes out heading east
+            var b = new Battle(At(AircraftNumbers.P51D(), 0, 0, 300), Specials.Arm(CombatNumbers.P51D()), At(AircraftNumbers.Bf109G(), 0, -40000, 300), Specials.Arm(CombatNumbers.Bf109G()));
+            double v0 = b.planes[0].state.vel.Length;
+            var exit = new Vec3d(8000, 500, 10000);
+            var r = b.Resolve(new TurnPlan?[] { Through(b, 0, exit, east, 1), Ahead(b, 1) }, 3);
+            var me = b.planes[0];
+            int warpAt = Array.FindIndex(r.frames[0], f => f.warped);
+            Check(b.portals[0] == Specials.Portals - 1 && r.portals.Count == 1 && b.bullets.OfType<Portal>().Count() == 1, $"one pair opens, {b.portals[0]} left, recorded");
+            Check(warpAt > 0 && Math.Abs(warpAt * Battle.StepSec - 1) < 0.15, $"the plane goes through at the moment planned ({warpAt * Battle.StepSec:F2} s)");
+            Check(Math.Abs(Heading(me.state.vel)) < 3 && me.state.pos.x > exit.x + 500 && Math.Abs(me.state.pos.y - exit.y) < 200,
+                  $"it comes out of the exit heading east (heading {Heading(me.state.vel):F1}, at {me.state.pos.x:F0}, {me.state.pos.y:F0})");
+            Check(Math.Abs(me.state.vel.Length - v0) < 25, $"at the speed it went in ({me.state.vel.Length * Atmosphere.FtpsToKt:F0} kt against {v0 * Atmosphere.FtpsToKt:F0})");
+            Check(Math.Abs(AutoPilot.BankDeg(me)) < 5, $"wings level, as it went in (bank {AutoPilot.BankDeg(me):F1})");
+            // the pair stays two turns, then closes
+            b.Resolve(new TurnPlan?[] { Ahead(b, 0), Ahead(b, 1) }, 3);
+            b.Resolve(new TurnPlan?[] { Ahead(b, 0), Ahead(b, 1) }, 3);
+            Check(!b.bullets.OfType<Portal>().Any(), $"it closes after {Specials.PortalLifeSec:F0} s");
+        }
+        {
+            // both ways: flown back into the exit, you come out of the entry
+            var b = new Battle(At(AircraftNumbers.P51D(), 0, 0, 300), Specials.Arm(CombatNumbers.P51D()), At(AircraftNumbers.Bf109G(), 0, -40000, 300), Specials.Arm(CombatNumbers.Bf109G()));
+            var po = Portal.Make(1, 1, new Vec3d(0, 30000, 10000), east, new Vec3d(0, 1500, 10000), new Vec3d(0, -1, 0), b.time);
+            b.bullets.Add(po);
+            b.Resolve(new TurnPlan?[] { Ahead(b, 0), Ahead(b, 1) }, 3);
+            var me = b.planes[0];
+            Check(me.state.pos.y > 25000 && Heading(me.state.vel) > 170 - 360 && Math.Abs(Math.Abs(Heading(me.state.vel)) - 180) < 3,
+                  $"through the far ring backwards it comes out of the other backwards (at {me.state.pos.x:F0}, {me.state.pos.y:F0}, heading {Heading(me.state.vel):F0})");
+            var c = new Battle(At(AircraftNumbers.P51D(), 4000, 0, 300), Specials.Arm(CombatNumbers.P51D()), At(AircraftNumbers.Bf109G(), 0, -40000, 300), Specials.Arm(CombatNumbers.Bf109G()));
+            c.bullets.Add(po.Copy());
+            c.Resolve(new TurnPlan?[] { Ahead(c, 0), Ahead(c, 1) }, 3);
+            Check(c.planes[0].state.pos.y < 20000, "one that flies wide of the ring flies on");
+        }
+        {
+            // rounds: a 109 fires north into a ring; its twin sits beside a P-51 far to the east, facing it: the rounds hit
+            var b = new Battle(At(AircraftNumbers.P51D(), 20000, 3000, 250, North), CombatNumbers.P51D(), At(AircraftNumbers.Bf109G(), 0, 0, 300), CombatNumbers.Bf109G());
+            b.dispersion = false;
+            var tgt = b.planes[0];
+            // the exit 1,200 ft south of where the P-51 will be in half a turn, facing north up its tail
+            var exit = tgt.state.pos + tgt.state.vel * 1.5 - new Vec3d(0, 1200, 0);
+            b.bullets.Add(Portal.Make(0, 0, new Vec3d(0, 600, 10000), new Vec3d(0, 1, 0), exit, new Vec3d(0, 1, 0), b.time));
+            var fire = Ahead(b, 1); fire.burstStart = 0; fire.burstEnd = 3;
+            var r = b.Resolve(new TurnPlan?[] { Ahead(b, 0), fire }, 3);
+            int hits = r.hits.Count(h => h.shooter == 1 && h.target == 0);
+            Check(hits > 0, $"rounds fired into a ring hit a plane past the other ({hits} hits, 20,000 ft away)");
+            Check(r.traces.Any(t => t.owner == 1 && t.points.Any(q => q.x > 15000)), "and their tracers come out there");
+        }
+        {
+            // a heat-seeker after a P-51 that goes through follows it in and is still on it when it comes out
+            int Followed()
+            {
+                var b = Tail(3500);
+                b.flares[0] = 0;
+                var me = b.planes[0];
+                b.bullets.Add(Missile.Make(1, 1, 0, b.planes[1].state.pos + b.planes[1].Forward * 30, b.planes[1].state.vel + b.planes[1].Forward * 60, b.time));
+                var r = b.Resolve(new TurnPlan?[] { Through(b, 0, new Vec3d(9000, 0, 10000), new Vec3d(0, 1, 0)), Ahead(b, 1) }, 3);
+                var ms = b.bullets.OfType<Missile>().FirstOrDefault();
+                bool came = r.traces.Any(t => t.missile && t.points.Any(q => q.x > 7000));
+                return came ? 1 : 0;
+            }
+            Check(Followed() == 1, "a heat-seeker on your tail follows you through the ring");
+        }
+        {
+            // a tailer flying on after you goes through as well
+            var b = Tail(1500);
+            b.Resolve(new TurnPlan?[] { Through(b, 0, new Vec3d(12000, 0, 10000), new Vec3d(0, 1, 0)), Ahead(b, 1) }, 3);
+            Check(b.planes[1].state.pos.x > 10000, $"a tailer who flies on after you goes through too (at x {b.planes[1].state.pos.x:F0})");
+            var c = Tail(1500);
+            var brk = Ahead(c, 1); brk.aim = new Vec3d(0.7, 0.7, 0).Normalized;
+            c.Resolve(new TurnPlan?[] { Through(c, 0, new Vec3d(-12000, 0, 10000), new Vec3d(0, 1, 0)), brk }, 3);
+            Check(c.planes[1].state.pos.x > -5000, "one that breaks away misses the ring");
+        }
+        {
+            // the ends: kept in reach, off the ground and apart
+            var m = At(AircraftNumbers.P51D(), 0, 0, 300);
+            var p = new TurnPlan { portal = true, portalExit = new Vec3d(90000, 0, 10000), portalExitFace = east };
+            Specials.PortalEnds(m, p, (x, y) => 0, out var a, out _, out var bb, out _);
+            Check(Math.Abs((bb - m.state.pos).Length - Specials.PortalReachFt) < 1, "an exit placed too far is brought in to the portal's reach");
+            p.portalExit = new Vec3d(300, 900, -5000);
+            Specials.PortalEnds(m, p, (x, y) => 0, out a, out _, out bb, out _);
+            Check(bb.z >= Specials.PortalGroundFt - 1e-6, $"one under the ground is lifted clear of it ({bb.z:F0} ft up)");
+            p.portalExit = m.state.pos + m.Forward * 400;
+            Specials.PortalEnds(m, p, (x, y) => 0, out a, out _, out bb, out _);
+            Check((bb - a).Length >= Specials.PortalMinGapFt - 1, $"one on top of the entry is moved apart ({(bb - a).Length:F0} ft)");
+        }
+        {
+            // the AI pilots: tailed with no mines, an exit on the tailer's six; a target far off, an exit on its six
+            var b = Tail(1500);
+            b.balloonMines[1] = 0; b.wells[1] = 0;
+            var tailed = Tail(1200);
+            tailed.balloonMines[0] = 0; tailed.wells[0] = 0;
+            var p = new EnemyAi { me = 0, sloppiness = 0 }.Plan(tailed, 3);
+            var behind = tailed.planes[1].state.pos - tailed.planes[1].Forward * EnemyAi.PortalSixFt;
+            Check(p.portal && (p.portalExit - behind).Length < 1, "tailed and out of mines, an AI pilot opens a portal out on the tailer's six");
+            var far = Tail(9000);
+            far.balloonMines[1] = 0; far.wells[1] = 0;
+            var q = new EnemyAi { me = 1, sloppiness = 0 }.Plan(far, 3);
+            Check(q.portal && (q.portalExit - (far.planes[0].state.pos - far.planes[0].Forward * EnemyAi.PortalSixFt)).Length < 1, "an AI pilot 9,000 ft behind its target opens one onto its six");
+            far.Resolve(new TurnPlan?[] { Ahead(far, 0), q }, 3);
+            double gap = (far.planes[0].state.pos - far.planes[1].state.pos).Length;
+            Check(gap < 3000, $"and comes out behind it ({gap:F0} ft)");
+        }
+        {
+            // clones, subsets, swaps, bytes
+            var b = Tail(1500);
+            b.Resolve(new TurnPlan?[] { Through(b, 0, new Vec3d(12000, 0, 10000), east, 1.4), Ahead(b, 1) }, 1.5);
+            var c = b.Clone();
+            Check(c.portals[0] == b.portals[0] && !ReferenceEquals(c.portals, b.portals) && c.bullets.Any(x => x is Portal), "a clone keeps the count and the pair, in its own array");
+            Check(b.Subset(new[] { 1 }).bullets.Any(x => x is Portal), "a subset of the 109 alone still has the P-51's portals");
+            var back = Tail(1500);
+            Wire.Restore(back, Wire.Encode(b));
+            Check(Wire.Hash(back) == Wire.Hash(b) && back.bullets.OfType<Portal>().Any(x => (x.posB - b.bullets.OfType<Portal>().First().posB).Length < 1e-9), "a snapshot brings it across exactly");
+            b.Resolve(new TurnPlan?[] { Ahead(b, 0), Ahead(b, 1) }, 3);
+            back.Resolve(new TurnPlan?[] { Ahead(back, 0), Ahead(back, 1) }, 3);
+            Check(Wire.Hash(back) == Wire.Hash(b), "and both fly the next turn the same");
+            int w0 = b.portals[0], w1 = b.portals[1];
+            b.Swap(0, 1);
+            Check(b.portals[1] == w0 && b.portals[0] == w1, "a swap moves the count with the plane");
+            var pd = Wire.Decode<TurnPlan>(Wire.Encode(new TurnPlan { portal = true, portalAt = 2.15, portalExit = new Vec3d(1, 2, 3), portalExitFace = east, portalEntry = new Vec3d(4, 5, 6), portalEntryFace = new Vec3d(0, 1, 0) }));
+            Check(pd.portal && pd.portalAt == 2.15 && pd.portalExit.y == 2 && pd.portalExitFace.x == 1 && pd.portalEntry.z == 6 && pd.portalEntryFace.y == 1, "a plan with a portal (its moment and both ends) survives the trip to bytes");
+        }
+        {
+            // the loadout pick
+            var l = new Loadout(Kit.Missiles, Kit.Mines).Pick(Kit.Portal, Craft.Spitfire);
+            Check(l.Has(Kit.Portal) && Loadout.Allowed(Kit.Portal, Craft.F15), $"any plane can pick it ({l})");
+            var set = new DogfightSetup { randomStart = false, ours = new[] { Craft.Mustang }, theirs = new[] { Craft.Bf109 },
+                                          oursLoadouts = new[] { new Loadout(Kit.Portal, Kit.Missiles) }, theirsLoadouts = new[] { new Loadout(Kit.Missiles, Kit.Mines) } };
+            var b = Scenarios.Dogfight(DogfightSetup.FromBytes(set.ToBytes()), Vec3d.Zero);
+            Check(b.portals[0] == Specials.Portals && b.portals[1] == 0, "picked, it brings two pairs (and only the picker has them), through the trip to bytes");
+            var none = Through(b, 1, b.planes[1].state.pos + new Vec3d(9000, 0, 0), east);
+            b.Resolve(new TurnPlan?[] { TurnPlan.Straight(b.planes[0]), none }, 3);
+            Check(!b.bullets.OfType<Portal>().Any(), "without the pick, planning one does nothing");
         }
     }
 }

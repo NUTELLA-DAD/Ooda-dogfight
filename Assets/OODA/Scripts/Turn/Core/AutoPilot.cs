@@ -37,6 +37,13 @@ namespace Ooda.Turn.Core
         public bool well;
         /// <summary>When in the turn the well is thrown, in seconds from its start.</summary>
         public double wellAt;
+        /// <summary>Open a portal pair this turn, portalAt seconds into it (see Specials and Portal).</summary>
+        public bool portal;
+        public double portalAt;
+        /// <summary>Where the entry opens and the way it faces (world); a zero face: on your path, just ahead, facing along it.</summary>
+        public Vec3d portalEntry, portalEntryFace;
+        /// <summary>Where the exit opens and the way it faces (world; zero: your way).</summary>
+        public Vec3d portalExit, portalExitFace;
         /// <summary>The heat blade: red hot all turn, guns cold; any enemy you fly through is cut in half (see Specials).</summary>
         public bool ram;
         /// <summary>Go stealthy at the start of the turn: unseen for two turns, until you fire (see Specials).</summary>

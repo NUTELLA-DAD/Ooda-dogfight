@@ -174,6 +174,7 @@ namespace Ooda.Turn.Core
             Extras(sub, ref best, turnSec);
             PlanBurst(sub, ref best, turnSec);
             Defend(sub, ref best);
+            Portals(sub, ref best);
             // a missile at the target whenever it might come into the seeker's cone this turn (it launches only once locked)
             if (battle.missiles[me] > 0 && battle.routes[me] == null)
             {
@@ -388,7 +389,7 @@ namespace Ooda.Turn.Core
 
         /// <summary>
         /// A missile on it: a gravity well thrown ahead. Someone on its tail with guns on it: a balloon mine let go in their path;
-        /// with none left, a gravity well; then the jammer; then (hurt) stealth, unless it is firing this turn (that would show it
+        /// with none left, a gravity well; then a portal out onto the tailer's six; then the jammer; then (hurt) stealth, unless it is firing this turn (that would show it
         /// again at once).
         /// </summary>
         void Defend(Battle sub, ref TurnPlan plan)
@@ -413,9 +414,63 @@ namespace Ooda.Turn.Core
             if (!tailed) return;
             if (sub.balloonMines[0] > 0) { plan.mine = true; return; }
             if (sub.wells[0] > 0) { plan.well = true; plan.wellAt = 0; return; }   // the tailer's rounds bend off, and it turns tighter
+            if (PortalBehind(sub, Tailer(sub), ref plan)) return;   // through at once, out on the tailer's six
             if (sub.jammers[0] > 0) { plan.jam = true; return; }
             bool hurt = sub.SystemsOf(0).AnyDamaged;
             if (sub.stealths[0] > 0 && hurt && plan.burstEnd <= plan.burstStart && !plan.missile) plan.cloak = true;
+        }
+
+        /// <summary>Who is on its tail with guns on it (inside 3,000 ft, nose on it, behind it), or -1.</summary>
+        static int Tailer(Battle sub)
+        {
+            var me0 = sub.planes[0];
+            for (int j = 0; j < sub.Count; j++)
+            {
+                if (sub.side[j] == sub.side[0] || sub.Out(j)) continue;
+                Vec3d l = me0.state.pos - sub.planes[j].state.pos;
+                double r = l.Length;
+                if (r > 3000 || r < 1) continue;
+                if (Envelope.Angle(sub.planes[j].Forward, l) < 25 * Math.PI / 180 && Envelope.Angle(me0.Forward, l) < 60 * Math.PI / 180) return j;
+            }
+            return -1;
+        }
+
+        /// <summary>How far behind its quarry the AI puts a portal's exit, ft: gun range once it has closed a little.</summary>
+        public const double PortalSixFt = 1400;
+
+        /// <summary>
+        /// A portal pair with the entry on its own path (flown through at once) and the exit PortalSixFt behind aircraft j,
+        /// facing its way: it comes out on j's six. False (and nothing planned) if it has none, or one is open already.
+        /// </summary>
+        static bool PortalBehind(Battle sub, int j, ref TurnPlan plan)
+        {
+            if (j < 0 || sub.portals[0] <= 0 || plan.portal) return false;
+            foreach (var b in sub.bullets) if (b is Portal po && po.owner == 0 && po.Open) return false;
+            var them = sub.planes[j];
+            Vec3d f = them.Forward;
+            plan.portal = true; plan.portalAt = 0;
+            plan.portalEntry = Vec3d.Zero; plan.portalEntryFace = Vec3d.Zero;
+            plan.portalExit = them.state.pos - f * PortalSixFt; plan.portalExitFace = f;
+            plan.aim = sub.planes[0].Forward;   // straight through (the aim turns with it: straight out behind them)
+            plan.marks = null; plan.hold = false; plan.overpull = 0;
+            return true;
+        }
+
+        /// <summary>
+        /// On the attack: its target too far for the guns (past 5,000 ft) but within a portal's reach and not closing fast,
+        /// a portal pair that puts it on the target's six.
+        /// </summary>
+        void Portals(Battle sub, ref TurnPlan plan)
+        {
+            if (sub.routes[0] != null || sub.Count < 2 || sub.side[1] == sub.side[0] || sub.Out(1) || plan.portal) return;
+            var me0 = sub.planes[0];
+            Vec3d r = sub.planes[1].state.pos - me0.state.pos;
+            double range = r.Length;
+            if (range < 5000 || range > Specials.PortalReachFt - 2000) return;
+            double closing = -Vec3d.Dot(sub.planes[1].state.vel - me0.state.vel, r * (1 / range));
+            if (closing > 250) return;   // coming together anyway
+            if (sub.Cloaked(1)) return;
+            PortalBehind(sub, 1, ref plan);
         }
 
         /// <summary>Fire across the part of the turn whose rounds would hit the projected target, if any.</summary>
