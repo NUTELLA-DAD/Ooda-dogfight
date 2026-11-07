@@ -1437,7 +1437,7 @@ namespace Ooda.Turn
             {
                 if (tr.owner != 0 && !showProjection || HiddenFromMe(tr.owner) || JammedFrom(tr.owner)) continue;
                 if (tr.missile) { DrawPreviewTrace(tr, tr.radar && tr.owner != 0 ? new Color(1f, 0.35f, 0.3f, 0.85f) : new Color(1f, 1f, 1f, 0.8f), 1.0f, 0.3f); continue; }
-                DrawPreviewTrace(tr, OutcomeColor(tr, MagnetTint(tr, TracerColor(tr.owner))), tr.hit ? 0.5f : 0.35f, tr.hit ? 0.5f : 0.1f);
+                DrawPreviewTrace(tr, OutcomeColor(tr, MagnetTint(tr, TracerColor(tr.owner))), (tr.hit ? 0.5f : 0.35f) * (tr.magnet ? 1.5f : 1f), tr.hit ? 0.5f : tr.magnet ? 0.3f : 0.1f);   // magnet rounds a little bolder
             }
             // The gun line: where a burst would go, faint, until a burst is set
             if (showGunLine && !sightView && gunPreview != null && plan.burstEnd == plan.burstStart)
@@ -1494,7 +1494,7 @@ namespace Ooda.Turn
         }
 
         /// <summary>A magnet round's tracer: its colour tinted violet, so you can tell the rounds that curve.</summary>
-        Color MagnetTint(Trace tr, Color c) => tr.magnet ? Color.Lerp(c, magnetTracer, 0.6f) : c;
+        Color MagnetTint(Trace tr, Color c) => tr.magnet ? Color.Lerp(c, magnetTracer, 0.8f) : c;
 
         Color TracerColor(int owner) => owner == 0 ? myTracer
             : owner < 0 ? (-1 - owner < battle.flak.Length && battle.flak[-1 - owner].carrier >= 0 ? wingTracer : flakTracer)   // a B-17 gunner's, or the flak's
