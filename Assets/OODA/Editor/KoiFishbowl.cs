@@ -6,8 +6,8 @@ using UnityEngine.Rendering;
 namespace Ooda.EditorTools
 {
     /// <summary>
-    /// The koi's fishbowl helmet: a glass sphere round its head, full of water nearly to the top (the dorsal fin breaks
-    /// the surface), three bubbles rising on its left, and a riveted brass collar at the neck. It is skinned to the Head
+    /// The koi's fishbowl helmet: a glass sphere round its head, full of water nearly to the top (just over the dorsal
+    /// fin), three bubbles rising on its left, and a riveted brass collar at the neck. It is skinned to the Head
     /// bone, so it turns with the head look, shrinks away with the head in the cockpit camera, and goes with the
     /// skinned pilot when he bails out. Two renderers: the glass, water and bubbles (no shadow, so the face stays lit)
     /// and the brass collar. The numbers are in the koi's own height-1 frame (its FBX: head bone base 0.675 over the
@@ -22,13 +22,14 @@ namespace Ooda.EditorTools
         const float Up = 0.175f, Back = 0.048f;     // the centre, from the head bone's base
         const float R = 0.35f;                      // clears the cheek fins, the dorsal fin and the back of the head
         const float Cut = -0.22f;                   // the glass's lower edge, under the centre
-        const float Water = 0.25f;                  // the water line, over the centre (the dorsal fin's tip pokes through)
+        const float Water = 0.29f;                  // the water line, over the centre, just over the dorsal fin's tip
 
         // the collar's cross-section (radius, height from the centre), outside then over the top
         static readonly Vector2[] Collar =
         {
             new Vector2(0.235f, -0.265f), new Vector2(0.262f, -0.265f), new Vector2(0.276f, -0.258f), new Vector2(0.284f, -0.235f),
             new Vector2(0.286f, -0.210f), new Vector2(0.278f, -0.200f), new Vector2(0.250f, -0.200f),
+            new Vector2(0.020f, -0.205f),   // a plate across the neck, under the head, so no gap shows down to the chest
         };
         const float RivetR = 0.284f, RivetUp = -0.233f, RivetSize = 0.012f;
         // bubbles on the koi's left, in front: (left, up, forward) from the centre, and size
@@ -97,7 +98,7 @@ namespace Ooda.EditorTools
             Band(R, Cut, Water, 40, water, true);
             Band(R, Water, R, 14, glass, true);
             // the water line: a bright ring on the glass and the surface across it
-            Band(R + 0.002f, Water - 0.005f, Water + 0.005f, 1, surface, false);
+            Band(Mathf.Sqrt(R * R - Water * Water) + 0.002f, Water - 0.005f, Water + 0.005f, 1, surface, false);
             {
                 int c0 = v.Count;
                 v.Add(P(0, Water, 0)); n.Add(up);
@@ -218,9 +219,9 @@ namespace Ooda.EditorTools
             switch (name)
             {
                 case "Fishbowl_Brass": return TestWorldBuilder.Mat(name, new Color(0.72f, 0.52f, 0.22f), 0.6f, 1f);
-                case "Fishbowl_Water": return Glass(name, new Color(0.40f, 0.78f, 0.84f, 0.38f), CullMode.Back, 3003);
+                case "Fishbowl_Water": return Glass(name, new Color(0.22f, 0.70f, 0.72f, 0.26f), CullMode.Back, 3003);
                 case "Fishbowl_Glass": return Glass(name, new Color(0.90f, 0.97f, 1f, 0.08f), CullMode.Back, 3003);
-                case "Fishbowl_Surface": return Glass(name, new Color(0.82f, 0.96f, 1f, 0.55f), CullMode.Off, 3002);
+                case "Fishbowl_Surface": return Glass(name, new Color(0.70f, 0.93f, 0.95f, 0.22f), CullMode.Off, 3002);
                 default: return Glass(name, new Color(0.95f, 1f, 1f, 0.5f), CullMode.Back, 3001);
             }
         }

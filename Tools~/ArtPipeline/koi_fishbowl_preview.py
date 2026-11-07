@@ -10,7 +10,7 @@ A = sys.argv[sys.argv.index('--')+1:]
 REPO, OUT, MODE = A[0], A[1], A[2]
 ART = REPO + '/Assets/OODA/Art'
 # helmet, in the koi's own height-1 frame (Blender: Z up, facing -Y, its left +X)
-C = Vector((0, 0.03, 0.85)); R = 0.35; ZCUT = 0.63; ZW = C.z + 0.25
+C = Vector((0, 0.03, 0.85)); R = 0.35; ZCUT = 0.63; ZW = C.z + 0.29
 def mat(name, col, alpha=1, rough=0.3, metal=0, emit=None, tex=None):
     m = bpy.data.materials.new(name); m.use_nodes = True
     b = m.node_tree.nodes['Principled BSDF']
@@ -44,17 +44,17 @@ def ball(p, r, m, name):
     bm = bmesh.new(); bmesh.ops.create_uvsphere(bm, u_segments=12, v_segments=8, radius=r)
     for v in bm.verts: v.co += Vector(p)
     return obj(name, bm, m)
-WATER = (0.40, 0.78, 0.84, 1); CLEAR = (0.9, 0.97, 1, 1); BRASS = (0.72, 0.52, 0.22, 1)
+WATER = (0.22, 0.70, 0.72, 1); CLEAR = (0.9, 0.97, 1, 1); BRASS = (0.72, 0.52, 0.22, 1)
 def helmet():
-    water = mat('Water', WATER, 0.42, 0.05); glass = mat('Glass', CLEAR, 0.08, 0.02)
+    water = mat('Water', WATER, 0.26, 0.05); glass = mat('Glass', CLEAR, 0.08, 0.02)
     line = mat('Waterline', (0.85, 0.97, 1, 1), 0.7, 0.1); brass = mat('Brass', BRASS, 1, 0.35, 1)
     bub = mat('Bubble', (0.95, 1, 1, 1), 0.55, 0.02)
     parts = [bowl(ZCUT, ZW, R, water, 'BowlWater'), bowl(ZW, C.z + R, R, glass, 'BowlGlass', rings=14),
-             bowl(ZW - 0.004, ZW + 0.004, R + 0.002, line, 'Waterline', rings=1)]
-    rs = math.sqrt(R*R - 0.25**2) - 0.002
+             lathe([(math.sqrt(R*R - 0.29**2) + 0.002, ZW - 0.004), (math.sqrt(R*R - 0.29**2) + 0.002, ZW + 0.004)], line, 'Waterline')]
+    rs = math.sqrt(R*R - 0.29**2) - 0.002
     bm = bmesh.new(); ring = [bm.verts.new((C.x + rs*math.cos(2*math.pi*k/48), C.y + rs*math.sin(2*math.pi*k/48), ZW)) for k in range(48)]; bm.faces.new(ring)
-    parts.append(obj('WaterSurface', bm, line))
-    parts.append(lathe([(0.235, 0.585), (0.262, 0.585), (0.276, 0.592), (0.284, 0.615), (0.286, 0.640), (0.278, 0.650), (0.250, 0.650)], brass, 'Collar'))
+    parts.append(obj('WaterSurface', bm, mat('Surface', (0.70, 0.93, 0.95, 1), 0.22, 0.05)))
+    parts.append(lathe([(0.235, 0.585), (0.262, 0.585), (0.276, 0.592), (0.284, 0.615), (0.286, 0.640), (0.278, 0.650), (0.250, 0.650), (0.020, 0.645)], brass, 'Collar'))
     for k in range(8):
         a = 2*math.pi*(k + 0.5)/8
         parts.append(ball((C.x + 0.284*math.cos(a), C.y + 0.284*math.sin(a), 0.617), 0.012, brass, f'Rivet{k}'))
