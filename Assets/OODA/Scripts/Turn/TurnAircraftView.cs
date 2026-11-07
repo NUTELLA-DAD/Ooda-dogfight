@@ -51,6 +51,8 @@ namespace Ooda.Turn
         public void ShowFrame(AircraftFrame a, AircraftFrame b, double u, float dt, bool crashed)
         {
             if (b.blink) u = u < 0.5 ? 0 : 1;   // a blink: gone from one place and there in the other, never between
+            if (b.warped) { a = u < 0.5 ? a : b; u = 0; }   // through a portal: one side or the other, never between
+            if (b.warped && dt > 0) lastUp = Vector3.zero;   // no roll rate across the jump
             Vec3d pos = a.pos + (b.pos - a.pos) * u;
             Vec3d vel = a.vel + (b.vel - a.vel) * u;
             Vec3d nose = (a.Nose + (b.Nose - a.Nose) * u).Normalized;

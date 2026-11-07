@@ -89,6 +89,12 @@ namespace Ooda.Turn.Core
     /// missiles, flares and chaff arc up instead of dropping. You keep your weight: the tailer behind you floats up off your
     /// line, a diver overshoots upward, and a wreck falls into the sky. Full strength out to FlipCoreFt, fading to nothing at
     /// its edge. It does no damage itself.
+    ///
+    /// Portals: a linked pair of rings (Portal), opened at a moment of the turn you plan (TurnPlan.portalAt). The entry
+    /// opens round you on your path (or where the plan puts it), the exit where the plan puts it (PortalEnds keeps both in
+    /// reach and clear of the ground). Anything that flies through one ring comes out of the other: planes (both sides),
+    /// rounds, missiles and flares, keeping their speed, and their heading and bank as they were to the ring they entered.
+    /// Both ways, for PortalLifeSec (two turns). It does no damage and is no obstacle.
     /// </summary>
     public static class Specials
     {
@@ -146,8 +152,16 @@ namespace Ooda.Turn.Core
         public const double FlipSec = 6, FlipOpenSec = 0.25, FlipFadeSec = 0.5;
         /// <summary>The gravity flip's push up, in G: 2 turns 1 G down into 1 G up.</summary>
         public const double FlipG = 2;
+        /// <summary>The portals: each ring's radius, how long a pair stays open, and how long it takes to open fully (for the look).</summary>
+        public const double PortalRadiusFt = 140, PortalLifeSec = 6, PortalOpenSec = 0.3;
+        /// <summary>How far from you (when it opens) a portal's ends may be, and how far apart the two must be.</summary>
+        public const double PortalReachFt = 15000, PortalMinGapFt = 2000;
+        /// <summary>An end is kept at least this far above the ground.</summary>
+        public const double PortalGroundFt = 300;
+        /// <summary>The entry on your path opens this far ahead of you (in seconds of flight), so you go through it at once.</summary>
+        public const double PortalLeadSec = 0.05;
         /// <summary>What each fighter carries with Arcade on.</summary>
-        public const int Mines = 2, Blades = 1, Stealths = 1, Jammers = 1, Wells = 2, SlowBombs = 2, Blinks = 2, Mirrors = 2, Grapples = 2, SnowClouds = 2, Flips = 2;
+        public const int Mines = 2, Blades = 1, Stealths = 1, Jammers = 1, Wells = 2, SlowBombs = 2, Blinks = 2, Mirrors = 2, Grapples = 2, SnowClouds = 2, Flips = 2, Portals = 2;
         /// <summary>The time slow bomb's throw: at the nearest threat within SlowReachFt, flying SlowFlySec to burst (none in reach: SlowAheadFt ahead).</summary>
         public const double SlowReachFt = 5000, SlowFlySec = 0.6, SlowAheadFt = 1200, SlowClearFt = 200;
         /// <summary>The time slow bubble: SlowRadiusFt round its middle (full slow inside SlowCoreShare of it, easing to none at the edge), for SlowLifeSec after it bursts, fading over SlowFadeSec.</summary>
@@ -169,6 +183,29 @@ namespace Ooda.Turn.Core
         public const double GrappleJoltMaxFps = 320;
         /// <summary>What the yank does to each end: G-seconds of stress per G-second of jolt, and wear on every system per ft/s.</summary>
         public const double GrappleStressPerG = 1.2, GrappleWearPerFps = 0.0025;
+
+        /// <summary>
+        /// Where a portal pair opened now by m, flying plan p, goes: the entry on m's path just ahead (facing along it) unless
+        /// the plan places it (portalEntryFace set), the exit where the plan says (facing portalExitFace; none: m's way).
+        /// Each end is kept within PortalReachFt of m and PortalGroundFt above the ground, and the exit at least
+        /// PortalMinGapFt from the entry. The same on every machine.
+        /// </summary>
+        public static void PortalEnds(FlightModel m, TurnPlan p, Func<double, double, double> groundFt, out Vec3d a, out Vec3d fa, out Vec3d b, out Vec3d fb)
+        {
+            Vec3d at = m.state.pos;
+            Vec3d Reach(Vec3d q) { Vec3d d = q - at; double l = d.Length; return l > PortalReachFt ? at + d * (PortalReachFt / l) : q; }
+            Vec3d Lift(Vec3d q) { double g = groundFt != null ? groundFt(q.x, q.y) : 0; if (q.z < g + PortalGroundFt) q.z = g + PortalGroundFt; return q; }
+            if (p.portalEntryFace.Length > 0.5) { a = Lift(Reach(p.portalEntry)); fa = p.portalEntryFace.Normalized; }
+            else { a = at + m.state.vel * PortalLeadSec; fa = m.state.vel.Normalized; }
+            fb = p.portalExitFace.Length > 0.5 ? p.portalExitFace.Normalized : m.Forward;
+            b = Lift(Reach(p.portalExit));
+            Vec3d gap = b - a;
+            if (gap.Length < PortalMinGapFt)
+            {
+                Vec3d away = gap.Length > 1 ? gap.Normalized : fb;
+                b = Lift(a + away * PortalMinGapFt);
+            }
+        }
 
         /// <summary>Where a gravity well thrown now from m, flying plan p, settles: ahead and into the turn.</summary>
         public static Vec3d WellLanding(FlightModel m, TurnPlan p)
@@ -250,7 +287,7 @@ namespace Ooda.Turn.Core
         /// <summary>Give a fighter its arcade load (the same numbers, changed in place, returned for chaining).</summary>
         public static CombatNumbers Arm(CombatNumbers c)
         {
-            c.balloonMines = Mines; c.heatBlades = Blades; c.stealths = Stealths; c.jammers = Jammers; c.wells = Wells; c.slowBombs = SlowBombs; c.blinks = Blinks; c.mirrors = Mirrors; c.grapples = Grapples; c.lanes = JetStream.Lanes; c.flips = Flips;
+            c.balloonMines = Mines; c.heatBlades = Blades; c.stealths = Stealths; c.jammers = Jammers; c.wells = Wells; c.slowBombs = SlowBombs; c.blinks = Blinks; c.mirrors = Mirrors; c.grapples = Grapples; c.lanes = JetStream.Lanes; c.flips = Flips; c.portals = Portals;
             return c;
         }
     }
@@ -576,6 +613,73 @@ namespace Ooda.Turn.Core
         }
 
         /// <summary>One step: it stays where it was set off and only ages.</summary>
+        public void Step(double dt) => age += dt;
+    }
+
+    /// <summary>
+    /// A linked pair of portal rings (see Specials): this one at pos facing faceA, its twin at posB facing faceB. Anything
+    /// that crosses either ring's disc comes out of the other, its place, speed and heading turned from one ring's frame to
+    /// the other's (flown through A along faceA, you come out of B along faceB; backwards through A, backwards out of B).
+    /// It hangs still, hits nothing and does no damage; it rides in the battle's bullets so a clone, a subset, a swap and
+    /// the wire carry it like a mine.
+    /// </summary>
+    public class Portal : Bullet
+    {
+        public Vec3d posB, faceA, faceB;
+        public double radiusFt = Specials.PortalRadiusFt;
+
+        public static Portal Make(int owner, int side, Vec3d a, Vec3d fa, Vec3d b, Vec3d fb, double time) => new Portal
+        {
+            owner = owner, side = side, pos = a, faceA = fa.Normalized, posB = b, faceB = fb.Normalized, fireTime = time,
+            damage = 0, hitRadiusFt = 0, dragPerSec = 0, lifeSec = Specials.PortalLifeSec,
+        };
+
+        public bool Open => age < lifeSec;
+
+        /// <summary>How open it looks, 0 to 1: growing over PortalOpenSec, closing over the last half second.</summary>
+        public static double Openness(double age) => age < 0 || age >= Specials.PortalLifeSec ? 0
+            : Math.Max(0, Math.Min(1, Math.Min(age / Specials.PortalOpenSec + 0.2, (Specials.PortalLifeSec - age) / 0.5)));
+
+        /// <summary>A ring's frame: its face, and right and up square to it (up as near the sky's as it can be).</summary>
+        public static void Frame(Vec3d f, out Vec3d right, out Vec3d up)
+        {
+            Vec3d refUp = Math.Abs(f.z) > 0.98 ? new Vec3d(0, 1, 0) : Vec3d.Up;
+            right = Vec3d.Cross(f, refUp).Normalized;
+            up = Vec3d.Cross(right, f).Normalized;
+        }
+
+        /// <summary>A direction turned from one ring's frame to the other's (fromA: from A's to B's).</summary>
+        public Vec3d MapDir(Vec3d v, bool fromA)
+        {
+            Vec3d f0 = fromA ? faceA : faceB, f1 = fromA ? faceB : faceA;
+            Frame(f0, out var r0, out var u0);
+            Frame(f1, out var r1, out var u1);
+            return f1 * Vec3d.Dot(v, f0) + r1 * Vec3d.Dot(v, r0) + u1 * Vec3d.Dot(v, u0);
+        }
+
+        /// <summary>A point turned from one ring to the other (fromA: from A's to B's).</summary>
+        public Vec3d MapPoint(Vec3d p, bool fromA) => fromA ? posB + MapDir(p - pos, true) : pos + MapDir(p - posB, false);
+
+        /// <summary>Does the path from p0 to p1 go through one of the rings? fromA says which (A, to come out of B).</summary>
+        public bool Crosses(Vec3d p0, Vec3d p1, out bool fromA)
+        {
+            fromA = true;
+            if (!Open) return false;
+            if (Through(pos, faceA, p0, p1)) return true;
+            fromA = false;
+            return Through(posB, faceB, p0, p1);
+        }
+
+        bool Through(Vec3d c, Vec3d f, Vec3d p0, Vec3d p1)
+        {
+            double d0 = Vec3d.Dot(p0 - c, f), d1 = Vec3d.Dot(p1 - c, f);
+            if (d0 > 0 && d1 > 0 || d0 < 0 && d1 < 0 || d0 == d1) return false;
+            if (d0 == 0 && d1 == 0) return false;
+            Vec3d x = p0 + (p1 - p0) * (d0 / (d0 - d1));
+            return (x - c).Length <= radiusFt;
+        }
+
+        /// <summary>One step: it hangs where it is and ages.</summary>
         public void Step(double dt) => age += dt;
     }
 }

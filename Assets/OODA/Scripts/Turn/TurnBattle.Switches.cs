@@ -176,6 +176,11 @@ namespace Ooda.Turn
                 row.Add(Sw(plan.lane && plan.laneBack ? "JET BACK" : "JET", $"'  ({battle.lanes[0]})", plan.lane, plan.lane || battle.lanes[0] > 0, laneColor, ToggleLane));
             if (load.flips > 0)
                 row.Add(Sw("FLIP", $"'  ({battle.flips[0]})", plan.flip, plan.flip || battle.flips[0] > 0, flipColor, ToggleFlip));
+            if (load.portals > 0)
+            {
+                row.Add(Sw("PORTAL", $"9  ({battle.portals[0]})", plan.portal, plan.portal || battle.portals[0] > 0, portalEntryColor, TogglePortal));
+                if (plan.portal) row.Add(Sw("EXIT", placingExit ? "click" : "Shift+9", placingExit, true, portalExitColor, () => { placingExit = !placingExit; if (placingExit) PortalNotice(); }));
+            }
             SwitchRow(x, y, w, row, true);
             FlipWarning(x, y, w);
             if (JammedNow)

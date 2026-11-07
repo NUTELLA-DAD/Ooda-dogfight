@@ -144,7 +144,7 @@ namespace Ooda.Turn
         Ooda.UI.StickThrottleGauge gauge;   // the stick (bottom middle) and the throttle (bottom left)
         Material tipMat;
 
-        bool dragArrow, dragLook, dragBurst, dragMoves, dragMine, dragWell, dragBlink, dragGrapple, dragSnow, dragLane;
+        bool dragArrow, dragLook, dragBurst, dragMoves, dragMine, dragWell, dragBlink, dragGrapple, dragSnow, dragLane;   // (the portal's: TurnBattle.Portal.cs)
         Rect movesRect;
         bool showMoves;            // the Advanced timeline panel is open (T)
         float markT;               // the moment on the moves slider being edited, s into the turn
@@ -428,6 +428,8 @@ namespace Ooda.Turn
             plan.snow = false; plan.snowAt = 0;
             plan.lane = plan.laneBack = false; plan.laneAt = 0;
             plan.flip = false;
+            plan.portal = false; plan.portalAt = 0; plan.portalEntry = plan.portalEntryFace = plan.portalExit = plan.portalExitFace = Vec3d.Zero;
+            placingExit = dragExit = false;
             plan.rudder = 0;
             markT = 0;
             burstPreset = 0;
@@ -643,8 +645,10 @@ namespace Ooda.Turn
             RicochetShotsCheck();
             GrappleShotsCheck();
             SnowShotsCheck();
+            PortalShotsCheck();
             BotUpdate();
             NetBotUpdate();
+            PortalsBegin();
             lines.Begin();
             if (phase == Phase.Playing) Playback();
             else if (phase == Phase.Planning || phase == Phase.Thinking) DrawPlanning();
@@ -927,7 +931,11 @@ namespace Ooda.Turn
                     float sc = mouse.scroll.ReadValue().y;
                     Vector2 mp = mouse.position.ReadValue();
                     bool overPanel = guiRects.Any(r => r.Contains(new Vector2(mp.x, Screen.height - mp.y) / guiScale));   // the wheel scrolls the help there
-                    if (Mathf.Abs(sc) > 0.01f && !overPanel) view.Zoom(Mathf.Sign(sc));
+                    if (Mathf.Abs(sc) > 0.01f && !overPanel)
+                    {
+                        if (phase == Phase.Planning && plan.portal && placingExit) NudgeExitHeight(Mathf.Sign(sc));   // the wheel lifts the exit while placing it
+                        else view.Zoom(Mathf.Sign(sc));
+                    }
                 }
                 if (pad != null)
                 {
@@ -956,6 +964,7 @@ namespace Ooda.Turn
                     else if (phase == Phase.Planning && PressGrapple(gui)) { dragGrapple = true; SetGrappleFromBar(gui.x); }
                     else if (phase == Phase.Planning && PressSnow(gui)) { dragSnow = true; SetSnowFromBar(gui.x); }
                     else if (phase == Phase.Planning && PressLane(gui)) { dragLane = true; SetLaneFromBar(gui.x); }
+                    else if (phase == Phase.Planning && PressPortal(gui)) { dragPortalBar = true; SetPortalFromBar(gui.x); }
                     else if (phase == Phase.Planning && burstRect.Contains(gui)) { dragBurst = true; SetBurstFromBar(gui.x, true); }
                     else if (phase == Phase.Planning && movesRect.Contains(gui)) { dragMoves = true; SetMarkTime(gui.x); }
                     else if (PressStick(gui)) { }
@@ -963,6 +972,7 @@ namespace Ooda.Turn
                     else if (PressThrottle(gui)) { }
                     else if (guiRects.Any(r => r.Contains(gui))) { }
                     else if (phase == Phase.Planning && !plan.HasMarks && ArrowShown && NearTip(pos)) dragArrow = true;
+                    else if (phase == Phase.Planning && plan.portal && placingExit && view != null) { dragExit = true; ExitPress(pos); }
                     else dragLook = true;
                 }
                 else if (pointer.press.isPressed)
@@ -978,11 +988,14 @@ namespace Ooda.Turn
                     else if (dragGrapple) SetGrappleFromBar(gui.x);
                     else if (dragSnow) SetSnowFromBar(gui.x);
                     else if (dragLane) SetLaneFromBar(gui.x);
+                    else if (dragPortalBar) SetPortalFromBar(gui.x);
+                    else if (dragExit) ExitDrag(pos);
                     else if (dragBurst) SetBurstFromBar(gui.x, false);
                     else if (dragMoves) SetMarkTime(gui.x);
                     else if (dragLook && view != null && (mouse == null || !mouse.rightButton.isPressed)) view.Orbit((pos - lastPointer) * 0.25f);
                 }
-                if (pointer.press.wasReleasedThisFrame) { dragArrow = dragLook = dragMoves = dragStick = dragPedals = dragThrottle = dragMine = dragWell = dragSlow = dragBlink = dragGrapple = dragSnow = dragLane = false; if (dragBurst) { dragBurst = false; TidyBurst(); } }
+                if (pointer.press.wasReleasedThisFrame && dragExit) { placingExit = false; Notice("Portal exit placed. Shift+9 or EXIT places it again."); }
+                if (pointer.press.wasReleasedThisFrame) { dragArrow = dragLook = dragMoves = dragStick = dragPedals = dragThrottle = dragMine = dragWell = dragSlow = dragBlink = dragGrapple = dragSnow = dragLane = dragPortalBar = dragExit = false; if (dragBurst) { dragBurst = false; TidyBurst(); } }
                 lastPointer = pos;
             }
 
@@ -1622,6 +1635,7 @@ namespace Ooda.Turn
                 views[k].ShowFrame(last.frames[k][i], last.frames[k][i + 1], u, Time.deltaTime, crashedNow);
             }
             RacksPlayback(last, now);
+            FollowWarp(last, i + 1);
 
             DrawLastPaths(now);
             DrawExtras(now);
@@ -1695,7 +1709,10 @@ namespace Ooda.Turn
             var p1 = tr.At(now);
             if (p1 == null) return;
             int seed = index * 7919 + tr.startFrame * 31 + tr.owner;
-            Ooda.Fx.ToonFx.Get().Tracer(UnityFrame.Pos(tr.At(now - 3) ?? tr.points[0]), UnityFrame.Pos(p1.Value), col, seed);
+            Vector3 head = UnityFrame.Pos(p1.Value), tail = UnityFrame.Pos(tr.At(now - 3) ?? tr.points[0]);
+            if ((head - tail).sqrMagnitude > 150f * 150f) tail = UnityFrame.Pos(tr.At(now - 1) ?? p1.Value);   // just through a portal: no streak across the gap
+            if ((head - tail).sqrMagnitude > 150f * 150f) return;
+            Ooda.Fx.ToonFx.Get().Tracer(tail, head, col, seed);
         }
 
         /// <summary>A hit lands: a toon star and sparks; the hit that kills blows the aircraft up.</summary>
@@ -1872,7 +1889,7 @@ namespace Ooda.Turn
                     "Drag on the timeline to fire; F fires where hits are predicted.\n\n" +
                     "Keys: WASD arrow (S pulls up, like the stick), Shift/Ctrl throttle,\n" +
                     "Space full throttle (a jet: burner), 1 rocket, 2 speed brake, 3 hold flares, I IR view, Tab next plane, N next target,\n" +
-                    "4 mine, 5 blade, 6 stealth, 7 jammer, 8 gravity well, / ricochet shield, 0 grapple (again to cut), ' jet stream (\\ turns it round), ' gravity flip, B bursts, G missile, T timeline,\n" +
+                    "4 mine, 5 blade, 6 stealth, 7 jammer, 8 gravity well, / ricochet shield, 0 grapple (again to cut), ' jet stream (\\ turns it round), ' gravity flip, 9 portal (Shift+9 places the exit), B bursts, G missile, T timeline,\n" +
                     "A jet: J radar missile, U the radar page; notch a radar missile (fly square across it).\n" +
                     "Z/C rudder pedals (slow and nose-high, the rudder swings the nose: hammerhead).\n" +
                     "Enter fly, R replay, P projection, V view, X straight, M mission, H help.\n" +

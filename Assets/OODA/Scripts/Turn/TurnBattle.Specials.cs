@@ -150,7 +150,7 @@ namespace Ooda.Turn
             dirty = true;
         }
 
-        /// <summary>4 balloon mine (stepping its moment), 5 heat blade, 6 stealth, 7 jammer, 8 gravity well (stepping its moment; TurnBattle.Well.cs), Y time slow bomb (TurnBattle.Slow.cs), Y blink (stepping its moment; TurnBattle.Blink.cs), / ricochet shield (TurnBattle.Mirror.cs), 0 grapple (stepping its moment; TurnBattle.Grapple.cs), ; (semicolon) snow cloud (stepping its moment; TurnBattle.Snow.cs), ' jet stream (stepping its moment) and \ turning it round (TurnBattle.JetStream.cs), ' gravity flip (TurnBattle.Flip.cs).</summary>
+        /// <summary>4 balloon mine (stepping its moment), 5 heat blade, 6 stealth, 7 jammer, 8 gravity well (stepping its moment; TurnBattle.Well.cs), Y time slow bomb (TurnBattle.Slow.cs), Y blink (stepping its moment; TurnBattle.Blink.cs), / ricochet shield (TurnBattle.Mirror.cs), 0 grapple (stepping its moment; TurnBattle.Grapple.cs), ; (semicolon) snow cloud (stepping its moment; TurnBattle.Snow.cs), ' jet stream (stepping its moment) and \ turning it round (TurnBattle.JetStream.cs), ' gravity flip (TurnBattle.Flip.cs), 9 portal (stepping its moment, Shift+9 places the exit; TurnBattle.Portal.cs).</summary>
         void SpecialsInput(Keyboard kb)
         {
             bool Pressed(Key k) => kb != null && kb[k].wasPressedThisFrame;
@@ -167,6 +167,7 @@ namespace Ooda.Turn
             if (Pressed(Key.Quote)) StepLane();
             if (Pressed(Key.Backslash)) FlipLane();
             if (Pressed(Key.Quote)) ToggleFlip();
+            if (Pressed(Key.Digit9) || Pressed(Key.Numpad9)) StepPortal(kb.shiftKey.isPressed);
         }
 
         // ---------- drawing ----------
@@ -340,6 +341,7 @@ namespace Ooda.Turn
             DrawLiveSnow();
             DrawLiveLanes();
             DrawLiveFlips();
+            DrawLivePortals();
         }
 
         /// <summary>Everyone shown again (the fight is over, or no one is stealthy).</summary>

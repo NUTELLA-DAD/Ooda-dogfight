@@ -197,6 +197,7 @@ namespace Ooda.Turn.Core
             foreach (var tr in r.snow) tr.owner = Map(tr.owner);
             foreach (var tr in r.lanes) tr.owner = Map(tr.owner);
             foreach (var tr in r.flips) tr.owner = Map(tr.owner);
+            foreach (var tr in r.portals) tr.owner = Map(tr.owner);
             return r;
         }
 

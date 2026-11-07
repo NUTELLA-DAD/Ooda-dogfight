@@ -238,11 +238,11 @@ namespace Ooda.Turn.Core
                 c.damage *= l.damageScale;
                 if (l.foeToughness > 0) c.toughness = l.foeToughness;
                 c.missiles = 0; c.radarMissiles = 0;
-                c.balloonMines = c.heatBlades = c.stealths = c.wells = c.slowBombs = c.blinks = c.mirrors = c.grapples = c.snowClouds = c.lanes = c.flips = 0;
+                c.balloonMines = c.heatBlades = c.stealths = c.wells = c.slowBombs = c.blinks = c.mirrors = c.grapples = c.snowClouds = c.lanes = c.flips = c.portals = 0;
                 b.combat[i] = c;
                 b.ammo[i] = c.ammoSec;
                 b.missiles[i] = 0; b.radarMissiles[i] = 0;
-                b.balloonMines[i] = b.heatBlades[i] = b.stealths[i] = b.wells[i] = b.slowBombs[i] = b.blinks[i] = b.mirrors[i] = b.grapples[i] = b.snowClouds[i] = b.lanes[i] = b.flips[i] = 0;
+                b.balloonMines[i] = b.heatBlades[i] = b.stealths[i] = b.wells[i] = b.slowBombs[i] = b.blinks[i] = b.mirrors[i] = b.grapples[i] = b.snowClouds[i] = b.lanes[i] = b.flips[i] = b.portals[i] = 0;
             }
             b.planes[0].throttle = l.throttle;
             b.planes[1].throttle = l.foeThrottle;

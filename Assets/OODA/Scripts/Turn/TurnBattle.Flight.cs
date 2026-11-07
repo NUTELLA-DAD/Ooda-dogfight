@@ -179,6 +179,7 @@ namespace Ooda.Turn
                 if (battle.snowClouds[0] <= 0) plan.snow = false;
                 if (battle.lanes[0] <= 0) plan.lane = false;
                 if (battle.flips[0] <= 0) plan.flip = false;
+                if (battle.portals[0] <= 0) plan.portal = false;
                 plan.aim = env.Clamp(plan.aim, true);
                 plan.overpull = env.Overpull(plan.aim);
                 manual[m] = plan;
@@ -263,7 +264,7 @@ namespace Ooda.Turn
 
         static bool SamePlan(TurnPlan a, TurnPlan b) =>
             (a.aim - b.aim).Length < 1e-9 && System.Math.Abs(a.throttle - b.throttle) < 1e-6 && a.wep == b.wep && a.rocket == b.rocket && a.brake == b.brake
-            && a.mine == b.mine && a.mineAt == b.mineAt && a.well == b.well && a.wellAt == b.wellAt && a.slow == b.slow && a.slowAt == b.slowAt && a.blink == b.blink && a.blinkAt == b.blinkAt && a.grapple == b.grapple && a.grappleAt == b.grappleAt && a.snow == b.snow && a.snowAt == b.snowAt && a.lane == b.lane && a.laneBack == b.laneBack && a.laneAt == b.laneAt && a.flip == b.flip && a.ram == b.ram && a.cloak == b.cloak && a.jam == b.jam && a.mirror == b.mirror && a.rudder == b.rudder
+            && a.mine == b.mine && a.mineAt == b.mineAt && a.well == b.well && a.wellAt == b.wellAt && a.slow == b.slow && a.slowAt == b.slowAt && a.blink == b.blink && a.blinkAt == b.blinkAt && a.grapple == b.grapple && a.grappleAt == b.grappleAt && a.snow == b.snow && a.snowAt == b.snowAt && a.lane == b.lane && a.laneBack == b.laneBack && a.laneAt == b.laneAt && a.flip == b.flip && a.portal == b.portal && a.portalAt == b.portalAt && (a.portalExit - b.portalExit).Length < 1e-9 && (a.portalExitFace - b.portalExitFace).Length < 1e-9 && (a.portalEntry - b.portalEntry).Length < 1e-9 && (a.portalEntryFace - b.portalEntryFace).Length < 1e-9 && a.ram == b.ram && a.cloak == b.cloak && a.jam == b.jam && a.mirror == b.mirror && a.rudder == b.rudder
             && a.burstStart == b.burstStart && a.burstEnd == b.burstEnd && a.missile == b.missile && a.hold == b.hold && a.marks == b.marks;
 
         /// <summary>At the start of each turn's planning: a plane in formation shows its formation plan, so the stick shows what it will do.</summary>

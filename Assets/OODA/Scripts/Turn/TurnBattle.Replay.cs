@@ -265,6 +265,7 @@ namespace Ooda.Turn
                 else { rPrevT = rT; rT = Mathf.Min(rT + Time.deltaTime * ReplaySpeeds[rSpeed], t.Sec); }
             }
             else rPrevT = rT;
+            PortalsBegin();
             lines.Begin();
             ShowReplayFrame(true);
             lines.End();

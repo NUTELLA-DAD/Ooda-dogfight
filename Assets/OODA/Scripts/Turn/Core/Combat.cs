@@ -48,6 +48,8 @@ namespace Ooda.Turn.Core
         public int lanes;
         /// <summary>Gravity flips carried (see Specials): none unless the loadout (or Specials.Arm) gives them.</summary>
         public int flips;
+        /// <summary>Portal pairs carried (see Specials): none unless the loadout (or Specials.Arm) gives them.</summary>
+        public int portals;
         /// <summary>Ice (a loadout pick, see Loadout): the airframe is cased in ice, cold as the sky, so no heat-seeker can lock it and one that blunders into it shatters harmlessly. Radar missiles and guns still bite.</summary>
         public bool iced;
         /// <summary>Magnet rounds (a loadout pick, see Magnet): the rounds curve toward the nearest enemy they pass.</summary>
@@ -450,6 +452,8 @@ namespace Ooda.Turn.Core
         public Vec3d nose;
         /// <summary>The aircraft blinked (see Specials) in the step that ends at this frame: it jumped here from the frame before.</summary>
         public bool blink;
+        /// <summary>Came out of a portal in the step that ends here (the jump from the frame before is not flown).</summary>
+        public bool warped;
         /// <summary>The nose along vel when it isn't recorded.</summary>
         public Vec3d Nose => nose.Length > 0.5 ? nose : vel.Normalized;    // the heat blade glowing; stealthy (unseen by the other side)
     }
@@ -484,6 +488,9 @@ namespace Ooda.Turn.Core
         public bool tether;       // a grapple's line (a TetherTrace, kept in TurnResult.tethers): points are the hooker's end
         public bool snow;         // a snow cloud's drift (kept in TurnResult.snow)
         public bool flip;         // a gravity flip's bubble (kept in TurnResult.flips)
+        /// <summary>A portal pair (kept in TurnResult.portals): points are entry A each frame; its twin, and the faces, here.</summary>
+        public bool portal;
+        public Vec3d portalB, portalFaceA, portalFaceB;
         public double age0;       // how old the round (missile, flare) was at startFrame, s
         /// <summary>The round bounced off a ricochet shield (see Specials) at points[bounceAt], -1 never; from there it is the shield's (bouncer).</summary>
         public int bounceAt = -1, bouncer = -1;

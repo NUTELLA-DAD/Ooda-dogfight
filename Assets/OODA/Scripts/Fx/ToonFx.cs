@@ -268,7 +268,7 @@ namespace Ooda.Fx
                 if (age >= MissileSmokeLife) break;
                 int f = frame0 - i * frameStep;
                 wispQ.Add(new WispReq { P = path[i], Age = age, Seed = seed * 131 + 2 * f, Cluster = cluster });
-                if (i + 1 < path.Count && age + 0.5f * dt < MissileSmokeLife)
+                if (i + 1 < path.Count && age + 0.5f * dt < MissileSmokeLife && (path[i + 1] - path[i]).sqrMagnitude < 100f * 100f)   // (not across a portal's gap)
                     wispQ.Add(new WispReq { P = Vector3.Lerp(path[i], path[i + 1], 0.5f), Age = age + 0.5f * dt, Seed = seed * 131 + 2 * f - 1, Cluster = cluster });
             }
         }

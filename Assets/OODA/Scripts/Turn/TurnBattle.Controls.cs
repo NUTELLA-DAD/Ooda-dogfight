@@ -254,6 +254,7 @@ namespace Ooda.Turn
             DrawSnow(r, now);
             DrawLanes(r, now);
             DrawFlips(r, now);
+            DrawPortals(r, now);
             DrawSpecialFrames(vs, r, now);
             for (int k = 0; k < vs.Count && k < r.frames.Length; k++)
             {
