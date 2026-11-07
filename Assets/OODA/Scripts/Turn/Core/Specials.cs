@@ -32,6 +32,12 @@ namespace Ooda.Turn.Core
     /// grows toward the core's edge (WellCoreFt) and falls with the square of the range past it, out to WellReachFt. Inside
     /// your turn it adds to your wing's pull, so you turn tighter; a missile that is drawn inside WellCaptureFt loses its
     /// target for good and is flung on. It does no damage itself.
+    ///
+    /// Blink: at any moment of the turn you plan (TurnPlan.blinkAt) you vanish and reappear BlinkFt farther along your
+    /// planned path, flying on as if you had flown it (the same speed, heading and bank you would have had there), in a
+    /// single step. The other side's rounds and missiles already in the air inside BlinkShakeFt fly on at the empty sky
+    /// and can't hit you any more (a missile on you loses you) (an enemy radar tracking you starts its lock over). The hop is cut short
+    /// before it would reach the ground or an obstacle.
     /// </summary>
     public static class Specials
     {
@@ -57,8 +63,14 @@ namespace Ooda.Turn.Core
         public const double WellPlaneG = 2.5, WellMissileG = 22, WellRoundG = 60;
         /// <summary>A missile drawn this close to the middle of a gravity well loses its target for good.</summary>
         public const double WellCaptureFt = 450;
+        /// <summary>
+        /// The blink: how far along the planned path it jumps (the path flown on ahead, cut short before the ground or an
+        /// obstacle, and never under BlinkFloorFt over the ground), and how close a heat-seeker or radar missile on you must
+        /// be to lose you (it closes on where you were).
+        /// </summary>
+        public const double BlinkFt = 1500, BlinkFloorFt = 150, BlinkShakeFt = 5000;
         /// <summary>What each fighter carries with Arcade on.</summary>
-        public const int Mines = 2, Blades = 1, Stealths = 1, Jammers = 1, Wells = 2;
+        public const int Mines = 2, Blades = 1, Stealths = 1, Jammers = 1, Wells = 2, Blinks = 2;
 
         /// <summary>Where a gravity well thrown now from m, flying plan p, settles: ahead and into the turn.</summary>
         public static Vec3d WellLanding(FlightModel m, TurnPlan p)
@@ -81,7 +93,7 @@ namespace Ooda.Turn.Core
         /// <summary>Give a fighter its arcade load (the same numbers, changed in place, returned for chaining).</summary>
         public static CombatNumbers Arm(CombatNumbers c)
         {
-            c.balloonMines = Mines; c.heatBlades = Blades; c.stealths = Stealths; c.jammers = Jammers; c.wells = Wells;
+            c.balloonMines = Mines; c.heatBlades = Blades; c.stealths = Stealths; c.jammers = Jammers; c.wells = Wells; c.blinks = Blinks;
             return c;
         }
     }

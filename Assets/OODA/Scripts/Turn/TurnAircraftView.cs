@@ -50,6 +50,7 @@ namespace Ooda.Turn
         /// <summary>Show a moment between two recorded frames (u from 0 to 1).</summary>
         public void ShowFrame(AircraftFrame a, AircraftFrame b, double u, float dt, bool crashed)
         {
+            if (b.blink) u = u < 0.5 ? 0 : 1;   // a blink: gone from one place and there in the other, never between
             Vec3d pos = a.pos + (b.pos - a.pos) * u;
             Vec3d vel = a.vel + (b.vel - a.vel) * u;
             Vec3d nose = (a.Nose + (b.Nose - a.Nose) * u).Normalized;
