@@ -39,6 +39,8 @@ Shader "Ooda/SpectreFlame"
             {
                 float4 positionOS : POSITION;   // the quad's centre-bottom (a flame) or centre (a halo), world space
                 float3 normalOS : NORMAL;       // a flame's rise: its direction and height
+                float4 tangentOS : TANGENT;     // x: how far nearer the camera to draw it, so where it crosses his head it
+                                                // shows over the skin instead of being cut off hard by it
                 float2 uv : TEXCOORD0;          // the corner: x -1..1 across, y 0..1 up
                 float2 uv1 : TEXCOORD1;         // x the half width, y the kind
                 float2 uv2 : TEXCOORD2;         // x a seed, y its own speed
@@ -82,6 +84,7 @@ Shader "Ooda/SpectreFlame"
                     side = dot(side, side) > 1e-6 ? normalize(side) : normalize(UNITY_MATRIX_V[0].xyz);
                     p = c + side * a.uv.x * a.uv1.x + rise * a.uv.y;
                 }
+                p += normalize(GetCameraPositionWS() - p) * a.tangentOS.x;   // along the view ray: the same place on screen
                 o.positionCS = TransformWorldToHClip(p);
                 o.uv = a.uv;
                 o.info = float3(a.uv1.y, a.uv2.x, a.uv2.y);
