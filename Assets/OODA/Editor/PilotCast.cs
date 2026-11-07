@@ -109,7 +109,7 @@ namespace Ooda.EditorTools
             var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(map);
             if (tex == null) { Debug.LogWarning($"OODA: no {map}; the spectre won't glow."); return; }
             m.SetTexture("_EmissionMap", tex);
-            m.SetColor("_EmissionColor", new Color(0.6f, 1.6f, 2.2f));   // HDR: cyan, over 1 so it reads white-hot
+            m.SetColor("_EmissionColor", new Color(0.8f, 2.2f, 3.0f));   // HDR: cyan, over 1 so it reads white-hot
             m.EnableKeyword("_EMISSION");
             m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
             EditorUtility.SetDirty(m);
@@ -126,7 +126,7 @@ namespace Ooda.EditorTools
             f.handL = B(HumanBodyBones.LeftHand); f.handR = B(HumanBodyBones.RightHand);
             f.lowerArmL = B(HumanBodyBones.LeftLowerArm); f.lowerArmR = B(HumanBodyBones.RightLowerArm);
             f.upperLegL = B(HumanBodyBones.LeftUpperLeg); f.upperLegR = B(HumanBodyBones.RightUpperLeg);
-            f.footL = B(HumanBodyBones.LeftFoot); f.footR = B(HumanBodyBones.RightFoot);
+            f.footL = B(HumanBodyBones.LeftFoot); f.footR = B(HumanBodyBones.RightFoot); f.toesL = B(HumanBodyBones.LeftToes);
             f.glowing = p.GetComponentsInChildren<Renderer>(true);
         }
 

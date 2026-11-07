@@ -9,19 +9,37 @@ namespace Ooda.Pilot
     /// the camera and animates its shape), so they follow every clip, the briefing's standing poses and the head look.
     /// The head's flames go out with the head when the cockpit camera hides it. Sizes are in the pilot's own height, so
     /// they fit whatever scale a cockpit seats him at. PilotCast fills in the bones.
+    /// Two looks (<see cref="look"/>, or -spectrestyle flames|fog on the command line): licking flames, or a glowing
+    /// fog of soft wisps that swell, rise and fade off him. Either way his face is left clear.
     /// </summary>
     public class SpectreFlames : MonoBehaviour
     {
-        public Transform hips, head, handL, handR, lowerArmL, lowerArmR, upperLegL, upperLegR, footL, footR;
+        public Transform hips, head, handL, handR, lowerArmL, lowerArmR, upperLegL, upperLegR, footL, footR, toesL;
         public Renderer[] glowing;
         [Tooltip("1 = as built; scales every flame's height and width.")]
         public float size = 1f;
         [Tooltip("How strongly the eyes and gloves pulse with the fire.")]
         public float flicker = 0.25f;
+        public enum Look { Flames, Fog }
+        public Look look = Look.Flames;
+
+        /// <summary>-spectrestyle fog (or flames) on the command line picks the look for every spectre.</summary>
+        static Look? forced;
+        static bool argsRead;
+        static Look? Forced()
+        {
+            if (argsRead) return forced;
+            argsRead = true;
+            var a = System.Environment.GetCommandLineArgs();
+            for (int i = 0; i + 1 < a.Length; i++)
+                if (a[i] == "-spectrestyle") forced = a[i + 1].ToLowerInvariant().StartsWith("fog") ? Look.Fog : Look.Flames;
+            return forced;
+        }
 
         // one flame (or halo) on a bone: where on it (bone local), which way it rises (bone local; the world's up mixed
         // in), how tall and wide, its seed and speed
-        struct Tongue { public Transform bone; public Vector3 at, outward; public float h, w, seed, speed, up; public bool halo; }
+        struct Tongue { public Transform bone; public Vector3 at, outward; public float h, w, seed, speed, up; public int kind; }   // kind: 0 flame, 1 halo, 2 wisp of fog
+        const int Flame = 0, Halo = 1, Wisp = 2;
         Tongue[] tongues;
         Mesh mesh;
         Material mat;
@@ -37,6 +55,7 @@ namespace Ooda.Pilot
             unit = Vector3.Distance(hips.position, head.position) / 0.31f;
             if (unit < 1e-4f) { enabled = false; return; }
             unitLocal = unit / Mathf.Max(1e-6f, Mathf.Abs(transform.lossyScale.x));   // kept in his own scale: the briefing resizes him after this
+            var f = Forced(); if (f.HasValue) look = f.Value;
             Build();
             if (mat == null)
             {
@@ -74,46 +93,73 @@ namespace Ooda.Pilot
             Vector3 left = upperLegL != null && upperLegR != null ? upperLegL.position - upperLegR.position : -transform.right;
             left = Vector3.ProjectOnPlane(left, up).normalized;
             Vector3 right = -left, fwd = Vector3.Cross(up, left).normalized;
+            if (toesL != null && footL != null && Vector3.Dot(toesL.position - footL.position, fwd) < 0) { fwd = -fwd; right = -right; }   // his toes point the way he faces
             var headScale = head.localScale; head.localScale = Vector3.one;   // built as if the head is shown
-            // the agent faces the root's forward; his round head is about 0.34 across, its middle 0.17 over the head bone
+            // his round head is about 0.34 across, its middle 0.17 over the head bone. Directions round it are an azimuth
+            // from straight behind (0) to straight ahead (180) and an elevation; the face, ahead within 70 degrees and
+            // below the crown, is kept clear
             Vector3 headMid = head.position + up * 0.17f * unit;
-            void OnHead(Vector3 dirRoot, float h, float w, float upMix)
+            Vector3 Dir(float az, float el)
             {
-                Vector3 d = dirRoot.normalized;
-                Vector3 p = headMid + d * 0.16f * unit;
+                float a = az * Mathf.Deg2Rad, e = el * Mathf.Deg2Rad;
+                return Mathf.Cos(e) * (Mathf.Cos(a) * -fwd + Mathf.Sin(a) * right) + Mathf.Sin(e) * up;
+            }
+            void OnHead(Vector3 d, float h, float w, float upMix, int kind, float r = 0.16f)
+            {
+                d = d.normalized;
+                Vector3 p = headMid + d * r * unit;
                 list.Add(new Tongue { bone = head, at = head.InverseTransformPoint(p), outward = head.InverseTransformDirection(d), h = h, w = w,
-                                      seed = R(0, 10), speed = R(0.8f, 1.25f), up = upMix });
+                                      seed = R(0, 10), speed = R(0.8f, 1.25f), up = upMix, kind = kind });
             }
-            // a crown of tall licks over the top and back, shorter ones round the sides, none over the face
-            for (int k = 0; k < 9; k++)
+            bool fog = look == Look.Fog;
+            if (!fog)
             {
-                float az = Mathf.Lerp(-150f, 150f, k / 8f) + R(-8, 8);      // 0 is straight back
-                float el = R(35f, 70f);
-                Vector3 d = Quaternion.AngleAxis(az, up) * (Quaternion.AngleAxis(-el, right) * -fwd);
-                OnHead(d, R(0.17f, 0.26f), R(0.06f, 0.085f), 0.7f);
+                // a big crown: tall curling licks all over the top and back, rising off the crown, and a ring of shorter
+                // ones round the back and sides, framing the face
+                for (int k = 0; k < 13; k++)
+                {
+                    float az = Mathf.Lerp(-150f, 150f, k / 12f) + R(-8, 8);
+                    float el = Mathf.Abs(az) > 110f ? R(62f, 80f) : R(35f, 75f);   // over the brow only from high up
+                    OnHead(Dir(az, el), R(0.26f, 0.40f), R(0.09f, 0.12f), 0.75f, Flame);
+                }
+                for (int k = 0; k < 10; k++)
+                {
+                    float az = (k < 5 ? 1 : -1) * Mathf.Lerp(40f, 108f, (k % 5) / 4f) + R(-5, 5);
+                    OnHead(Dir(az, R(-10f, 30f)), R(0.15f, 0.24f), R(0.06f, 0.085f), 0.55f, Flame);
+                }
+                OnHead(up + fwd * 0.1f, 0.48f, 0.13f, 0.95f, Flame);          // the big curl off the top
+                OnHead(up - fwd * 0.4f, 0.40f, 0.12f, 0.9f, Flame);
+                OnHead(up + right * 0.35f, 0.36f, 0.11f, 0.9f, Flame);
+                OnHead(up - right * 0.35f, 0.36f, 0.11f, 0.9f, Flame);
             }
-            for (int k = 0; k < 8; k++)
+            else
             {
-                float az = (k < 4 ? Mathf.Lerp(55f, 165f, k / 3f) : -Mathf.Lerp(55f, 165f, (k - 4) / 3f)) + R(-6, 6);
-                Vector3 d = Quaternion.AngleAxis(az, up) * (Quaternion.AngleAxis(-R(-5f, 25f), right) * -fwd);
-                OnHead(d, R(0.10f, 0.17f), R(0.045f, 0.065f), 0.45f);
+                // a glowing fog: soft wisps clinging over the top, back and sides of his head, and more swelling off the
+                // crown and drifting up
+                for (int k = 0; k < 18; k++)
+                {
+                    float az = R(-150f, 150f), el = Mathf.Abs(az) > 108f ? R(58f, 85f) : R(-15f, 85f);
+                    OnHead(Dir(az, el), R(0.18f, 0.30f), R(0.10f, 0.15f), 0.7f, Wisp, 0.13f);
+                }
+                for (int k = 0; k < 8; k++)
+                    OnHead(Dir(R(-180f, 180f), R(70f, 90f)), R(0.35f, 0.55f), R(0.13f, 0.19f), 0.9f, Wisp, 0.17f);
             }
-            OnHead(up + fwd * 0.15f, 0.34f, 0.10f, 0.9f);                   // the big curl off the top
-            OnHead(up - fwd * 0.35f, 0.28f, 0.09f, 0.9f);
-            list.Add(new Tongue { bone = head, at = head.InverseTransformPoint(headMid), w = 0.42f, seed = R(0, 10), speed = 1, halo = true });
+            list.Add(new Tongue { bone = head, at = head.InverseTransformPoint(headMid + up * 0.05f * unit), w = fog ? 0.55f : 0.50f, seed = R(0, 10), speed = 1, kind = Halo });
 
             void OnHand(Transform hand, Transform lower)
             {
                 if (hand == null) return;
                 Vector3 along = lower != null ? (hand.position - lower.position).normalized : up;
                 Vector3 mid = hand.position + along * 0.05f * unit;
-                for (int k = 0; k < 5; k++)
+                Vector3 across = Vector3.Cross(along, fwd).normalized;
+                for (int k = 0; k < (fog ? 6 : 7); k++)
                 {
-                    Vector3 d = Quaternion.AngleAxis(k * 72f + R(-15, 15), along) * Vector3.Cross(along, fwd).normalized;
-                    list.Add(new Tongue { bone = hand, at = hand.InverseTransformPoint(mid + d * 0.035f * unit), outward = hand.InverseTransformDirection(d),
-                                          h = R(0.09f, 0.15f), w = R(0.03f, 0.045f), seed = R(0, 10), speed = R(0.9f, 1.4f), up = 0.75f });
+                    Vector3 d = Quaternion.AngleAxis(k * (fog ? 60f : 51f) + R(-15, 15), along) * across;
+                    list.Add(new Tongue { bone = hand, at = hand.InverseTransformPoint(mid + d * (fog ? 0.025f : 0.035f) * unit), outward = hand.InverseTransformDirection(d),
+                                          h = fog ? R(0.12f, 0.2f) : R(0.11f, 0.19f), w = fog ? R(0.06f, 0.09f) : R(0.04f, 0.055f),
+                                          seed = R(0, 10), speed = R(0.9f, 1.4f), up = 0.75f, kind = fog ? Wisp : Flame });
                 }
-                list.Add(new Tongue { bone = hand, at = hand.InverseTransformPoint(mid), w = 0.15f, seed = R(0, 10), speed = 1, halo = true });
+                list.Add(new Tongue { bone = hand, at = hand.InverseTransformPoint(mid), w = 0.2f, seed = R(0, 10), speed = 1, kind = Halo });
             }
             OnHand(handL, lowerArmL); OnHand(handR, lowerArmR);
 
@@ -121,13 +167,14 @@ namespace Ooda.Pilot
             {
                 if (foot == null) return;
                 Vector3 mid = foot.position + up * 0.01f * unit;
-                for (int k = 0; k < 5; k++)
+                for (int k = 0; k < 6; k++)
                 {
-                    Vector3 d = Quaternion.AngleAxis(k * 72f + R(-15, 15), up) * fwd;
+                    Vector3 d = Quaternion.AngleAxis(k * 60f + R(-15, 15), up) * fwd;
                     list.Add(new Tongue { bone = foot, at = foot.InverseTransformPoint(mid + d * 0.05f * unit), outward = foot.InverseTransformDirection(d),
-                                          h = R(0.06f, 0.10f), w = R(0.025f, 0.035f), seed = R(0, 10), speed = R(0.9f, 1.4f), up = 0.85f });
+                                          h = fog ? R(0.1f, 0.16f) : R(0.08f, 0.13f), w = fog ? R(0.05f, 0.07f) : R(0.03f, 0.042f),
+                                          seed = R(0, 10), speed = R(0.9f, 1.4f), up = 0.85f, kind = fog ? Wisp : Flame });
                 }
-                list.Add(new Tongue { bone = foot, at = foot.InverseTransformPoint(mid), w = 0.10f, seed = R(0, 10), speed = 1, halo = true });
+                list.Add(new Tongue { bone = foot, at = foot.InverseTransformPoint(mid), w = 0.14f, seed = R(0, 10), speed = 1, kind = Halo });
             }
             OnAnkle(footL); OnAnkle(footR);
             head.localScale = headScale;
@@ -160,7 +207,7 @@ namespace Ooda.Pilot
                 bool on = g.bone != null && g.bone.gameObject.activeInHierarchy && (g.bone != head || headOn);
                 Vector3 c = on ? g.bone.TransformPoint(g.at) : Vector3.zero;
                 Vector3 rise = Vector3.zero;
-                if (on && !g.halo)
+                if (on && g.kind != Halo)
                 {
                     Vector3 o = g.bone.TransformDirection(g.outward).normalized;
                     rise = (o * (1 - g.up) + worldUp * g.up).normalized * g.h * s;
@@ -169,16 +216,16 @@ namespace Ooda.Pilot
                 for (int k = 0; k < 4; k++)
                 {
                     pos[v + k] = c; nrm[v + k] = rise;
-                    uv1[v + k] = new Vector2(w, g.halo ? 1 : 0);
+                    uv1[v + k] = new Vector2(w, g.kind);
                     uv2[v + k] = new Vector2(g.seed, g.speed);
-                    col[v + k] = g.halo ? new Color(0.6f, 0.9f, 1f, 0.55f) : new Color(1f, 1f, 1f, 1f);
+                    col[v + k] = g.kind == Halo ? new Color(0.6f, 0.9f, 1f, 0.9f) : new Color(1f, 1f, 1f, 1f);
                 }
                 if (on) { shown++; lo = Vector3.Min(lo, c); hi = Vector3.Max(hi, c); }
             }
             if (shown == 0) return;
             mesh.vertices = pos; mesh.normals = nrm; mesh.uv = uv0; mesh.uv2 = uv1; mesh.uv3 = uv2; mesh.colors = col;
             if (mesh.GetIndexCount(0) != (uint)tri.Length) mesh.triangles = tri;
-            var b = new Bounds((lo + hi) * 0.5f, hi - lo); b.Expand(0.8f * s);
+            var b = new Bounds((lo + hi) * 0.5f, hi - lo); b.Expand(1.2f * s);
             mesh.bounds = b;
             Graphics.DrawMesh(mesh, Matrix4x4.identity, mat, gameObject.layer, null, 0, null, UnityEngine.Rendering.ShadowCastingMode.Off, false);
 
