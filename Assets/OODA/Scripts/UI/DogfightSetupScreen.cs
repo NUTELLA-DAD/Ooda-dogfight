@@ -105,8 +105,8 @@ namespace Ooda.UI
             if (Kb(k => k.equalsKey) || Kb(k => k.numpadPlusKey) || Pad(p => p.rightShoulder)) AddPlane(SelOurs);
             if (Kb(k => k.minusKey) || Kb(k => k.numpadMinusKey) || Pad(p => p.leftShoulder)) RemovePlane(SelOurs);
             if (loadout && kb != null)
-                for (int i = 0; i < Loadout.All.Length && i < 9; i++)
-                    if (kb[UnityEngine.InputSystem.Key.Digit1 + i].wasPressedThisFrame) PickKit(Loadout.All[i]);
+                for (int i = 0; i < Loadout.All.Length && i < 10; i++)
+                    if (kb[i < 9 ? UnityEngine.InputSystem.Key.Digit1 + i : UnityEngine.InputSystem.Key.Digit0].wasPressedThisFrame) PickKit(Loadout.All[i]);   // the tenth is 0
             return Result.None;
         }
 
@@ -399,10 +399,10 @@ namespace Ooda.UI
             if (GUI.Button(new Rect(w - 268, by + 8, 240, BotH - 16), "READY", ready)) result = Result.Fly;
             GUI.DrawTexture(new Rect(0, by - 26, w, 26), shade);
             Shadow(new Rect(0, by - 25, w, 24), mission ? "Esc closes the mission panel  ·  Enter flies"
-                : loadout ? "← → pick a pilot  ·  1 – 9 add a capability (it replaces the older pick)  ·  L or Esc closes  ·  Enter ready"
+                : loadout ? "← → pick a pilot  ·  1 – 0 add a capability (it replaces the older pick)  ·  L or Esc closes  ·  Enter ready"
                 : "← → pick a pilot  ·  P pilot  ·  C aircraft  ·  L loadout  ·  + − planes on that side  ·  M mission  ·  G arcade  ·  Enter ready", hint);
 
-            var panel = new Rect(w / 2 - 530, TopH + 10, 1060, 384);
+            var panel = new Rect(w / 2 - 530, TopH + 10, 1060, 384 + (KitRows > 2 ? 90 : 0));   // a third row of picks makes it taller
             if (mission) MissionPanel(new Rect(w / 2 - 560, TopH + 20, 1120, by - TopH - 56), s);
             else if (loadout) LoadoutPanel(panel, s);
             if (!mission && Event.current.type == EventType.MouseDown && Event.current.button == 0)
@@ -496,6 +496,8 @@ namespace Ooda.UI
         /// does; a click (or its number key) adds it in place of the older pick. Guns, flares and the speed brake always come.
         /// With Arcade off it says so: a straight dogfight carries the same for everyone.
         /// </summary>
+        static int KitRows => Loadout.All.Length > 12 ? 3 : 2;
+
         void LoadoutPanel(Rect r, DogfightSetup s)
         {
             GUI.Box(r, "");
@@ -521,8 +523,8 @@ namespace Ooda.UI
 
             var load = SelLoadout;
             GUI.Label(new Rect(r.x + 20, r.y + 82, r.width - 40, 24), $"Pick two to bring: {load}. Guns, flares and the speed brake always come.", note);
-            int Cols = (Loadout.All.Length + 1) / 2;   // two rows
-            float gap = 12, x0 = r.x + 20, y0 = r.y + 114, tw = (r.width - 40 - gap * (Cols - 1)) / Cols, th = 100;
+            int Rows = KitRows, Cols = (Loadout.All.Length + Rows - 1) / Rows;   // two rows, three once there are more than twelve picks
+            float gap = Rows > 2 ? 10 : 12, x0 = r.x + 20, y0 = r.y + 114, tw = (r.width - 40 - gap * (Cols - 1)) / Cols, th = Rows > 2 ? 96 : 100;
             for (int i = 0; i < Loadout.All.Length; i++)
             {
                 var k = Loadout.All[i];
@@ -530,7 +532,7 @@ namespace Ooda.UI
                 bool on = load.Has(k), can = Loadout.Allowed(k, craft);
                 var keep = GUI.color;
                 if (!can) GUI.color = new Color(1, 1, 1, 0.45f);
-                if (GUI.Button(at, $"{i + 1}  {Loadout.Name(k).ToUpperInvariant()}", on ? tileOn : tile) && can) PickKit(k);
+                if (GUI.Button(at, $"{(i < 9 ? (i + 1).ToString() : i == 9 ? "0" : " ")}  {Loadout.Name(k).ToUpperInvariant()}", on ? tileOn : tile) && can) PickKit(k);
                 GUI.Label(new Rect(at.x + 12, at.y + 32, at.width - 22, at.height - 36), Loadout.Blurb(k, craft), tileText);
                 GUI.color = keep;
                 if (on)
@@ -541,7 +543,7 @@ namespace Ooda.UI
                 }
             }
             // the same two for the whole flight
-            float fy = y0 + 2 * (th + gap) + 2;
+            float fy = y0 + Rows * (th + gap) + 2;
             if (GUI.Button(new Rect(r.center.x - 160, fy, 320, 34), SelOurs ? "SAME FOR YOUR WHOLE FLIGHT" : "SAME FOR ALL THE BANDITS", small))
             {
                 var list = SelOurs ? s.oursLoadouts : s.theirsLoadouts;
@@ -580,9 +582,9 @@ namespace Ooda.UI
             s.range = (DogfightSetup.Range)rg; s.height = (DogfightSetup.Height)hgt; s.speed = (DogfightSetup.Pace)sp;
             // where on the island: Random or one of the arenas (short names on the buttons, the arena's own words under them)
             int ar = s.randomArena ? 0 : s.arena + 1;
-            Choice(new Rect(x, y, colW, 42), "ARENA", new[] { "Random", "Peaks", "Pass", "Lake", "Town" }, ref ar); y += 48;
+            Choice(new Rect(x, y, colW, 42), "ARENA", new[] { "Random", "Peaks", "Pass", "Lake", "Town", "City" }, ref ar); y += 48;
             s.randomArena = ar == 0; if (ar > 0) s.arena = ar - 1;
-            GUI.Label(new Rect(x + 100, y, colW - 100, 46), s.randomArena ? "Over one of the four arenas at random: the Peak Maze, the High Pass, Chalet Lake or the Town & Farmland."
+            GUI.Label(new Rect(x + 100, y, colW - 100, 46), s.randomArena ? "Over one of the five arenas at random: the Peak Maze, the High Pass, Chalet Lake, the Town & Farmland or Skyline City."
                                                                          : $"{Arenas.Get(s.arena).name}: {Arenas.Get(s.arena).blurb}", new GUIStyle(dim) { wordWrap = true, alignment = TextAnchor.UpperLeft });
             float mx = x + colW + 24;
             Map(new Rect(mx, r.y + 58, r.xMax - 20 - mx, r.height - 78), s);
@@ -613,7 +615,7 @@ namespace Ooda.UI
         /// With -setupshots folder on the command line: open the briefing on three setups and save each as a BMP there, then
         /// quit: 2 v 2 Spitfire and F-4 against Bf 109s flown by the skeleton and the spectre, the wizard on yours; 4 v 3 mixed with the bear leading, the penguin on his wing and a wingman picked, against
         /// a Zero flown by the fox, a Mustang with the lion and the F-4;
-        /// and the 4 v 3 with the mission panel up. Doesn't touch the setup kept for next time.
+        /// the 4 v 3 with the mission panel up; and a Zero with the koi in its fishbowl, picked. Doesn't touch the setup kept for next time.
         /// </summary>
         public System.Collections.IEnumerator Shots(string folder)
         {
@@ -637,6 +639,12 @@ namespace Ooda.UI
             yield return new WaitForSecondsRealtime(1f);
             yield return Grab(System.IO.Path.Combine(folder, "briefing_mission.bmp"));
             mission = false;
+            // the koi in its fishbowl, picked, so the glass shows up close
+            chosen = new DogfightSetup { ours = new[] { Craft.Zero }, theirs = new[] { Craft.Bf109 }, randomStart = false, start = Scenarios.Start.HeadOn,
+                                      oursPilots = new[] { PilotKind.Koi }, theirsPilots = new[] { PilotKind.Usual } };
+            sel = 0;
+            yield return new WaitForSecondsRealtime(2f);
+            yield return Grab(System.IO.Path.Combine(folder, "briefing_koi.bmp"));
             chosen = keep;
             Application.Quit();
         }
@@ -692,6 +700,8 @@ namespace Ooda.UI
             double span = Math.Max(Math.Max(maxX - minX, maxY - minY), 2500) * 1.25;
             float ppf = (float)(Math.Min(inner.width, inner.height) / span);   // pixels per foot
             Vector2 At(Vec3d p) => new Vector2(inner.center.x + (float)(p.x - cx) * ppf, inner.center.y - (float)(p.y - cy) * ppf);
+            // over the city, its towers under the planes (CityMap)
+            if (!show.randomArena && Arenas.IsCity(show.arena)) CityMap.Draw(inner, cx, cy, ppf);
 
             // a 1 km scale bar and N
             float km = 3280.84f * ppf;

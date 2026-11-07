@@ -105,6 +105,15 @@ namespace Ooda.Flight.Core
             state = start;
         }
 
+        /// <summary>
+        /// The G the wing can pull now (the stall line or the G limit, whichever is less), with any rime on it (see
+        /// Systems.rime): the ice spoils the lift, so the stall line comes in and the corner speed goes up.
+        /// </summary>
+        public double AvailableG => AvailableGAt(Kias);
+        public double AvailableNegG => AvailableNegGAt(Kias);
+        double AvailableGAt(double kias) => Math.Min(numbers.StallLimitG(kias) * systems.LiftFactor, numbers.maxG);
+        double AvailableNegGAt(double kias) => Math.Max(numbers.NegStallLimitG(kias) * systems.LiftFactor, numbers.minG);
+
         /// <summary>A copy that flies on independently: for the ghost path, the reach shell and the AI's look-ahead.</summary>
         public FlightModel Clone() => (FlightModel)MemberwiseClone();
 
@@ -140,6 +149,37 @@ namespace Ooda.Flight.Core
             if (!vertical) state.up = state.up.SquareTo(v1.Normalized);
         }
 
+        /// <summary>
+        /// The last step's tug from outside (a grapple's line, see Turn's Specials), ft/s²: unlike a gravity well's pull the
+        /// pilot feels it, on top of the wing's G (see PilotStress), so a hard swing on the line can grey him out.
+        /// </summary>
+        public Vec3d tug;
+
+        /// <summary>The tug the pilot feels, in G (none without a line on him).</summary>
+        public double TugG => tug.Length / Atmosphere.GFtps2;
+
+        /// <summary>A line pulling on the aircraft (ft/s²): it bends the path like Push, and the pilot feels it next step.</summary>
+        public void Tug(Vec3d acc, double dt)
+        {
+            Push(acc, dt);
+            tug = acc;
+        }
+
+        /// <summary>
+        /// A sudden yank (a grapple's line going bar-taut and snapping): the speed changes by dv at once, and the pilot takes
+        /// stressGs of G-seconds on top of what he has, enough to grey him out or knock him cold.
+        /// </summary>
+        public void Jolt(Vec3d dv, double stressGs)
+        {
+            Vec3d v1 = state.vel + dv;
+            double v = v1.Length;
+            if (v < MinSpeedFtps) v1 = v > 1e-6 ? v1 * (MinSpeedFtps / v) : state.vel;
+            state.vel = v1;
+            if (!vertical) state.up = state.up.SquareTo(v1.Normalized);
+            if (!BlackedOut) gStress += Math.Max(0, stressGs);
+            if (gStress >= GlocLimit && !BlackedOut) { glocLeftSec = GlocSec; glocs++; gStress = GlocLimit * 0.5; }
+        }
+
         public void Step(FlightControls c, double dt)
         {
             if (glocLeftSec > 0)
@@ -153,9 +193,12 @@ namespace Ooda.Flight.Core
 
         void PilotStress(double dt)
         {
+            // a line on him (a grapple) adds its tug to the wing's G, as he feels them together
+            double felt = tug.x == 0 && tug.y == 0 && tug.z == 0 ? g : (state.up * g + tug * (1 / Atmosphere.GFtps2)).Length;
+            tug = Vec3d.Zero;   // the line sets it again after the step if it still pulls
             if (BlackedOut) return;
-            if (g > GlocOnsetG) gStress += (g - GlocOnsetG) * dt;
-            else if (g < GlocRecoverG) gStress = Math.Max(0, gStress - GlocRecoverPerSec * dt);
+            if (felt > GlocOnsetG) gStress += (felt - GlocOnsetG) * dt;
+            else if (felt < GlocRecoverG) gStress = Math.Max(0, gStress - GlocRecoverPerSec * dt);
             if (gStress >= GlocLimit) { glocLeftSec = GlocSec; glocs++; gStress = GlocLimit * 0.5; }
         }
 
@@ -170,7 +213,7 @@ namespace Ooda.Flight.Core
             // G: the stick's ask, eased at the onset rate and its acceleration, then held inside the wing's limits
             gAsked = p >= 0 ? 1 + p * (n.maxG - 1) : 1 + (-p) * (n.minG - 1);
             double gf = systems.GFactor;
-            double hi = Math.Min(n.AvailableG(kias), Math.Max(1, n.maxG * gf)), lo = Math.Max(n.AvailableNegG(kias), Math.Min(-0.5, n.minG * gf));   // a hurt tail or wing can't take the full G
+            double hi = Math.Min(AvailableGAt(kias), Math.Max(1, n.maxG * gf)), lo = Math.Max(AvailableNegGAt(kias), Math.Min(-0.5, n.minG * gf));   // a hurt tail or wing can't take the full G
             double maxRate = n.MaxRollRateDps(ktas) * systems.RollFactor;
             double rollAccel = n.maxRollRateDps / n.rollFullRateSec;
             double extraDrag = 0;

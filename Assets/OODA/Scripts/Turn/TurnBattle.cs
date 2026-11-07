@@ -102,6 +102,8 @@ namespace Ooda.Turn
         public Color projectionColor = new Color(1f, 0.3f, 0.25f, 0.8f);
         public Color myTracer = new Color(1f, 0.75f, 0.2f, 0.9f);
         public Color theirTracer = new Color(1f, 0.35f, 0.5f, 0.9f);
+        [Tooltip("Magnet rounds (the loadout pick): their tracers are tinted toward this.")]
+        public Color magnetTracer = new Color(0.7f, 0.35f, 1f, 0.95f);
         public Color overpullColor = new Color(1f, 0.15f, 0.1f, 1f);
         public Color holoColor = new Color(0.25f, 0.85f, 1f, 0.35f);
         public Color holoEnemyColor = new Color(1f, 0.3f, 0.25f, 0.3f);
@@ -142,7 +144,7 @@ namespace Ooda.Turn
         Ooda.UI.StickThrottleGauge gauge;   // the stick (bottom middle) and the throttle (bottom left)
         Material tipMat;
 
-        bool dragArrow, dragLook, dragBurst, dragMoves, dragMine, dragWell;
+        bool dragArrow, dragLook, dragBurst, dragMoves, dragMine, dragWell, dragBlink, dragGrapple, dragSnow, dragLane;   // (the portal's: TurnBattle.Portal.cs)
         Rect movesRect;
         bool showMoves;            // the Advanced timeline panel is open (T)
         float markT;               // the moment on the moves slider being edited, s into the turn
@@ -190,6 +192,7 @@ namespace Ooda.Turn
             tip.SetParent(transform, false);
             if (terrain == null) terrain = Terrain.activeTerrain;
             grid = MakeGrid(terrain);
+            CityStart();   // the skyscraper city's towers, out at sea (TurnBattle.City)
             gauge = Ooda.UI.StickThrottleGauge.Create();
             if (gauge != null && view != null && view.Cam != null) view.Cam.cullingMask &= ~(1 << Ooda.UI.StickThrottleGauge.Layer);
             if (view != null) { view.player = player.transform; view.enemy = enemy.transform; }
@@ -289,7 +292,7 @@ namespace Ooda.Turn
                 }
                 default: battle = tutorial ? TutorialBattle() : DogfightBattle(); break;
             }
-            if (grid != null) battle.groundFt = grid.At; else battle.groundFt = GroundFt;
+            battle.groundFt = WorldGroundFt;   // the island's ground, and the city's towers (TurnBattle.City)
             battle.obstacleHit = ObstacleHit;
             battle.wires = MakeWires();
             NetSeat();
@@ -368,6 +371,7 @@ namespace Ooda.Turn
                     role = ours ? (i % 2 == 0 ? EnemyAi.Role.Escort : EnemyAi.Role.Fighter) : (i % 2 == 1 ? EnemyAi.Role.Hunter : EnemyAi.Role.Fighter),
                 };
             }
+            CityPilots();       // in the city: braver about the roofs, and looking ahead finely enough not to skip a tower
             TutorialPilots();   // training: the lesson's foe (no pilot for the drone) and its first step
             NetSitDown();   // online: into your own first plane
             systemsBefore = battle.AllSystems();
@@ -419,6 +423,15 @@ namespace Ooda.Turn
             plan.rocket = plan.brake = false;
             plan.mine = plan.ram = plan.cloak = plan.jam = false; plan.mineAt = 0;
             plan.well = false; plan.wellAt = 0;
+            plan.slow = false; plan.slowAt = 0;
+            plan.blink = false; plan.blinkAt = 0;
+            plan.mirror = false;
+            plan.grapple = false; plan.grappleAt = 0;
+            plan.snow = false; plan.snowAt = 0;
+            plan.lane = plan.laneBack = false; plan.laneAt = 0;
+            plan.flip = false;
+            plan.portal = false; plan.portalAt = 0; plan.portalEntry = plan.portalEntryFace = plan.portalExit = plan.portalExitFace = Vec3d.Zero;
+            placingExit = dragExit = false;
             plan.rudder = 0;
             markT = 0;
             burstPreset = 0;
@@ -629,8 +642,15 @@ namespace Ooda.Turn
             SquadShotsCheck();
             DamageShotsCheck();
             MineShotsCheck();
+            MagnetShotsCheck();
+            BlinkShotsCheck();
+            RicochetShotsCheck();
+            GrappleShotsCheck();
+            SnowShotsCheck();
+            PortalShotsCheck();
             BotUpdate();
             NetBotUpdate();
+            PortalsBegin();
             lines.Begin();
             if (phase == Phase.Playing) Playback();
             else if (phase == Phase.Planning || phase == Phase.Thinking) DrawPlanning();
@@ -913,7 +933,11 @@ namespace Ooda.Turn
                     float sc = mouse.scroll.ReadValue().y;
                     Vector2 mp = mouse.position.ReadValue();
                     bool overPanel = guiRects.Any(r => r.Contains(new Vector2(mp.x, Screen.height - mp.y) / guiScale));   // the wheel scrolls the help there
-                    if (Mathf.Abs(sc) > 0.01f && !overPanel) view.Zoom(Mathf.Sign(sc));
+                    if (Mathf.Abs(sc) > 0.01f && !overPanel)
+                    {
+                        if (phase == Phase.Planning && plan.portal && placingExit) NudgeExitHeight(Mathf.Sign(sc));   // the wheel lifts the exit while placing it
+                        else view.Zoom(Mathf.Sign(sc));
+                    }
                 }
                 if (pad != null)
                 {
@@ -937,6 +961,12 @@ namespace Ooda.Turn
                 {
                     if (phase == Phase.Planning && PressMine(gui)) { dragMine = true; SetMineFromBar(gui.x); }
                     else if (phase == Phase.Planning && PressWell(gui)) { dragWell = true; SetWellFromBar(gui.x); }
+                    else if (phase == Phase.Planning && PressSlow(gui)) { dragSlow = true; SetSlowFromBar(gui.x); }
+                    else if (phase == Phase.Planning && PressBlink(gui)) { dragBlink = true; SetBlinkFromBar(gui.x); }
+                    else if (phase == Phase.Planning && PressGrapple(gui)) { dragGrapple = true; SetGrappleFromBar(gui.x); }
+                    else if (phase == Phase.Planning && PressSnow(gui)) { dragSnow = true; SetSnowFromBar(gui.x); }
+                    else if (phase == Phase.Planning && PressLane(gui)) { dragLane = true; SetLaneFromBar(gui.x); }
+                    else if (phase == Phase.Planning && PressPortal(gui)) { dragPortalBar = true; SetPortalFromBar(gui.x); }
                     else if (phase == Phase.Planning && burstRect.Contains(gui)) { dragBurst = true; SetBurstFromBar(gui.x, true); }
                     else if (phase == Phase.Planning && movesRect.Contains(gui)) { dragMoves = true; SetMarkTime(gui.x); }
                     else if (PressStick(gui)) { }
@@ -944,6 +974,7 @@ namespace Ooda.Turn
                     else if (PressThrottle(gui)) { }
                     else if (guiRects.Any(r => r.Contains(gui))) { }
                     else if (phase == Phase.Planning && !plan.HasMarks && ArrowShown && NearTip(pos)) dragArrow = true;
+                    else if (phase == Phase.Planning && plan.portal && placingExit && view != null) { dragExit = true; ExitPress(pos); }
                     else dragLook = true;
                 }
                 else if (pointer.press.isPressed)
@@ -954,11 +985,19 @@ namespace Ooda.Turn
                     else if (dragThrottle) DragThrottle(gui);
                     else if (dragMine) SetMineFromBar(gui.x);
                     else if (dragWell) SetWellFromBar(gui.x);
+                    else if (dragSlow) SetSlowFromBar(gui.x);
+                    else if (dragBlink) SetBlinkFromBar(gui.x);
+                    else if (dragGrapple) SetGrappleFromBar(gui.x);
+                    else if (dragSnow) SetSnowFromBar(gui.x);
+                    else if (dragLane) SetLaneFromBar(gui.x);
+                    else if (dragPortalBar) SetPortalFromBar(gui.x);
+                    else if (dragExit) ExitDrag(pos);
                     else if (dragBurst) SetBurstFromBar(gui.x, false);
                     else if (dragMoves) SetMarkTime(gui.x);
                     else if (dragLook && view != null && (mouse == null || !mouse.rightButton.isPressed)) view.Orbit((pos - lastPointer) * 0.25f);
                 }
-                if (pointer.press.wasReleasedThisFrame) { dragArrow = dragLook = dragMoves = dragStick = dragPedals = dragThrottle = dragMine = dragWell = false; if (dragBurst) { dragBurst = false; TidyBurst(); } }
+                if (pointer.press.wasReleasedThisFrame && dragExit) { placingExit = false; Notice("Portal exit placed. Shift+9 or EXIT places it again."); }
+                if (pointer.press.wasReleasedThisFrame) { dragArrow = dragLook = dragMoves = dragStick = dragPedals = dragThrottle = dragMine = dragWell = dragSlow = dragBlink = dragGrapple = dragSnow = dragLane = dragPortalBar = dragExit = false; if (dragBurst) { dragBurst = false; TidyBurst(); } }
                 lastPointer = pos;
             }
 
@@ -1219,7 +1258,7 @@ namespace Ooda.Turn
             bool stalls = preview.frames[0].Any(f => f.stalled);
             // flown into the ground or an obstacle (not shot down first and falling)
             previewCrashes = !battle.Out(0) && sim.crashed[0] && !sim.SystemsOf(0).Lost;
-            if (previewCrashes) warning = sim.hitObstacle[0] ? "OBSTACLE: this turn hits a cable or structure" : "TERRAIN: this turn flies into the ground";
+            if (previewCrashes) warning = sim.hitObstacle[0] ? "OBSTACLE: this turn hits a cable or structure" : CrashedIntoTower(sim, 0) ? "BUILDING: this turn flies into a tower" : "TERRAIN: this turn flies into the ground";
             else if (battle.planes[0].BlackedOut) warning = $"G-LOC: you are blacked out, you come round in {battle.planes[0].glocLeftSec:F0} s";
             else if (preview.frames[0].Any(f => f.greyOut >= 1)) warning = "G-LOC: this many G for this long blacks you out";
             else if (battle.planes[0].Departed)
@@ -1246,7 +1285,7 @@ namespace Ooda.Turn
             var gsim = battle.Clone();
             gsim.dispersion = false;
             for (int j = 0; j < gsim.Count; j++) if (gsim.side[j] != gsim.side[0]) gsim.Spare(j);
-            gsim.bullets.Clear();
+            gsim.bullets.RemoveAll(b => !(b is Tether));   // a grapple's line still swings the gun line
             gunPreview = gsim.Resolve(WithLikeliest(full), turnSec, true);
             // the hit window: when a round fired connects, short gaps merged
             hitWindows.Clear();
@@ -1370,6 +1409,7 @@ namespace Ooda.Turn
             {
                 DrawRibbon(preview.frames[0], end, badPath ? overpullColor : ghostColor);
                 DrawPath(preview.frames[0], end, badPath ? overpullColor : ghostColor, holoMine == null, false);
+                BlinkHops(preview.frames[0], end, true);
             }
             for (int i = 1; i < battle.Count; i++)
             {
@@ -1397,14 +1437,14 @@ namespace Ooda.Turn
             {
                 if (tr.owner != 0 && !showProjection || HiddenFromMe(tr.owner) || JammedFrom(tr.owner)) continue;
                 if (tr.missile) { DrawPreviewTrace(tr, tr.radar && tr.owner != 0 ? new Color(1f, 0.35f, 0.3f, 0.85f) : new Color(1f, 1f, 1f, 0.8f), 1.0f, 0.3f); continue; }
-                DrawPreviewTrace(tr, OutcomeColor(tr, TracerColor(tr.owner)), tr.hit ? 0.5f : 0.35f, tr.hit ? 0.5f : 0.1f);
+                DrawPreviewTrace(tr, OutcomeColor(tr, MagnetTint(tr, TracerColor(tr.owner))), (tr.hit ? 0.5f : 0.35f) * (tr.magnet ? 1.5f : 1f), tr.hit ? 0.5f : tr.magnet ? 0.3f : 0.1f);   // magnet rounds a little bolder
             }
             // The gun line: where a burst would go, faint, until a burst is set
             if (showGunLine && !sightView && gunPreview != null && plan.burstEnd == plan.burstStart)
                 foreach (var tr in gunPreview.traces)
                 {
                     if (tr.owner != 0 || tr.missile) continue;
-                    var col = OutcomeColor(tr, myTracer);
+                    var col = OutcomeColor(tr, MagnetTint(tr, myTracer));
                     col.a *= gunLineAlpha;
                     DrawPreviewTrace(tr, col, 0.3f, col.a * 0.3f);
                 }
@@ -1416,7 +1456,7 @@ namespace Ooda.Turn
         /// <summary>A preview tracer's whole path; fading to tailAlpha at its far end.</summary>
         void DrawPreviewTrace(Trace tr, Color col, float width, float tailAlpha)
         {
-            if (tr.points.Count == 0) return;
+            if (tr.points.Count == 0 || DrawBouncedTrace(tr, col, width, tailAlpha)) return;
             var pts = new List<Vector3>();
             for (int i = 0; i < tr.points.Count; i += 2) pts.Add(UnityFrame.Pos(tr.points[i]));
             pts.Add(UnityFrame.Pos(tr.points[tr.points.Count - 1]));
@@ -1453,6 +1493,9 @@ namespace Ooda.Turn
             fx.MissileSmoke(smokePath, (now - k0) * dt, dt, seed, 60000 + index, k0);
         }
 
+        /// <summary>A magnet round's tracer: its colour tinted violet, so you can tell the rounds that curve.</summary>
+        Color MagnetTint(Trace tr, Color c) => tr.magnet ? Color.Lerp(c, magnetTracer, 0.8f) : c;
+
         Color TracerColor(int owner) => owner == 0 ? myTracer
             : owner < 0 ? (-1 - owner < battle.flak.Length && battle.flak[-1 - owner].carrier >= 0 ? wingTracer : flakTracer)   // a B-17 gunner's, or the flak's
             : battle.side[owner] == 0 ? wingTracer : theirTracer;
@@ -1463,6 +1506,14 @@ namespace Ooda.Turn
         /// </summary>
         void DrawRibbon(AircraftFrame[] frames, int upTo, Color color)
         {
+            int jump = BlinkFrame(frames, upTo);   // a blink: two bands, with nothing over the hop
+            if (jump > 0) { DrawRibbon(frames, 0, jump - 1, color); DrawRibbon(frames, jump, upTo, color); }
+            else DrawRibbon(frames, 0, upTo, color);
+        }
+
+        void DrawRibbon(AircraftFrame[] frames, int from, int upTo, Color color)
+        {
+            if (upTo - from < 1) return;
             var pts = new List<Vector3>();
             var side = new List<Vector3>();
             void Add(int i)
@@ -1474,8 +1525,8 @@ namespace Ooda.Turn
                 pts.Add(UnityFrame.Pos(f.pos));
                 side.Add(right);
             }
-            for (int i = 0; i <= upTo; i += 2) Add(i);
-            if (upTo % 2 != 0) Add(upTo);
+            for (int i = from; i <= upTo; i += 2) Add(i);
+            if ((upTo - from) % 2 != 0) Add(upTo);
             lines.Ribbon(pts, side, 6f, 6f, new Color(color.r, color.g, color.b, color.a * 0.12f), new Color(color.r, color.g, color.b, color.a * 0.5f));
         }
 
@@ -1484,10 +1535,17 @@ namespace Ooda.Turn
         {
             if (line)
             {
-                var pts = new List<Vector3>();
-                for (int i = 0; i <= upTo; i += 3) pts.Add(UnityFrame.Pos(frames[i].pos));
-                pts.Add(UnityFrame.Pos(frames[upTo].pos));
-                lines.Strip(pts, 0.8f, new Color(color.r, color.g, color.b, color.a * 0.35f), false, color);
+                int jump = BlinkFrame(frames, upTo);   // a blink: the path breaks over the hop (BlinkHops draws it)
+                void Part(int from, int to)
+                {
+                    if (to - from < 1) return;
+                    var pts = new List<Vector3>();
+                    for (int i = from; i <= to; i += 3) pts.Add(UnityFrame.Pos(frames[i].pos));
+                    pts.Add(UnityFrame.Pos(frames[to].pos));
+                    lines.Strip(pts, 0.8f, new Color(color.r, color.g, color.b, color.a * 0.35f), false, color);
+                }
+                if (jump > 0) { Part(0, jump - 1); Part(jump, upTo); BlinkHops(frames, upTo, false); }
+                else Part(0, upTo);
             }
             if (!endMark) return;
             var f = frames[upTo];
@@ -1579,6 +1637,7 @@ namespace Ooda.Turn
                 views[k].ShowFrame(last.frames[k][i], last.frames[k][i + 1], u, Time.deltaTime, crashedNow);
             }
             RacksPlayback(last, now);
+            FollowWarp(last, i + 1);
 
             DrawLastPaths(now);
             DrawExtras(now);
@@ -1586,11 +1645,12 @@ namespace Ooda.Turn
             {
                 var tr = last.traces[ti];
                 if (tr.missile) { DrawMissile(tr, ti, now, (float)last.dt); continue; }
-                GlowTracer(tr, ti, now, TracerColor(tr.owner));
+                GlowTracer(tr, ti, now, MagnetTint(tr, AfterBounce(tr, now, TracerColor(tr.owner))));
             }
 
             // Hits: a flash where they land, and the damage so far shown as smoke
             double t0 = last.startTime;
+            RicochetSparks(last, t0 + prevPlayT, t0 + playT);
             var sys = (Systems[])systemsBefore.Clone();
             foreach (var h in last.hits)
             {
@@ -1651,7 +1711,10 @@ namespace Ooda.Turn
             var p1 = tr.At(now);
             if (p1 == null) return;
             int seed = index * 7919 + tr.startFrame * 31 + tr.owner;
-            Ooda.Fx.ToonFx.Get().Tracer(UnityFrame.Pos(tr.At(now - 3) ?? tr.points[0]), UnityFrame.Pos(p1.Value), col, seed);
+            Vector3 head = UnityFrame.Pos(p1.Value), tail = UnityFrame.Pos(tr.At(now - 3) ?? tr.points[0]);
+            if ((head - tail).sqrMagnitude > 150f * 150f) tail = UnityFrame.Pos(tr.At(now - 1) ?? p1.Value);   // just through a portal: no streak across the gap
+            if ((head - tail).sqrMagnitude > 150f * 150f) return;
+            Ooda.Fx.ToonFx.Get().Tracer(tail, head, col, seed);
         }
 
         /// <summary>A hit lands: a toon star and sparks; the hit that kills blows the aircraft up.</summary>
@@ -1828,7 +1891,7 @@ namespace Ooda.Turn
                     "Drag on the timeline to fire; F fires where hits are predicted.\n\n" +
                     "Keys: WASD arrow (S pulls up, like the stick), Shift/Ctrl throttle,\n" +
                     "Space full throttle (a jet: burner), 1 rocket, 2 speed brake, 3 hold flares, I IR view, Tab next plane, N next target,\n" +
-                    "4 mine, 5 blade, 6 stealth, 7 jammer, 8 gravity well, B bursts, G missile, T timeline,\n" +
+                    "4 mine, 5 blade, 6 stealth, 7 jammer, 8 gravity well, ` slow bomb, Y blink, / ricochet shield, 0 grapple (again to cut), ; snow cloud, ' jet stream (\\ turns it round), End gravity flip, 9 portal (Shift+9 places the exit), B bursts, G missile, T timeline,\n" +
                     "A jet: J radar missile, U the radar page; notch a radar missile (fly square across it).\n" +
                     "Z/C rudder pedals (slow and nose-high, the rudder swings the nose: hammerhead).\n" +
                     "Enter fly, R replay, P projection, V view, X straight, M mission, H help.\n" +

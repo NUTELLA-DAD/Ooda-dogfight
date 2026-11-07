@@ -65,7 +65,27 @@ namespace Ooda.Turn
             if (focus == Focus.Cockpit && cockpitEye == null) focus = Focus.Player;
         }
 
+        float joltNow;
+
+        /// <summary>A sudden yank (a grapple's line snapping): the view kicks, by 0 to 1, and settles over half a second.</summary>
+        public void Jolt(float strength) => joltNow = Mathf.Max(joltNow, Mathf.Clamp01(strength));
+
+        /// <summary>The jolt's shake on top of where the view sits, fading away.</summary>
+        void ApplyJolt()
+        {
+            if (joltNow <= 0.001f) { joltNow = 0; return; }
+            float t = Time.unscaledTime * 47f, deg = 6f * joltNow * joltNow;
+            transform.rotation = transform.rotation * Quaternion.Euler(Mathf.Sin(t) * deg, Mathf.Sin(t * 1.37f + 1f) * deg, Mathf.Sin(t * 0.71f + 2f) * deg * 0.5f);
+            joltNow = Mathf.Max(0, joltNow - Time.unscaledDeltaTime * 2f);
+        }
+
         void LateUpdate()
+        {
+            Place();
+            ApplyJolt();
+        }
+
+        void Place()
         {
             if (sightPose)
             {

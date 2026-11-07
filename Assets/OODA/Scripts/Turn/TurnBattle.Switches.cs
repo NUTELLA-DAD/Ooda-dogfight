@@ -159,13 +159,37 @@ namespace Ooda.Turn
                 row.Add(Sw("JAM", $"7  ({battle.jammers[0]})", plan.jam, plan.jam || battle.jammers[0] > 0, jamColor, ToggleJam));
             if (load.wells > 0)
                 row.Add(Sw("WELL", $"8  ({battle.wells[0]})", plan.well, plan.well || battle.wells[0] > 0, wellColor, ToggleWell));
+            if (load.slowBombs > 0)
+                row.Add(Sw("SLOW", $"`  ({battle.slowBombs[0]})", plan.slow, plan.slow || battle.slowBombs[0] > 0, slowColor, ToggleSlow));
+            if (load.blinks > 0)
+                row.Add(Sw("BLINK", $"Y  ({battle.blinks[0]})", plan.blink, plan.blink || battle.blinks[0] > 0, blinkColor, ToggleBlink));
+            if (load.mirrors > 0)
+                row.Add(Sw(battle.Mirrored(0) ? "SHIELD UP" : "SHIELD", $"/  ({battle.mirrors[0]})", plan.mirror, plan.mirror || battle.mirrors[0] > 0, mirrorColor, ToggleMirror));
+            if (load.grapples > 0)
+            {
+                bool lineOut = battle.LineOf(0) != null;
+                row.Add(Sw(lineOut ? "CUT LINE" : "GRAPPLE", $"0  ({battle.grapples[0]})", plan.grapple, plan.grapple || lineOut || battle.grapples[0] > 0, grappleColor, ToggleGrapple));
+            }
+            if (load.snowClouds > 0)
+                row.Add(Sw("SNOW", $";  ({battle.snowClouds[0]})", plan.snow, plan.snow || battle.snowClouds[0] > 0, snowColor, ToggleSnow));
+            if (load.lanes > 0)
+                row.Add(Sw(plan.lane && plan.laneBack ? "JET BACK" : "JET", $"'  ({battle.lanes[0]})", plan.lane, plan.lane || battle.lanes[0] > 0, laneColor, ToggleLane));
+            if (load.flips > 0)
+                row.Add(Sw("FLIP", $"End  ({battle.flips[0]})", plan.flip, plan.flip || battle.flips[0] > 0, flipColor, ToggleFlip));
+            if (load.portals > 0)
+            {
+                row.Add(Sw("PORTAL", $"9  ({battle.portals[0]})", plan.portal, plan.portal || battle.portals[0] > 0, portalEntryColor, TogglePortal));
+                if (plan.portal) row.Add(Sw("EXIT", placingExit ? "click" : "Shift+9", placingExit, true, portalExitColor, () => { placingExit = !placingExit; if (placingExit) PortalNotice(); }));
+            }
             SwitchRow(x, y, w, row, true);
+            FlipWarning(x, y, w);
             if (JammedNow)
             {
                 var w2 = new GUIStyle(GUI.skin.label) { fontSize = 15, fontStyle = FontStyle.Bold };
                 w2.normal.textColor = Mathf.Repeat(Time.unscaledTime, 0.7f) < 0.45f ? jamColor : Color.white;
                 Shadow(new Rect(x, y - 24, w, 22), "JAMMED: their ghosts are scrambled. Trust your eyes, not the projections.", w2);
             }
+            else RimeWarning(x, y - 24, w);
         }
 
         /// <summary>A jet: its throttle's last notch is the afterburner. A piston fighter has no WEP switch now.</summary>

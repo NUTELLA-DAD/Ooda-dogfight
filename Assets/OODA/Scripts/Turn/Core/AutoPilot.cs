@@ -37,12 +37,45 @@ namespace Ooda.Turn.Core
         public bool well;
         /// <summary>When in the turn the well is thrown, in seconds from its start.</summary>
         public double wellAt;
+        /// <summary>Throw a time slow bomb at the nearest threat this turn, slowAt seconds into it (see Specials).</summary>
+        public bool slow;
+        /// <summary>When in the turn the slow bomb is thrown, in seconds from its start.</summary>
+        public double slowAt;
+        /// <summary>Blink this turn: jump a short hop ahead along the planned path, blinkAt seconds into it (see Specials).</summary>
+        public bool blink;
+        /// <summary>When in the turn the blink goes, in seconds from its start.</summary>
+        public double blinkAt;
+        /// <summary>
+        /// The grapple (see Specials): from grappleAt seconds into the turn, hook the first enemy in reach ahead (missileTarget
+        /// first) on a line. With a line of yours already out, it cuts that line at grappleAt instead (let go at the end of a swing).
+        /// </summary>
+        public bool grapple;
+        public double grappleAt;
+        /// <summary>Let go a snow cloud round you this turn, snowAt seconds into it (see Specials).</summary>
+        public bool snow;
+        /// <summary>When in the turn the snow cloud goes, in seconds from its start.</summary>
+        public double snowAt;
+        /// <summary>Lay a jet stream this turn, laneAt seconds into it: a wind lane along your arrow, or with laneBack back down your path at a tailer (see JetStream).</summary>
+        public bool lane, laneBack;
+        /// <summary>When in the turn the jet stream is laid, in seconds from its start.</summary>
+        public double laneAt;
+        /// <summary>Set off a gravity flip at the start of the turn: everyone near you but you falls up for two turns (see Specials).</summary>
+        public bool flip;
+        /// <summary>Open a portal pair this turn, portalAt seconds into it (see Specials and Portal).</summary>
+        public bool portal;
+        public double portalAt;
+        /// <summary>Where the entry opens and the way it faces (world); a zero face: on your path, just ahead, facing along it.</summary>
+        public Vec3d portalEntry, portalEntryFace;
+        /// <summary>Where the exit opens and the way it faces (world; zero: your way).</summary>
+        public Vec3d portalExit, portalExitFace;
         /// <summary>The heat blade: red hot all turn, guns cold; any enemy you fly through is cut in half (see Specials).</summary>
         public bool ram;
         /// <summary>Go stealthy at the start of the turn: unseen for two turns, until you fire (see Specials).</summary>
         public bool cloak;
         /// <summary>Set off the jammer at the start of the turn: the enemies near you see scrambled ghosts for two turns (see Specials).</summary>
         public bool jam;
+        /// <summary>Raise the ricochet shield at the start of the turn: rounds bounce off you all turn (see Specials).</summary>
+        public bool mirror;
         /// <summary>The rudder pedals held all turn (-1 full left to 1 full right), with the arrow; the timeline sets its own.</summary>
         public double rudder;
         public bool hold;          // fly on with the stick where it is instead (the "keeps doing what it's doing" projection)
@@ -180,8 +213,8 @@ namespace Ooda.Turn.Core
             if (liftMag < 0.3) rollErr = 0;                        // nothing much asked: leave the wings alone
 
             double kias = m.Kias;
-            double hi = n.AvailableG(kias) * StallMargin;
-            double lo = n.AvailableNegG(kias) * StallMargin;
+            double hi = m.AvailableG * StallMargin;   // the plane's own: rime on the wing brings it in
+            double lo = m.AvailableNegG * StallMargin;
             // Pulling through a big roll error is wasted; push only when the lift is mostly below (an outside turn is poor)
             if (Math.Abs(rollErr) > Math.PI * 0.6) gWant = Math.Max(gWant, 0.2);
             gWant = Math.Max(lo, Math.Min(hi, gWant));
@@ -229,7 +262,7 @@ namespace Ooda.Turn.Core
         public static FlightControls BankAndPull(FlightModel m, double bankDeg, double g, double throttle, bool wep)
         {
             var n = m.numbers;
-            double avail = n.AvailableG(m.Kias);
+            double avail = m.AvailableG;
             if (m.Departed && g <= avail) return Recovery(m);
             double pitch = g >= 1 ? (g - 1) / (n.maxG - 1) : -(1 - g) / (1 - n.minG);
             if (g > avail && avail > 0)

@@ -50,6 +50,9 @@ namespace Ooda.Turn
         /// <summary>Show a moment between two recorded frames (u from 0 to 1).</summary>
         public void ShowFrame(AircraftFrame a, AircraftFrame b, double u, float dt, bool crashed)
         {
+            if (b.blink) u = u < 0.5 ? 0 : 1;   // a blink: gone from one place and there in the other, never between
+            if (b.warped) { a = u < 0.5 ? a : b; u = 0; }   // through a portal: one side or the other, never between
+            if (b.warped && dt > 0) lastUp = Vector3.zero;   // no roll rate across the jump
             Vec3d pos = a.pos + (b.pos - a.pos) * u;
             Vec3d vel = a.vel + (b.vel - a.vel) * u;
             Vec3d nose = (a.Nose + (b.Nose - a.Nose) * u).Normalized;
@@ -231,12 +234,14 @@ namespace Ooda.Turn
         /// The heat blade: the whole airframe glows red hot, a glowing copy of each of its meshes laid over it (additive, so it
         /// lights up whatever colour is under it), pulsing with glow (0 to 1). Off hides the copies again.
         /// </summary>
-        public void SetRedHot(bool on, float glow = 1f)
+        /// <summary>The heat blade's glow over the paint: red, pulsing by glow, toward white hot by white (0 to 1, the sonic boom).</summary>
+        public void SetRedHot(bool on, float glow = 1f, float white = 0f)
         {
             if (!on || hidden) { if (shell != null) shell.SetActive(false); return; }
             if (shell == null) BuildShell();
             shell.SetActive(true);
             var c = new Color(1f, 0.16f + 0.18f * glow, 0.04f, 0.55f + 0.4f * glow);
+            c = Color.Lerp(c, new Color(1f, 0.93f, 0.78f, 0.8f + 0.2f * glow), Mathf.Clamp01(white));
             shellMat.SetColor("_BaseColor", c);
             shellMat.color = c;
         }

@@ -83,7 +83,7 @@ namespace Ooda.Turn
                 t.missilesAfter[map[i]] = battle.missiles[i];
             }
             foreach (var tr in last.traces)
-                r.traces.Add(new Trace { owner = tr.owner >= 0 && tr.owner < n ? map[tr.owner] : tr.owner, startFrame = tr.startFrame, points = tr.points, hit = tr.hit, missile = tr.missile, radar = tr.radar, age0 = tr.age0 });
+                r.traces.Add(new Trace { owner = tr.owner >= 0 && tr.owner < n ? map[tr.owner] : tr.owner, startFrame = tr.startFrame, points = tr.points, hit = tr.hit, missile = tr.missile, radar = tr.radar, magnet = tr.magnet, age0 = tr.age0, bounceAt = tr.bounceAt, bouncer = tr.bouncer >= 0 && tr.bouncer < n ? map[tr.bouncer] : tr.bouncer });
             foreach (var tr in last.flares)
                 r.flares.Add(new Trace { owner = tr.owner >= 0 && tr.owner < n ? map[tr.owner] : tr.owner, startFrame = tr.startFrame, points = tr.points, age0 = tr.age0 });
             foreach (var tr in last.chaff)
@@ -94,6 +94,13 @@ namespace Ooda.Turn
                 if (c.shooter >= 0 && c.shooter < n) c.shooter = map[c.shooter];
                 if (c.target >= 0 && c.target < n) c.target = map[c.target];
                 r.hits.Add(c);
+            }
+            foreach (var h in last.ricochets)
+            {
+                var c = h;
+                if (c.shooter >= 0 && c.shooter < n) c.shooter = map[c.shooter];
+                if (c.target >= 0 && c.target < n) c.target = map[c.target];
+                r.ricochets.Add(c);
             }
             tape.Add(t);
         }
@@ -258,6 +265,7 @@ namespace Ooda.Turn
                 else { rPrevT = rT; rT = Mathf.Min(rT + Time.deltaTime * ReplaySpeeds[rSpeed], t.Sec); }
             }
             else rPrevT = rT;
+            PortalsBegin();
             lines.Begin();
             ShowReplayFrame(true);
             lines.End();
@@ -305,7 +313,7 @@ namespace Ooda.Turn
             {
                 var tr = r.traces[ti];
                 if (tr.missile) { DrawMissile(tr, ti, now, (float)r.dt); continue; }
-                GlowTracer(tr, ti, now, TapeTracerColor(tr.owner));
+                GlowTracer(tr, ti, now, MagnetTint(tr, AfterBounce(tr, now, TapeTracerColor(tr.owner))));
             }
 
             double t0 = r.startTime;
@@ -323,7 +331,7 @@ namespace Ooda.Turn
             }
             for (int s = 0; s < tapeViews.Count; s++)
                 if (tapeViews[s] != null) tapeViews[s].SetSmoke(down[s] ? 2 : s < sys.Length && sys[s].AnyDamaged ? 1 : 0);
-            if (rT > rPrevT) StrikePlayback(t0 + rPrevT, t0 + rT);
+            if (rT > rPrevT) { StrikePlayback(t0 + rPrevT, t0 + rT); RicochetSparks(r, t0 + rPrevT, t0 + rT); }
         }
 
         Color TapeTracerColor(int owner) => owner == rFollow ? myTracer

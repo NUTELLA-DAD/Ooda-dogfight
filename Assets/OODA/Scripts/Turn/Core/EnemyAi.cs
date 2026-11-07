@@ -35,6 +35,9 @@ namespace Ooda.Turn.Core
         public double safeClearFt = 600;
         /// <summary>How far ahead (s) past the end of the turn it checks its path is clear of the ground: room to turn away next turn.</summary>
         public double lookSec = 4;
+        /// <summary>The most it steps (ft) along that look ahead; 0 checks just 8 points, enough for valley walls. Among the
+        /// city's towers it is set to about a block's width, so a straight line ahead never skips over one.</summary>
+        public double lookStepFt = 0;
         /// <summary>How many aircraft besides itself and its target it keeps in mind (the nearest).</summary>
         public int awareOf = 4;
         /// <summary>How near a projected pass counts as a firing chance, as a multiple of the real hit radius.</summary>
@@ -137,10 +140,10 @@ namespace Ooda.Turn.Core
                 sub.bullets.RemoveAll(b => b.owner < 0 && (b.pos - m.state.pos).Length > 8000);
                 // and none of its own side's (they cannot hit it, and its score is about what happens to it)
                 int mySide = sub.side[0];
-                sub.bullets.RemoveAll(b => b.side == mySide);
+                sub.bullets.RemoveAll(b => b.side == mySide && !(b is Tether) && !(b is Lane));   // its own grapple's line still pulls it   // (a jet stream blows on it whoever laid it)
                 // and no gun round too far away to reach it before it falls or the turn ends
                 double myFps = m.state.vel.Length;
-                sub.bullets.RemoveAll(b => !(b is Missile) && (b.pos - m.state.pos).Length > (b.vel.Length + myFps) * Math.Min(turnSec, Math.Max(0, b.lifeSec - b.age)) + 300);
+                sub.bullets.RemoveAll(b => !(b is Missile) && !(b is Tether) && !(b is Lane) && (b.pos - m.state.pos).Length > (b.vel.Length + myFps) * Math.Min(turnSec, Math.Max(0, b.lifeSec - b.age)) + 300);
                 var env = Envelope.Compute(m, turnSec);
                 bool slow = m.Kias < 220;
                 turner = TurnerWeight(m, sub.planes[1]);
@@ -172,13 +175,15 @@ namespace Ooda.Turn.Core
             var m = battle.planes[me];
             if (Blade(sub, tries, turnSec, out var cut)) return cut;   // a pass that cuts the target in half: nothing else this turn
             Extras(sub, ref best, turnSec);
+            if (best.grapple) best.missileTarget = them;   // tried on the small battle's 1: the target, by its real number
             PlanBurst(sub, ref best, turnSec);
-            Defend(sub, ref best);
+            Defend(sub, ref best, turnSec);
+            Portals(sub, ref best);
             // a missile at the target whenever it might come into the seeker's cone this turn (it launches only once locked)
             if (battle.missiles[me] > 0 && battle.routes[me] == null)
             {
                 Vec3d r = battle.planes[them].state.pos - m.state.pos;
-                if (!best.cloak && !battle.combat[them].iced && r.Length < Heat.LockRangeFt(battle.HeatOf(them, m.state.pos)) * 1.2 && Vec3d.Dot(r.Normalized, m.Forward) > Math.Cos(60 * Math.PI / 180))
+                if (!best.cloak && !battle.Iced(them) && r.Length < Heat.LockRangeFt(battle.HeatOf(them, m.state.pos)) * 1.2 && Vec3d.Dot(r.Normalized, m.Forward) > Math.Cos(60 * Math.PI / 180))
                 { best.missile = true; best.missileTarget = them; }
             }
             // the radar on the target, and a radar missile whenever it is in the cone (it launches only once the lock is a turn old)
@@ -324,12 +329,13 @@ namespace Ooda.Turn.Core
             // where it is heading after the turn: straight on for lookSec, is the ground (a valley wall) in the way?
             double ahead = double.PositiveInfinity;
             Vec3d p0 = mine.state.pos, v0 = mine.state.vel;
-            for (int s = 1; s <= 8; s++)
+            int steps = lookStepFt > 0 ? Math.Max(8, Math.Min(96, (int)Math.Ceiling(lookSec * v0.Length / lookStepFt))) : 8;
+            for (int s = 1; s <= steps; s++)
             {
-                double t = lookSec * s / 8;
+                double t = lookSec * s / steps;
                 Vec3d q = p0 + v0 * t;
                 double c = q.z - sim.groundFt(q.x, q.y);
-                if (c < 0) { score -= 40 * (1 - (double)(s - 1) / 8); ahead = 0; break; }
+                if (c < 0) { score -= 40 * (1 - (double)(s - 1) / steps); ahead = 0; break; }
                 ahead = Math.Min(ahead, c);
             }
             if (ahead < safeClearFt) score -= (safeClearFt - ahead) / 150;
@@ -339,6 +345,8 @@ namespace Ooda.Turn.Core
 
         /// <summary>How much better (in score) the rocket must leave it before it spends it, and the same for the speed brake.</summary>
         public double rocketMargin = 0.25, brakeMargin = 0.15;
+        /// <summary>How much better a turn must score with a jet stream laid (ahead or back) for it to spend one: they last three turns, so it doesn't waste them.</summary>
+        public double laneMargin = 0.3;
 
         /// <summary>
         /// The rocket and the speed brake: the chosen arrow flown again with the rocket lit (if it is ready), and with the
@@ -360,9 +368,40 @@ namespace Ooda.Turn.Core
             {
                 var b = plan; b.brake = true; b.throttle = 0; b.wep = false;
                 double s = Score(sub, b, turnSec);
-                if (s > baseScore + brakeMargin) plan = b;
+                if (s > baseScore + brakeMargin) { plan = b; baseScore = s; }
+            }
+            // the grapple: hook the target to swing round onto it (a try that yanks it hurts its own systems, so it scores badly
+            // unless the yank is worth it); with a line of its own out, cut it when flying free leaves it better placed
+            var line = sub.LineOf(0);
+            if (line == null && sub.grapples[0] > 0 && sub.GrappleTarget(0, 1) >= 0)
+            {
+                var g = plan; g.grapple = true; g.grappleAt = 0; g.missileTarget = 1;
+                double s = Score(sub, g, turnSec);
+                if (s > baseScore + grappleMargin) { plan = g; baseScore = s; }
+            }
+            else if (line != null)
+            {
+                var c = plan; c.grapple = true; c.grappleAt = 0;
+                double s = Score(sub, c, turnSec);
+                if (s > baseScore + grappleMargin) plan = c;
+            }
+            if (sub.lanes[0] > 0)
+            {
+                // a jet stream: ahead along its arrow (to run or close in) or back at the one behind it, whichever scores best
+                TurnPlan best = plan;
+                double bestScore = baseScore + laneMargin;
+                foreach (bool back in new[] { false, true })
+                {
+                    var l = plan; l.lane = true; l.laneBack = back; l.laneAt = 0;
+                    double s = Score(sub, l, turnSec);
+                    if (s > bestScore) { best = l; bestScore = s; }
+                }
+                plan = best;
             }
         }
+
+        /// <summary>How much better (in score) a grapple's hook (or a cut) must leave it before it does it.</summary>
+        public double grappleMargin = 0.1;
 
         /// <summary>
         /// The heat blade: with a charge and the target close, each try flown again red hot; if one cuts the target in half
@@ -387,19 +426,45 @@ namespace Ooda.Turn.Core
         }
 
         /// <summary>
-        /// A missile on it: a gravity well thrown ahead. Someone on its tail with guns on it: a balloon mine let go in their path;
-        /// with none left, a gravity well; then the jammer; then (hurt) stealth, unless it is firing this turn (that would show it
-        /// again at once).
+        /// A missile arriving this turn: a blink just before it hits. A heat-seeker closing: a snow cloud round it. Any other
+        /// missile closing: a gravity well thrown ahead, else a time slow bomb at it. Anyone close with their guns on it, from
+        /// any side: the ricochet shield, so their rounds come back at them. Not tailed but about to shoot someone close in: a
+        /// slow bomb at them. Someone on its tail with guns on it, in turn as each runs out: a balloon mine let go in their
+        /// path; the heat blade's sonic boom; a slow bomb at them; a snow cloud for them to fly through; a gravity flip if they
+        /// are close enough to catch; a gravity well; a blink ahead; a portal out onto their six; the jammer; a jet stream laid
+        /// back in their face; then (hurt) stealth, unless it is firing this turn (that would show it again at once).
         /// </summary>
-        void Defend(Battle sub, ref TurnPlan plan)
+        void Defend(Battle sub, ref TurnPlan plan, double turnSec)
         {
             if (sub.routes[0] != null) return;
             var me0 = sub.planes[0];
+            // a missile arriving this turn: blink just before it would hit, so it closes on the empty sky
+            if (sub.blinks[0] > 0)
+                foreach (var b in sub.bullets)
+                {
+                    if (!(b is Missile ms) || ms.target != 0 || !ms.Tracking) continue;
+                    Vec3d r = me0.state.pos - ms.pos;
+                    double range = r.Length, closing = range > 1 ? Vec3d.Dot(ms.vel - me0.state.vel, r * (1 / range)) : 0;
+                    if (closing <= 50) continue;
+                    double arrive = range / closing;
+                    if (arrive > turnSec + 0.3) continue;
+                    plan.blink = true; plan.blinkAt = Math.Max(0, Math.Min(turnSec, Math.Round((arrive - 0.35) / 0.05) * 0.05));
+                    return;
+                }
+            // a heat-seeker closing on it: a snow cloud let go round it, so it flies out rimed over and the seeker shatters on it
+            if (sub.snowClouds[0] > 0 && !sub.Iced(0))
+                foreach (var b in sub.bullets)
+                    if (b is Missile ms && !ms.radar && ms.target == 0 && ms.Tracking && (ms.pos - me0.state.pos).Length < 7000) { plan.snow = true; plan.snowAt = 0; return; }
             // a missile closing on it: a gravity well thrown ahead, to fly through and drag the missile in after
             if (sub.wells[0] > 0)
                 foreach (var b in sub.bullets)
                     if (b is Missile ms && ms.target == 0 && ms.Tracking && (ms.pos - me0.state.pos).Length < 7000) { plan.well = true; plan.wellAt = 0; return; }
-            bool tailed = false;
+            // no well: a time slow bomb thrown at it, to crawl while it flies away from it
+            if (sub.slowBombs[0] > 0)
+                foreach (var b in sub.bullets)
+                    if (b is Missile ms && ms.target == 0 && ms.Tracking && (ms.pos - me0.state.pos).Length < Specials.SlowReachFt * 0.9) { plan.slow = true; plan.slowAt = 0; return; }
+            bool tailed = false, gunsOnMe = false;
+            double tailFt = double.PositiveInfinity;
             for (int j = 0; j < sub.Count; j++)
             {
                 if (sub.side[j] == sub.side[0] || sub.Out(j)) continue;
@@ -408,14 +473,108 @@ namespace Ooda.Turn.Core
                 if (r > 3000 || r < 1) continue;
                 bool theirNoseOnMe = Envelope.Angle(sub.planes[j].Forward, l) < 25 * Math.PI / 180;
                 bool theyreBehind = Envelope.Angle(me0.Forward, l) < 60 * Math.PI / 180;
-                if (theirNoseOnMe && theyreBehind) { tailed = true; break; }
+                if (theirNoseOnMe && sub.ammo[j] > 0) gunsOnMe = true;
+                if (theirNoseOnMe && theyreBehind) { tailed = true; tailFt = Math.Min(tailFt, r); }
             }
-            if (!tailed) return;
+            if (gunsOnMe && sub.mirrors[0] > 0 && !sub.Mirrored(0)) { plan.mirror = true; return; }
+            if (!tailed)
+            {
+                // on the attack: a slow bomb at the one it is about to shoot at close in, so it can't break out of the burst
+                if (sub.slowBombs[0] > 0 && plan.burstEnd > plan.burstStart)
+                    for (int j = 0; j < sub.Count; j++)
+                    {
+                        if (sub.side[j] == sub.side[0] || sub.Out(j) || sub.Cloaked(j)) continue;
+                        Vec3d l = sub.planes[j].state.pos - me0.state.pos;
+                        if (l.Length < 3000 && Envelope.Angle(me0.Forward, l) < 30 * Math.PI / 180) { plan.slow = true; plan.slowAt = 0; return; }
+                    }
+                return;
+            }
             if (sub.balloonMines[0] > 0) { plan.mine = true; return; }
+            if (Boom(sub, ref plan, turnSec)) return;   // the shock cone knocks the tailer off its shot
+            if (sub.slowBombs[0] > 0) { plan.slow = true; plan.slowAt = 0; return; }   // the tailer falls back and its rounds crawl
+            if (sub.snowClouds[0] > 0) { plan.snow = true; plan.snowAt = 0; return; }   // the tailer flies through it and comes out iced
+            // close enough to catch in the bubble: flip gravity on them, and they float up off its tail
+            if (sub.flips[0] > 0 && tailFt < Specials.FlipCoreFt) { plan.flip = true; return; }
             if (sub.wells[0] > 0) { plan.well = true; plan.wellAt = 0; return; }   // the tailer's rounds bend off, and it turns tighter
+            if (sub.blinks[0] > 0) { plan.blink = true; plan.blinkAt = 0.5; return; }   // a hop ahead: its rounds in the air miss, and the gap opens
+            if (PortalBehind(sub, Tailer(sub), ref plan)) return;   // through at once, out on the tailer's six
             if (sub.jammers[0] > 0) { plan.jam = true; return; }
+            if (sub.lanes[0] > 0 && !plan.lane) { plan.lane = true; plan.laneBack = true; plan.laneAt = 0; return; }   // a headwind in the tailer's face: it falls back, its rounds fall short
             bool hurt = sub.SystemsOf(0).AnyDamaged;
             if (sub.stealths[0] > 0 && hurt && plan.burstEnd <= plan.burstStart && !plan.missile) plan.cloak = true;
+        }
+
+        /// <summary>
+        /// The sonic boom against a tailer: with a heat blade left and no burst planned (the blade keeps the guns cold), the
+        /// plan flown again red hot, and if that turns too hard to build it, flown straight on instead; it takes the first
+        /// whose boom goes off and whose shock cone shoves an enemy, leaving it flying.
+        /// </summary>
+        bool Boom(Battle sub, ref TurnPlan plan, double turnSec)
+        {
+            if (sub.heatBlades[0] <= 0 || plan.burstEnd > plan.burstStart || plan.missile || plan.cloak || sub.planes[0].Departed) return false;
+            var straight = plan; straight.aim = sub.planes[0].Forward; straight.marks = null;
+            foreach (var t in new[] { plan, straight })
+            {
+                var p = t; p.ram = true;
+                var sim = sub.Clone();
+                sim.dispersion = false;
+                var r = sim.Resolve(new TurnPlan?[] { p }, turnSec, false);
+                if (!sim.down[0] && !sim.crashed[0] && r.shoves.Exists(s => s.owner == 0)) { plan = p; return true; }
+            }
+            return false;
+        }
+
+        /// <summary>Who is on its tail with guns on it (inside 3,000 ft, nose on it, behind it), or -1.</summary>
+        static int Tailer(Battle sub)
+        {
+            var me0 = sub.planes[0];
+            for (int j = 0; j < sub.Count; j++)
+            {
+                if (sub.side[j] == sub.side[0] || sub.Out(j)) continue;
+                Vec3d l = me0.state.pos - sub.planes[j].state.pos;
+                double r = l.Length;
+                if (r > 3000 || r < 1) continue;
+                if (Envelope.Angle(sub.planes[j].Forward, l) < 25 * Math.PI / 180 && Envelope.Angle(me0.Forward, l) < 60 * Math.PI / 180) return j;
+            }
+            return -1;
+        }
+
+        /// <summary>How far behind its quarry the AI puts a portal's exit, ft: gun range once it has closed a little.</summary>
+        public const double PortalSixFt = 1400;
+
+        /// <summary>
+        /// A portal pair with the entry on its own path (flown through at once) and the exit PortalSixFt behind aircraft j,
+        /// facing its way: it comes out on j's six. False (and nothing planned) if it has none, or one is open already.
+        /// </summary>
+        static bool PortalBehind(Battle sub, int j, ref TurnPlan plan)
+        {
+            if (j < 0 || sub.portals[0] <= 0 || plan.portal) return false;
+            foreach (var b in sub.bullets) if (b is Portal po && po.owner == 0 && po.Open) return false;
+            var them = sub.planes[j];
+            Vec3d f = them.Forward;
+            plan.portal = true; plan.portalAt = 0;
+            plan.portalEntry = Vec3d.Zero; plan.portalEntryFace = Vec3d.Zero;
+            plan.portalExit = them.state.pos - f * PortalSixFt; plan.portalExitFace = f;
+            plan.aim = sub.planes[0].Forward;   // straight through (the aim turns with it: straight out behind them)
+            plan.marks = null; plan.hold = false; plan.overpull = 0;
+            return true;
+        }
+
+        /// <summary>
+        /// On the attack: its target too far for the guns (past 5,000 ft) but within a portal's reach and not closing fast,
+        /// a portal pair that puts it on the target's six.
+        /// </summary>
+        void Portals(Battle sub, ref TurnPlan plan)
+        {
+            if (sub.routes[0] != null || sub.Count < 2 || sub.side[1] == sub.side[0] || sub.Out(1) || plan.portal) return;
+            var me0 = sub.planes[0];
+            Vec3d r = sub.planes[1].state.pos - me0.state.pos;
+            double range = r.Length;
+            if (range < 5000 || range > Specials.PortalReachFt - 2000) return;
+            double closing = -Vec3d.Dot(sub.planes[1].state.vel - me0.state.vel, r * (1 / range));
+            if (closing > 250) return;   // coming together anyway
+            if (sub.Cloaked(1)) return;
+            PortalBehind(sub, 1, ref plan);
         }
 
         /// <summary>Fire across the part of the turn whose rounds would hit the projected target, if any.</summary>
@@ -432,7 +591,7 @@ namespace Ooda.Turn.Core
             for (int j = 0; j < sim.Count; j++) sim.combat[j] = sim.combat[j].Copy();
             sim.combat[0].hitRadiusFt *= burstSlack;
             // rounds already in the air are not this burst's
-            sim.bullets.Clear();
+            sim.bullets.RemoveAll(b => !(b is Tether));   // a grapple's line still swings it
             var r = sim.Resolve(new TurnPlan?[] { test }, turnSec, false);
             double first = double.PositiveInfinity, last = double.NegativeInfinity;
             foreach (var h in r.hits)

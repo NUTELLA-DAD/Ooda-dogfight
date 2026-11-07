@@ -113,6 +113,26 @@ namespace Ooda.Turn
         {
             int n = Mathf.Min(pts.Count, side.Count);
             if (n < 2) return;
+            if (Jumps(pts).Count > 0)
+            {
+                var cuts = new List<int>(jumps) { n };
+                int from = 0;
+                foreach (int to0 in cuts)
+                {
+                    int to = Mathf.Min(to0, n);
+                    if (to - from >= 2)
+                    {
+                        var pp = new List<Vector3>(); var ss = new List<Vector3>();
+                        for (int i = from; i < to; i++) { pp.Add(pts[i]); ss.Add(side[i]); }
+                        float u0 = from / (float)(n - 1), u1 = (to - 1) / (float)(n - 1);
+                        float keep = breakM; breakM = 0;
+                        Ribbon(pp, ss, halfWidth, minHalf, Color.Lerp(startColor, endColor, u0), Color.Lerp(startColor, endColor, u1));
+                        breakM = keep;
+                    }
+                    from = to;
+                }
+                return;
+            }
             var gp = new List<Vector3>(2 * n);
             var gc = new List<Color>(2 * n);
             for (int r = 0; r < 2; r++)
@@ -157,12 +177,61 @@ namespace Ooda.Turn
             l.endWidth = width * sizeAt(b);
         }
 
+        /// <summary>
+        /// A jump longer than this (metres) between two points of an open strip or a ribbon breaks it in two, so a path that
+        /// went through a portal isn't joined across the gap; 0 (the default) never breaks. Set while portals are about.
+        /// </summary>
+        public float breakM;
+
+        /// <summary>Where pts jumps by more than breakM: the index after each jump (none, or breakM off: an empty list).</summary>
+        List<int> Jumps(IList<Vector3> pts)
+        {
+            jumps.Clear();
+            if (breakM <= 0) return jumps;
+            float b2 = breakM * breakM;
+            for (int i = 1; i < pts.Count; i++) if ((pts[i] - pts[i - 1]).sqrMagnitude > b2) jumps.Add(i);
+            return jumps;
+        }
+
+        readonly List<int> jumps = new List<int>();
+        readonly List<Vector3> piece = new List<Vector3>();
+
         public void Strip(IList<Vector3> pts, float width, Color color, bool loop = false, Color? endColor = null)
         {
             if (pts.Count < 2) return;
+            if (!loop && Jumps(pts).Count > 0)
+            {
+                // broken at each jump: each piece shades on from where it starts in the whole
+                var cuts = new List<int>(jumps) { pts.Count };
+                Color end = endColor ?? color;
+                int from = 0;
+                foreach (int to in cuts)
+                {
+                    if (to - from >= 2)
+                    {
+                        piece.Clear();
+                        for (int i = from; i < to; i++) piece.Add(pts[i]);
+                        float u0 = from / (float)(pts.Count - 1), u1 = (to - 1) / (float)(pts.Count - 1);
+                        var arr = piece.ToArray();
+                        StripOne(arr, width, Color.Lerp(color, end, u0), Color.Lerp(color, end, u1));
+                    }
+                    from = to;
+                }
+                return;
+            }
             var l = Next(width, color);
             if (endColor.HasValue) l.endColor = endColor.Value;
             l.loop = loop;
+            l.positionCount = pts.Count;
+            for (int i = 0; i < pts.Count; i++) l.SetPosition(i, pts[i]);
+            l.startWidth = width * sizeAt(pts[0]);
+            l.endWidth = width * sizeAt(pts[pts.Count - 1]);
+        }
+
+        void StripOne(IList<Vector3> pts, float width, Color color, Color endColor)
+        {
+            var l = Next(width, color);
+            l.endColor = endColor;
             l.positionCount = pts.Count;
             for (int i = 0; i < pts.Count; i++) l.SetPosition(i, pts[i]);
             l.startWidth = width * sizeAt(pts[0]);

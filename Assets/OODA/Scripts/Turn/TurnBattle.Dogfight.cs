@@ -98,7 +98,7 @@ namespace Ooda.Turn
             var b = useArenas ? Scenarios.Dogfight(s, a.CentreFt, a.altFt, startKias, startGapM, true, a.axisDeg)
                               : Scenarios.Dogfight(s, UnityFrame.Pos(startCentre), startAltFt, startKias, startGapM);
             // a low start at long range can put a flight under a ridge: it comes in over it instead (Scenarios.LiftClear)
-            double lift = Scenarios.LiftClear(b, GroundFt);
+            double lift = Scenarios.LiftClear(b, WorldGroundFt);
             if (lift > 0) Debug.Log($"OODA: the dogfight over {Arenas.Get(s.arena).name} starts with a flight up to {lift:F0} ft higher than set, to clear the ground.");
             return b;
         }
@@ -185,7 +185,7 @@ namespace Ooda.Turn
                 p.aim = aim; p.overpull = 0; p.marks = null; p.burstStart = 0; p.burstEnd = ts; p.missile = false;
                 var s = Sim();
                 for (int j = 0; j < s.Count; j++) if (s.side[j] != s.side[0]) s.Spare(j);
-                s.bullets.Clear();
+                s.bullets.RemoveAll(b => !(b is Tether));   // rounds in the air are not this burst's; a grapple's line still swings it
                 var plans = (TurnPlan?[])others.Clone();
                 plans[0] = p;
                 var res = s.Resolve(plans, ts, true);
@@ -308,7 +308,7 @@ namespace Ooda.Turn
             foreach (var tr in gunPreview.traces)
             {
                 if (tr.owner != 0 || tr.missile || Math.Abs(tr.startFrame * gunPreview.dt - at) > 0.4) continue;
-                var col = OutcomeColor(tr, myTracer);
+                var col = OutcomeColor(tr, MagnetTint(tr, myTracer));
                 col.a *= 0.6f;
                 DrawPreviewTrace(tr, col, 0.35f, col.a * 0.3f);
             }

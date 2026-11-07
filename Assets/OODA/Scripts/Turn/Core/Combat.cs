@@ -34,8 +34,26 @@ namespace Ooda.Turn.Core
         public int balloonMines, heatBlades, stealths, jammers;
         /// <summary>Gravity wells carried (see Specials): none unless the loadout (or Specials.Arm) gives them.</summary>
         public int wells;
+        /// <summary>Time slow bombs carried (see Specials): none unless the loadout (or Specials.Arm) gives them.</summary>
+        public int slowBombs;
+        /// <summary>Blink charges carried (see Specials): none unless the loadout (or Specials.Arm) gives them.</summary>
+        public int blinks;
+        /// <summary>Ricochet shield charges carried (see Specials): none unless the loadout (or Specials.Arm) gives them.</summary>
+        public int mirrors;
+        /// <summary>Grapple hooks carried (see Specials): none unless the loadout (or Specials.Arm) gives them.</summary>
+        public int grapples;
+        /// <summary>Snow clouds carried (see Specials): none unless the loadout gives them.</summary>
+        public int snowClouds;
+        /// <summary>Jet stream lanes carried (see JetStream): none unless the loadout (or Specials.Arm) gives them.</summary>
+        public int lanes;
+        /// <summary>Gravity flips carried (see Specials): none unless the loadout (or Specials.Arm) gives them.</summary>
+        public int flips;
+        /// <summary>Portal pairs carried (see Specials): none unless the loadout (or Specials.Arm) gives them.</summary>
+        public int portals;
         /// <summary>Ice (a loadout pick, see Loadout): the airframe is cased in ice, cold as the sky, so no heat-seeker can lock it and one that blunders into it shatters harmlessly. Radar missiles and guns still bite.</summary>
         public bool iced;
+        /// <summary>Magnet rounds (a loadout pick, see Magnet): the rounds curve toward the nearest enemy they pass.</summary>
+        public bool magnet;
         /// <summary>
         /// The engines' heat as a seeker sees it from dead astern (see Heat): at idle, at full throttle, and the factor for
         /// WEP (a jet's afterburner). A piston fighter at full throttle is 1, the yardstick for the seeker's lock range.
@@ -158,6 +176,9 @@ namespace Ooda.Turn.Core
         public double age;
         public double fireTime;   // battle time it left the guns
         public bool alive = true;
+        public bool magnet;       // a magnet round (see Magnet): it curves toward the nearest enemy it passes
+        /// <summary>The aircraft that blinked out of its way while it was in the air (see Specials): it can't hit that one. -1 none.</summary>
+        public int missed = -1;
         public Bullet Copy() => (Bullet)MemberwiseClone();
     }
 
@@ -266,7 +287,7 @@ namespace Ooda.Turn.Core
     }
 
     /// <summary>Why a missile lost its target.</summary>
-    public enum MissileLoss { None, Seeker, Gone, Flare, Notch, Radar, Chaff, Well }
+    public enum MissileLoss { None, Seeker, Gone, Flare, Notch, Radar, Chaff, Well, Blink }
 
     /// <summary>
     /// Radar and radar missiles, for jets only (a warbird has no radar: CombatNumbers.radarRangeFt 0), kept arcade simple.
@@ -412,16 +433,43 @@ namespace Ooda.Turn.Core
         public bool rocket, brake;   // the rocket burning, the speed brake out
         public bool wep;             // war emergency power in (a jet's afterburner lit)
         public bool ram, cloaked;
+        /// <summary>The heat blade's build toward the sonic boom, 0 to 1 (white hot at 1), and whether it has broken the barrier.</summary>
+        public double ramHeat;
+        public bool sonic;
+        /// <summary>The ricochet shield is up (see Specials): rounds bounce off it.</summary>
+        public bool mirror;
         /// <summary>The pilot's G stress, 0 to 1 (1 blacked out: G-LOC); see FlightModel.GreyOut.</summary>
         public double greyOut;
+        /// <summary>A grapple's line tugging on it, in G (felt by the pilot on top of the wing's G).</summary>
+        public double tugG;
+        /// <summary>The rime on the airframe, 0 to 1 (a snow cloud; see Systems.rime).</summary>
+        public double rime;
         /// <summary>The pilot has bailed out: when (battle time; meaningless while bailed is false), from where and how fast.</summary>
         public bool bailed;
         public double bailAt;
         public Vec3d bailPos, bailVel;
         /// <summary>Where the nose points (it leaves the path in vertical flight: a tail slide, a hammerhead); zero in an old recording: along vel.</summary>
         public Vec3d nose;
+        /// <summary>The aircraft blinked (see Specials) in the step that ends at this frame: it jumped here from the frame before.</summary>
+        public bool blink;
+        /// <summary>Came out of a portal in the step that ends here (the jump from the frame before is not flown).</summary>
+        public bool warped;
         /// <summary>The nose along vel when it isn't recorded.</summary>
         public Vec3d Nose => nose.Length > 0.5 ? nose : vel.Normalized;    // the heat blade glowing; stealthy (unseen by the other side)
+    }
+
+    /// <summary>A sonic boom (see Specials): who broke the barrier, at which frame of the turn, where and flying which way.</summary>
+    public class BoomEvent
+    {
+        public int owner, frame;
+        public Vec3d pos, dir;
+    }
+
+    /// <summary>A plane the sonic boom shoved off course: by whose boom, at which frame, and the change in its velocity (ft/s).</summary>
+    public class BoomShoveEvent
+    {
+        public int owner, target, frame;
+        public Vec3d pos, dv;
     }
 
     /// <summary>One packet's path through a turn, for drawing tracers: a point for each frame from startFrame.</summary>
@@ -435,7 +483,17 @@ namespace Ooda.Turn.Core
         public bool chaff;        // a chaff cloud (kept in TurnResult.chaff)
         public bool mine;         // a balloon mine's drift (kept in TurnResult.mines); hit: it went off
         public bool well;         // a gravity well's drift (kept in TurnResult.wells)
+        public bool magnet;       // a magnet round's path (see Magnet): drawn with a violet tint
+        public bool bubble;       // a time slow bomb's flight and bubble (kept in TurnResult.bubbles)
+        public bool tether;       // a grapple's line (a TetherTrace, kept in TurnResult.tethers): points are the hooker's end
+        public bool snow;         // a snow cloud's drift (kept in TurnResult.snow)
+        public bool flip;         // a gravity flip's bubble (kept in TurnResult.flips)
+        /// <summary>A portal pair (kept in TurnResult.portals): points are entry A each frame; its twin, and the faces, here.</summary>
+        public bool portal;
+        public Vec3d portalB, portalFaceA, portalFaceB;
         public double age0;       // how old the round (missile, flare) was at startFrame, s
+        /// <summary>The round bounced off a ricochet shield (see Specials) at points[bounceAt], -1 never; from there it is the shield's (bouncer).</summary>
+        public int bounceAt = -1, bouncer = -1;
         /// <summary>
         /// Recorded runs only: the closest the packet came to an opposing aircraft (ft), against the target it came
         /// nearest to hitting (closestTarget, -1 none), and that pass's hit distance (the round's hit radius plus the target's size).
@@ -445,5 +503,24 @@ namespace Ooda.Turn.Core
         /// <summary>A near miss: it did not hit, but passed within twice the hit distance.</summary>
         public bool Near => !hit && closestTarget >= 0 && closestFt <= 2 * reachFt;
         public Vec3d? At(int frame) => frame >= startFrame && frame - startFrame < points.Count ? points[frame - startFrame] : (Vec3d?)null;
+    }
+
+    /// <summary>
+    /// A grapple's line through a turn (see Tether): owner hooked target; from startFrame to the last frame it held (points has
+    /// one per frame, the owner's end; tensionG the pull along it each frame, in G on the lighter of the two). snapFrame is the
+    /// frame it snapped in a violent yank (-1 it didn't), with each end's jolt, in ft/s of sudden change in speed.
+    /// </summary>
+    public class TetherTrace : Trace
+    {
+        public int target = -1;
+        public System.Collections.Generic.List<float> tensionG = new System.Collections.Generic.List<float>();
+        public int snapFrame = -1;
+        public double jolt0, jolt1;
+        /// <summary>Hooked in this turn (rather than out already when it began).</summary>
+        public bool hookedNow;
+        /// <summary>Cut by its owner (rather than snapping, running out or one end going down).</summary>
+        public bool cut;
+        public int EndFrame => startFrame + points.Count - 1;
+        public float TensionAt(int frame) => frame >= startFrame && frame - startFrame < tensionG.Count ? tensionG[frame - startFrame] : 0f;
     }
 }

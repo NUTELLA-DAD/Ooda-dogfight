@@ -63,7 +63,12 @@ namespace Ooda.EditorTools
             var original = (float[,])h.Clone();
             var states = Classify(rail, original);
             Flatten(h, rail, states);
-            double GroundFt(double xFt, double yFt) => Math.Max(0, SampleArr(h, (float)(xFt * Atmosphere.MPerFt), (float)(yFt * Atmosphere.MPerFt))) * Atmosphere.FtPerM;
+            // the island's ground, or the skyscraper city's roofs and streets out at sea where it stands (as the game asks for it)
+            double GroundFt(double xFt, double yFt)
+            {
+                double c = City.Skyline.GroundFt(xFt, yFt);
+                return !double.IsNegativeInfinity(c) ? c : Math.Max(0, SampleArr(h, (float)(xFt * Atmosphere.MPerFt), (float)(yFt * Atmosphere.MPerFt))) * Atmosphere.FtPerM;
+            }
 
             Console.WriteLine("\nThe railway");
             float len = rail.Count * RailStep, grade = 0;
@@ -123,9 +128,10 @@ namespace Ooda.EditorTools
                             if (lift > 0) lifted++;
                             if (lift > worst) { worst = lift; worstWhat = $"{st}/{rg}/{hg}"; }
                         }
-                float cg = SampleArr(h, (float)a.x, (float)a.z);
+                float cg = (float)(GroundFt(a.CentreFt.x, a.CentreFt.y) * Atmosphere.MPerFt);
                 Console.WriteLine($"  {a.name}: ground at the middle {cg:F0} m, start {a.altFt * Atmosphere.MPerFt:F0} m; highest ground under anyone {maxFloor * Atmosphere.MPerFt:F0} m; lifted in {lifted} of {n}, at most {worst:F0} ft ({worstWhat})");
-                Check(lifted < n / 3, $"{a.name}: starts are clear (lifted in {lifted} of {n}, at most {worst:F0} ft)");
+                // the city starts down among its towers, so a flight out over the roofs is lifted often there: Tools~/CityCheck checks its starts
+                if (!Arenas.IsCity(Array.IndexOf(Arenas.All, a))) Check(lifted < n / 3, $"{a.name}: starts are clear (lifted in {lifted} of {n}, at most {worst:F0} ft)");
             }
 
             Console.WriteLine("\nThe dressing");

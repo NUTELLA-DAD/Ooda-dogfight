@@ -17,6 +17,8 @@ namespace Ooda.Turn
     /// red ring round it while planning). Ideal for a tailer.
     ///
     /// 5, Heat blade: the whole plane glows red hot all turn and its guns stay cold; fly through an enemy and it is cut in half.
+    /// Fly straight with it lit and it builds to a sonic boom (TurnBattle.Boom.cs): white hot, a longer cut, and a shock cone
+    /// that shoves the enemies level with and behind you off course.
     /// You are the brightest thing in the IR view while it glows: every heat-seeker locks you from farther.
     ///
     /// 7, Jammer: the enemies near you see scrambled ghosts for two turns (their AI pilots plan against where you aren't).
@@ -90,8 +92,8 @@ namespace Ooda.Turn
             if (!plan.ram && battle.heatBlades[0] <= 0) { Notice("The heat blade is spent."); return; }
             plan.ram = !plan.ram;
             if (plan.ram) Notice(plan.burstEnd > plan.burstStart
-                ? "Heat blade lit: your guns stay cold this turn. Fly through an enemy to cut it in half."
-                : "Heat blade lit: fly through an enemy to cut it in half. Every heat-seeker can see you.");
+                ? "Heat blade lit: your guns stay cold this turn. Fly straight to break the barrier, cut through what's ahead."
+                : "Heat blade lit: fly straight 1.5 s to break the barrier. The boom shoves enemies beside and behind you; cut through what's ahead.");
             dirty = true;
         }
 
@@ -148,7 +150,7 @@ namespace Ooda.Turn
             dirty = true;
         }
 
-        /// <summary>4 balloon mine (stepping its moment), 5 heat blade, 6 stealth, 7 jammer, 8 gravity well (stepping its moment; TurnBattle.Well.cs).</summary>
+        /// <summary>4 balloon mine (stepping its moment), 5 heat blade, 6 stealth, 7 jammer, 8 gravity well (stepping its moment; TurnBattle.Well.cs), ` (backquote) time slow bomb (stepping its moment; TurnBattle.Slow.cs), Y blink (stepping its moment; TurnBattle.Blink.cs), / ricochet shield (TurnBattle.Mirror.cs), 0 grapple (stepping its moment; TurnBattle.Grapple.cs), ; (semicolon) snow cloud (stepping its moment; TurnBattle.Snow.cs), ' jet stream (stepping its moment) and \ turning it round (TurnBattle.JetStream.cs), End gravity flip (TurnBattle.Flip.cs), 9 portal (stepping its moment, Shift+9 places the exit; TurnBattle.Portal.cs).</summary>
         void SpecialsInput(Keyboard kb)
         {
             bool Pressed(Key k) => kb != null && kb[k].wasPressedThisFrame;
@@ -157,6 +159,15 @@ namespace Ooda.Turn
             if (Pressed(Key.Digit6) || Pressed(Key.Numpad6)) ToggleCloak();
             if (Pressed(Key.Digit7) || Pressed(Key.Numpad7)) ToggleJam();
             if (Pressed(Key.Digit8) || Pressed(Key.Numpad8)) StepWell();
+            if (Pressed(Key.Backquote)) StepSlow();
+            if (Pressed(Key.Y)) StepBlink();
+            if (Pressed(Key.Slash) || Pressed(Key.NumpadDivide)) ToggleMirror();
+            if (Pressed(Key.Digit0) || Pressed(Key.Numpad0)) StepGrapple();
+            if (Pressed(Key.Semicolon)) StepSnow();
+            if (Pressed(Key.Quote)) StepLane();
+            if (Pressed(Key.Backslash)) FlipLane();
+            if (Pressed(Key.End)) ToggleFlip();
+            if (Pressed(Key.Digit9) || Pressed(Key.Numpad9)) StepPortal(kb.shiftKey.isPressed);
         }
 
         // ---------- drawing ----------
@@ -309,8 +320,10 @@ namespace Ooda.Turn
                 var f = r.frames[k][Mathf.Min(now, r.frames[k].Length - 1)];
                 bool enemy = !replaying && k < battle.Count && battle.side[k] != battle.side[0];
                 Stealth(vs[k], f.cloaked && !f.down, enemy, k);
-                RedHot(vs[k], f.ram && !f.down, k);
+                RedHot(vs[k], f.ram && !f.down, k, (float)f.ramHeat, f.sonic);
             }
+            DrawBooms(vs, r, now);
+            DrawMirrorFrames(vs, r, now);
         }
 
         /// <summary>While planning: hide the stealthy enemies, outline your own, and glow your ghost if the blade is lit.</summary>
@@ -321,6 +334,14 @@ namespace Ooda.Turn
             if (plan.ram && holoMine != null && holoMine.activeSelf) BladeLook(holoMine.transform, 0);
             DrawLiveMines();
             DrawLiveWells();
+            DrawPreviewBooms();
+            DrawLiveBubbles();
+            MirrorPlanning();
+            DrawLiveTethers();
+            DrawLiveSnow();
+            DrawLiveLanes();
+            DrawLiveFlips();
+            DrawLivePortals();
         }
 
         /// <summary>Everyone shown again (the fight is over, or no one is stealthy).</summary>
@@ -387,14 +408,17 @@ namespace Ooda.Turn
             }
         }
 
-        /// <summary>The heat blade on a plane: the whole airframe glowing red, pulsing, with the heat haze trailing.</summary>
-        void RedHot(TurnAircraftView v, bool on, int k)
+        /// <summary>
+        /// The heat blade on a plane: the whole airframe glowing red, pulsing, with the heat haze trailing; it climbs toward
+        /// white as the sonic boom builds (heat 0 to 1), and burns white hot, pulsing faster, past the barrier.
+        /// </summary>
+        void RedHot(TurnAircraftView v, bool on, int k, float heat = 0f, bool sonic = false)
         {
-            float pulse = 0.5f + 0.5f * Mathf.Sin(Time.time * 9f + k * 1.3f);
-            v.SetRedHot(on, pulse);
+            float pulse = 0.5f + 0.5f * Mathf.Sin(Time.time * (sonic ? 16f : 9f + 5f * heat) + k * 1.3f);
+            v.SetRedHot(on, pulse, sonic ? 1f : 0.7f * heat);
             if (!on) return;
             var t = v.transform;
-            var haze = bladeColor; haze.a = 0.35f;
+            var haze = Color.Lerp(bladeColor, boomColor, sonic ? 1f : 0.6f * heat); haze.a = 0.35f;
             lines.Line(t.position - t.forward * 4.5f, t.position - t.forward * 16f, 1.6f, haze);
         }
 
