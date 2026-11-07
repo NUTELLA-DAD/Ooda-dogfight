@@ -24,12 +24,12 @@ namespace Ooda.EditorTools
         const float Cut = -0.22f;                   // the glass's lower edge, under the centre
         const float Water = 0.29f;                  // the water line, over the centre, just over the dorsal fin's tip
 
-        // the collar's cross-section (radius, height from the centre), outside then over the top
+        // the collar's cross-section (radius, height from the centre): from its foot, sunk into the shoulders, out and up
+        // the outside to its lip under the glass, then down its inside slope to the neck, so no gap shows to the chest
         static readonly Vector2[] Collar =
         {
-            new Vector2(0.235f, -0.265f), new Vector2(0.262f, -0.265f), new Vector2(0.276f, -0.258f), new Vector2(0.284f, -0.235f),
-            new Vector2(0.286f, -0.210f), new Vector2(0.278f, -0.200f), new Vector2(0.250f, -0.200f),
-            new Vector2(0.020f, -0.205f),   // a plate across the neck, under the head, so no gap shows down to the chest
+            new Vector2(0.170f, -0.300f), new Vector2(0.225f, -0.300f), new Vector2(0.262f, -0.272f), new Vector2(0.282f, -0.238f),
+            new Vector2(0.286f, -0.212f), new Vector2(0.278f, -0.200f), new Vector2(0.250f, -0.200f), new Vector2(0.185f, -0.250f),
         };
         const float RivetR = 0.284f, RivetUp = -0.233f, RivetSize = 0.012f;
         // bubbles on the koi's left, in front: (left, up, forward) from the centre, and size
@@ -219,7 +219,7 @@ namespace Ooda.EditorTools
             switch (name)
             {
                 case "Fishbowl_Brass": return TestWorldBuilder.Mat(name, new Color(0.72f, 0.52f, 0.22f), 0.6f, 1f);
-                case "Fishbowl_Water": return Glass(name, new Color(0.22f, 0.70f, 0.72f, 0.26f), CullMode.Back, 3003);
+                case "Fishbowl_Water": return Glass(name, new Color(0.16f, 0.70f, 0.64f, 0.26f), CullMode.Back, 3003);
                 case "Fishbowl_Glass": return Glass(name, new Color(0.90f, 0.97f, 1f, 0.08f), CullMode.Back, 3003);
                 case "Fishbowl_Surface": return Glass(name, new Color(0.70f, 0.93f, 0.95f, 0.22f), CullMode.Off, 3002);
                 default: return Glass(name, new Color(0.95f, 1f, 1f, 0.5f), CullMode.Back, 3001);
