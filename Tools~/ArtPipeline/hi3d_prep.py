@@ -1,4 +1,4 @@
-# Hi3D import for the wizard, skeleton, bear and chalet: open the FBX (scaled in centimetres-of-a-metre, under an empty), apply its
+# Hi3D import for the wizard, skeleton, bear, penguin and chalet: open the FBX (scaled in centimetres-of-a-metre, under an empty), apply its
 # transform, save its embedded maps as PNGs, decimate to <tris> triangles (0 keeps them all), save a blend.
 # Run: python -I prep.py -- <in.fbx> <out.blend> <tris> <texture folder>
 import bpy, sys, os
