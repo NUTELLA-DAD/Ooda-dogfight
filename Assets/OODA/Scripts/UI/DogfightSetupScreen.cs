@@ -611,7 +611,7 @@ namespace Ooda.UI
 
         /// <summary>
         /// With -setupshots folder on the command line: open the briefing on three setups and save each as a BMP there, then
-        /// quit: 2 v 2 Spitfire and F-4 against Bf 109s with the wizard and the skeleton; 4 v 3 mixed with the bear leading, the penguin on his wing and a wingman picked, against
+        /// quit: 2 v 2 Spitfire and F-4 against Bf 109s flown by the skeleton and the spectre, the wizard on yours; 4 v 3 mixed with the bear leading, the penguin on his wing and a wingman picked, against
         /// a Zero flown by the fox, a Mustang with the lion and the F-4;
         /// and the 4 v 3 with the mission panel up. Doesn't touch the setup kept for next time.
         /// </summary>
@@ -620,7 +620,7 @@ namespace Ooda.UI
             System.IO.Directory.CreateDirectory(folder);
             var keep = chosen;
             chosen = new DogfightSetup { ours = new[] { Craft.Spitfire, Craft.Phantom }, theirs = new[] { Craft.Bf109, Craft.Bf109 }, randomStart = false, start = Scenarios.Start.Perch,
-                                      oursPilots = new[] { PilotKind.Wizard, PilotKind.Usual }, theirsPilots = new[] { PilotKind.Skeleton, PilotKind.Usual } };
+                                      oursPilots = new[] { PilotKind.Wizard, PilotKind.Usual }, theirsPilots = new[] { PilotKind.Skeleton, PilotKind.Spectre } };
             open = true;
             yield return new WaitForSecondsRealtime(3f);
             yield return Grab(System.IO.Path.Combine(folder, "briefing_2v2.bmp"));

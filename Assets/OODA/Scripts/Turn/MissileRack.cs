@@ -193,7 +193,7 @@ namespace Ooda.Turn
         }
 
         // parts that are not the airframe (case-sensitive: "Pit" only as the cockpit tub's prefix, never inside "Spitfire")
-        static readonly string[] Skip = { "Prop", "Canopy", "Glass", "Cockpit", "Pilot", "Spinner", "Blade", " hot", "RedHot", "IceCoat", "Ghost", "Chute", "Parachute", "Flame", "Burner", "Pedal", "Stick", "Throttle", "Wolf", "Tiger", "Bear", "Fox", "Koi", "Lion", "Penguin", "Wizard", "Skeleton" };
+        static readonly string[] Skip = { "Prop", "Canopy", "Glass", "Cockpit", "Pilot", "Spinner", "Blade", " hot", "RedHot", "IceCoat", "Ghost", "Chute", "Parachute", "Flame", "Burner", "Pedal", "Stick", "Throttle", "Wolf", "Tiger", "Bear", "Fox", "Koi", "Lion", "Penguin", "Wizard", "Skeleton", "Spectre" };
 
         public static IEnumerable<MeshFilter> Airframe(Transform root)
         {

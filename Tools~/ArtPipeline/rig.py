@@ -38,6 +38,11 @@ L = {
                 sh0=(0.05,-0.13,0.54), sh=(0.15,-0.12,0.535), el=(0.26,-0.11,0.53), wr=(0.34,-0.11,0.53), tip=(0.48,-0.11,0.53),
                 hip=(0.075,-0.16,0.32), kn=(0.08,-0.16,0.19), an=(0.09,-0.15,0.08), toe=(0.09,-0.22,0.025), toeTip=(0.09,-0.29,0.02),
                 headZ=0.595, y=-0.15),
+ # the chibi secret agent (the spectre): a big round head on a short body, arms level at shoulder height
+ 'Spectre': dict(hips=(0,-0.01,0.29), spine=0.36, chest=0.44, neck=(0,-0.01,0.56), head=(0,-0.01,0.60), headTop=(0,-0.01,0.95),
+                sh0=(0.04,0.01,0.52), sh=(0.13,0.01,0.51), el=(0.25,0.012,0.51), wr=(0.37,0.015,0.507), tip=(0.49,0.02,0.507),
+                hip=(0.075,-0.01,0.27), kn=(0.088,-0.01,0.165), an=(0.09,-0.01,0.075), toe=(0.095,-0.08,0.025), toeTip=(0.095,-0.13,0.02),
+                headZ=0.62, y=-0.01),
 }[NAME]
 bpy.ops.wm.open_mainfile(filepath=WORK)
 sc = bpy.context.scene
