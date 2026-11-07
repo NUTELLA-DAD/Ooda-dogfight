@@ -105,8 +105,8 @@ namespace Ooda.UI
             if (Kb(k => k.equalsKey) || Kb(k => k.numpadPlusKey) || Pad(p => p.rightShoulder)) AddPlane(SelOurs);
             if (Kb(k => k.minusKey) || Kb(k => k.numpadMinusKey) || Pad(p => p.leftShoulder)) RemovePlane(SelOurs);
             if (loadout && kb != null)
-                for (int i = 0; i < Loadout.All.Length && i < 9; i++)
-                    if (kb[UnityEngine.InputSystem.Key.Digit1 + i].wasPressedThisFrame) PickKit(Loadout.All[i]);
+                for (int i = 0; i < Loadout.All.Length && i < 10; i++)
+                    if (kb[i == 9 ? UnityEngine.InputSystem.Key.Digit0 : UnityEngine.InputSystem.Key.Digit1 + i].wasPressedThisFrame) PickKit(Loadout.All[i]);   // the tenth on 0
             return Result.None;
         }
 
@@ -530,7 +530,7 @@ namespace Ooda.UI
                 bool on = load.Has(k), can = Loadout.Allowed(k, craft);
                 var keep = GUI.color;
                 if (!can) GUI.color = new Color(1, 1, 1, 0.45f);
-                if (GUI.Button(at, $"{i + 1}  {Loadout.Name(k).ToUpperInvariant()}", on ? tileOn : tile) && can) PickKit(k);
+                if (GUI.Button(at, $"{(i < 9 ? (i + 1).ToString() : i == 9 ? "0" : " ")}  {Loadout.Name(k).ToUpperInvariant()}", on ? tileOn : tile) && can) PickKit(k);
                 GUI.Label(new Rect(at.x + 12, at.y + 32, at.width - 22, at.height - 36), Loadout.Blurb(k, craft), tileText);
                 GUI.color = keep;
                 if (on)

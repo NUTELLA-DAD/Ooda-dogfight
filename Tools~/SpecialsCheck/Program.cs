@@ -2,6 +2,7 @@
 // on and spares one who turns away, goes at the moment planned and drifts slowly; the heat blade cuts an enemy in half and flies on, keeps the guns cold and runs hot;
 // stealth hides you from the AI and the flak but not from a heat-seeker, and firing shows you; the AI pilots use all
 // three; the gravity well bends a hard turn tighter, makes a tailer's rounds miss and pulls a heat-seeker off; and
+// the time slow bomb bursts on the nearest threat and slows the other side's planes, rounds and missiles in it; and
 // everything survives a clone, a subset, a swap and the trip to bytes.
 // Usage: dotnet run   (exit code = failures)
 using System;
@@ -194,7 +195,10 @@ static class Program
             Check(p.mine, "with a 109 on its six, it lets a mine go");
             b.balloonMines[0] = 0; ai.Forget();
             p = ai.Plan(b, 3);
-            Check(p.well && !p.mine, "no mines left: it throws a gravity well");
+            Check(p.slow && !p.mine, "no mines left: it throws a time slow bomb at the tailer");
+            b.slowBombs[0] = 0; ai.Forget();
+            p = ai.Plan(b, 3);
+            Check(p.well && !p.mine && !p.slow, "no mines or slow bombs left: it throws a gravity well");
             b.wells[0] = 0; ai.Forget();
             p = ai.Plan(b, 3);
             Check(p.jam && !p.mine && !p.well, "no mines or wells left: it sets off the jammer");
@@ -345,6 +349,7 @@ static class Program
         }
 
         GravityWell();
+        SlowBomb();
 
         Console.WriteLine(fails == 0 ? "\nAll checks pass." : $"\n{fails} check(s) FAILED.");
         return fails;
@@ -487,6 +492,138 @@ static class Program
             var noWell = TurnPlan.Straight(b.planes[1]); noWell.well = true;
             b.Resolve(new TurnPlan?[] { TurnPlan.Straight(b.planes[0]), noWell }, 3);
             Check(!b.bullets.OfType<Well>().Any(), "without the pick, planning one does nothing");
+        }
+    }
+
+    /// <summary>How far aircraft j flies in one straight turn of battle b (everyone flying straight).</summary>
+    static double Flown(Battle b, int j)
+    {
+        var p0 = b.planes[j].state.pos;
+        b.Resolve(new TurnPlan?[] { Ahead(b, 0), Ahead(b, 1) }, 3, false);
+        return (b.planes[j].state.pos - p0).Length;
+    }
+
+    static void SlowBomb()
+    {
+        Console.WriteLine("\nTime slow bomb");
+        {
+            // a 109 1,500 ft behind: the bomb goes back at it and bursts round it
+            var b = Tail(1500);
+            var throwIt = Ahead(b, 0); throwIt.slow = true; throwIt.slowAt = 1;
+            var r = b.Resolve(new TurnPlan?[] { throwIt, Ahead(b, 1) }, 3);
+            var tb = b.bullets.OfType<TimeBubble>().FirstOrDefault();
+            Check(b.slowBombs[0] == Specials.SlowBombs - 1 && r.bubbles.Count == 1 && tb != null, $"one is thrown, {b.slowBombs[0]} left, its flight recorded");
+            Check(r.bubbles.Count == 1 && Math.Abs(r.bubbles[0].startFrame - 1 / Battle.StepSec) <= 1, $"it goes at the moment planned (frame {(r.bubbles.Count > 0 ? r.bubbles[0].startFrame : -1)})");
+            double off = tb == null ? 1e9 : (tb.pos - b.planes[1].state.pos).Length;
+            Check(tb != null && tb.Burst && tb.vel.Length == 0 && off < Specials.SlowRadiusFt * Specials.SlowCoreShare, $"it bursts on the 109 and hangs there (the 109 {off:F0} ft from its middle)");
+            Check(!r.hits.Any(), "it hurts no one");
+            Check(b.SlowClock(b.planes[1].state.pos, 1) == Specials.SlowFactor && b.SlowClock(b.planes[1].state.pos, 0) == 1, "inside, the 109's clock runs at half; the P-51's side is untouched");
+            for (int t = 0; t < 2; t++) b.Resolve(new TurnPlan?[] { Ahead(b, 0), Ahead(b, 1) }, 3);
+            Check(!b.bullets.OfType<TimeBubble>().Any(), $"it is gone after {Specials.SlowLifeSec:F0} s");
+        }
+        {
+            // a bubble sat on each plane: the enemy flies about half as far, the owner's own side not a foot less
+            var free = Tail(30000); double free1 = Flown(free, 1);
+            var slowed = Tail(30000);
+            var on109 = TimeBubble.Make(0, 0, slowed.planes[1].state.pos, slowed.planes[1].state.pos + slowed.planes[1].state.vel * 1.5, slowed.time); on109.age = Specials.SlowFlySec;
+            on109.pos = slowed.planes[1].state.pos + slowed.planes[1].state.vel * 1.5; on109.vel = Vec3d.Zero;
+            slowed.bullets.Add(on109);
+            double slow1 = Flown(slowed, 1);
+            Check(slow1 / free1 > 0.45 && slow1 / free1 < 0.7, $"a 109 flown through the middle of one covers {slow1 / free1 * 100:F0}% of the ground in a turn");
+            var mine = Tail(30000); double mine0 = Flown(Tail(30000), 0);
+            var onMe = TimeBubble.Make(0, 0, mine.planes[0].state.pos, mine.planes[0].state.pos, mine.time); onMe.age = Specials.SlowFlySec;
+            mine.bullets.Add(onMe);
+            Check(Math.Abs(Flown(mine, 0) - mine0) < 1e-6, "the P-51 in its own bubble flies exactly as it would without");
+        }
+        {
+            // a 109 900 ft behind: thrown at it, the gap opens
+            double Gap(bool slow)
+            {
+                var b = Tail(900);
+                for (int t = 0; t < 2; t++)
+                {
+                    var p0 = Ahead(b, 0); p0.slow = slow && t == 0;
+                    b.Resolve(new TurnPlan?[] { p0, Ahead(b, 1) }, 3, false);
+                }
+                return (b.planes[0].state.pos - b.planes[1].state.pos).Length;
+            }
+            double g0 = Gap(false), g1 = Gap(true);
+            Check(g1 > g0 + 800, $"thrown at a 109 900 ft behind, the gap is {g1:F0} ft two turns on ({g0:F0} ft without)");
+
+            // and its stream crawls: fewer of its rounds land
+            int Hits(bool slow)
+            {
+                int hits = 0;
+                foreach (double gap in new[] { 600.0, 900, 1200 })
+                {
+                    var b = Tail(gap); b.dispersion = false;
+                    for (int t = 0; t < 2; t++)
+                    {
+                        var p0 = Ahead(b, 0); p0.slow = slow && t == 0;
+                        var p1 = Ahead(b, 1); p1.burstStart = 0; p1.burstEnd = 3;
+                        hits += b.Resolve(new TurnPlan?[] { p0, p1 }, 3, false).hits.Count(h => h.shooter == 1);
+                    }
+                }
+                return hits;
+            }
+            int without = Hits(false), with = Hits(true);
+            Check(with < without, $"a 109 shooting from behind lands {with} packets with the bomb thrown, {without} without");
+        }
+        {
+            // a heat-seeker on your tail: the bomb goes at the missile, not the 109 farther back, and the missile loses time
+            var b = Tail(30000);
+            var me = b.planes[0];
+            var ms = Missile.Make(1, 1, 0, me.state.pos - me.Forward * 2500, me.state.vel + me.Forward * 200, b.time);
+            b.bullets.Add(ms);
+            var landing = Specials.SlowLanding(b, 0);
+            Check((landing - ms.pos).Length < 2500, $"aimed at the missile closing on it ({(landing - ms.pos).Length:F0} ft from it)");
+            var c = b.Clone();
+            var p0 = Ahead(b, 0); p0.slow = true;
+            b.Resolve(new TurnPlan?[] { p0, Ahead(b, 1) }, 1.5, false);
+            c.Resolve(new TurnPlan?[] { Ahead(c, 0), Ahead(c, 1) }, 1.5, false);
+            var msB = b.bullets.OfType<Missile>().FirstOrDefault(); var msC = c.bullets.OfType<Missile>().FirstOrDefault();
+            Check(msB != null && msC != null && msB.age < msC.age - 0.3, $"the missile in it lives {(msB == null ? 0 : msB.age):F2} s of the 1.5 s ({(msC == null ? 0 : msC.age):F2} s without)");
+        }
+        {
+            // the AI pilots: a missile on it and no well, it throws one at it
+            var b = Tail(30000);
+            var me = b.planes[0];
+            b.bullets.Add(Missile.Make(1, 1, 0, me.state.pos - me.Forward * 3500, me.state.vel + me.Forward * 400, b.time));
+            b.balloonMines[0] = 0; b.jammers[0] = 0; b.wells[0] = 0;
+            var p = new EnemyAi { me = 0, sloppiness = 0 }.Plan(b, 3);
+            Check(p.slow, "an AI pilot with a heat-seeker on it and no wells throws a slow bomb");
+        }
+        {
+            // clones, subsets, swaps, bytes
+            var b = Tail(1500);
+            var plan = Ahead(b, 0); plan.slow = true;
+            b.Resolve(new TurnPlan?[] { plan, Ahead(b, 1) }, 1.5);
+            var c = b.Clone();
+            Check(c.slowBombs[0] == b.slowBombs[0] && !ReferenceEquals(c.slowBombs, b.slowBombs) && c.bullets.Any(x => x is TimeBubble), "a clone keeps the count and the bubble, in its own array");
+            Check(b.Subset(new[] { 1 }).bullets.Any(x => x is TimeBubble), "a subset of the 109 alone is still slowed by the P-51's bubble");
+            var back = Tail(1500);
+            Wire.Restore(back, Wire.Encode(b));
+            Check(Wire.Hash(back) == Wire.Hash(b) && back.bullets.Any(x => x is TimeBubble), "a snapshot brings it across exactly");
+            b.Resolve(new TurnPlan?[] { Ahead(b, 0), Ahead(b, 1) }, 3);
+            back.Resolve(new TurnPlan?[] { Ahead(back, 0), Ahead(back, 1) }, 3);
+            Check(Wire.Hash(back) == Wire.Hash(b), "and both fly the next turn the same");
+            int s0 = b.slowBombs[0], s1 = b.slowBombs[1];
+            b.Swap(0, 1);
+            Check(b.slowBombs[1] == s0 && b.slowBombs[0] == s1, "a swap moves the count with the plane");
+            var pd = Wire.Decode<TurnPlan>(Wire.Encode(new TurnPlan { slow = true, slowAt = 2.15 }));
+            Check(pd.slow && pd.slowAt == 2.15, "a plan with a slow bomb (and its moment) survives the trip to bytes");
+        }
+        {
+            // the loadout pick
+            var l = new Loadout(Kit.Missiles, Kit.Mines).Pick(Kit.Slow, Craft.Spitfire);
+            Check(l.Has(Kit.Slow) && l.Has(Kit.Mines) && Loadout.Allowed(Kit.Slow, Craft.F15), $"any plane can pick it ({l})");
+            var set = new DogfightSetup { randomStart = false, ours = new[] { Craft.Mustang }, theirs = new[] { Craft.Bf109 },
+                                          oursLoadouts = new[] { new Loadout(Kit.Slow, Kit.Missiles) }, theirsLoadouts = new[] { new Loadout(Kit.Missiles, Kit.Mines) } };
+            var b = Scenarios.Dogfight(DogfightSetup.FromBytes(set.ToBytes()), Vec3d.Zero);
+            Check(b.slowBombs[0] == Specials.SlowBombs && b.slowBombs[1] == 0 && b.wells[0] == 0, "picked, it brings two slow bombs (and only the picker has them), through the trip to bytes");
+            var none = TurnPlan.Straight(b.planes[1]); none.slow = true;
+            b.Resolve(new TurnPlan?[] { TurnPlan.Straight(b.planes[0]), none }, 3);
+            Check(!b.bullets.OfType<TimeBubble>().Any(), "without the pick, planning one does nothing");
         }
     }
 }

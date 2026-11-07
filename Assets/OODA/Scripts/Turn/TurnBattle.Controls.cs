@@ -248,6 +248,7 @@ namespace Ooda.Turn
             DrawChaff(r, now);
             DrawMines(r, now);
             DrawWells(r, now);
+            DrawBubbles(r, now);
             DrawSpecialFrames(vs, r, now);
             for (int k = 0; k < vs.Count && k < r.frames.Length; k++)
             {
