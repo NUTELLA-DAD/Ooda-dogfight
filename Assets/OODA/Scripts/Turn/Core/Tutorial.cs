@@ -238,11 +238,11 @@ namespace Ooda.Turn.Core
                 c.damage *= l.damageScale;
                 if (l.foeToughness > 0) c.toughness = l.foeToughness;
                 c.missiles = 0; c.radarMissiles = 0;
-                c.balloonMines = c.heatBlades = c.stealths = c.wells = 0;
+                c.balloonMines = c.heatBlades = c.stealths = c.wells = c.slowBombs = 0;
                 b.combat[i] = c;
                 b.ammo[i] = c.ammoSec;
                 b.missiles[i] = 0; b.radarMissiles[i] = 0;
-                b.balloonMines[i] = b.heatBlades[i] = b.stealths[i] = b.wells[i] = 0;
+                b.balloonMines[i] = b.heatBlades[i] = b.stealths[i] = b.wells[i] = b.slowBombs[i] = 0;
             }
             b.planes[0].throttle = l.throttle;
             b.planes[1].throttle = l.foeThrottle;

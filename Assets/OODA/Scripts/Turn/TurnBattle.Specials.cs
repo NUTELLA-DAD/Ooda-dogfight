@@ -150,7 +150,7 @@ namespace Ooda.Turn
             dirty = true;
         }
 
-        /// <summary>4 balloon mine (stepping its moment), 5 heat blade, 6 stealth, 7 jammer, 8 gravity well (stepping its moment; TurnBattle.Well.cs).</summary>
+        /// <summary>4 balloon mine (stepping its moment), 5 heat blade, 6 stealth, 7 jammer, 8 gravity well (stepping its moment; TurnBattle.Well.cs), Y time slow bomb (TurnBattle.Slow.cs).</summary>
         void SpecialsInput(Keyboard kb)
         {
             bool Pressed(Key k) => kb != null && kb[k].wasPressedThisFrame;
@@ -159,6 +159,7 @@ namespace Ooda.Turn
             if (Pressed(Key.Digit6) || Pressed(Key.Numpad6)) ToggleCloak();
             if (Pressed(Key.Digit7) || Pressed(Key.Numpad7)) ToggleJam();
             if (Pressed(Key.Digit8) || Pressed(Key.Numpad8)) StepWell();
+            if (Pressed(Key.Y)) StepSlow();
         }
 
         // ---------- drawing ----------
@@ -325,6 +326,7 @@ namespace Ooda.Turn
             DrawLiveMines();
             DrawLiveWells();
             DrawPreviewBooms();
+            DrawLiveBubbles();
         }
 
         /// <summary>Everyone shown again (the fight is over, or no one is stealthy).</summary>

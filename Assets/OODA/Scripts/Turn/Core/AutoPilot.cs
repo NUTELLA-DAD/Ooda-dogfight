@@ -37,6 +37,10 @@ namespace Ooda.Turn.Core
         public bool well;
         /// <summary>When in the turn the well is thrown, in seconds from its start.</summary>
         public double wellAt;
+        /// <summary>Throw a time slow bomb at the nearest threat this turn, slowAt seconds into it (see Specials).</summary>
+        public bool slow;
+        /// <summary>When in the turn the slow bomb is thrown, in seconds from its start.</summary>
+        public double slowAt;
         /// <summary>The heat blade: red hot all turn, guns cold; any enemy you fly through is cut in half (see Specials).</summary>
         public bool ram;
         /// <summary>Go stealthy at the start of the turn: unseen for two turns, until you fire (see Specials).</summary>
