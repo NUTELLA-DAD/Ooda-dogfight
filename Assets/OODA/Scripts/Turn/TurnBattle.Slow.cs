@@ -10,8 +10,8 @@ namespace Ooda.Turn
     /// <summary>
     /// Y, Time slow bomb (the rules are TimeBubble and Specials in Turn/Core/Specials.cs): thrown at the nearest threat (a
     /// missile on you first, else the nearest enemy) at the moment you pick on the MFD's trigger bar (drag its teal marker; Y
-    /// steps it 0, 1, 2, 3 s, then off). It bursts into a bubble where the other side's planes, rounds and missiles run at half
-    /// speed for two turns; yours fly through untouched. While planning, the bubbles up now show as clock-faced spheres, and the
+    /// steps it 0, 1, 2, 3 s, then off). It bursts (clear of you) into a bubble where every plane, round and missile, both sides, runs
+    /// at half speed for two turns. While planning, the bubbles up now show as clock-faced spheres, and the
     /// one you're about to throw shows its throw line and where it bursts.
     /// </summary>
     public partial class TurnBattle
@@ -40,7 +40,7 @@ namespace Ooda.Turn
         }
 
         void SlowNotice() => Notice($"Time slow bomb: thrown {plan.slowAt:0.0} s in at the nearest threat (a missile on you first) within {Specials.SlowReachFt:N0} ft " +
-                                    "(drag the teal marker on the trigger bar, or Y steps it). Enemies, their rounds and missiles crawl at half speed in the bubble for two turns.");
+                                    "(drag the teal marker on the trigger bar, or Y steps it). It bursts clear of you, and everything in it, you too, crawls at half speed for two turns.");
 
         Rect SlowMarker => new Rect(burstRect.x + (float)(Math.Min(plan.slowAt, turnSec) / turnSec) * burstRect.width - 8, burstRect.y - 9, 16, burstRect.height + 12);
 

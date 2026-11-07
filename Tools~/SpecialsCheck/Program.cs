@@ -517,12 +517,12 @@ static class Program
             double off = tb == null ? 1e9 : (tb.pos - b.planes[1].state.pos).Length;
             Check(tb != null && tb.Burst && tb.vel.Length == 0 && off < Specials.SlowRadiusFt * Specials.SlowCoreShare, $"it bursts on the 109 and hangs there (the 109 {off:F0} ft from its middle)");
             Check(!r.hits.Any(), "it hurts no one");
-            Check(b.SlowClock(b.planes[1].state.pos, 1) == Specials.SlowFactor && b.SlowClock(b.planes[1].state.pos, 0) == 1, "inside, the 109's clock runs at half; the P-51's side is untouched");
+            Check(b.SlowClock(b.planes[1].state.pos) == Specials.SlowFactor && b.SlowClock(b.planes[0].state.pos) == 1, "inside, the 109's clock runs at half; the P-51 that threw it is clear of it");
             for (int t = 0; t < 2; t++) b.Resolve(new TurnPlan?[] { Ahead(b, 0), Ahead(b, 1) }, 3);
             Check(!b.bullets.OfType<TimeBubble>().Any(), $"it is gone after {Specials.SlowLifeSec:F0} s");
         }
         {
-            // a bubble sat on each plane: the enemy flies about half as far, the owner's own side not a foot less
+            // a bubble sat on each plane: it flies about half as far, the thrower too (it slows everyone)
             var free = Tail(30000); double free1 = Flown(free, 1);
             var slowed = Tail(30000);
             var on109 = TimeBubble.Make(0, 0, slowed.planes[1].state.pos, slowed.planes[1].state.pos + slowed.planes[1].state.vel * 1.5, slowed.time); on109.age = Specials.SlowFlySec;
@@ -533,7 +533,14 @@ static class Program
             var mine = Tail(30000); double mine0 = Flown(Tail(30000), 0);
             var onMe = TimeBubble.Make(0, 0, mine.planes[0].state.pos, mine.planes[0].state.pos, mine.time); onMe.age = Specials.SlowFlySec;
             mine.bullets.Add(onMe);
-            Check(Math.Abs(Flown(mine, 0) - mine0) < 1e-6, "the P-51 in its own bubble flies exactly as it would without");
+            double own = Flown(mine, 0);
+            Check(own / mine0 > 0.45 && own / mine0 < 0.75, $"the P-51 in its own bubble is slowed too ({own / mine0 * 100:F0}% of the ground)");
+            // thrown at a 109 only 600 ft behind, it bursts past him, clear of the thrower
+            var close = Tail(600);
+            var land = Specials.SlowLanding(close, 0);
+            var meThen = close.planes[0].state.pos + close.planes[0].state.vel * Specials.SlowFlySec;
+            Check((land - meThen).Length >= Specials.SlowRadiusFt + Specials.SlowClearFt - 1 && (land - close.planes[1].state.pos).Length < Specials.SlowRadiusFt * Specials.SlowCoreShare,
+                  $"thrown at a 109 600 ft behind, it bursts {(land - meThen).Length:F0} ft from the thrower, with the 109 inside");
         }
         {
             // a 109 900 ft behind: thrown at it, the gap opens

@@ -35,11 +35,11 @@ namespace Ooda.Turn.Core
     ///
     /// Time slow bomb: thrown at the moment you plan (TurnPlan.slowAt) at the nearest threat within SlowReachFt (a missile
     /// tracking you first, else the nearest enemy plane; none, it bursts SlowAheadFt ahead), it flies SlowFlySec and bursts
-    /// where they will be into a bubble SlowRadiusFt across the middle, which hangs there for SlowLifeSec. Inside it time runs
-    /// at SlowFactor for the other side: their planes, their rounds, their missiles and flares all move (and turn, burn and
-    /// count down) at that share of the clock, and come back to full speed as they leave. Your own side is untouched. It does
-    /// no damage: a tailer caught in it falls back and its stream crawls, a missile in it loses seconds, a target ahead in it
-    /// is a sitting duck.
+    /// where they will be into a bubble SlowRadiusFt across the middle, which hangs there for SlowLifeSec (pushed out past them
+    /// so it bursts at least SlowClearFt beyond its edge from you). Inside it time runs at SlowFactor for everyone, both sides,
+    /// you too: planes, rounds, missiles and flares all move (and turn, burn and count down) at that share of the clock, and
+    /// come back to full speed as they leave. It does no damage: a tailer caught in it falls back and its stream crawls, a
+    /// missile in it loses seconds, a target ahead in it is a sitting duck (until you fly in after it).
     /// </summary>
     public static class Specials
     {
@@ -68,10 +68,10 @@ namespace Ooda.Turn.Core
         /// <summary>What each fighter carries with Arcade on.</summary>
         public const int Mines = 2, Blades = 1, Stealths = 1, Jammers = 1, Wells = 2, SlowBombs = 2;
         /// <summary>The time slow bomb's throw: at the nearest threat within SlowReachFt, flying SlowFlySec to burst (none in reach: SlowAheadFt ahead).</summary>
-        public const double SlowReachFt = 5000, SlowFlySec = 0.6, SlowAheadFt = 1200;
+        public const double SlowReachFt = 5000, SlowFlySec = 0.6, SlowAheadFt = 1200, SlowClearFt = 200;
         /// <summary>The time slow bubble: SlowRadiusFt round its middle (full slow inside SlowCoreShare of it, easing to none at the edge), for SlowLifeSec after it bursts, fading over SlowFadeSec.</summary>
         public const double SlowRadiusFt = 1200, SlowCoreShare = 0.85, SlowLifeSec = 6, SlowFadeSec = 0.6;
-        /// <summary>How fast time runs for the other side inside a time slow bubble, as a share of the clock.</summary>
+        /// <summary>How fast time runs for everyone inside a time slow bubble, as a share of the clock.</summary>
         public const double SlowFactor = 0.5;
 
         /// <summary>Where a gravity well thrown now from m, flying plan p, settles: ahead and into the turn.</summary>
@@ -109,7 +109,12 @@ namespace Ooda.Turn.Core
                     double d = (b.planes[j].state.pos - me).Length;
                     if (d < best) { best = d; at = b.planes[j].state.pos + b.planes[j].state.vel * SlowFlySec; }
                 }
-            return at ?? me + m.Forward * SlowAheadFt + m.state.vel * SlowFlySec;
+            Vec3d c = at ?? me + m.Forward * SlowAheadFt + m.state.vel * SlowFlySec;
+            // it slows the thrower too: burst it past the threat, clear of where the thrower will be
+            Vec3d meThen = me + m.state.vel * SlowFlySec, off = c - meThen;
+            double need = SlowRadiusFt + SlowClearFt, d0 = off.Length;
+            if (d0 < need) c = meThen + (d0 > 1 ? off * (1 / d0) : -m.Forward) * need;
+            return c;
         }
 
         /// <summary>
@@ -246,7 +251,7 @@ namespace Ooda.Turn.Core
 
     /// <summary>
     /// A time slow bomb (see Specials): thrown at a threat, it flies SlowFlySec, stops dead and bursts into a bubble where time
-    /// runs at SlowFactor for the other side. It hits nothing and does no damage; it rides in the battle's bullets so a clone,
+    /// runs at SlowFactor for everyone. It hits nothing and does no damage; it rides in the battle's bullets so a clone,
     /// a subset, a swap and the wire carry it like a mine.
     /// </summary>
     public class TimeBubble : Bullet
@@ -272,10 +277,9 @@ namespace Ooda.Turn.Core
             }
         }
 
-        /// <summary>The share of the clock something of side s at p runs at: SlowFactor deep inside, easing to 1 at the edge; 1 for its own side.</summary>
-        public double Clock(Vec3d p, int s)
+        /// <summary>The share of the clock anything at p runs at (either side): SlowFactor deep inside, easing to 1 at the edge.</summary>
+        public double Clock(Vec3d p)
         {
-            if (s == side) return 1;
             double st = Strength;
             if (st <= 0) return 1;
             double d = (p - pos).Length, r = Specials.SlowRadiusFt, core = r * Specials.SlowCoreShare;

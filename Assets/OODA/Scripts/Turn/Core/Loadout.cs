@@ -107,7 +107,7 @@ namespace Ooda.Turn.Core
                                                      : "Jets only: a warbird has no radar.";
                 case Kit.Ice: return "Cased in ice all fight: heat-seekers can't lock you. Radar missiles and guns still can.";
                 case Kit.Well: return $"{Specials.Wells} wells thrown ahead: they pull planes in to turn tighter, and bend missiles and rounds off course.";
-                case Kit.Slow: return $"{Specials.SlowBombs} bombs thrown at the nearest threat: enemies, their rounds and missiles crawl at half speed in the bubble.";
+                case Kit.Slow: return $"{Specials.SlowBombs} bombs thrown at the nearest threat: everything in the bubble, planes, rounds and missiles, crawls at half speed.";
                 default: return "";
             }
         }

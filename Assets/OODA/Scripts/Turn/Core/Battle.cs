@@ -287,10 +287,10 @@ namespace Ooda.Turn.Core
                 bool[] firing = new bool[n];
                 var before = new Vec3d[n];
                 for (int i = 0; i < n; i++) before[i] = planes[i].state.pos;
-                // Time slow bubbles: how much of this step each aircraft lives (1 outside any enemy bubble)
+                // Time slow bubbles: how much of this step each aircraft lives (1 outside any bubble)
                 bool anySlow = AnyBubbleUp();
                 var clock = new double[n];
-                for (int i = 0; i < n; i++) clock[i] = anySlow ? SlowClock(planes[i].state.pos, side[i]) : 1;
+                for (int i = 0; i < n; i++) clock[i] = anySlow ? SlowClock(planes[i].state.pos) : 1;
 
                 // Aircraft
                 for (int i = 0; i < n; i++)
@@ -420,8 +420,8 @@ namespace Ooda.Turn.Core
                         if (!b.alive) bullets.RemoveAt(bi);
                         continue;
                     }
-                    // inside an enemy time slow bubble it lives only part of the step
-                    double dt = anySlow ? StepSec * SlowClock(b.pos, b.side) : StepSec;
+                    // inside a time slow bubble it lives only part of the step
+                    double dt = anySlow ? StepSec * SlowClock(b.pos) : StepSec;
                     if (b is Well wl)
                     {
                         wl.Step(StepSec);
@@ -574,13 +574,13 @@ namespace Ooda.Turn.Core
         }
 
         /// <summary>
-        /// The share of the clock something of side s at p runs at (see Specials): the slowest of the other side's time slow
-        /// bubbles it is in, 1 in none.
+        /// The share of the clock anything at p runs at (see Specials): the slowest of the time slow bubbles it is in (either
+        /// side's: they slow everyone), 1 in none.
         /// </summary>
-        public double SlowClock(Vec3d p, int s)
+        public double SlowClock(Vec3d p)
         {
             double c = 1;
-            foreach (var b in bullets) if (b is TimeBubble tb) c = Math.Min(c, tb.Clock(p, s));
+            foreach (var b in bullets) if (b is TimeBubble tb) c = Math.Min(c, tb.Clock(p));
             return c;
         }
 
