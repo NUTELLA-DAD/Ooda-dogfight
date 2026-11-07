@@ -8,7 +8,7 @@ using UnityEngine;
 namespace Ooda.Turn
 {
     /// <summary>
-    /// 9, Ricochet shield (the rules are Specials.Bounce and Battle.Ricochet in Turn/Core): raised for the turn you plan, a
+    /// /, Ricochet shield (the rules are Specials.Bounce and Battle.Ricochet in Turn/Core): raised for the turn you plan, a
     /// chrome bubble round the plane that every round bounces off, back the way it came, splayed a few degrees. While
     /// planning, your ghost wears the bubble and the enemies' projected rounds kink off it; in playback each bounce sparks
     /// and the round flies on in the shield's silver, the shield's now (it can hit the shooter).

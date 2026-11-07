@@ -160,7 +160,7 @@ namespace Ooda.Turn
             if (load.wells > 0)
                 row.Add(Sw("WELL", $"8  ({battle.wells[0]})", plan.well, plan.well || battle.wells[0] > 0, wellColor, ToggleWell));
             if (load.mirrors > 0)
-                row.Add(Sw(battle.Mirrored(0) ? "SHIELD UP" : "SHIELD", $"9  ({battle.mirrors[0]})", plan.mirror, plan.mirror || battle.mirrors[0] > 0, mirrorColor, ToggleMirror));
+                row.Add(Sw(battle.Mirrored(0) ? "SHIELD UP" : "SHIELD", $"/  ({battle.mirrors[0]})", plan.mirror, plan.mirror || battle.mirrors[0] > 0, mirrorColor, ToggleMirror));
             SwitchRow(x, y, w, row, true);
             if (JammedNow)
             {
