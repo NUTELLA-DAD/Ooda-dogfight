@@ -42,6 +42,8 @@ namespace Ooda.Turn.Core
         public int mirrors;
         /// <summary>Grapple hooks carried (see Specials): none unless the loadout (or Specials.Arm) gives them.</summary>
         public int grapples;
+        /// <summary>Snow clouds carried (see Specials): none unless the loadout gives them.</summary>
+        public int snowClouds;
         /// <summary>Ice (a loadout pick, see Loadout): the airframe is cased in ice, cold as the sky, so no heat-seeker can lock it and one that blunders into it shatters harmlessly. Radar missiles and guns still bite.</summary>
         public bool iced;
         /// <summary>Magnet rounds (a loadout pick, see Magnet): the rounds curve toward the nearest enemy they pass.</summary>
@@ -434,6 +436,8 @@ namespace Ooda.Turn.Core
         public double greyOut;
         /// <summary>A grapple's line tugging on it, in G (felt by the pilot on top of the wing's G).</summary>
         public double tugG;
+        /// <summary>The rime on the airframe, 0 to 1 (a snow cloud; see Systems.rime).</summary>
+        public double rime;
         /// <summary>The pilot has bailed out: when (battle time; meaningless while bailed is false), from where and how fast.</summary>
         public bool bailed;
         public double bailAt;
@@ -474,6 +478,7 @@ namespace Ooda.Turn.Core
         public bool magnet;       // a magnet round's path (see Magnet): drawn with a violet tint
         public bool bubble;       // a time slow bomb's flight and bubble (kept in TurnResult.bubbles)
         public bool tether;       // a grapple's line (a TetherTrace, kept in TurnResult.tethers): points are the hooker's end
+        public bool snow;         // a snow cloud's drift (kept in TurnResult.snow)
         public double age0;       // how old the round (missile, flare) was at startFrame, s
         /// <summary>The round bounced off a ricochet shield (see Specials) at points[bounceAt], -1 never; from there it is the shield's (bouncer).</summary>
         public int bounceAt = -1, bouncer = -1;

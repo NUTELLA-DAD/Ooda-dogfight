@@ -179,7 +179,7 @@ namespace Ooda.Turn.Core
             if (battle.missiles[me] > 0 && battle.routes[me] == null)
             {
                 Vec3d r = battle.planes[them].state.pos - m.state.pos;
-                if (!best.cloak && !battle.combat[them].iced && r.Length < Heat.LockRangeFt(battle.HeatOf(them, m.state.pos)) * 1.2 && Vec3d.Dot(r.Normalized, m.Forward) > Math.Cos(60 * Math.PI / 180))
+                if (!best.cloak && !battle.Iced(them) && r.Length < Heat.LockRangeFt(battle.HeatOf(them, m.state.pos)) * 1.2 && Vec3d.Dot(r.Normalized, m.Forward) > Math.Cos(60 * Math.PI / 180))
                 { best.missile = true; best.missileTarget = them; }
             }
             // the radar on the target, and a radar missile whenever it is in the cone (it launches only once the lock is a turn old)
@@ -428,6 +428,10 @@ namespace Ooda.Turn.Core
                     plan.blink = true; plan.blinkAt = Math.Max(0, Math.Min(turnSec, Math.Round((arrive - 0.35) / 0.05) * 0.05));
                     return;
                 }
+            // a heat-seeker closing on it: a snow cloud let go round it, so it flies out rimed over and the seeker shatters on it
+            if (sub.snowClouds[0] > 0 && !sub.Iced(0))
+                foreach (var b in sub.bullets)
+                    if (b is Missile ms && !ms.radar && ms.target == 0 && ms.Tracking && (ms.pos - me0.state.pos).Length < 7000) { plan.snow = true; plan.snowAt = 0; return; }
             // a missile closing on it: a gravity well thrown ahead, to fly through and drag the missile in after
             if (sub.wells[0] > 0)
                 foreach (var b in sub.bullets)
@@ -464,6 +468,7 @@ namespace Ooda.Turn.Core
             if (sub.balloonMines[0] > 0) { plan.mine = true; return; }
             if (Boom(sub, ref plan, turnSec)) return;   // the shock cone knocks the tailer off its shot
             if (sub.slowBombs[0] > 0) { plan.slow = true; plan.slowAt = 0; return; }   // the tailer falls back and its rounds crawl
+            if (sub.snowClouds[0] > 0) { plan.snow = true; plan.snowAt = 0; return; }   // the tailer flies through it and comes out iced
             if (sub.wells[0] > 0) { plan.well = true; plan.wellAt = 0; return; }   // the tailer's rounds bend off, and it turns tighter
             if (sub.blinks[0] > 0) { plan.blink = true; plan.blinkAt = 0.5; return; }   // a hop ahead: its rounds in the air miss, and the gap opens
             if (sub.jammers[0] > 0) { plan.jam = true; return; }

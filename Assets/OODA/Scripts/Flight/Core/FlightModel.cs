@@ -105,6 +105,15 @@ namespace Ooda.Flight.Core
             state = start;
         }
 
+        /// <summary>
+        /// The G the wing can pull now (the stall line or the G limit, whichever is less), with any rime on it (see
+        /// Systems.rime): the ice spoils the lift, so the stall line comes in and the corner speed goes up.
+        /// </summary>
+        public double AvailableG => AvailableGAt(Kias);
+        public double AvailableNegG => AvailableNegGAt(Kias);
+        double AvailableGAt(double kias) => Math.Min(numbers.StallLimitG(kias) * systems.LiftFactor, numbers.maxG);
+        double AvailableNegGAt(double kias) => Math.Max(numbers.NegStallLimitG(kias) * systems.LiftFactor, numbers.minG);
+
         /// <summary>A copy that flies on independently: for the ghost path, the reach shell and the AI's look-ahead.</summary>
         public FlightModel Clone() => (FlightModel)MemberwiseClone();
 
@@ -204,7 +213,7 @@ namespace Ooda.Flight.Core
             // G: the stick's ask, eased at the onset rate and its acceleration, then held inside the wing's limits
             gAsked = p >= 0 ? 1 + p * (n.maxG - 1) : 1 + (-p) * (n.minG - 1);
             double gf = systems.GFactor;
-            double hi = Math.Min(n.AvailableG(kias), Math.Max(1, n.maxG * gf)), lo = Math.Max(n.AvailableNegG(kias), Math.Min(-0.5, n.minG * gf));   // a hurt tail or wing can't take the full G
+            double hi = Math.Min(AvailableGAt(kias), Math.Max(1, n.maxG * gf)), lo = Math.Max(AvailableNegGAt(kias), Math.Min(-0.5, n.minG * gf));   // a hurt tail or wing can't take the full G
             double maxRate = n.MaxRollRateDps(ktas) * systems.RollFactor;
             double rollAccel = n.maxRollRateDps / n.rollFullRateSec;
             double extraDrag = 0;

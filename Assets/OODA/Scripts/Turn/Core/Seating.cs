@@ -194,6 +194,7 @@ namespace Ooda.Turn.Core
             foreach (var tr in r.wells) tr.owner = Map(tr.owner);
             foreach (var tr in r.bubbles) tr.owner = Map(tr.owner);
             foreach (var tr in r.tethers) { tr.owner = Map(tr.owner); tr.target = Map(tr.target); }
+            foreach (var tr in r.snow) tr.owner = Map(tr.owner);
             return r;
         }
 

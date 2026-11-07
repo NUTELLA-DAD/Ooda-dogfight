@@ -176,6 +176,7 @@ namespace Ooda.Turn
                 if (battle.blinks[0] <= 0) plan.blink = false;
                 if (battle.mirrors[0] <= 0) plan.mirror = false;
                 if (battle.grapples[0] <= 0 && battle.LineOf(0) == null) plan.grapple = false;
+                if (battle.snowClouds[0] <= 0) plan.snow = false;
                 plan.aim = env.Clamp(plan.aim, true);
                 plan.overpull = env.Overpull(plan.aim);
                 manual[m] = plan;
@@ -260,7 +261,7 @@ namespace Ooda.Turn
 
         static bool SamePlan(TurnPlan a, TurnPlan b) =>
             (a.aim - b.aim).Length < 1e-9 && System.Math.Abs(a.throttle - b.throttle) < 1e-6 && a.wep == b.wep && a.rocket == b.rocket && a.brake == b.brake
-            && a.mine == b.mine && a.mineAt == b.mineAt && a.well == b.well && a.wellAt == b.wellAt && a.slow == b.slow && a.slowAt == b.slowAt && a.blink == b.blink && a.blinkAt == b.blinkAt && a.grapple == b.grapple && a.grappleAt == b.grappleAt && a.ram == b.ram && a.cloak == b.cloak && a.jam == b.jam && a.mirror == b.mirror && a.rudder == b.rudder
+            && a.mine == b.mine && a.mineAt == b.mineAt && a.well == b.well && a.wellAt == b.wellAt && a.slow == b.slow && a.slowAt == b.slowAt && a.blink == b.blink && a.blinkAt == b.blinkAt && a.grapple == b.grapple && a.grappleAt == b.grappleAt && a.snow == b.snow && a.snowAt == b.snowAt && a.ram == b.ram && a.cloak == b.cloak && a.jam == b.jam && a.mirror == b.mirror && a.rudder == b.rudder
             && a.burstStart == b.burstStart && a.burstEnd == b.burstEnd && a.missile == b.missile && a.hold == b.hold && a.marks == b.marks;
 
         /// <summary>At the start of each turn's planning: a plane in formation shows its formation plan, so the stick shows what it will do.</summary>

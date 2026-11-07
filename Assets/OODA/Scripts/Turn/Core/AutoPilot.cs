@@ -51,6 +51,10 @@ namespace Ooda.Turn.Core
         /// </summary>
         public bool grapple;
         public double grappleAt;
+        /// <summary>Let go a snow cloud round you this turn, snowAt seconds into it (see Specials).</summary>
+        public bool snow;
+        /// <summary>When in the turn the snow cloud goes, in seconds from its start.</summary>
+        public double snowAt;
         /// <summary>The heat blade: red hot all turn, guns cold; any enemy you fly through is cut in half (see Specials).</summary>
         public bool ram;
         /// <summary>Go stealthy at the start of the turn: unseen for two turns, until you fire (see Specials).</summary>
@@ -196,8 +200,8 @@ namespace Ooda.Turn.Core
             if (liftMag < 0.3) rollErr = 0;                        // nothing much asked: leave the wings alone
 
             double kias = m.Kias;
-            double hi = n.AvailableG(kias) * StallMargin;
-            double lo = n.AvailableNegG(kias) * StallMargin;
+            double hi = m.AvailableG * StallMargin;   // the plane's own: rime on the wing brings it in
+            double lo = m.AvailableNegG * StallMargin;
             // Pulling through a big roll error is wasted; push only when the lift is mostly below (an outside turn is poor)
             if (Math.Abs(rollErr) > Math.PI * 0.6) gWant = Math.Max(gWant, 0.2);
             gWant = Math.Max(lo, Math.Min(hi, gWant));
@@ -245,7 +249,7 @@ namespace Ooda.Turn.Core
         public static FlightControls BankAndPull(FlightModel m, double bankDeg, double g, double throttle, bool wep)
         {
             var n = m.numbers;
-            double avail = n.AvailableG(m.Kias);
+            double avail = m.AvailableG;
             if (m.Departed && g <= avail) return Recovery(m);
             double pitch = g >= 1 ? (g - 1) / (n.maxG - 1) : -(1 - g) / (1 - n.minG);
             if (g > avail && avail > 0)

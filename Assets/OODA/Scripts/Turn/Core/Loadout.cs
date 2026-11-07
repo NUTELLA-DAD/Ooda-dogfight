@@ -8,14 +8,15 @@ namespace Ooda.Turn.Core
     /// To add one: add it here, give it its words in Loadout.Name, Short and Blurb, say in Allowed
     /// which aircraft can take it, and in Loadout.Apply what it puts on the plane.
     /// </summary>
-    public enum Kit { Missiles, Rocket, Mines, Blade, Stealth, Jammer, Radar, Ice, Well, Magnet, Slow, Blink, Mirror, Grapple }
+    public enum Kit { Missiles, Rocket, Mines, Blade, Stealth, Jammer, Radar, Ice, Well, Magnet, Slow, Blink, Mirror, Grapple, Snow }
 
     /// <summary>
     /// A pilot's loadout: the two capabilities he brings to the fight (with Arcade on in the dogfight setup). Everyone
     /// always carries his guns, his flares (and a jet its chaff and radar) and the speed brake; the picks add to that:
     /// heat-seekers, radar missiles, the rocket, ice, or one of the arcade specials (see Specials). Two different picks;
     /// the jets (no rocket: their afterburner does that job) can't take the rocket, and only a jet (with a radar) can take
-    /// radar missiles. Ice cases the plane in ice for the whole fight: no heat-seeker can lock it (CombatNumbers.iced).
+    /// radar missiles. Ice cases the plane in ice for the whole fight: no heat-seeker can lock it (CombatNumbers.iced). A snow
+    /// cloud rimes over whoever flies through it, for a while (Systems.rime): heavier and slower, and as cold to a seeker.
     /// Pure C#, no Unity.
     /// </summary>
     [Serializable]
@@ -85,16 +86,17 @@ namespace Ooda.Turn.Core
             guns.blinks = Has(Kit.Blink) ? Specials.Blinks : 0;
             guns.mirrors = Has(Kit.Mirror) ? Specials.Mirrors : 0;
             guns.grapples = Has(Kit.Grapple) ? Specials.Grapples : 0;
+            guns.snowClouds = Has(Kit.Snow) ? Specials.SnowClouds : 0;
         }
 
         public static string Name(Kit k) => k == Kit.Missiles ? "Heat-seekers" : k == Kit.Rocket ? "Rocket" : k == Kit.Mines ? "Balloon mines"
                                           : k == Kit.Blade ? "Heat blade" : k == Kit.Stealth ? "Stealth" : k == Kit.Jammer ? "Jammer"
-                                          : k == Kit.Radar ? "Radar missiles" : k == Kit.Ice ? "Ice" : k == Kit.Well ? "Gravity well" : k == Kit.Magnet ? "Magnet rounds" : k == Kit.Slow ? "Time slow bomb" : k == Kit.Blink ? "Blink" : k == Kit.Mirror ? "Ricochet shield" : k == Kit.Grapple ? "Grapple" : k.ToString();
+                                          : k == Kit.Radar ? "Radar missiles" : k == Kit.Ice ? "Ice" : k == Kit.Well ? "Gravity well" : k == Kit.Magnet ? "Magnet rounds" : k == Kit.Slow ? "Time slow bomb" : k == Kit.Blink ? "Blink" : k == Kit.Mirror ? "Ricochet shield" : k == Kit.Grapple ? "Grapple" : k == Kit.Snow ? "Snow cloud" : k.ToString();
 
         /// <summary>A few letters for a name plate.</summary>
         public static string Short(Kit k) => k == Kit.Missiles ? "MSL" : k == Kit.Rocket ? "RKT" : k == Kit.Mines ? "MINE"
                                            : k == Kit.Blade ? "BLADE" : k == Kit.Stealth ? "STLTH" : k == Kit.Jammer ? "JAM"
-                                           : k == Kit.Radar ? "RDR" : k == Kit.Ice ? "ICE" : k == Kit.Well ? "WELL" : k == Kit.Magnet ? "MAG" : k == Kit.Slow ? "SLOW" : k == Kit.Blink ? "BLINK" : k == Kit.Mirror ? "RICO" : k == Kit.Grapple ? "HOOK" : k.ToString().ToUpperInvariant();
+                                           : k == Kit.Radar ? "RDR" : k == Kit.Ice ? "ICE" : k == Kit.Well ? "WELL" : k == Kit.Magnet ? "MAG" : k == Kit.Slow ? "SLOW" : k == Kit.Blink ? "BLINK" : k == Kit.Mirror ? "RICO" : k == Kit.Grapple ? "HOOK" : k == Kit.Snow ? "SNOW" : k.ToString().ToUpperInvariant();
 
         /// <summary>What it does, in a line, for an aircraft (how many it carries).</summary>
         public static string Blurb(Kit k, Craft c)
@@ -116,6 +118,7 @@ namespace Ooda.Turn.Core
                 case Kit.Blink: return $"{Specials.Blinks} blinks: jump {Specials.BlinkFt:0} ft ahead along your path in an instant; rounds and missiles on you miss.";
                 case Kit.Mirror: return $"{Specials.Mirrors} charges: a mirror shield for a turn. Rounds bounce off you, and can hit whoever is behind them.";
                 case Kit.Grapple: return $"{Specials.Grapples} hooks on a line: swing round an enemy to turn tighter and drag him; pull the other way and it yanks you both, hard.";
+                case Kit.Snow: return $"{Specials.SnowClouds} snow clouds let go round you: anyone flying through is iced, slower and heavier until it melts, but heat-seekers can't lock them.";
                 default: return "";
             }
         }

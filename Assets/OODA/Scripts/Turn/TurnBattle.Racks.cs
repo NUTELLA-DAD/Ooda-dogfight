@@ -18,7 +18,7 @@ namespace Ooda.Turn
         {
             if (battle == null) return;
             for (int i = 0; i < views.Length && i < battle.missiles.Length; i++)
-                if (views[i] != null) { views[i].ShowMissiles(Loaded(i), battle.missiles[i]); IceCoat.Set(views[i].gameObject, battle.combat[i].iced); }
+                if (views[i] != null) { views[i].ShowMissiles(Loaded(i), battle.missiles[i]); Ice(views[i], battle.combat[i].iced, battle.planes[i].systems.rime); }
         }
 
         /// <summary>
@@ -29,7 +29,7 @@ namespace Ooda.Turn
         {
             if (battle == null || r == null) return;
             for (int i = 0; i < views.Length && i < battle.missiles.Length; i++)
-                if (views[i] != null) { views[i].ShowMissiles(Loaded(i), battle.missiles[i] + LaunchesAfter(r, i, now)); IceCoat.Set(views[i].gameObject, battle.combat[i].iced); }
+                if (views[i] != null) { views[i].ShowMissiles(Loaded(i), battle.missiles[i] + LaunchesAfter(r, i, now)); Ice(views[i], battle.combat[i].iced, RimeAt(r, i, now)); }
         }
 
         /// <summary>The replay: the same from the tape (by tape index), with each turn's count after it.</summary>
@@ -39,7 +39,20 @@ namespace Ooda.Turn
             for (int s = 0; s < tapeViews.Count && s < t.missilesAfter.Length; s++)
                 if (tapeViews[s] != null && s < tapeLoaded.Count)
                     tapeViews[s].ShowMissiles(tapeLoaded[s], t.missilesAfter[s] + LaunchesAfter(t.result, s, now));
+            for (int s = 0; s < tapeViews.Count; s++)
+                if (tapeViews[s] != null) { double rime = RimeAt(t.result, s, now); if (rime > 0 || tapeViews[s].GetComponent<IceCoat>() != null) Ice(tapeViews[s], false, rime); }
         }
+
+        /// <summary>
+        /// The ice on a plane: the Ice pick's full coat, or the rime from a snow cloud, as thick as it lies (it thins as it
+        /// melts, and loses its icicles first).
+        /// </summary>
+        static void Ice(TurnAircraftView v, bool cased, double rime) =>
+            IceCoat.Set(v.gameObject, cased || rime > 0.005, cased ? 1f : (float)rime);
+
+        /// <summary>The rime on aircraft i at frame now of a recorded turn (0 if it isn't in it).</summary>
+        static double RimeAt(TurnResult r, int i, int now) =>
+            r != null && i < r.frames.Length && r.frames[i] != null && r.frames[i].Length > 0 ? r.frames[i][System.Math.Min(now, r.frames[i].Length - 1)].rime : 0;
 
         /// <summary>Missiles owner fires in the turn after frame now (a fresh launch: its trail starts there at age 0).</summary>
         static int LaunchesAfter(TurnResult r, int owner, int now)
