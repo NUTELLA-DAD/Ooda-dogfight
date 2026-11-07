@@ -169,6 +169,19 @@ namespace Ooda.Fx
             Chunks(p, 2, t, Metal, 4.5f * Mathf.Sqrt(s), 0.5f * s);
         }
 
+        /// <summary>A round glancing off a ricochet shield: a small star and a couple of hot sparks flung off the bubble along normal, no debris.</summary>
+        public void Ricochet(Vector3 p, Vector3 normal, float s = 1f, float? t0 = null)
+        {
+            float t = t0 ?? Now;
+            AddFlash(FK.Hit, p, normal, 0.55f * s, t);
+            int seed = Seed(p, t);
+            for (int i = 0; i < 2; i++)
+            {
+                Vector3 d = (normal + new Vector3(Rng(seed, i * 3, -0.6f, 0.6f), Rng(seed, i * 3 + 1, -0.6f, 0.6f), Rng(seed, i * 3 + 2, -0.6f, 0.6f))).normalized;
+                AddShard(p, d * 9f * s, t, seed + i, SparkHot, 0.35f * s, 0.3f);
+            }
+        }
+
         /// <summary>Chunks flung out of p, inked, tumbling, falling.</summary>
         public void Chunks(Vector3 p, int count, float t0, Color[] cols, float speed, float size = 1f, Vector3? away = null)
         {

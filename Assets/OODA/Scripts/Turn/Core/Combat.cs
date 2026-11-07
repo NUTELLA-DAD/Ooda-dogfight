@@ -34,6 +34,8 @@ namespace Ooda.Turn.Core
         public int balloonMines, heatBlades, stealths, jammers;
         /// <summary>Gravity wells carried (see Specials): none unless the loadout (or Specials.Arm) gives them.</summary>
         public int wells;
+        /// <summary>Ricochet shield charges carried (see Specials): none unless the loadout (or Specials.Arm) gives them.</summary>
+        public int mirrors;
         /// <summary>Ice (a loadout pick, see Loadout): the airframe is cased in ice, cold as the sky, so no heat-seeker can lock it and one that blunders into it shatters harmlessly. Radar missiles and guns still bite.</summary>
         public bool iced;
         /// <summary>
@@ -412,6 +414,8 @@ namespace Ooda.Turn.Core
         public bool rocket, brake;   // the rocket burning, the speed brake out
         public bool wep;             // war emergency power in (a jet's afterburner lit)
         public bool ram, cloaked;
+        /// <summary>The ricochet shield is up (see Specials): rounds bounce off it.</summary>
+        public bool mirror;
         /// <summary>The pilot's G stress, 0 to 1 (1 blacked out: G-LOC); see FlightModel.GreyOut.</summary>
         public double greyOut;
         /// <summary>The pilot has bailed out: when (battle time; meaningless while bailed is false), from where and how fast.</summary>
@@ -436,6 +440,8 @@ namespace Ooda.Turn.Core
         public bool mine;         // a balloon mine's drift (kept in TurnResult.mines); hit: it went off
         public bool well;         // a gravity well's drift (kept in TurnResult.wells)
         public double age0;       // how old the round (missile, flare) was at startFrame, s
+        /// <summary>The round bounced off a ricochet shield (see Specials) at points[bounceAt], -1 never; from there it is the shield's (bouncer).</summary>
+        public int bounceAt = -1, bouncer = -1;
         /// <summary>
         /// Recorded runs only: the closest the packet came to an opposing aircraft (ft), against the target it came
         /// nearest to hitting (closestTarget, -1 none), and that pass's hit distance (the round's hit radius plus the target's size).

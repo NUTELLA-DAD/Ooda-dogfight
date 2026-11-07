@@ -43,6 +43,8 @@ namespace Ooda.Turn.Core
         public bool cloak;
         /// <summary>Set off the jammer at the start of the turn: the enemies near you see scrambled ghosts for two turns (see Specials).</summary>
         public bool jam;
+        /// <summary>Raise the ricochet shield at the start of the turn: rounds bounce off you all turn (see Specials).</summary>
+        public bool mirror;
         /// <summary>The rudder pedals held all turn (-1 full left to 1 full right), with the arrow; the timeline sets its own.</summary>
         public double rudder;
         public bool hold;          // fly on with the stick where it is instead (the "keeps doing what it's doing" projection)

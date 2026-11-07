@@ -387,9 +387,9 @@ namespace Ooda.Turn.Core
         }
 
         /// <summary>
-        /// A missile on it: a gravity well thrown ahead. Someone on its tail with guns on it: a balloon mine let go in their path;
-        /// with none left, a gravity well; then the jammer; then (hurt) stealth, unless it is firing this turn (that would show it
-        /// again at once).
+        /// A missile on it: a gravity well thrown ahead. Anyone close with their guns on it, from any side: the ricochet shield, so
+        /// their rounds come back at them. Someone on its tail with guns on it: a balloon mine let go in their path; with none
+        /// left, a gravity well; then the jammer; then (hurt) stealth, unless it is firing this turn (that would show it again at once).
         /// </summary>
         void Defend(Battle sub, ref TurnPlan plan)
         {
@@ -399,7 +399,7 @@ namespace Ooda.Turn.Core
             if (sub.wells[0] > 0)
                 foreach (var b in sub.bullets)
                     if (b is Missile ms && ms.target == 0 && ms.Tracking && (ms.pos - me0.state.pos).Length < 7000) { plan.well = true; plan.wellAt = 0; return; }
-            bool tailed = false;
+            bool tailed = false, gunsOnMe = false;
             for (int j = 0; j < sub.Count; j++)
             {
                 if (sub.side[j] == sub.side[0] || sub.Out(j)) continue;
@@ -408,8 +408,10 @@ namespace Ooda.Turn.Core
                 if (r > 3000 || r < 1) continue;
                 bool theirNoseOnMe = Envelope.Angle(sub.planes[j].Forward, l) < 25 * Math.PI / 180;
                 bool theyreBehind = Envelope.Angle(me0.Forward, l) < 60 * Math.PI / 180;
+                if (theirNoseOnMe && sub.ammo[j] > 0) gunsOnMe = true;
                 if (theirNoseOnMe && theyreBehind) { tailed = true; break; }
             }
+            if (gunsOnMe && sub.mirrors[0] > 0 && !sub.Mirrored(0)) { plan.mirror = true; return; }
             if (!tailed) return;
             if (sub.balloonMines[0] > 0) { plan.mine = true; return; }
             if (sub.wells[0] > 0) { plan.well = true; plan.wellAt = 0; return; }   // the tailer's rounds bend off, and it turns tighter

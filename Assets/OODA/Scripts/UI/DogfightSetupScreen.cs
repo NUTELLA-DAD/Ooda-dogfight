@@ -105,7 +105,7 @@ namespace Ooda.UI
             if (Kb(k => k.equalsKey) || Kb(k => k.numpadPlusKey) || Pad(p => p.rightShoulder)) AddPlane(SelOurs);
             if (Kb(k => k.minusKey) || Kb(k => k.numpadMinusKey) || Pad(p => p.leftShoulder)) RemovePlane(SelOurs);
             if (loadout && kb != null)
-                for (int i = 0; i < Loadout.All.Length && i < 9; i++)
+                for (int i = 0; i < Loadout.All.Length && i < 10; i++)   // Digit1 + 9 is Digit0: the tenth pick
                     if (kb[UnityEngine.InputSystem.Key.Digit1 + i].wasPressedThisFrame) PickKit(Loadout.All[i]);
             return Result.None;
         }
@@ -399,7 +399,7 @@ namespace Ooda.UI
             if (GUI.Button(new Rect(w - 268, by + 8, 240, BotH - 16), "READY", ready)) result = Result.Fly;
             GUI.DrawTexture(new Rect(0, by - 26, w, 26), shade);
             Shadow(new Rect(0, by - 25, w, 24), mission ? "Esc closes the mission panel  ·  Enter flies"
-                : loadout ? "← → pick a pilot  ·  1 – 9 add a capability (it replaces the older pick)  ·  L or Esc closes  ·  Enter ready"
+                : loadout ? "← → pick a pilot  ·  1 – 9, 0 add a capability (it replaces the older pick)  ·  L or Esc closes  ·  Enter ready"
                 : "← → pick a pilot  ·  P pilot  ·  C aircraft  ·  L loadout  ·  + − planes on that side  ·  M mission  ·  G arcade  ·  Enter ready", hint);
 
             var panel = new Rect(w / 2 - 530, TopH + 10, 1060, 384);

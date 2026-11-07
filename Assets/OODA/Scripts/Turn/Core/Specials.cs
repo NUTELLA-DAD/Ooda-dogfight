@@ -32,6 +32,14 @@ namespace Ooda.Turn.Core
     /// grows toward the core's edge (WellCoreFt) and falls with the square of the range past it, out to WellReachFt. Inside
     /// your turn it adds to your wing's pull, so you turn tighter; a missile that is drawn inside WellCaptureFt loses its
     /// target for good and is flung on. It does no damage itself.
+    ///
+    /// Ricochet shield: raised at the start of a turn you plan (TurnPlan.mirror), a mirror bubble round the plane for
+    /// MirrorSec. Every round (a fighter's packet or flak) that would strike it bounces off instead, mirrored about the
+    /// back down the line it came in on, splayed by how far off the middle it struck (MirrorSpread: one dead on comes
+    /// straight back, one at the edge a few degrees off) at MirrorKeep of its speed
+    /// against the plane. A bounced round is the shield's now: it carries MirrorDamage of its punch, flies on to hit anyone on
+    /// the other side of the shield (the shooter too, if it comes back his way, and a kill is the shield's), and can bounce off
+    /// another shield. Missiles, mines and blades still bite, and your own guns fire out through it.
     /// </summary>
     public static class Specials
     {
@@ -57,8 +65,16 @@ namespace Ooda.Turn.Core
         public const double WellPlaneG = 2.5, WellMissileG = 22, WellRoundG = 60;
         /// <summary>A missile drawn this close to the middle of a gravity well loses its target for good.</summary>
         public const double WellCaptureFt = 450;
+        /// <summary>The ricochet shield: how long it stays up, the share of a round's speed (against the plane) and punch a bounce keeps.</summary>
+        public const double MirrorSec = 3, MirrorKeep = 0.7, MirrorDamage = 0.8;
+        /// <summary>
+        /// The bubble is a retro-reflector (like a cat's eye): a bounce goes back down the line the round came in on, splayed
+        /// out by how far off the middle it struck, up to about this share of a radian at the very edge (7 degrees). So a
+        /// close shooter gets a good part of his own burst back, and the rest sprays round him.
+        /// </summary>
+        public const double MirrorSpread = 0.12;
         /// <summary>What each fighter carries with Arcade on.</summary>
-        public const int Mines = 2, Blades = 1, Stealths = 1, Jammers = 1, Wells = 2;
+        public const int Mines = 2, Blades = 1, Stealths = 1, Jammers = 1, Wells = 2, Mirrors = 2;
 
         /// <summary>Where a gravity well thrown now from m, flying plan p, settles: ahead and into the turn.</summary>
         public static Vec3d WellLanding(FlightModel m, TurnPlan p)
@@ -78,10 +94,26 @@ namespace Ooda.Turn.Core
         /// </summary>
         public static double WellFalloff(double r) => r >= WellReachFt ? 0 : r <= WellCoreFt ? Math.Max(0, r) / WellCoreFt : WellCoreFt * WellCoreFt / (r * r);
 
+        /// <summary>
+        /// A round strikes a ricochet shield: rel is where it is against the plane (ft, from its middle, at the sphere of radius
+        /// reach), relVel its velocity against the plane. The new relative velocity: back the way it came, splayed by how far
+        /// off the middle it struck (see MirrorSpread), at MirrorKeep of its speed (a round already leaving keeps its line);
+        /// normal the outward normal of the bubble where it struck.
+        /// </summary>
+        public static Vec3d Bounce(Vec3d rel, Vec3d relVel, out Vec3d normal)
+        {
+            double r = rel.Length, speed = relVel.Length;
+            normal = r > 1e-6 ? rel * (1 / r) : (speed > 1e-9 ? relVel * (-1 / speed) : new Vec3d(0, 0, 1));
+            if (speed < 1e-9 || Vec3d.Dot(relVel, normal) >= 0) return relVel * MirrorKeep;   // already leaving: it keeps its line
+            Vec3d back = relVel * (-1 / speed);
+            Vec3d off = normal - back * Vec3d.Dot(normal, back);   // how far off the middle it struck, square to its line (0 to 1)
+            return (back + off * MirrorSpread).Normalized * (speed * MirrorKeep);
+        }
+
         /// <summary>Give a fighter its arcade load (the same numbers, changed in place, returned for chaining).</summary>
         public static CombatNumbers Arm(CombatNumbers c)
         {
-            c.balloonMines = Mines; c.heatBlades = Blades; c.stealths = Stealths; c.jammers = Jammers; c.wells = Wells;
+            c.balloonMines = Mines; c.heatBlades = Blades; c.stealths = Stealths; c.jammers = Jammers; c.wells = Wells; c.mirrors = Mirrors;
             return c;
         }
     }

@@ -182,7 +182,14 @@ namespace Ooda.Turn.Core
                 h.target = Map(h.target);
                 r.hits[k] = h;
             }
-            foreach (var tr in r.traces) { tr.owner = Map(tr.owner); tr.closestTarget = Map(tr.closestTarget); }
+            for (int k = 0; k < r.ricochets.Count; k++)
+            {
+                var h = r.ricochets[k];
+                h.shooter = Map(h.shooter);
+                h.target = Map(h.target);
+                r.ricochets[k] = h;
+            }
+            foreach (var tr in r.traces) { tr.owner = Map(tr.owner); tr.closestTarget = Map(tr.closestTarget); if (tr.bouncer >= 0) tr.bouncer = Map(tr.bouncer); }
             foreach (var tr in r.mines) tr.owner = Map(tr.owner);
             foreach (var tr in r.wells) tr.owner = Map(tr.owner);
             return r;
