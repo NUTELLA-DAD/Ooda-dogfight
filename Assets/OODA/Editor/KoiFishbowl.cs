@@ -107,8 +107,35 @@ namespace Ooda.EditorTools
                 for (int k = 0; k < Seg; k++) { surface.Add(c0); surface.Add(c0 + 1 + (k + 1) % Seg); surface.Add(c0 + 1 + k); }
             }
             foreach (var b in Bubbles) Ball(v, n, bubbles, P(side * b.x, b.y, b.z), b.w * unit);
-            var bowl = Skinned(koi, head, "KoiFishbowl", v, n, new[] { water, glass, surface, bubbles },
-                new[] { Mat("Fishbowl_Water"), Mat("Fishbowl_Glass"), Mat("Fishbowl_Surface"), Mat("Fishbowl_Bubble") });
+            // painted glints on the glass, as in the art: two long streaks down its upper right and a short one on the left,
+            // so the bowl reads as glass from any distance (a faint tint alone vanishes against the sky)
+            var glints = new List<int>();
+            void Glint(float a0, float a1, float u0, float u1)
+            {
+                const int Along = 10;
+                int start = v.Count;
+                for (int i = 0; i <= Along; i++)
+                {
+                    float u = Mathf.Lerp(u0, u1, i / (float)Along), rr = Mathf.Sqrt(Mathf.Max(0, R * R - u * u)) + 0.004f;
+                    foreach (float a in new[] { a0, a1 })
+                    {
+                        var p = Ring(rr, u, a * Mathf.Deg2Rad);
+                        v.Add(p); n.Add((p - centre).normalized);
+                    }
+                }
+                for (int i = 0; i < Along; i++)
+                {
+                    int a = start + i * 2, b = a + 1, c = a + 2, d = a + 3;
+                    glints.Add(a); glints.Add(c); glints.Add(b);
+                    glints.Add(b); glints.Add(c); glints.Add(d);
+                }
+            }
+            float right = side > 0 ? 180f : 0f, toward = side > 0 ? -1f : 1f;   // angles from the koi's left, round through the front
+            Glint(right + toward * 32f, right + toward * 38f, -0.02f, 0.27f);
+            Glint(right + toward * 43f, right + toward * 46f, 0.02f, 0.20f);
+            Glint(360f - right + toward * 150f, 360f - right + toward * 146f, 0.20f, 0.28f);
+            var bowl = Skinned(koi, head, "KoiFishbowl", v, n, new[] { water, glass, surface, bubbles, glints },
+                new[] { Mat("Fishbowl_Water"), Mat("Fishbowl_Glass"), Mat("Fishbowl_Surface"), Mat("Fishbowl_Bubble"), Mat("Fishbowl_Glint") });
             bowl.shadowCastingMode = ShadowCastingMode.Off;
             bowl.receiveShadows = false;
 
@@ -219,14 +246,15 @@ namespace Ooda.EditorTools
             switch (name)
             {
                 case "Fishbowl_Brass": return TestWorldBuilder.Mat(name, new Color(0.72f, 0.52f, 0.22f), 0.6f, 1f);
-                case "Fishbowl_Water": return Glass(name, new Color(0.16f, 0.70f, 0.64f, 0.26f), CullMode.Back, 3003);
-                case "Fishbowl_Glass": return Glass(name, new Color(0.90f, 0.97f, 1f, 0.08f), CullMode.Back, 3003);
-                case "Fishbowl_Surface": return Glass(name, new Color(0.70f, 0.93f, 0.95f, 0.22f), CullMode.Off, 3002);
+                case "Fishbowl_Water": return Glass(name, new Color(0.20f, 0.66f, 0.66f, 0.42f), CullMode.Back, 3003);
+                case "Fishbowl_Glass": return Glass(name, new Color(0.80f, 0.94f, 0.96f, 0.20f), CullMode.Back, 3003);
+                case "Fishbowl_Glint": return Glass(name, new Color(1f, 1f, 1f, 0.75f), CullMode.Off, 3004);
+                case "Fishbowl_Surface": return Glass(name, new Color(0.75f, 0.95f, 0.97f, 0.40f), CullMode.Off, 3002);
                 default: return Glass(name, new Color(0.95f, 1f, 1f, 0.5f), CullMode.Back, 3001);
             }
         }
 
-        /// <summary>Clear and shiny, drawn after the head inside it: the bubbles first, then the water's surface, then the bowl.</summary>
+        /// <summary>Clear and shiny, drawn after the head inside it: the bubbles first, then the water's surface, then the bowl, then its glints.</summary>
         static Material Glass(string name, Color c, CullMode cull, int queue)
         {
             var m = TestWorldBuilder.Mat(name, c, 0.95f);
