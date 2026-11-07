@@ -9,25 +9,49 @@ namespace Ooda.Turn
     /// underside: under the wings, the belly and the tail, one from every few of the lowest points of the airframe, each
     /// its own length. It shows and hides with the airframe (stealth, a crash). The icicles need the airframe's mesh
     /// readable (the editor always can; a build needs Read/Write on the model); without it there is only the frost.
+    /// The same coat shows the rime from a snow cloud (see Core/Specials), as thick as it lies: the frost fades as it melts,
+    /// and the icicles go first (below IciclesFrom).
     /// </summary>
     public class IceCoat : MonoBehaviour
     {
         public const string RootName = "IceCoat";
 
-        GameObject root;
+        GameObject root, icicles;
         Renderer anchor;
+        Material frost;
+        float amount = 1f;
+        /// <summary>Rime thinner than this has no icicles, only frost.</summary>
+        public const float IciclesFrom = 0.3f;
         readonly List<Renderer> mine = new List<Renderer>();
         bool on, shown = true;
         static Material frostTemplate, icicleTemplate;
 
-        /// <summary>Ice on a plane (or off). Cheap to call every frame: it builds once and only switches after.</summary>
-        public static void Set(GameObject plane, bool on)
+        /// <summary>
+        /// Ice on a plane (or off), thick 0 to 1 (1 the Ice pick's full coat; rime as it lies). Cheap to call every frame: it
+        /// builds once and only switches after.
+        /// </summary>
+        public static void Set(GameObject plane, bool on, float thick = 1f)
         {
             if (plane == null) return;
             var c = plane.GetComponent<IceCoat>();
             if (c == null) { if (!on) return; c = plane.AddComponent<IceCoat>(); }
             c.enabled = true;
             c.Show(on);
+            if (on) c.Thick(Mathf.Clamp01(thick));
+        }
+
+        void Thick(float t)
+        {
+            if (Mathf.Abs(t - amount) < 0.01f) return;
+            amount = t;
+            if (frost != null)
+            {
+                var c = frostTemplate.color;
+                c.a *= Mathf.Lerp(0.3f, 1f, t);
+                frost.SetColor("_BaseColor", c);
+                frost.color = c;
+            }
+            if (icicles != null) icicles.SetActive(t >= IciclesFrom);
         }
 
         void Show(bool v)
@@ -56,6 +80,9 @@ namespace Ooda.Turn
             anchor = a != null ? a.GetComponent<Renderer>() : null;
             Frost(parts);
             Icicles(parts);
+            float t = amount;
+            amount = -1;
+            Thick(t);
         }
 
         /// <summary>The frost: a see-through pale blue copy of each airframe mesh, a hair bigger, following its part.</summary>
@@ -81,6 +108,7 @@ namespace Ooda.Turn
                 frostTemplate.SetColor("_BaseColor", c);
                 frostTemplate.color = c;
             }
+            frost = new Material(frostTemplate);   // this plane's own: a rime coat thins as it melts
             foreach (var mf in parts)
             {
                 var r = mf.GetComponent<MeshRenderer>();
@@ -90,7 +118,7 @@ namespace Ooda.Turn
                 g.AddComponent<MeshFilter>().sharedMesh = mf.sharedMesh;
                 var mr = g.AddComponent<MeshRenderer>();
                 var mats = new Material[Mathf.Max(1, mf.sharedMesh.subMeshCount)];
-                for (int k = 0; k < mats.Length; k++) mats[k] = frostTemplate;
+                for (int k = 0; k < mats.Length; k++) mats[k] = frost;
                 mr.sharedMaterials = mats;
                 mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 mr.receiveShadows = false;
@@ -163,6 +191,7 @@ namespace Ooda.Turn
                 icicleTemplate.SetFloat("_Metallic", 0.1f);
             }
             var g = new GameObject("Icicles");
+            icicles = g;
             g.transform.SetParent(root.transform, false);
             g.AddComponent<MeshFilter>().sharedMesh = mesh2;
             var mr = g.AddComponent<MeshRenderer>();
@@ -201,6 +230,7 @@ namespace Ooda.Turn
         void OnDestroy()
         {
             if (root != null) Destroy(root);
+            if (frost != null) Destroy(frost);
         }
     }
 }

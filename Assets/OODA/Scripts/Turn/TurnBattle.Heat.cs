@@ -209,14 +209,16 @@ namespace Ooda.Turn
                     bool down = r != null && s < r.frames.Length && r.frames[s] != null && r.frames[s][Mathf.Min(now, r.frames[s].Length - 1)].down;
                     bool rocket = r != null && s < r.frames.Length && r.frames[s] != null && r.frames[s][Mathf.Min(now, r.frames[s].Length - 1)].rocket;
                     bool ram = r != null && s < r.frames.Length && r.frames[s] != null && r.frames[s][Mathf.Min(now, r.frames[s].Length - 1)].ram;
-                    AircraftGlow(tapeViews[s], bi >= 0 ? battle.combat[bi] : null, down, rocket, ram);
+                    bool rimed = r != null && s < r.frames.Length && r.frames[s] != null && r.frames[s][Mathf.Min(now, r.frames[s].Length - 1)].rime >= Systems.RimeColdAt;
+                    AircraftGlow(tapeViews[s], bi >= 0 ? battle.combat[bi] : null, down, rocket, ram, rimed);
                 }
             else
                 for (int k = 0; k < views.Length && k < battle.Count; k++)
                 {
                     bool live = r == null || k >= r.frames.Length || r.frames[k] == null;
                     var f = live ? default : r.frames[k][Mathf.Min(now, r.frames[k].Length - 1)];
-                    AircraftGlow(views[k], battle.combat[k], live ? battle.down[k] : f.down, live ? battle.planes[k].RocketBurning : f.rocket, !live && f.ram);
+                    AircraftGlow(views[k], battle.combat[k], live ? battle.down[k] : f.down, live ? battle.planes[k].RocketBurning : f.rocket, !live && f.ram,
+                                 live ? battle.planes[k].systems.RimeCold : f.rime >= Systems.RimeColdAt);
                 }
 
             // Missiles and flares
@@ -272,7 +274,7 @@ namespace Ooda.Turn
         static readonly Vector3[] FlankerTail = { new Vector3(1.12f, -1.34f, -7.34f), new Vector3(-1.12f, -1.34f, -7.34f) };   // su27.py's NozzleL and NozzleR
         static bool IsJetTail(Vector3[] spots) => spots == JetTail || spots == EagleTail || spots == FlankerTail;
 
-        void AircraftGlow(TurnAircraftView v, CombatNumbers c, bool down, bool rocket, bool ram = false)
+        void AircraftGlow(TurnAircraftView v, CombatNumbers c, bool down, bool rocket, bool ram = false, bool rimed = false)
         {
             if (v == null || c == null || !v.isActiveAndEnabled || v.Crashed || v.Model == null) return;
             var t = v.transform;
@@ -284,7 +286,7 @@ namespace Ooda.Turn
             float span = v.Model.numbers != null && v.Model.numbers.name != null && v.Model.numbers.name.Contains("B-17") ? 16f : 6f;
             Glow(t.position, span + Vector3.Distance(irCamPos, t.position) * 0.003f, ram ? 0.7f : 0.16f);
             if (down) { HeatGlow(t.position, 1.5); return; }   // burning
-            if (c.iced) return;   // cased in ice: as cold as the sky, only its faint shape shows
+            if (c.iced || rimed) return;   // cased in ice (or rimed over from a snow cloud): as cold as the sky, only its faint shape shows
             if (ram) HeatGlow(t.position, Specials.BladeHeat);   // the heat blade: red hot all over, from every side
             double heat = Heat.Engine(c, v.Model.throttle, v.Wep, rocket) * aspect;
             var spots = EngineSpots(v.Model.numbers?.name);

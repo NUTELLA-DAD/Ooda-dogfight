@@ -159,6 +159,8 @@ namespace Ooda.Turn
                 row.Add(Sw("JAM", $"7  ({battle.jammers[0]})", plan.jam, plan.jam || battle.jammers[0] > 0, jamColor, ToggleJam));
             if (load.wells > 0)
                 row.Add(Sw("WELL", $"8  ({battle.wells[0]})", plan.well, plan.well || battle.wells[0] > 0, wellColor, ToggleWell));
+            if (load.snowClouds > 0)
+                row.Add(Sw("SNOW", $";  ({battle.snowClouds[0]})", plan.snow, plan.snow || battle.snowClouds[0] > 0, snowColor, ToggleSnow));
             SwitchRow(x, y, w, row, true);
             if (JammedNow)
             {
@@ -166,6 +168,7 @@ namespace Ooda.Turn
                 w2.normal.textColor = Mathf.Repeat(Time.unscaledTime, 0.7f) < 0.45f ? jamColor : Color.white;
                 Shadow(new Rect(x, y - 24, w, 22), "JAMMED: their ghosts are scrambled. Trust your eyes, not the projections.", w2);
             }
+            else RimeWarning(x, y - 24, w);
         }
 
         /// <summary>A jet: its throttle's last notch is the afterburner. A piston fighter has no WEP switch now.</summary>

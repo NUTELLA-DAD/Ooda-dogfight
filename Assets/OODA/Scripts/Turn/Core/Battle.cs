@@ -17,6 +17,8 @@ namespace Ooda.Turn.Core
         public List<Trace> mines = new List<Trace>();
         /// <summary>The gravity wells' drift (see Specials), apart too: they hit nothing.</summary>
         public List<Trace> wells = new List<Trace>();
+        /// <summary>The snow clouds' drift (see Specials), apart too: they hit nothing.</summary>
+        public List<Trace> snow = new List<Trace>();
         /// <summary>The chaff clouds' drift (see Radar), apart too: they hit nothing and show nothing to a heat-seeker.</summary>
         public List<Trace> chaff = new List<Trace>();
         public int FrameCount => frames[0].Length;
@@ -55,6 +57,8 @@ namespace Ooda.Turn.Core
         public int[] balloonMines = new int[0], heatBlades = new int[0], stealths = new int[0], jammers = new int[0];
         /// <summary>Gravity wells left (see Specials).</summary>
         public int[] wells = new int[0];
+        /// <summary>Snow clouds left (see Specials).</summary>
+        public int[] snowClouds = new int[0];
         /// <summary>Jammed (seeing scrambled ghosts) until this battle time.</summary>
         public double[] jammedUntil = new double[0];
         /// <summary>The heat blade glowing this turn; stealthy until this battle time.</summary>
@@ -111,6 +115,7 @@ namespace Ooda.Turn.Core
             Array.Resize(ref stealths, n + 1); stealths[n] = c.stealths;
             Array.Resize(ref jammers, n + 1); jammers[n] = c.jammers;
             Array.Resize(ref wells, n + 1); wells[n] = c.wells;
+            Array.Resize(ref snowClouds, n + 1); snowClouds[n] = c.snowClouds;
             Array.Resize(ref jammedUntil, n + 1);
             Array.Resize(ref ramOn, n + 1);
             Array.Resize(ref cloakUntil, n + 1);
@@ -157,7 +162,7 @@ namespace Ooda.Turn.Core
             void S<T>(T[] arr) { var t = arr[a]; arr[a] = arr[b]; arr[b] = t; }
             int Map(int i) => i == a ? b : i == b ? a : i;
             side = (int[])side.Clone(); combat = (CombatNumbers[])combat.Clone();   // new arrays: clones share these two
-            S(planes); S(combat); S(side); S(routes); S(flightOf); S(number); S(orders); S(ammo); S(missiles); S(flares); S(radarMissiles); S(chaff); S(radarTrack); S(trackSec); S(balloonMines); S(heatBlades); S(stealths); S(jammers); S(wells); S(jammedUntil); S(ramOn); S(cloakUntil); S(down); S(crashed); S(hitObstacle); S(fireClock);
+            S(planes); S(combat); S(side); S(routes); S(flightOf); S(number); S(orders); S(ammo); S(missiles); S(flares); S(radarMissiles); S(chaff); S(radarTrack); S(trackSec); S(balloonMines); S(heatBlades); S(stealths); S(jammers); S(wells); S(snowClouds); S(jammedUntil); S(ramOn); S(cloakUntil); S(down); S(crashed); S(hitObstacle); S(fireClock);
             foreach (var bl in bullets)
             {
                 if (bl.owner >= 0) bl.owner = Map(bl.owner);
@@ -190,10 +195,16 @@ namespace Ooda.Turn.Core
         /// <summary>Aircraft i's heat as a seeker at eye sees it: its engines, and the heat blade's glow on top.</summary>
         public double HeatOf(int i, Vec3d eye)
         {
-            if (combat[i].iced) return 0;   // cased in ice (see Loadout): nothing for a seeker to see
+            if (Iced(i)) return 0;   // cased in ice (see Loadout) or rimed (a snow cloud): nothing for a seeker to see
             double h = Heat.Of(planes[i], combat[i], eye);
             return ramOn[i] ? h + Specials.BladeHeat : h;
         }
+
+        /// <summary>
+        /// Cold to a heat-seeker: cased in ice all fight (the Ice pick), or rimed over from a snow cloud until it melts
+        /// (Systems.RimeCold). No seeker locks it, and one already on its way shatters on it.
+        /// </summary>
+        public bool Iced(int i) => i >= 0 && i < Count && (combat[i].iced || planes[i].systems.RimeCold);
 
         public Battle Clone()
         {
@@ -205,7 +216,7 @@ namespace Ooda.Turn.Core
             c.flights = flights.ConvertAll(f => f.Copy());
             c.ammo = (double[])ammo.Clone(); c.missiles = (int[])missiles.Clone(); c.flares = (int[])flares.Clone();
             c.radarMissiles = (int[])radarMissiles.Clone(); c.chaff = (int[])chaff.Clone(); c.radarTrack = (int[])radarTrack.Clone(); c.trackSec = (double[])trackSec.Clone();
-            c.balloonMines = (int[])balloonMines.Clone(); c.heatBlades = (int[])heatBlades.Clone(); c.stealths = (int[])stealths.Clone(); c.jammers = (int[])jammers.Clone(); c.wells = (int[])wells.Clone(); c.jammedUntil = (double[])jammedUntil.Clone();
+            c.balloonMines = (int[])balloonMines.Clone(); c.heatBlades = (int[])heatBlades.Clone(); c.stealths = (int[])stealths.Clone(); c.jammers = (int[])jammers.Clone(); c.wells = (int[])wells.Clone(); c.snowClouds = (int[])snowClouds.Clone(); c.jammedUntil = (double[])jammedUntil.Clone();
             c.ramOn = (bool[])ramOn.Clone(); c.cloakUntil = (double[])cloakUntil.Clone();
             c.down = (bool[])down.Clone(); c.crashed = (bool[])crashed.Clone(); c.hitObstacle = (bool[])hitObstacle.Clone();
             c.fireClock = (double[])fireClock.Clone();
@@ -249,7 +260,7 @@ namespace Ooda.Turn.Core
             int steps = (int)Math.Round(turnSec / StepSec);
             var launched = new bool[n];
             var radarLaunched = new bool[n];
-            bool[] dropMine = new bool[n], throwWell = new bool[n];
+            bool[] dropMine = new bool[n], throwWell = new bool[n], letSnow = new bool[n];
             for (int i = 0; i < n; i++)
             {
                 ramOn[i] = false;
@@ -258,6 +269,7 @@ namespace Ooda.Turn.Core
                 if (plans[i].cloak && stealths[i] > 0) { cloakUntil[i] = time + Specials.CloakSec; stealths[i]--; }
                 if (plans[i].mine && balloonMines[i] > 0) { dropMine[i] = true; balloonMines[i]--; }
                 if (plans[i].well && wells[i] > 0) { throwWell[i] = true; wells[i]--; }
+                if (plans[i].snow && snowClouds[i] > 0) { letSnow[i] = true; snowClouds[i]--; }
             }
             for (int i = 0; i < n; i++)
             {
@@ -298,6 +310,8 @@ namespace Ooda.Turn.Core
 
                 // Gravity wells: every open one pulls on every plane still flying (both sides: it bends your own turn too)
                 PullPlanes();
+                // Snow clouds: every plane inside one picks up rime (both sides: you fly out through yours)
+                IcePlanes();
 
                 for (int i = 0; i < n; i++) routes[i]?.Advance(planes[i]);
                 TrackRadars(plans);
@@ -325,6 +339,18 @@ namespace Ooda.Turn.Core
                     var wl = Well.Make(i, side[i], from, (to - from) * Specials.WellDragPerSec, time + StepSec);
                     bullets.Add(wl);
                     if (record) StartTrace(res, traceOf, wl, k);
+                }
+                // Snow clouds: let go round you, in the step its plan's moment falls in (the last step at the latest)
+                for (int i = 0; i < n; i++)
+                {
+                    if (!letSnow[i] || k < steps && t + StepSec <= Math.Max(0, plans[i].snowAt) + 1e-9) continue;
+                    letSnow[i] = false;
+                    if (Out(i)) continue;
+                    var m = planes[i];
+                    Vec3d at = m.state.pos - m.Forward * Specials.SnowBehindFt;
+                    var sc = SnowCloud.Make(i, side[i], at, m.state.vel * 0.3, time + StepSec);
+                    bullets.Add(sc);
+                    if (record) StartTrace(res, traceOf, sc, k);
                 }
                 if (strike != null) for (int i = 0; i < n; i++) if (strike.OnPatrol(i)) strike.patrols[i].Advance(planes[i]);
 
@@ -387,6 +413,14 @@ namespace Ooda.Turn.Core
                     Vec3d p0b = b.pos;
                     Trace bt = null;
                     if (record) traceOf.TryGetValue(b, out bt);
+                    if (b is SnowCloud sn)
+                    {
+                        sn.Step(StepSec);
+                        if (sn.age > sn.lifeSec) sn.alive = false;
+                        if (bt != null) bt.points.Add(b.pos);
+                        if (!b.alive) bullets.RemoveAt(bi);
+                        continue;
+                    }
                     if (b is Well wl)
                     {
                         wl.Step(StepSec);
@@ -519,6 +553,30 @@ namespace Ooda.Turn.Core
             return false;
         }
 
+        /// <summary>One step of the snow clouds' icing on every plane still flying: rime by how thick the cloud is where it flies.</summary>
+        void IcePlanes()
+        {
+            bool any = false;
+            foreach (var b in bullets) if (b is SnowCloud) { any = true; break; }
+            if (!any) return;
+            for (int i = 0; i < Count; i++)
+            {
+                if (down[i] || crashed[i] || strike != null && strike.Held(i)) continue;
+                Vec3d p = planes[i].state.pos;
+                double d = 0;
+                foreach (var b in bullets) if (b is SnowCloud sc) d = Math.Max(d, sc.Density(p));
+                if (d > 0) planes[i].systems.Ice(d * Specials.RimePerSec * StepSec);
+            }
+        }
+
+        /// <summary>The thickest snow cloud at p now, 0 to 1 (0 outside them all).</summary>
+        public double SnowAt(Vec3d p)
+        {
+            double d = 0;
+            foreach (var b in bullets) if (b is SnowCloud sc) d = Math.Max(d, sc.Density(p));
+            return d;
+        }
+
         /// <summary>One step of the gravity wells' pull on every plane still flying.</summary>
         void PullPlanes()
         {
@@ -553,16 +611,16 @@ namespace Ooda.Turn.Core
                 time = time, pos = m.state.pos, vel = m.state.vel, up = m.state.up,
                 alphaDeg = m.AlphaDeg, g = m.g, throttle = m.throttle, firing = firing, stalled = m.stalled, departed = m.Departed, down = down[i],
                 rocket = m.RocketBurning, brake = m.brakeOut, wep = m.wepOn, ram = ramOn[i] && !down[i], cloaked = Cloaked(i), nose = m.Forward,
-                greyOut = down[i] ? 0 : m.GreyOut, bailed = m.systems.bailed, bailAt = m.systems.bailAt, bailPos = m.systems.bailPos, bailVel = m.systems.bailVel,
+                greyOut = down[i] ? 0 : m.GreyOut, rime = m.systems.rime, bailed = m.systems.bailed, bailAt = m.systems.bailAt, bailPos = m.systems.bailPos, bailVel = m.systems.bailVel,
             };
         }
 
         static void StartTrace(TurnResult res, Dictionary<Bullet, Trace> traceOf, Bullet b, int frame)
         {
-            var tr = new Trace { owner = b.owner, startFrame = frame, missile = b is Missile, radar = b is Missile rm && rm.radar, chaff = b is Chaff, mine = b is Mine, well = b is Well, age0 = b.age };
+            var tr = new Trace { owner = b.owner, startFrame = frame, missile = b is Missile, radar = b is Missile rm && rm.radar, chaff = b is Chaff, mine = b is Mine, well = b is Well, snow = b is SnowCloud, age0 = b.age };
             tr.points.Add(b.pos);
             traceOf[b] = tr;
-            if (b is Flare) res.flares.Add(tr); else if (b is Chaff) res.chaff.Add(tr); else if (b is Mine) res.mines.Add(tr); else if (b is Well) res.wells.Add(tr); else res.traces.Add(tr);
+            if (b is Flare) res.flares.Add(tr); else if (b is Chaff) res.chaff.Add(tr); else if (b is Mine) res.mines.Add(tr); else if (b is Well) res.wells.Add(tr); else if (b is SnowCloud) res.snow.Add(tr); else res.traces.Add(tr);
         }
 
         /// <summary>Aircraft i's radar can see aircraft j: an enemy still flying, not stealthy, inside its cone and out to range (times rangeFactor).</summary>
@@ -768,7 +826,7 @@ namespace Ooda.Turn.Core
             int best = -1; double bestCos = cos;
             for (int j = 0; j < Count; j++)
             {
-                if (side[j] == side[i] || Out(j) || combat[j].iced) continue;   // iced: nothing for a seeker to see
+                if (side[j] == side[i] || Out(j) || Iced(j)) continue;   // iced or rimed: nothing for a seeker to see
                 Vec3d r = planes[j].state.pos - m.state.pos;
                 double range = r.Length;
                 if (range < Missile.MinRangeFt || range > Heat.LockRangeFt(HeatOf(j, m.state.pos))) continue;   // a hot one locks from farther
@@ -841,7 +899,7 @@ namespace Ooda.Turn.Core
             c.planes = new FlightModel[n]; c.combat = new CombatNumbers[n]; c.side = new int[n]; c.routes = new Route[n];
             c.ammo = new double[n]; c.missiles = new int[n]; c.flares = new int[n]; c.down = new bool[n];
             c.radarMissiles = new int[n]; c.chaff = new int[n]; c.radarTrack = new int[n]; c.trackSec = new double[n];
-            c.balloonMines = new int[n]; c.heatBlades = new int[n]; c.stealths = new int[n]; c.jammers = new int[n]; c.wells = new int[n]; c.jammedUntil = new double[n]; c.ramOn = new bool[n]; c.cloakUntil = new double[n]; c.crashed = new bool[n]; c.hitObstacle = new bool[n]; c.fireClock = new double[n];
+            c.balloonMines = new int[n]; c.heatBlades = new int[n]; c.stealths = new int[n]; c.jammers = new int[n]; c.wells = new int[n]; c.snowClouds = new int[n]; c.jammedUntil = new double[n]; c.ramOn = new bool[n]; c.cloakUntil = new double[n]; c.crashed = new bool[n]; c.hitObstacle = new bool[n]; c.fireClock = new double[n];
             var map = new Dictionary<int, int>();
             for (int j = 0; j < n; j++)
             {
@@ -849,7 +907,7 @@ namespace Ooda.Turn.Core
                 c.planes[j] = planes[i].Clone(); c.combat[j] = combat[i]; c.side[j] = side[i]; c.routes[j] = routes[i]?.Copy();
                 c.ammo[j] = ammo[i]; c.missiles[j] = missiles[i]; c.flares[j] = flares[i];
                 c.radarMissiles[j] = radarMissiles[i]; c.chaff[j] = chaff[i]; c.trackSec[j] = trackSec[i];
-                c.balloonMines[j] = balloonMines[i]; c.heatBlades[j] = heatBlades[i]; c.stealths[j] = stealths[i]; c.jammers[j] = jammers[i]; c.wells[j] = wells[i]; c.jammedUntil[j] = jammedUntil[i]; c.ramOn[j] = ramOn[i]; c.cloakUntil[j] = cloakUntil[i];
+                c.balloonMines[j] = balloonMines[i]; c.heatBlades[j] = heatBlades[i]; c.stealths[j] = stealths[i]; c.jammers[j] = jammers[i]; c.wells[j] = wells[i]; c.snowClouds[j] = snowClouds[i]; c.jammedUntil[j] = jammedUntil[i]; c.ramOn[j] = ramOn[i]; c.cloakUntil[j] = cloakUntil[i];
                 c.down[j] = down[i]; c.crashed[j] = crashed[i]; c.hitObstacle[j] = hitObstacle[i]; c.fireClock[j] = fireClock[i];
             }
             for (int j = 0; j < n; j++)
@@ -866,7 +924,7 @@ namespace Ooda.Turn.Core
             {
                 var ms = b as Missile;
                 bool aimedIn = ms != null && ms.target >= 0 && map.ContainsKey(ms.target);
-                if (b.owner >= 0 && !map.ContainsKey(b.owner) && !aimedIn && !(b is Mine) && !(b is Well)) continue;   // keep a missile chasing someone kept, whoever fired it, and every mine and well hanging there
+                if (b.owner >= 0 && !map.ContainsKey(b.owner) && !aimedIn && !(b is Mine) && !(b is Well) && !(b is SnowCloud)) continue;   // keep a missile chasing someone kept, whoever fired it, and every mine, well and snow cloud hanging there
                 var bc = b.Copy();
                 if (b.owner >= 0) bc.owner = map.TryGetValue(b.owner, out int oj) ? oj : -1000;
                 if (bc is Missile mc) { mc.target = aimedIn ? map[ms.target] : -1; mc.aimedAt = ms.aimedAt >= 0 && map.TryGetValue(ms.aimedAt, out int aj) ? aj : -1; }
@@ -934,7 +992,7 @@ namespace Ooda.Turn.Core
         /// </summary>
         void Hit(Bullet b, int target, TurnResult res, Vec3d r0, Vec3d r1, double reach)
         {
-            if (b is Missile ir && !ir.radar && combat[target].iced) return;   // a heat-seeker shatters on the ice
+            if (b is Missile ir && !ir.radar && Iced(target)) return;   // a heat-seeker shatters on the ice (or the rime)
             var m = planes[target];
             // where it enters the sphere: back along its path from the closest pass
             Vec3d d = r1 - r0;

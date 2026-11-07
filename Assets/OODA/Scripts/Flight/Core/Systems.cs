@@ -40,6 +40,18 @@ namespace Ooda.Flight.Core
         public Vec3d bailPos, bailVel;
         /// <summary>Hits land but do nothing: the AI's and the preview's "what if" keeps a target flying to see the whole burst.</summary>
         public bool spared;
+        /// <summary>
+        /// Rime ice picked up flying through a snow cloud (see Turn's Specials), 0 clean to 1 caked: it melts off at
+        /// 1/RimeMeltSec a second. While it lies on the airframe it costs lift (RimeLift: the stall line comes in, so less G),
+        /// adds drag (RimeDrag: less speed and climb), stiffens the roll (RimeRoll) and chokes the intake a little
+        /// (RimePower); past RimeColdAt the plane is as cold as the sky to a heat-seeker.
+        /// </summary>
+        public double rime;
+
+        /// <summary>Rime: how long a full coat takes to melt, and what a full coat costs.</summary>
+        public const double RimeMeltSec = 15, RimeLift = 0.28, RimeDrag = 0.55, RimeRoll = 0.35, RimePower = 0.1;
+        /// <summary>Rime past this share hides the engine's heat from a seeker.</summary>
+        public const double RimeColdAt = 0.08;
 
         public double this[SystemId s]
         {
@@ -94,18 +106,27 @@ namespace Ooda.Flight.Core
             return new Vec3d(p0.x + v0.x * carry, p0.y + v0.y * carry, p0.z + v0.z * carry - ChuteSinkFtps * t);
         }
 
-        /// <summary>Run the leak for dt seconds.</summary>
+        /// <summary>Run the leak, and melt the rime, for dt seconds.</summary>
         public void Step(double dt)
         {
             if (Leaking && leakLeftSec > 0) { leakLeftSec -= dt; if (leakLeftSec < 1e-6) leakLeftSec = 0; }   // dry, without a rounding crumb left
+            if (rime > 0) { rime -= dt / RimeMeltSec; if (rime < 1e-6) rime = 0; }
         }
 
+        /// <summary>Pick up rime (a snow cloud), up to a full coat.</summary>
+        public void Ice(double amount) { if (amount > 0) rime = Math.Min(1, rime + amount); }
+
+        /// <summary>Rime enough to hide the engine from a heat-seeker.</summary>
+        public bool RimeCold => rime >= RimeColdAt;
+
         /// <summary>The share of the engine's power still there (1 whole, 0 stopped).</summary>
-        public double PowerCap => EngineDead ? 0 : IsDamaged(SystemId.Engine) ? EnginePowerCap : 1;
+        public double PowerCap => (EngineDead ? 0 : IsDamaged(SystemId.Engine) ? EnginePowerCap : 1) * (1 - RimePower * rime);
         public bool WepOut => IsDamaged(SystemId.Engine) || EngineDead;
-        public double RollFactor => IsDamaged(SystemId.Controls) ? ControlsRoll : 1;
+        public double RollFactor => (IsDamaged(SystemId.Controls) ? ControlsRoll : 1) * (1 - RimeRoll * rime);
         public double GFactor => (IsDamaged(SystemId.Controls) ? ControlsG : 1) * (IsDamaged(SystemId.Wings) ? WingsG : 1);
-        public double DragFactor => IsDamaged(SystemId.Wings) ? WingsDrag : 1;
+        public double DragFactor => (IsDamaged(SystemId.Wings) ? WingsDrag : 1) * (1 + RimeDrag * rime);
+        /// <summary>The share of the wing's lift left (rime spoils it): the stall line, the G it can pull at a speed, scales by it.</summary>
+        public double LiftFactor => 1 - RimeLift * rime;
 
         /// <summary>
         /// Which system a round strikes, from where it lands in the aircraft's own frame (x right, y forward, z up): the

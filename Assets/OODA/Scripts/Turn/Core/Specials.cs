@@ -32,6 +32,14 @@ namespace Ooda.Turn.Core
     /// grows toward the core's edge (WellCoreFt) and falls with the square of the range past it, out to WellReachFt. Inside
     /// your turn it adds to your wing's pull, so you turn tighter; a missile that is drawn inside WellCaptureFt loses its
     /// target for good and is flung on. It does no damage itself.
+    ///
+    /// Snow cloud: let go at any moment of the turn you plan (TurnPlan.snowAt), it billows out round you, its middle
+    /// SnowBehindFt behind, from SnowStartFt to SnowRadiusFt across in SnowGrowSec, slowing to a hang, and hangs there for
+    /// SnowLifeSec, thinning over its last SnowFadeSec. Every plane inside it (both sides, you too) picks up rime ice
+    /// (Systems.rime) at up to RimePerSec, most in its middle and none at its edge: you fly out through the back half of
+    /// yours, a tailer through the whole of it. Rime costs lift, speed, climb and roll until it melts off, but while it lies
+    /// on the airframe (past Systems.RimeColdAt) no heat-seeker can lock the plane, and one already on its way shatters on
+    /// it, as on the Ice pick. It hits nothing and does no damage.
     /// </summary>
     public static class Specials
     {
@@ -57,8 +65,14 @@ namespace Ooda.Turn.Core
         public const double WellPlaneG = 2.5, WellMissileG = 22, WellRoundG = 60;
         /// <summary>A missile drawn this close to the middle of a gravity well loses its target for good.</summary>
         public const double WellCaptureFt = 450;
+        /// <summary>The snow cloud: where its middle starts (behind you), how big it starts and grows, and how fast it slows to a hang.</summary>
+        public const double SnowBehindFt = 120, SnowStartFt = 200, SnowRadiusFt = 650, SnowGrowSec = 1.2, SnowDragPerSec = 1.5;
+        /// <summary>The snow cloud hangs for SnowLifeSec (four turns), thinning over its last SnowFadeSec.</summary>
+        public const double SnowLifeSec = 12, SnowFadeSec = 2;
+        /// <summary>The rime a plane picks up each second in the middle of a full snow cloud (less toward its edge).</summary>
+        public const double RimePerSec = 0.75;
         /// <summary>What each fighter carries with Arcade on.</summary>
-        public const int Mines = 2, Blades = 1, Stealths = 1, Jammers = 1, Wells = 2;
+        public const int Mines = 2, Blades = 1, Stealths = 1, Jammers = 1, Wells = 2, SnowClouds = 2;
 
         /// <summary>Where a gravity well thrown now from m, flying plan p, settles: ahead and into the turn.</summary>
         public static Vec3d WellLanding(FlightModel m, TurnPlan p)
@@ -195,6 +209,53 @@ namespace Ooda.Turn.Core
         }
 
         /// <summary>One step: it coasts on, slowing to a hang (no gravity on it: it holds itself up).</summary>
+        public void Step(double dt)
+        {
+            Vec3d v0 = vel;
+            vel = vel * Math.Exp(-dragPerSec * dt);
+            pos = pos + (v0 + vel) * (dt / 2);
+            age += dt;
+        }
+    }
+
+    /// <summary>
+    /// A snow cloud let go round you (see Specials): it billows out, slows to a hang and ices every plane that flies
+    /// through it. It hits nothing and does no damage; it rides in the battle's bullets so a clone, a subset, a swap and
+    /// the wire carry it like a mine.
+    /// </summary>
+    public class SnowCloud : Bullet
+    {
+        public static SnowCloud Make(int owner, int side, Vec3d pos, Vec3d vel, double time) => new SnowCloud
+        {
+            owner = owner, side = side, pos = pos, vel = vel, fireTime = time,
+            damage = 0, hitRadiusFt = 0, dragPerSec = Specials.SnowDragPerSec, lifeSec = Specials.SnowLifeSec,
+        };
+
+        /// <summary>How far across it is now: billowing out from SnowStartFt to SnowRadiusFt.</summary>
+        public double RadiusFt => RadiusAt(age);
+
+        public static double RadiusAt(double age)
+        {
+            double f = Math.Max(0, Math.Min(1, age / Specials.SnowGrowSec));
+            f = 1 - (1 - f) * (1 - f);   // fast at first, easing out
+            return Specials.SnowStartFt + (Specials.SnowRadiusFt - Specials.SnowStartFt) * f;
+        }
+
+        /// <summary>How thick it is now, 0 to 1: full from the start, thinning over its last SnowFadeSec.</summary>
+        public double Thickness => ThicknessAt(age, lifeSec);
+
+        public static double ThicknessAt(double age, double life) => age >= life ? 0 : Math.Max(0, Math.Min(1, (life - age) / Specials.SnowFadeSec));
+
+        /// <summary>How dense it is at p, 0 to 1: thickest in the middle, none at its edge.</summary>
+        public double Density(Vec3d p)
+        {
+            double r = RadiusFt, d = (p - pos).Length;
+            if (d >= r) return 0;
+            double u = d / r;
+            return Thickness * (1 - u * u);
+        }
+
+        /// <summary>One step: it coasts on, slowing to a hang (no gravity on it: a cloud floats).</summary>
         public void Step(double dt)
         {
             Vec3d v0 = vel;

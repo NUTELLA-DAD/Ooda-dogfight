@@ -34,6 +34,8 @@ namespace Ooda.Turn.Core
         public int balloonMines, heatBlades, stealths, jammers;
         /// <summary>Gravity wells carried (see Specials): none unless the loadout (or Specials.Arm) gives them.</summary>
         public int wells;
+        /// <summary>Snow clouds carried (see Specials): none unless the loadout gives them.</summary>
+        public int snowClouds;
         /// <summary>Ice (a loadout pick, see Loadout): the airframe is cased in ice, cold as the sky, so no heat-seeker can lock it and one that blunders into it shatters harmlessly. Radar missiles and guns still bite.</summary>
         public bool iced;
         /// <summary>
@@ -414,6 +416,8 @@ namespace Ooda.Turn.Core
         public bool ram, cloaked;
         /// <summary>The pilot's G stress, 0 to 1 (1 blacked out: G-LOC); see FlightModel.GreyOut.</summary>
         public double greyOut;
+        /// <summary>The rime on the airframe, 0 to 1 (a snow cloud; see Systems.rime).</summary>
+        public double rime;
         /// <summary>The pilot has bailed out: when (battle time; meaningless while bailed is false), from where and how fast.</summary>
         public bool bailed;
         public double bailAt;
@@ -435,6 +439,7 @@ namespace Ooda.Turn.Core
         public bool chaff;        // a chaff cloud (kept in TurnResult.chaff)
         public bool mine;         // a balloon mine's drift (kept in TurnResult.mines); hit: it went off
         public bool well;         // a gravity well's drift (kept in TurnResult.wells)
+        public bool snow;         // a snow cloud's drift (kept in TurnResult.snow)
         public double age0;       // how old the round (missile, flare) was at startFrame, s
         /// <summary>
         /// Recorded runs only: the closest the packet came to an opposing aircraft (ft), against the target it came

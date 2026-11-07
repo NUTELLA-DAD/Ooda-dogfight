@@ -2,7 +2,8 @@
 // on and spares one who turns away, goes at the moment planned and drifts slowly; the heat blade cuts an enemy in half and flies on, keeps the guns cold and runs hot;
 // stealth hides you from the AI and the flak but not from a heat-seeker, and firing shows you; the AI pilots use all
 // three; the gravity well bends a hard turn tighter, makes a tailer's rounds miss and pulls a heat-seeker off; and
-// everything survives a clone, a subset, a swap and the trip to bytes.
+// the snow cloud rimes over whoever flies through it (a tailer more than you), costs turn, speed and climb until it melts,
+// and hides the rimed plane from heat-seekers; and everything survives a clone, a subset, a swap and the trip to bytes.
 // Usage: dotnet run   (exit code = failures)
 using System;
 using System.Linq;
@@ -345,6 +346,7 @@ static class Program
         }
 
         GravityWell();
+        SnowCloudCheck();
 
         Console.WriteLine(fails == 0 ? "\nAll checks pass." : $"\n{fails} check(s) FAILED.");
         return fails;
@@ -487,6 +489,142 @@ static class Program
             var noWell = TurnPlan.Straight(b.planes[1]); noWell.well = true;
             b.Resolve(new TurnPlan?[] { TurnPlan.Straight(b.planes[0]), noWell }, 3);
             Check(!b.bullets.OfType<Well>().Any(), "without the pick, planning one does nothing");
+        }
+    }
+
+    /// <summary>A P-51 (0) with two snow clouds and a 109 (1) on its tail, gap ft behind.</summary>
+    static Battle SnowTail(double gap, double kias = 300)
+    {
+        var b = Tail(gap, kias);
+        b.snowClouds[0] = Specials.SnowClouds;
+        return b;
+    }
+
+    /// <summary>A P-51 alone (a 109 far off) with rime on it, flown by plan(b) for turns turns; rime held on (no melting) if hold.</summary>
+    static Battle Rimed(double rime, double kias, Func<Battle, TurnPlan> plan, int turns, bool hold = true)
+    {
+        var b = new Battle(At(AircraftNumbers.P51D(), 0, 0, kias), CombatNumbers.P51D(), At(AircraftNumbers.Bf109G(), 80000, 0, 300), CombatNumbers.Bf109G());
+        for (int t = 0; t < turns; t++)
+        {
+            for (int k = 0; k < 3 / 0.5; k++)
+            {
+                if (hold) b.planes[0].systems.rime = rime;
+                b.Resolve(new TurnPlan?[] { plan(b), Ahead(b, 1) }, 0.5, false);
+            }
+        }
+        return b;
+    }
+
+    static void SnowCloudCheck()
+    {
+        Console.WriteLine("\nSnow cloud");
+        {
+            var b = SnowTail(1200);
+            var let = Ahead(b, 0); let.snow = true; let.snowAt = 1;
+            var r = b.Resolve(new TurnPlan?[] { let, Ahead(b, 1) }, 3);
+            var sc = b.bullets.OfType<SnowCloud>().FirstOrDefault();
+            Check(b.snowClouds[0] == Specials.SnowClouds - 1 && r.snow.Count == 1 && sc != null, $"one goes, {b.snowClouds[0]} left, its drift recorded");
+            Check(r.snow.Count == 1 && Math.Abs(r.snow[0].startFrame - 1 / Battle.StepSec) <= 1, $"it goes at the moment planned (frame {(r.snow.Count > 0 ? r.snow[0].startFrame : -1)})");
+            Check(sc != null && sc.vel.Length < 40 && sc.RadiusFt > Specials.SnowRadiusFt - 1, $"it billows out to {sc?.RadiusFt:F0} ft and hangs nearly still ({sc?.vel.Length:F0} ft/s)");
+            double me = b.SystemsOf(0).rime, them = b.SystemsOf(1).rime;
+            for (int t = 0; t < 2; t++) b.Resolve(new TurnPlan?[] { Ahead(b, 0), Ahead(b, 1) }, 3);
+            them = Math.Max(them, b.SystemsOf(1).rime + 6 * 1.0 / Systems.RimeMeltSec);   // what it picked up, before the melting since
+            Check(me >= Systems.RimeColdAt && me < 0.75, $"the P-51 flies out through the back of its own cloud lightly rimed ({me:F2})");
+            Check(them > me + 0.2, $"the 109 following 1,200 ft behind flies through the whole of it, iced much more (about {them:F2})");
+            Check(r.frames[0][r.FrameCount - 1].rime > 0, "the rime is recorded in the frames, for the playback");
+        }
+        {
+            // IR-proof while rimed
+            var b = SnowTail(4000);
+            b.missiles[1] = 4;
+            Check(b.LockTarget(1) == 0 && !b.Iced(0), "a 109 4,000 ft behind a clean P-51 locks it");
+            b.planes[0].systems.rime = 0.5;
+            Check(b.Iced(0) && b.HeatOf(0, b.planes[1].state.pos) == 0 && b.LockTarget(1) < 0, "rimed over, it is cold as the sky to a seeker: no lock");
+            var ai = new EnemyAi { me = 1, sloppiness = 0 }.Plan(b, 3);
+            Check(!ai.missile, "the AI doesn't try a heat-seeker on a rimed plane");
+            var hit = SnowTail(4000);
+            hit.bullets.Add(Missile.Make(1, 1, 0, hit.planes[0].state.pos - hit.planes[0].Forward * 600, hit.planes[0].state.vel + hit.planes[0].Forward * 400, hit.time));
+            var let = Ahead(hit, 0); let.snow = true; let.holdFlares = true;
+            hit.Resolve(new TurnPlan?[] { let, Ahead(hit, 1) }, 3);
+            hit.Resolve(new TurnPlan?[] { Ahead(hit, 0), Ahead(hit, 1) }, 3);
+            var bare = SnowTail(4000);
+            bare.bullets.Add(Missile.Make(1, 1, 0, bare.planes[0].state.pos - bare.planes[0].Forward * 600, bare.planes[0].state.vel + bare.planes[0].Forward * 400, bare.time));
+            var noSnow = Ahead(bare, 0); noSnow.holdFlares = true;
+            bare.Resolve(new TurnPlan?[] { noSnow, Ahead(bare, 1) }, 3);
+            bare.Resolve(new TurnPlan?[] { noSnow, Ahead(bare, 1) }, 3);
+            Check(!hit.SystemsOf(0).Hurt && !hit.down[0] && (bare.SystemsOf(0).Hurt || bare.down[0]), "a heat-seeker 600 ft behind shatters on the rime of a snow cloud let go in time (it hits one without)");
+            // it melts
+            var m = Rimed(1, 300, x => Ahead(x, 0), 0);
+            m.planes[0].systems.rime = 1;
+            double sec = 0;
+            while (m.Iced(0) && sec < 60) { m.Resolve(new TurnPlan?[] { Ahead(m, 0), Ahead(m, 1) }, 0.5, false); sec += 0.5; }
+            Check(Math.Abs(sec - Systems.RimeMeltSec * (1 - Systems.RimeColdAt)) <= 0.6, $"a full coat melts off: heat-seekers lock it again after {sec:F1} s");
+            for (int t = 0; t < 4; t++) m.Resolve(new TurnPlan?[] { Ahead(m, 0), Ahead(m, 1) }, 0.5, false);
+            Check(m.SystemsOf(0).rime == 0, "and then it is clean");
+        }
+        {
+            // what it costs: turn, speed, climb
+            TurnPlan Hard(Battle x) { var f = x.planes[0].Forward; return new TurnPlan { aim = new Vec3d(-f.y, f.x, 0).Normalized, throttle = 1 }; }
+            var c0 = Rimed(0, 220, Hard, 1); var c1 = Rimed(1, 220, Hard, 1);
+            double h0 = Math.Abs(Heading(c0.planes[0].Forward) - 90), h1 = Math.Abs(Heading(c1.planes[0].Forward) - 90);
+            h0 = h0 > 180 ? 360 - h0 : h0; h1 = h1 > 180 ? 360 - h1 : h1;
+            Check(h1 < h0 * 0.85, $"a full coat of rime turns less hard: {h1:F0} deg in a hard 3 s turn at 220 KIAS (the stall line) against {h0:F0} clean");
+            var s0 = Rimed(0, 280, x => { var p = Ahead(x, 0); p.wep = true; return p; }, 6);
+            var s1 = Rimed(1, 280, x => { var p = Ahead(x, 0); p.wep = true; return p; }, 6);
+            Check(s1.planes[0].Kias < s0.planes[0].Kias - 15, $"and is slower: {s1.planes[0].Kias:F0} KIAS after 18 s at full throttle against {s0.planes[0].Kias:F0} clean");
+            TurnPlan Up(Battle x) { var f = x.planes[0].Forward; var p = new TurnPlan { aim = new Vec3d(f.x, f.y, 0).Normalized * 0.6 + new Vec3d(0, 0, 0.8), throttle = 1, wep = true }; p.aim = p.aim.Normalized; return p; }
+            var u0 = Rimed(0, 300, Up, 3); var u1 = Rimed(1, 300, Up, 3);
+            double e0 = u0.planes[0].AltFt + u0.planes[0].state.vel.Length * u0.planes[0].state.vel.Length / (2 * Atmosphere.GFtps2);
+            double e1 = u1.planes[0].AltFt + u1.planes[0].state.vel.Length * u1.planes[0].state.vel.Length / (2 * Atmosphere.GFtps2);
+            Check(e1 < e0 - 500, $"and climbs worse: {e0 - e1:F0} ft less energy height after a 9 s climb at full throttle ({u1.planes[0].AltFt - 10000:F0} ft up against {u0.planes[0].AltFt - 10000:F0} clean)");
+            var w = Rimed(1, 300, Hard, 1);
+            Check(!w.planes[0].Departed, "the autopilot flies the iced wing's own stall line: no departure in a hard turn");
+        }
+        {
+            // the AI uses it
+            var b = SnowTail(4000);
+            b.bullets.Add(Missile.Make(1, 1, 0, b.planes[0].state.pos - b.planes[0].Forward * 3000, b.planes[0].state.vel + b.planes[0].Forward * 300, b.time));
+            var p = new EnemyAi { me = 0, sloppiness = 0 }.Plan(b, 3);
+            Check(p.snow && !p.well, "an AI pilot with a heat-seeker on it lets go a snow cloud");
+            var t = SnowTail(1200);
+            t.balloonMines[0] = 0;
+            var q = new EnemyAi { me = 0, sloppiness = 0 }.Plan(t, 3);
+            Check(q.snow, "out of mines with a 109 on its tail, it lets one go for the 109 to fly through");
+        }
+        {
+            // clones, subsets, swaps, bytes
+            var b = SnowTail(1500);
+            var plan = Ahead(b, 0); plan.snow = true;
+            b.Resolve(new TurnPlan?[] { plan, Ahead(b, 1) }, 1.5);
+            var c = b.Clone();
+            Check(c.snowClouds[0] == b.snowClouds[0] && !ReferenceEquals(c.snowClouds, b.snowClouds) && c.bullets.Any(x => x is SnowCloud), "a clone keeps the count and the cloud, in its own array");
+            c.Resolve(new TurnPlan?[] { Ahead(c, 0), Ahead(c, 1) }, 3);
+            Check(c.SystemsOf(1).rime > b.SystemsOf(1).rime && b.SystemsOf(1).rime < 0.5, "the clone (the ghost path) flies the 109 into the cloud without icing the real one");
+            Check(b.Subset(new[] { 1 }).bullets.Any(x => x is SnowCloud), "a subset of the 109 alone still meets the P-51's cloud");
+            var back = SnowTail(1500);
+            Wire.Restore(back, Wire.Encode(b));
+            Check(Wire.Hash(back) == Wire.Hash(b) && back.bullets.Any(x => x is SnowCloud) && back.SystemsOf(0).rime == b.SystemsOf(0).rime, "a snapshot brings the cloud and the rime across exactly");
+            b.Resolve(new TurnPlan?[] { Ahead(b, 0), Ahead(b, 1) }, 3);
+            back.Resolve(new TurnPlan?[] { Ahead(back, 0), Ahead(back, 1) }, 3);
+            Check(Wire.Hash(back) == Wire.Hash(b), "and both fly the next turn the same");
+            int s0 = b.snowClouds[0], s1 = b.snowClouds[1];
+            double r0 = b.SystemsOf(0).rime, r1 = b.SystemsOf(1).rime;
+            b.Swap(0, 1);
+            Check(b.snowClouds[1] == s0 && b.snowClouds[0] == s1 && b.SystemsOf(1).rime == r0 && b.SystemsOf(0).rime == r1, "a swap moves the count and the rime with the plane");
+            var pd = Wire.Decode<TurnPlan>(Wire.Encode(new TurnPlan { snow = true, snowAt = 1.35 }));
+            Check(pd.snow && pd.snowAt == 1.35, "a plan with a snow cloud (and its moment) survives the trip to bytes");
+        }
+        {
+            // the loadout pick
+            var l = new Loadout(Kit.Missiles, Kit.Mines).Pick(Kit.Snow, Craft.Zero);
+            Check(l.Has(Kit.Snow) && l.Has(Kit.Mines) && Loadout.Allowed(Kit.Snow, Craft.Su27), $"any plane can pick it ({l})");
+            var set = new DogfightSetup { randomStart = false, ours = new[] { Craft.Mustang }, theirs = new[] { Craft.Bf109 },
+                                          oursLoadouts = new[] { new Loadout(Kit.Snow, Kit.Missiles) }, theirsLoadouts = new[] { new Loadout(Kit.Missiles, Kit.Mines) } };
+            var b = Scenarios.Dogfight(DogfightSetup.FromBytes(set.ToBytes()), Vec3d.Zero);
+            Check(b.snowClouds[0] == Specials.SnowClouds && b.snowClouds[1] == 0 && b.wells[0] == 0, "picked, it brings two snow clouds (and only the picker has them), through the trip to bytes");
+            var none = TurnPlan.Straight(b.planes[1]); none.snow = true;
+            b.Resolve(new TurnPlan?[] { TurnPlan.Straight(b.planes[0]), none }, 3);
+            Check(!b.bullets.OfType<SnowCloud>().Any(), "without the pick, planning one does nothing");
         }
     }
 }
