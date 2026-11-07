@@ -423,6 +423,7 @@ namespace Ooda.Turn
             plan.well = false; plan.wellAt = 0;
             plan.slow = false; plan.slowAt = 0;
             plan.blink = false; plan.blinkAt = 0;
+            plan.mirror = false;
             plan.rudder = 0;
             markT = 0;
             burstPreset = 0;
@@ -635,6 +636,7 @@ namespace Ooda.Turn
             MineShotsCheck();
             MagnetShotsCheck();
             BlinkShotsCheck();
+            RicochetShotsCheck();
             BotUpdate();
             NetBotUpdate();
             lines.Begin();
@@ -1427,7 +1429,7 @@ namespace Ooda.Turn
         /// <summary>A preview tracer's whole path; fading to tailAlpha at its far end.</summary>
         void DrawPreviewTrace(Trace tr, Color col, float width, float tailAlpha)
         {
-            if (tr.points.Count == 0) return;
+            if (tr.points.Count == 0 || DrawBouncedTrace(tr, col, width, tailAlpha)) return;
             var pts = new List<Vector3>();
             for (int i = 0; i < tr.points.Count; i += 2) pts.Add(UnityFrame.Pos(tr.points[i]));
             pts.Add(UnityFrame.Pos(tr.points[tr.points.Count - 1]));
@@ -1615,11 +1617,12 @@ namespace Ooda.Turn
             {
                 var tr = last.traces[ti];
                 if (tr.missile) { DrawMissile(tr, ti, now, (float)last.dt); continue; }
-                GlowTracer(tr, ti, now, MagnetTint(tr, TracerColor(tr.owner)));
+                GlowTracer(tr, ti, now, MagnetTint(tr, AfterBounce(tr, now, TracerColor(tr.owner))));
             }
 
             // Hits: a flash where they land, and the damage so far shown as smoke
             double t0 = last.startTime;
+            RicochetSparks(last, t0 + prevPlayT, t0 + playT);
             var sys = (Systems[])systemsBefore.Clone();
             foreach (var h in last.hits)
             {
@@ -1857,7 +1860,7 @@ namespace Ooda.Turn
                     "Drag on the timeline to fire; F fires where hits are predicted.\n\n" +
                     "Keys: WASD arrow (S pulls up, like the stick), Shift/Ctrl throttle,\n" +
                     "Space full throttle (a jet: burner), 1 rocket, 2 speed brake, 3 hold flares, I IR view, Tab next plane, N next target,\n" +
-                    "4 mine, 5 blade, 6 stealth, 7 jammer, 8 gravity well, B bursts, G missile, T timeline,\n" +
+                    "4 mine, 5 blade, 6 stealth, 7 jammer, 8 gravity well, / ricochet shield, B bursts, G missile, T timeline,\n" +
                     "A jet: J radar missile, U the radar page; notch a radar missile (fly square across it).\n" +
                     "Z/C rudder pedals (slow and nose-high, the rudder swings the nose: hammerhead).\n" +
                     "Enter fly, R replay, P projection, V view, X straight, M mission, H help.\n" +

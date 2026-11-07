@@ -163,6 +163,8 @@ namespace Ooda.Turn
                 row.Add(Sw("SLOW", $"Y  ({battle.slowBombs[0]})", plan.slow, plan.slow || battle.slowBombs[0] > 0, slowColor, ToggleSlow));
             if (load.blinks > 0)
                 row.Add(Sw("BLINK", $"Y  ({battle.blinks[0]})", plan.blink, plan.blink || battle.blinks[0] > 0, blinkColor, ToggleBlink));
+            if (load.mirrors > 0)
+                row.Add(Sw(battle.Mirrored(0) ? "SHIELD UP" : "SHIELD", $"/  ({battle.mirrors[0]})", plan.mirror, plan.mirror || battle.mirrors[0] > 0, mirrorColor, ToggleMirror));
             SwitchRow(x, y, w, row, true);
             if (JammedNow)
             {

@@ -8,7 +8,7 @@ namespace Ooda.Turn.Core
     /// To add one: add it here, give it its words in Loadout.Name, Short and Blurb, say in Allowed
     /// which aircraft can take it, and in Loadout.Apply what it puts on the plane.
     /// </summary>
-    public enum Kit { Missiles, Rocket, Mines, Blade, Stealth, Jammer, Radar, Ice, Well, Magnet, Slow, Blink }
+    public enum Kit { Missiles, Rocket, Mines, Blade, Stealth, Jammer, Radar, Ice, Well, Magnet, Slow, Blink, Mirror }
 
     /// <summary>
     /// A pilot's loadout: the two capabilities he brings to the fight (with Arcade on in the dogfight setup). Everyone
@@ -83,16 +83,17 @@ namespace Ooda.Turn.Core
             guns.magnet = Has(Kit.Magnet);
             guns.slowBombs = Has(Kit.Slow) ? Specials.SlowBombs : 0;
             guns.blinks = Has(Kit.Blink) ? Specials.Blinks : 0;
+            guns.mirrors = Has(Kit.Mirror) ? Specials.Mirrors : 0;
         }
 
         public static string Name(Kit k) => k == Kit.Missiles ? "Heat-seekers" : k == Kit.Rocket ? "Rocket" : k == Kit.Mines ? "Balloon mines"
                                           : k == Kit.Blade ? "Heat blade" : k == Kit.Stealth ? "Stealth" : k == Kit.Jammer ? "Jammer"
-                                          : k == Kit.Radar ? "Radar missiles" : k == Kit.Ice ? "Ice" : k == Kit.Well ? "Gravity well" : k == Kit.Magnet ? "Magnet rounds" : k == Kit.Slow ? "Time slow bomb" : k == Kit.Blink ? "Blink" : k.ToString();
+                                          : k == Kit.Radar ? "Radar missiles" : k == Kit.Ice ? "Ice" : k == Kit.Well ? "Gravity well" : k == Kit.Magnet ? "Magnet rounds" : k == Kit.Slow ? "Time slow bomb" : k == Kit.Blink ? "Blink" : k == Kit.Mirror ? "Ricochet shield" : k.ToString();
 
         /// <summary>A few letters for a name plate.</summary>
         public static string Short(Kit k) => k == Kit.Missiles ? "MSL" : k == Kit.Rocket ? "RKT" : k == Kit.Mines ? "MINE"
                                            : k == Kit.Blade ? "BLADE" : k == Kit.Stealth ? "STLTH" : k == Kit.Jammer ? "JAM"
-                                           : k == Kit.Radar ? "RDR" : k == Kit.Ice ? "ICE" : k == Kit.Well ? "WELL" : k == Kit.Magnet ? "MAG" : k == Kit.Slow ? "SLOW" : k == Kit.Blink ? "BLINK" : k.ToString().ToUpperInvariant();
+                                           : k == Kit.Radar ? "RDR" : k == Kit.Ice ? "ICE" : k == Kit.Well ? "WELL" : k == Kit.Magnet ? "MAG" : k == Kit.Slow ? "SLOW" : k == Kit.Blink ? "BLINK" : k == Kit.Mirror ? "RICO" : k.ToString().ToUpperInvariant();
 
         /// <summary>What it does, in a line, for an aircraft (how many it carries).</summary>
         public static string Blurb(Kit k, Craft c)
@@ -112,6 +113,7 @@ namespace Ooda.Turn.Core
                 case Kit.Magnet: return "Your rounds curve toward the nearest enemy they pass: near misses pull in. A little, not a lot.";
                 case Kit.Slow: return $"{Specials.SlowBombs} bombs thrown at the nearest threat: everything in the bubble, planes, rounds and missiles, crawls at half speed.";
                 case Kit.Blink: return $"{Specials.Blinks} blinks: jump {Specials.BlinkFt:0} ft ahead along your path in an instant; rounds and missiles on you miss.";
+                case Kit.Mirror: return $"{Specials.Mirrors} charges: a mirror shield for a turn. Rounds bounce off you, and can hit whoever is behind them.";
                 default: return "";
             }
         }

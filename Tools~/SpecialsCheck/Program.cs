@@ -262,6 +262,7 @@ static class Program
             // the P-51's pilot, with a 109 on its tail and guns on it, lets a mine go
             var b = Tail(1000);
             b.blinks[0] = 0;   // the blink has its own checks (BlinkHop)
+            b.mirrors[0] = 0;   // the ricochet shield comes first (see RicochetShield)
             var ai = new EnemyAi { me = 0, sloppiness = 0 };
             var p = ai.Plan(b, 3);
             Check(p.mine, "with a 109 on its six, it lets a mine go");
@@ -427,9 +428,99 @@ static class Program
         MagnetRounds();
         SlowBomb();
         BlinkHop();
+        RicochetShield();
 
         Console.WriteLine(fails == 0 ? "\nAll checks pass." : $"\n{fails} check(s) FAILED.");
         return fails;
+    }
+
+    /// <summary>A 109 (1) gap ft behind a P-51 (0), firing all turn; the P-51 raises its ricochet shield or not.</summary>
+    static (Battle b, TurnResult r) TailShot(double gap, bool shield)
+    {
+        var b = Tail(gap);
+        var run = Ahead(b, 0); run.mirror = shield;
+        var shoot = Ahead(b, 1); shoot.burstStart = 0; shoot.burstEnd = 3;
+        return (b, b.Resolve(new TurnPlan?[] { run, shoot }, 3));
+    }
+
+    static void RicochetShield()
+    {
+        Console.WriteLine("\nRicochet shield");
+        {
+            var (bare, rb) = TailShot(600, false);
+            int taken = rb.hits.Count(h => h.target == 0);
+            var (b, r) = TailShot(600, true);
+            int bounced = r.ricochets.Count(h => h.target == 0 && h.shooter == 1);
+            Check(taken > 5, $"without it, a 109 600 ft behind firing all turn lands {taken} hits");
+            Check(!r.hits.Any(h => h.target == 0) && !b.SystemsOf(0).Hurt, "with it up, none land");
+            Check(bounced >= taken, $"{bounced} rounds bounce off it instead");
+            Check(b.mirrors[0] == Specials.Mirrors - 1 && r.frames[0].Take(r.frames[0].Length - 1).All(f => f.mirror) && !b.Mirrored(0), "it uses a charge, is up all turn and down after it");
+            int back = r.hits.Count(h => h.shooter == 0 && h.target == 1);
+            Check(back > 0, $"the bounced rounds come back at the shooter: {back} of them hit the 109 (the shield's hits)");
+            var tr = r.traces.Where(t => t.owner == 1 && t.bounceAt >= 0).ToList();
+            Check(tr.Count >= bounced * 0.9 && tr.All(t => t.bouncer == 0), $"its tracers show the bounce ({tr.Count})");
+
+            // a dead-on round comes straight back; a grazing one glances on, nearly on its line
+            var rel = Specials.Bounce(new Vec3d(0, -20, 0), new Vec3d(0, 2900, 0), out _);
+            Check(rel.y < -0.69 * 2900 && Math.Abs(rel.x) < 1e-6, $"dead on it comes back at {Specials.MirrorKeep:P0} of its speed");
+            var graze = Specials.Bounce(new Vec3d(19.9, -2, 0), new Vec3d(0, 2900, 0), out _);
+            var near = Specials.Bounce(new Vec3d(2, -19.9, 0), new Vec3d(0, 2900, 0), out _);
+            double Off(Vec3d v) => Math.Atan2(Math.Abs(v.x), -v.y) * 180 / Math.PI;
+            Check(Off(near) < 1.5 && Off(graze) > 5 && Off(graze) < 8, $"it goes back the way it came: {Off(near):F1} deg off near the middle, {Off(graze):F1} at the edge");
+
+            // a wingman of the shooter's side flying beside the shooter can be hit by the bounce, one of the shield's side cannot
+            var c = Tail(600);
+            int k = c.Add(At(AircraftNumbers.P51D(), 0, 600 + 2000, 300), Specials.Arm(CombatNumbers.P51D()), 0);   // a P-51 far ahead: the shield's own side
+            var run = Ahead(c, 0); run.mirror = true;
+            var shoot = Ahead(c, 1); shoot.burstStart = 0; shoot.burstEnd = 3;
+            var rc = c.Resolve(new TurnPlan?[] { run, shoot, Ahead(c, k) }, 3);
+            Check(!rc.hits.Any(h => h.target == 0 || h.shooter == 0 && c.side[h.target] == 0), "the bounced rounds never hit the shield's own side");
+
+            // missiles still bite
+            var m = Tail(4000);
+            m.mirrorUntil[0] = 1000;
+            m.bullets.Add(Missile.Make(1, 1, 0, m.planes[0].state.pos - m.planes[0].Forward * 300, m.planes[0].state.vel + m.planes[0].Forward * 400, m.time));
+            for (int t = 0; t < 2; t++) m.Resolve(new TurnPlan?[] { Ahead(m, 0), Ahead(m, 1) }, 3);
+            Check(m.SystemsOf(0).Hurt || m.down[0], "a heat-seeker still gets through the shield");
+
+            // spent: planning it does nothing
+            var e = Tail(600);
+            e.mirrors[0] = 0;
+            var run2 = Ahead(e, 0); run2.mirror = true;
+            e.Resolve(new TurnPlan?[] { run2, Ahead(e, 1) }, 3);
+            Check(!e.Mirrored(0) && e.mirrorUntil[0] == 0, "with no charges left, planning it does nothing");
+
+            // the AI raises it when guns are on it, from behind or head-on
+            var a = Tail(1000);
+            var ap = new EnemyAi { me = 0, sloppiness = 0 }.Plan(a, 3);
+            Check(ap.mirror, "the AI with a 109 on its six raises it");
+            var h2 = HeadOn(2600);
+            h2.heatBlades[0] = 0;
+            var hp = new EnemyAi { me = 0, sloppiness = 0 }.Plan(h2, 3);
+            Check(hp.mirror, "and head-on and close");
+            var far = Tail(9000);
+            Check(!new EnemyAi { me = 0, sloppiness = 0 }.Plan(far, 3).mirror, "but not with no one close");
+
+            // clones, subsets, swaps, snapshots and the plan's trip to bytes
+            var s0 = Tail(600);
+            var up = Ahead(s0, 0); up.mirror = true;
+            s0.Resolve(new TurnPlan?[] { up, Ahead(s0, 1) }, 1.5);
+            var cl = s0.Clone();
+            Check(cl.Mirrored(0) && cl.mirrors[0] == s0.mirrors[0] && !ReferenceEquals(cl.mirrorUntil, s0.mirrorUntil), "a clone keeps the shield up, in its own arrays");
+            Check(s0.Subset(new[] { 0 }).Mirrored(0) && !s0.Subset(new[] { 1 }).Mirrored(0), "a subset keeps it with its plane");
+            var wb = Tail(600);
+            Wire.Restore(wb, Wire.Encode(s0));
+            Check(Wire.Hash(wb) == Wire.Hash(s0) && wb.Mirrored(0), "a snapshot brings it across exactly");
+            var sw = s0.Clone(); sw.Swap(0, 1);
+            Check(sw.Mirrored(1) && !sw.Mirrored(0) && sw.mirrors[1] == s0.mirrors[0], "a swap moves it with the plane");
+            Check(Wire.Decode<TurnPlan>(Wire.Encode(new TurnPlan { mirror = true })).mirror, "a plan with it survives the trip to bytes");
+
+            // the loadout pick
+            Check(Loadout.Allowed(Kit.Mirror, Craft.F15) && Loadout.Allowed(Kit.Mirror, Craft.Zero), "any aircraft can take it");
+            var setup = new DogfightSetup { oursLoadouts = new[] { new Loadout(Kit.Mirror, Kit.Mines) }, theirsLoadouts = new[] { new Loadout(Kit.Missiles, Kit.Mines) }, randomStart = false };
+            var db = Scenarios.Dogfight(DogfightSetup.FromBytes(setup.ToBytes()), Vec3d.Zero);
+            Check(db.mirrors[0] == Specials.Mirrors && db.mirrors[1] == 0, $"picked, it brings {Specials.Mirrors} charges (and only to who picked it), across the wire too");
+        }
     }
 
     static double Heading(Vec3d v) => Math.Atan2(v.y, v.x) * 180 / Math.PI;
@@ -879,7 +970,7 @@ static class Program
         {
             // the AI: someone on its tail with guns on it, and no mines
             var b = Tail(900);
-            b.balloonMines[0] = 0; b.wells[0] = 0; b.heatBlades[0] = 0; b.slowBombs[0] = 0;
+            b.balloonMines[0] = 0; b.wells[0] = 0; b.heatBlades[0] = 0; b.slowBombs[0] = 0; b.mirrors[0] = 0;
             var p = new EnemyAi { me = 0, sloppiness = 0 }.Plan(b, 3);
             Check(p.blink, "an AI pilot with a 109 on its tail (and no mines or wells) blinks");
         }

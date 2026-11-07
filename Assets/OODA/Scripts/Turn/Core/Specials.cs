@@ -54,6 +54,14 @@ namespace Ooda.Turn.Core
     /// single step. The other side's rounds and missiles already in the air inside BlinkShakeFt fly on at the empty sky
     /// and can't hit you any more (a missile on you loses you) (an enemy radar tracking you starts its lock over). The hop is cut short
     /// before it would reach the ground or an obstacle.
+    ///
+    /// Ricochet shield: raised at the start of a turn you plan (TurnPlan.mirror), a mirror bubble round the plane for
+    /// MirrorSec. Every round (a fighter's packet or flak) that would strike it bounces off instead, mirrored about the
+    /// back down the line it came in on, splayed by how far off the middle it struck (MirrorSpread: one dead on comes
+    /// straight back, one at the edge a few degrees off) at MirrorKeep of its speed
+    /// against the plane. A bounced round is the shield's now: it carries MirrorDamage of its punch, flies on to hit anyone on
+    /// the other side of the shield (the shooter too, if it comes back his way, and a kill is the shield's), and can bounce off
+    /// another shield. Missiles, mines and blades still bite, and your own guns fire out through it.
     /// </summary>
     public static class Specials
     {
@@ -91,8 +99,16 @@ namespace Ooda.Turn.Core
         /// be to lose you (it closes on where you were).
         /// </summary>
         public const double BlinkFt = 1500, BlinkFloorFt = 150, BlinkShakeFt = 5000;
+        /// <summary>The ricochet shield: how long it stays up, the share of a round's speed (against the plane) and punch a bounce keeps.</summary>
+        public const double MirrorSec = 3, MirrorKeep = 0.7, MirrorDamage = 0.8;
+        /// <summary>
+        /// The bubble is a retro-reflector (like a cat's eye): a bounce goes back down the line the round came in on, splayed
+        /// out by how far off the middle it struck, up to about this share of a radian at the very edge (7 degrees). So a
+        /// close shooter gets a good part of his own burst back, and the rest sprays round him.
+        /// </summary>
+        public const double MirrorSpread = 0.12;
         /// <summary>What each fighter carries with Arcade on.</summary>
-        public const int Mines = 2, Blades = 1, Stealths = 1, Jammers = 1, Wells = 2, SlowBombs = 2, Blinks = 2;
+        public const int Mines = 2, Blades = 1, Stealths = 1, Jammers = 1, Wells = 2, SlowBombs = 2, Blinks = 2, Mirrors = 2;
         /// <summary>The time slow bomb's throw: at the nearest threat within SlowReachFt, flying SlowFlySec to burst (none in reach: SlowAheadFt ahead).</summary>
         public const double SlowReachFt = 5000, SlowFlySec = 0.6, SlowAheadFt = 1200, SlowClearFt = 200;
         /// <summary>The time slow bubble: SlowRadiusFt round its middle (full slow inside SlowCoreShare of it, easing to none at the edge), for SlowLifeSec after it bursts, fading over SlowFadeSec.</summary>
@@ -161,10 +177,26 @@ namespace Ooda.Turn.Core
             return rel * (BoomShoveFps * (1 - d / BoomReachFt) / d);
         }
 
+        /// <summary>
+        /// A round strikes a ricochet shield: rel is where it is against the plane (ft, from its middle, at the sphere of radius
+        /// reach), relVel its velocity against the plane. The new relative velocity: back the way it came, splayed by how far
+        /// off the middle it struck (see MirrorSpread), at MirrorKeep of its speed (a round already leaving keeps its line);
+        /// normal the outward normal of the bubble where it struck.
+        /// </summary>
+        public static Vec3d Bounce(Vec3d rel, Vec3d relVel, out Vec3d normal)
+        {
+            double r = rel.Length, speed = relVel.Length;
+            normal = r > 1e-6 ? rel * (1 / r) : (speed > 1e-9 ? relVel * (-1 / speed) : new Vec3d(0, 0, 1));
+            if (speed < 1e-9 || Vec3d.Dot(relVel, normal) >= 0) return relVel * MirrorKeep;   // already leaving: it keeps its line
+            Vec3d back = relVel * (-1 / speed);
+            Vec3d off = normal - back * Vec3d.Dot(normal, back);   // how far off the middle it struck, square to its line (0 to 1)
+            return (back + off * MirrorSpread).Normalized * (speed * MirrorKeep);
+        }
+
         /// <summary>Give a fighter its arcade load (the same numbers, changed in place, returned for chaining).</summary>
         public static CombatNumbers Arm(CombatNumbers c)
         {
-            c.balloonMines = Mines; c.heatBlades = Blades; c.stealths = Stealths; c.jammers = Jammers; c.wells = Wells; c.slowBombs = SlowBombs; c.blinks = Blinks;
+            c.balloonMines = Mines; c.heatBlades = Blades; c.stealths = Stealths; c.jammers = Jammers; c.wells = Wells; c.slowBombs = SlowBombs; c.blinks = Blinks; c.mirrors = Mirrors;
             return c;
         }
     }

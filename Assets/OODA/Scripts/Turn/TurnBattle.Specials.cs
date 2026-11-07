@@ -150,7 +150,7 @@ namespace Ooda.Turn
             dirty = true;
         }
 
-        /// <summary>4 balloon mine (stepping its moment), 5 heat blade, 6 stealth, 7 jammer, 8 gravity well (stepping its moment; TurnBattle.Well.cs), Y time slow bomb (TurnBattle.Slow.cs), Y blink (stepping its moment; TurnBattle.Blink.cs).</summary>
+        /// <summary>4 balloon mine (stepping its moment), 5 heat blade, 6 stealth, 7 jammer, 8 gravity well (stepping its moment; TurnBattle.Well.cs), Y time slow bomb (TurnBattle.Slow.cs), Y blink (stepping its moment; TurnBattle.Blink.cs), / ricochet shield (TurnBattle.Mirror.cs).</summary>
         void SpecialsInput(Keyboard kb)
         {
             bool Pressed(Key k) => kb != null && kb[k].wasPressedThisFrame;
@@ -161,6 +161,7 @@ namespace Ooda.Turn
             if (Pressed(Key.Digit8) || Pressed(Key.Numpad8)) StepWell();
             if (Pressed(Key.Y)) StepSlow();
             if (Pressed(Key.Y)) StepBlink();
+            if (Pressed(Key.Slash) || Pressed(Key.NumpadDivide)) ToggleMirror();
         }
 
         // ---------- drawing ----------
@@ -316,6 +317,7 @@ namespace Ooda.Turn
                 RedHot(vs[k], f.ram && !f.down, k, (float)f.ramHeat, f.sonic);
             }
             DrawBooms(vs, r, now);
+            DrawMirrorFrames(vs, r, now);
         }
 
         /// <summary>While planning: hide the stealthy enemies, outline your own, and glow your ghost if the blade is lit.</summary>
@@ -328,6 +330,7 @@ namespace Ooda.Turn
             DrawLiveWells();
             DrawPreviewBooms();
             DrawLiveBubbles();
+            MirrorPlanning();
         }
 
         /// <summary>Everyone shown again (the fight is over, or no one is stealthy).</summary>
