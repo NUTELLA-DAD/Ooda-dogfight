@@ -9,8 +9,9 @@ namespace Ooda.Pilot
     /// the camera and animates its shape), so they follow every clip, the briefing's standing poses and the head look.
     /// The head's flames go out with the head when the cockpit camera hides it. Sizes are in the pilot's own height, so
     /// they fit whatever scale a cockpit seats him at. PilotCast fills in the bones.
-    /// Two looks (<see cref="look"/>, or -spectrestyle flames|fog on the command line): licking flames, or a glowing
-    /// fog of soft wisps that swell, rise and fade off him. Either way his face is left clear.
+    /// Three looks (<see cref="look"/>, or -spectrestyle aura|flames|fog on the command line): licking flames, a glowing
+    /// fog of soft wisps that swell, rise and fade off him, or the aura (the usual one): the flames with a thin glowing
+    /// mist close round his head and hands. Whichever, his face is left clear and his eyes blaze.
     /// </summary>
     public class SpectreFlames : MonoBehaviour
     {
@@ -20,8 +21,8 @@ namespace Ooda.Pilot
         public float size = 1f;
         [Tooltip("How strongly the eyes and gloves pulse with the fire.")]
         public float flicker = 0.25f;
-        public enum Look { Flames, Fog }
-        public Look look = Look.Flames;
+        public enum Look { Flames, Fog, Aura }
+        public Look look = Look.Aura;
 
         /// <summary>-spectrestyle fog (or flames) on the command line picks the look for every spectre.</summary>
         static Look? forced;
@@ -32,13 +33,13 @@ namespace Ooda.Pilot
             argsRead = true;
             var a = System.Environment.GetCommandLineArgs();
             for (int i = 0; i + 1 < a.Length; i++)
-                if (a[i] == "-spectrestyle") forced = a[i + 1].ToLowerInvariant().StartsWith("fog") ? Look.Fog : Look.Flames;
+                if (a[i] == "-spectrestyle") { var v = a[i + 1].ToLowerInvariant(); forced = v.StartsWith("fog") ? Look.Fog : v.StartsWith("flame") ? Look.Flames : Look.Aura; }
             return forced;
         }
 
         // one flame (or halo) on a bone: where on it (bone local), which way it rises (bone local; the world's up mixed
         // in), how tall and wide, its seed and speed
-        struct Tongue { public Transform bone; public Vector3 at, outward; public float h, w, seed, speed, up; public int kind; }   // kind: 0 flame, 1 halo, 2 wisp of fog
+        struct Tongue { public Transform bone; public Vector3 at, outward; public float h, w, seed, speed, up; public int kind; public bool eye; }   // kind: 0 flame, 1 halo, 2 wisp of fog
         const int Flame = 0, Halo = 1, Wisp = 2;
         Tongue[] tongues;
         Mesh mesh;
@@ -111,7 +112,7 @@ namespace Ooda.Pilot
                 list.Add(new Tongue { bone = head, at = head.InverseTransformPoint(p), outward = head.InverseTransformDirection(d), h = h, w = w,
                                       seed = R(0, 10), speed = R(0.8f, 1.25f), up = upMix, kind = kind });
             }
-            bool fog = look == Look.Fog;
+            bool fog = look == Look.Fog, aura = look == Look.Aura;
             if (!fog)
             {
                 // a big crown: tall curling licks all over the top and back, rising off the crown, and a ring of shorter
@@ -131,6 +132,12 @@ namespace Ooda.Pilot
                 OnHead(up - fwd * 0.4f, 0.40f, 0.12f, 0.9f, Flame);
                 OnHead(up + right * 0.35f, 0.36f, 0.11f, 0.9f, Flame);
                 OnHead(up - right * 0.35f, 0.36f, 0.11f, 0.9f, Flame);
+                if (aura)
+                    for (int k = 0; k < 12; k++)   // a thin mist clinging to the head, under the flames
+                    {
+                        float az = R(-140f, 140f), el = Mathf.Abs(az) > 105f ? R(55f, 85f) : R(-20f, 80f);
+                        OnHead(Dir(az, el), R(0.06f, 0.12f), R(0.07f, 0.10f), 0.6f, Wisp, 0.14f);
+                    }
             }
             else
             {
@@ -145,6 +152,10 @@ namespace Ooda.Pilot
                     OnHead(Dir(R(-180f, 180f), R(70f, 90f)), R(0.35f, 0.55f), R(0.13f, 0.19f), 0.9f, Wisp, 0.17f);
             }
             list.Add(new Tongue { bone = head, at = head.InverseTransformPoint(headMid + up * 0.05f * unit), w = fog ? 0.55f : 0.50f, seed = R(0, 10), speed = 1, kind = Halo });
+            // the eyes blaze: a small hot glow over each, a little below the head's middle and 6 cm either side
+            for (int side = -1; side <= 1; side += 2)
+                list.Add(new Tongue { bone = head, at = head.InverseTransformPoint(headMid + (fwd * 0.19f + right * (0.062f * side) - up * 0.055f) * unit),
+                                      w = 0.10f, seed = R(0, 10), speed = 1.5f, kind = Halo, eye = true });
 
             void OnHand(Transform hand, Transform lower)
             {
@@ -159,6 +170,13 @@ namespace Ooda.Pilot
                                           h = fog ? R(0.12f, 0.2f) : R(0.11f, 0.19f), w = fog ? R(0.06f, 0.09f) : R(0.04f, 0.055f),
                                           seed = R(0, 10), speed = R(0.9f, 1.4f), up = 0.75f, kind = fog ? Wisp : Flame });
                 }
+                if (aura)
+                    for (int k = 0; k < 3; k++)   // a little mist round the glove, staying close
+                    {
+                        Vector3 d = Quaternion.AngleAxis(k * 120f + R(-20, 20), along) * across;
+                        list.Add(new Tongue { bone = hand, at = hand.InverseTransformPoint(mid + d * 0.02f * unit), outward = hand.InverseTransformDirection(d),
+                                              h = R(0.04f, 0.07f), w = R(0.05f, 0.07f), seed = R(0, 10), speed = R(0.9f, 1.3f), up = 0.5f, kind = Wisp });
+                    }
                 list.Add(new Tongue { bone = hand, at = hand.InverseTransformPoint(mid), w = 0.2f, seed = R(0, 10), speed = 1, kind = Halo });
             }
             OnHand(handL, lowerArmL); OnHand(handR, lowerArmR);
@@ -218,7 +236,7 @@ namespace Ooda.Pilot
                     pos[v + k] = c; nrm[v + k] = rise;
                     uv1[v + k] = new Vector2(w, g.kind);
                     uv2[v + k] = new Vector2(g.seed, g.speed);
-                    col[v + k] = g.kind == Halo ? new Color(0.6f, 0.9f, 1f, 0.9f) : new Color(1f, 1f, 1f, 1f);
+                    col[v + k] = g.eye ? new Color(0.85f, 1f, 1f, 1.5f) : g.kind == Halo ? new Color(0.6f, 0.9f, 1f, 0.9f) : new Color(1f, 1f, 1f, 1f);
                 }
                 if (on) { shown++; lo = Vector3.Min(lo, c); hi = Vector3.Max(hi, c); }
             }

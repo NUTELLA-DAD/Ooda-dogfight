@@ -121,6 +121,7 @@ namespace Ooda.EditorTools
             var anim = p.GetComponent<Animator>();
             if (anim == null || anim.avatar == null || !anim.avatar.isHuman) { Debug.LogWarning("OODA: the spectre has no humanoid avatar; no flames."); return; }
             var f = p.AddComponent<SpectreFlames>();
+            f.look = SpectreFlames.Look.Aura;
             Transform B(HumanBodyBones b) => anim.GetBoneTransform(b);
             f.hips = B(HumanBodyBones.Hips); f.head = B(HumanBodyBones.Head);
             f.handL = B(HumanBodyBones.LeftHand); f.handR = B(HumanBodyBones.RightHand);
