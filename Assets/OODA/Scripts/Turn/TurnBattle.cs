@@ -144,7 +144,7 @@ namespace Ooda.Turn
         Ooda.UI.StickThrottleGauge gauge;   // the stick (bottom middle) and the throttle (bottom left)
         Material tipMat;
 
-        bool dragArrow, dragLook, dragBurst, dragMoves, dragMine, dragWell;
+        bool dragArrow, dragLook, dragBurst, dragMoves, dragMine, dragWell, dragBlink;
         Rect movesRect;
         bool showMoves;            // the Advanced timeline panel is open (T)
         float markT;               // the moment on the moves slider being edited, s into the turn
@@ -422,6 +422,7 @@ namespace Ooda.Turn
             plan.mine = plan.ram = plan.cloak = plan.jam = false; plan.mineAt = 0;
             plan.well = false; plan.wellAt = 0;
             plan.slow = false; plan.slowAt = 0;
+            plan.blink = false; plan.blinkAt = 0;
             plan.rudder = 0;
             markT = 0;
             burstPreset = 0;
@@ -633,6 +634,7 @@ namespace Ooda.Turn
             DamageShotsCheck();
             MineShotsCheck();
             MagnetShotsCheck();
+            BlinkShotsCheck();
             BotUpdate();
             NetBotUpdate();
             lines.Begin();
@@ -942,6 +944,7 @@ namespace Ooda.Turn
                     if (phase == Phase.Planning && PressMine(gui)) { dragMine = true; SetMineFromBar(gui.x); }
                     else if (phase == Phase.Planning && PressWell(gui)) { dragWell = true; SetWellFromBar(gui.x); }
                     else if (phase == Phase.Planning && PressSlow(gui)) { dragSlow = true; SetSlowFromBar(gui.x); }
+                    else if (phase == Phase.Planning && PressBlink(gui)) { dragBlink = true; SetBlinkFromBar(gui.x); }
                     else if (phase == Phase.Planning && burstRect.Contains(gui)) { dragBurst = true; SetBurstFromBar(gui.x, true); }
                     else if (phase == Phase.Planning && movesRect.Contains(gui)) { dragMoves = true; SetMarkTime(gui.x); }
                     else if (PressStick(gui)) { }
@@ -960,11 +963,12 @@ namespace Ooda.Turn
                     else if (dragMine) SetMineFromBar(gui.x);
                     else if (dragWell) SetWellFromBar(gui.x);
                     else if (dragSlow) SetSlowFromBar(gui.x);
+                    else if (dragBlink) SetBlinkFromBar(gui.x);
                     else if (dragBurst) SetBurstFromBar(gui.x, false);
                     else if (dragMoves) SetMarkTime(gui.x);
                     else if (dragLook && view != null && (mouse == null || !mouse.rightButton.isPressed)) view.Orbit((pos - lastPointer) * 0.25f);
                 }
-                if (pointer.press.wasReleasedThisFrame) { dragArrow = dragLook = dragMoves = dragStick = dragPedals = dragThrottle = dragMine = dragWell = dragSlow = false; if (dragBurst) { dragBurst = false; TidyBurst(); } }
+                if (pointer.press.wasReleasedThisFrame) { dragArrow = dragLook = dragMoves = dragStick = dragPedals = dragThrottle = dragMine = dragWell = dragSlow = dragBlink = false; if (dragBurst) { dragBurst = false; TidyBurst(); } }
                 lastPointer = pos;
             }
 
@@ -1376,6 +1380,7 @@ namespace Ooda.Turn
             {
                 DrawRibbon(preview.frames[0], end, badPath ? overpullColor : ghostColor);
                 DrawPath(preview.frames[0], end, badPath ? overpullColor : ghostColor, holoMine == null, false);
+                BlinkHops(preview.frames[0], end, true);
             }
             for (int i = 1; i < battle.Count; i++)
             {
@@ -1472,6 +1477,14 @@ namespace Ooda.Turn
         /// </summary>
         void DrawRibbon(AircraftFrame[] frames, int upTo, Color color)
         {
+            int jump = BlinkFrame(frames, upTo);   // a blink: two bands, with nothing over the hop
+            if (jump > 0) { DrawRibbon(frames, 0, jump - 1, color); DrawRibbon(frames, jump, upTo, color); }
+            else DrawRibbon(frames, 0, upTo, color);
+        }
+
+        void DrawRibbon(AircraftFrame[] frames, int from, int upTo, Color color)
+        {
+            if (upTo - from < 1) return;
             var pts = new List<Vector3>();
             var side = new List<Vector3>();
             void Add(int i)
@@ -1483,8 +1496,8 @@ namespace Ooda.Turn
                 pts.Add(UnityFrame.Pos(f.pos));
                 side.Add(right);
             }
-            for (int i = 0; i <= upTo; i += 2) Add(i);
-            if (upTo % 2 != 0) Add(upTo);
+            for (int i = from; i <= upTo; i += 2) Add(i);
+            if ((upTo - from) % 2 != 0) Add(upTo);
             lines.Ribbon(pts, side, 6f, 6f, new Color(color.r, color.g, color.b, color.a * 0.12f), new Color(color.r, color.g, color.b, color.a * 0.5f));
         }
 
@@ -1493,10 +1506,17 @@ namespace Ooda.Turn
         {
             if (line)
             {
-                var pts = new List<Vector3>();
-                for (int i = 0; i <= upTo; i += 3) pts.Add(UnityFrame.Pos(frames[i].pos));
-                pts.Add(UnityFrame.Pos(frames[upTo].pos));
-                lines.Strip(pts, 0.8f, new Color(color.r, color.g, color.b, color.a * 0.35f), false, color);
+                int jump = BlinkFrame(frames, upTo);   // a blink: the path breaks over the hop (BlinkHops draws it)
+                void Part(int from, int to)
+                {
+                    if (to - from < 1) return;
+                    var pts = new List<Vector3>();
+                    for (int i = from; i <= to; i += 3) pts.Add(UnityFrame.Pos(frames[i].pos));
+                    pts.Add(UnityFrame.Pos(frames[to].pos));
+                    lines.Strip(pts, 0.8f, new Color(color.r, color.g, color.b, color.a * 0.35f), false, color);
+                }
+                if (jump > 0) { Part(0, jump - 1); Part(jump, upTo); BlinkHops(frames, upTo, false); }
+                else Part(0, upTo);
             }
             if (!endMark) return;
             var f = frames[upTo];

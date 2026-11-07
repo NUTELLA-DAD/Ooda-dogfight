@@ -161,6 +161,8 @@ namespace Ooda.Turn
                 row.Add(Sw("WELL", $"8  ({battle.wells[0]})", plan.well, plan.well || battle.wells[0] > 0, wellColor, ToggleWell));
             if (load.slowBombs > 0)
                 row.Add(Sw("SLOW", $"Y  ({battle.slowBombs[0]})", plan.slow, plan.slow || battle.slowBombs[0] > 0, slowColor, ToggleSlow));
+            if (load.blinks > 0)
+                row.Add(Sw("BLINK", $"Y  ({battle.blinks[0]})", plan.blink, plan.blink || battle.blinks[0] > 0, blinkColor, ToggleBlink));
             SwitchRow(x, y, w, row, true);
             if (JammedNow)
             {

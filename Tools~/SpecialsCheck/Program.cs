@@ -3,7 +3,8 @@
 // stealth hides you from the AI and the flak but not from a heat-seeker, and firing shows you; the AI pilots use all
 // three; the gravity well bends a hard turn tighter, makes a tailer's rounds miss and pulls a heat-seeker off; magnet rounds pull a near miss in, and only that; and
 // the time slow bomb bursts on the nearest threat and slows the other side's planes, rounds and missiles in it; and
-// everything survives a clone, a subset, a swap and the trip to bytes.
+// the blink hops ahead along the path at the moment planned, dodges a tailer's rounds and a heat-seeker, stops short of
+// the ground, and the AI uses it; and everything survives a clone, a subset, a swap and the trip to bytes.
 // Usage: dotnet run   (exit code = failures)
 using System;
 using System.Linq;
@@ -260,6 +261,7 @@ static class Program
         {
             // the P-51's pilot, with a 109 on its tail and guns on it, lets a mine go
             var b = Tail(1000);
+            b.blinks[0] = 0;   // the blink has its own checks (BlinkHop)
             var ai = new EnemyAi { me = 0, sloppiness = 0 };
             var p = ai.Plan(b, 3);
             Check(p.mine, "with a 109 on its six, it lets a mine go");
@@ -424,6 +426,7 @@ static class Program
         GravityWell();
         MagnetRounds();
         SlowBomb();
+        BlinkHop();
 
         Console.WriteLine(fails == 0 ? "\nAll checks pass." : $"\n{fails} check(s) FAILED.");
         return fails;
@@ -781,6 +784,137 @@ static class Program
             var none = TurnPlan.Straight(b.planes[1]); none.slow = true;
             b.Resolve(new TurnPlan?[] { TurnPlan.Straight(b.planes[0]), none }, 3);
             Check(!b.bullets.OfType<TimeBubble>().Any(), "without the pick, planning one does nothing");
+        }
+    }
+
+    static void BlinkHop()
+    {
+        Console.WriteLine("\nBlink");
+        {
+            var b = Tail(30000);
+            var hop = Ahead(b, 0); hop.blink = true; hop.blinkAt = 1;
+            var plain = Tail(30000);
+            var r = b.Resolve(new TurnPlan?[] { hop, Ahead(b, 1) }, 3);
+            plain.Resolve(new TurnPlan?[] { Ahead(plain, 0), Ahead(plain, 1) }, 3);
+            int jf = Array.FindIndex(r.frames[0], f => f.blink);
+            double gained = b.planes[0].state.pos.y - plain.planes[0].state.pos.y;
+            Check(b.blinks[0] == Specials.Blinks - 1, $"one goes, {b.blinks[0]} left");
+            Check(Math.Abs(jf - 1 / Battle.StepSec) <= 1, $"at the moment planned (frame {jf})");
+            Check(Math.Abs(gained - Specials.BlinkFt) < 60, $"it ends the turn {gained:F0} ft farther up the path than flying it ({Specials.BlinkFt:F0})");
+            Check(jf > 0 && (r.frames[0][jf].pos - r.frames[0][jf - 1].pos).Length > Specials.BlinkFt - 60, "in a single step");
+            Check(Math.Abs(b.planes[0].state.vel.Length - plain.planes[0].state.vel.Length) < 15, "flying on at the speed it would have had there");
+        }
+        {
+            // along the planned path: in a hard left turn the hop curls left with it
+            var b = Tail(30000); var plain = Tail(30000);
+            var f = b.planes[0].Forward;
+            var turn = new TurnPlan { aim = new Vec3d(-f.y, f.x, 0).Normalized, throttle = 1 };
+            var hop = turn; hop.blink = true; hop.blinkAt = 0.5;
+            b.Resolve(new TurnPlan?[] { hop, Ahead(b, 1) }, 3);
+            plain.Resolve(new TurnPlan?[] { turn, Ahead(plain, 1) }, 3);
+            double h = Heading(b.planes[0].Forward) - Heading(plain.planes[0].Forward);
+            h = h < -180 ? h + 360 : h > 180 ? h - 360 : h;
+            Check(h > 5, $"in a hard turn it comes out turned on round the turn ({h:F0} deg more than flying it)");
+        }
+        {
+            // a 109 behind fires a half-second burst; the P-51 blinks as the rounds are on their way, or doesn't
+            int Hits(bool blink)
+            {
+                int hits = 0;
+                foreach (double gap in new[] { 1000.0, 1300, 1600 })
+                {
+                    var b = Tail(gap); b.dispersion = false;
+                    var p0 = Ahead(b, 0); p0.blink = blink; p0.blinkAt = 0.5;
+                    var p1 = Ahead(b, 1); p1.burstStart = 0; p1.burstEnd = 0.5;
+                    var rr = b.Resolve(new TurnPlan?[] { p0, p1 }, 3, false);
+                    hits += rr.hits.Count(x => x.shooter == 1);
+                }
+                return hits;
+            }
+            int without = Hits(false), with = Hits(true);
+            Check(without > 0 && with * 3 < without, $"a burst on its way when it blinks lands {with} packets, {without} without");
+        }
+        {
+            // a heat-seeker from behind with no flares: blink as it closes and it loses you
+            int Saved(bool blink)
+            {
+                int saved = 0;
+                foreach (double gap in new[] { 2500.0, 3500, 4500, 5500 })
+                {
+                    var c0 = Specials.Arm(CombatNumbers.P51D()); c0.flares = 0;
+                    var c = new Battle(At(AircraftNumbers.P51D(), 0, gap, 300), c0, At(AircraftNumbers.Bf109G(), 0, 0, 300), Specials.Arm(CombatNumbers.Bf109G()));
+                    bool hit = false;
+                    for (int t = 0; t < 4 && !hit; t++)
+                    {
+                        var p0 = Ahead(c, 0);
+                        if (blink && t > 0 && c.blinks[0] > 0) p0 = new EnemyAi { me = 0, sloppiness = 0 }.Plan(c, 3);
+                        else if (t > 0) p0 = Ahead(c, 0);
+                        var p1 = Ahead(c, 1); p1.missile = t == 0; p1.missileTarget = 0;
+                        hit = c.Resolve(new TurnPlan?[] { p0, p1 }, 3, false).hits.Any(x => x.shooter == 1 && x.damage >= 8);
+                    }
+                    if (!hit) saved++;
+                }
+                return saved;
+            }
+            int s0 = Saved(false), s1 = Saved(true);
+            Check(s1 >= s0 + 2, $"with a heat-seeker on its tail and no flares, an AI pilot's blink saves it {s1} times of 4 ({s0} without)");
+            var b = Tail(30000);
+            var me = b.planes[0];
+            var ms = Missile.Make(1, 1, 0, me.state.pos - me.Forward * 2000, me.state.vel + me.Forward * 400, b.time);
+            b.bullets.Add(ms);
+            var hop = Ahead(b, 0); hop.blink = true; hop.blinkAt = 0.2;
+            b.Resolve(new TurnPlan?[] { hop, Ahead(b, 1) }, 3);
+            Check(!ms.Tracking && ms.lost == MissileLoss.Blink, $"a heat-seeker 2,000 ft behind loses you ({ms.lost})");
+        }
+        {
+            // diving at the ground: the hop stops short, over the ground
+            var n = AircraftNumbers.P51D();
+            var dive = new FlightModel(n, PointMass.Make(new Vec3d(0, 0, 900), Atmosphere.IasToTasKt(300, 900), North)) { throttle = 1 };
+            var st = dive.state; st.vel = new Vec3d(0, st.vel.Length * 0.7, -st.vel.Length * 0.7); st.up = new Vec3d(0, 0.7, 0.7).Normalized; dive.state = st;
+            var b = new Battle(dive, Specials.Arm(CombatNumbers.P51D()), At(AircraftNumbers.Bf109G(), 0, -30000, 300), Specials.Arm(CombatNumbers.Bf109G()));
+            var hop = new TurnPlan { aim = dive.Forward, throttle = 1, blink = true, blinkAt = 0 };
+            b.Resolve(new TurnPlan?[] { hop, Ahead(b, 1) }, 0.1);
+            Check(!b.crashed[0] && b.planes[0].AltFt >= Specials.BlinkFloorFt - 30, $"diving at the ground, it stops short ({b.planes[0].AltFt:F0} ft up)");
+        }
+        {
+            // the AI: someone on its tail with guns on it, and no mines
+            var b = Tail(900);
+            b.balloonMines[0] = 0; b.wells[0] = 0; b.heatBlades[0] = 0; b.slowBombs[0] = 0;
+            var p = new EnemyAi { me = 0, sloppiness = 0 }.Plan(b, 3);
+            Check(p.blink, "an AI pilot with a 109 on its tail (and no mines or wells) blinks");
+        }
+        {
+            // clones, subsets, swaps, bytes
+            var b = Tail(1500);
+            var c = b.Clone();
+            Check(c.blinks[0] == b.blinks[0] && !ReferenceEquals(c.blinks, b.blinks), "a clone keeps the count, in its own array");
+            Check(b.Subset(new[] { 1 }).blinks[0] == b.blinks[1], "a subset keeps it");
+            var plan = Ahead(b, 0); plan.blink = true; plan.blinkAt = 1.25;
+            b.Resolve(new TurnPlan?[] { plan, Ahead(b, 1) }, 3);
+            var back = Tail(1500);
+            Wire.Restore(back, Wire.Encode(b));
+            Check(Wire.Hash(back) == Wire.Hash(b) && back.blinks[0] == b.blinks[0], "a snapshot brings it across exactly");
+            var p2 = Ahead(b, 0); p2.blink = true; var p2b = Ahead(back, 0); p2b.blink = true;
+            b.Resolve(new TurnPlan?[] { p2, Ahead(b, 1) }, 3);
+            back.Resolve(new TurnPlan?[] { p2b, Ahead(back, 1) }, 3);
+            Check(Wire.Hash(back) == Wire.Hash(b) && b.blinks[0] == 0, "and both blink the next turn the same");
+            int k0 = b.blinks[0], k1 = b.blinks[1];
+            b.Swap(0, 1);
+            Check(b.blinks[1] == k0 && b.blinks[0] == k1, "a swap moves the count with the plane");
+            var pd = Wire.Decode<TurnPlan>(Wire.Encode(new TurnPlan { blink = true, blinkAt = 2.15 }));
+            Check(pd.blink && pd.blinkAt == 2.15, "a plan with a blink (and its moment) survives the trip to bytes");
+        }
+        {
+            var l = new Loadout(Kit.Missiles, Kit.Mines).Pick(Kit.Blink, Craft.F15);
+            Check(l.Has(Kit.Blink) && Loadout.Allowed(Kit.Blink, Craft.Zero), $"any plane can pick it ({l})");
+            var set = new DogfightSetup { randomStart = false, ours = new[] { Craft.Mustang }, theirs = new[] { Craft.Bf109 },
+                                          oursLoadouts = new[] { new Loadout(Kit.Blink, Kit.Missiles) }, theirsLoadouts = new[] { new Loadout(Kit.Missiles, Kit.Mines) } };
+            var b = Scenarios.Dogfight(DogfightSetup.FromBytes(set.ToBytes()), Vec3d.Zero);
+            Check(b.blinks[0] == Specials.Blinks && b.blinks[1] == 0, "picked, it brings two blinks (and only the picker has them), through the trip to bytes");
+            var start = b.planes[1].state.pos;
+            var no = TurnPlan.Straight(b.planes[1]); no.blink = true;
+            var r = b.Resolve(new TurnPlan?[] { TurnPlan.Straight(b.planes[0]), no }, 3);
+            Check(!r.frames[1].Any(f => f.blink), "without the pick, planning one does nothing");
         }
     }
 }

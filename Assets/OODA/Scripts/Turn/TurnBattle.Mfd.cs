@@ -176,6 +176,7 @@ namespace Ooda.Turn
             MineOnBar(bar, lbl);
             WellOnBar(bar, lbl);
             SlowOnBar(bar, lbl);
+            BlinkOnBar(bar, lbl);
             lbl.normal.textColor = MfdDim;
             for (int s = 0; s <= (int)turnSec; s++)
                 GUI.Label(new Rect(bar.x + s / (float)turnSec * w - 10, bar.yMax + 3, 20, 11), $"{s}", new GUIStyle(lbl) { alignment = TextAnchor.MiddleCenter });

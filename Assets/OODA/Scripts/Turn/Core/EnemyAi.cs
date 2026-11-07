@@ -387,8 +387,8 @@ namespace Ooda.Turn.Core
         }
 
         /// <summary>
-        /// A missile on it: a gravity well thrown ahead. Someone on its tail with guns on it: a balloon mine let go in their path;
-        /// with none left, a gravity well; then the jammer; then (hurt) stealth, unless it is firing this turn (that would show it
+        /// A missile on it: a blink just before it arrives, else a gravity well thrown ahead. Someone on its tail with guns on
+        /// it: a balloon mine let go in their path; with none left, a gravity well, then a blink; then the jammer; then (hurt) stealth, unless it is firing this turn (that would show it
         /// again at once). A time slow bomb: at a missile on it (with no well), at a tailer (with no mines), or at the target it
         /// is about to shoot at close in, to make it a sitting duck.
         /// </summary>
@@ -396,6 +396,19 @@ namespace Ooda.Turn.Core
         {
             if (sub.routes[0] != null) return;
             var me0 = sub.planes[0];
+            // a missile arriving this turn: blink just before it would hit, so it closes on the empty sky
+            if (sub.blinks[0] > 0)
+                foreach (var b in sub.bullets)
+                {
+                    if (!(b is Missile ms) || ms.target != 0 || !ms.Tracking) continue;
+                    Vec3d r = me0.state.pos - ms.pos;
+                    double range = r.Length, closing = range > 1 ? Vec3d.Dot(ms.vel - me0.state.vel, r * (1 / range)) : 0;
+                    if (closing <= 50) continue;
+                    double arrive = range / closing;
+                    if (arrive > turnSec + 0.3) continue;
+                    plan.blink = true; plan.blinkAt = Math.Max(0, Math.Min(turnSec, Math.Round((arrive - 0.35) / 0.05) * 0.05));
+                    return;
+                }
             // a missile closing on it: a gravity well thrown ahead, to fly through and drag the missile in after
             if (sub.wells[0] > 0)
                 foreach (var b in sub.bullets)
@@ -431,6 +444,7 @@ namespace Ooda.Turn.Core
             if (Boom(sub, ref plan, turnSec)) return;   // the shock cone knocks the tailer off its shot
             if (sub.slowBombs[0] > 0) { plan.slow = true; plan.slowAt = 0; return; }   // the tailer falls back and its rounds crawl
             if (sub.wells[0] > 0) { plan.well = true; plan.wellAt = 0; return; }   // the tailer's rounds bend off, and it turns tighter
+            if (sub.blinks[0] > 0) { plan.blink = true; plan.blinkAt = 0.5; return; }   // a hop ahead: its rounds in the air miss, and the gap opens
             if (sub.jammers[0] > 0) { plan.jam = true; return; }
             bool hurt = sub.SystemsOf(0).AnyDamaged;
             if (sub.stealths[0] > 0 && hurt && plan.burstEnd <= plan.burstStart && !plan.missile) plan.cloak = true;

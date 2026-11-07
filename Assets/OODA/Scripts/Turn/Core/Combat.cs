@@ -36,6 +36,8 @@ namespace Ooda.Turn.Core
         public int wells;
         /// <summary>Time slow bombs carried (see Specials): none unless the loadout (or Specials.Arm) gives them.</summary>
         public int slowBombs;
+        /// <summary>Blink charges carried (see Specials): none unless the loadout (or Specials.Arm) gives them.</summary>
+        public int blinks;
         /// <summary>Ice (a loadout pick, see Loadout): the airframe is cased in ice, cold as the sky, so no heat-seeker can lock it and one that blunders into it shatters harmlessly. Radar missiles and guns still bite.</summary>
         public bool iced;
         /// <summary>Magnet rounds (a loadout pick, see Magnet): the rounds curve toward the nearest enemy they pass.</summary>
@@ -163,6 +165,8 @@ namespace Ooda.Turn.Core
         public double fireTime;   // battle time it left the guns
         public bool alive = true;
         public bool magnet;       // a magnet round (see Magnet): it curves toward the nearest enemy it passes
+        /// <summary>The aircraft that blinked out of its way while it was in the air (see Specials): it can't hit that one. -1 none.</summary>
+        public int missed = -1;
         public Bullet Copy() => (Bullet)MemberwiseClone();
     }
 
@@ -271,7 +275,7 @@ namespace Ooda.Turn.Core
     }
 
     /// <summary>Why a missile lost its target.</summary>
-    public enum MissileLoss { None, Seeker, Gone, Flare, Notch, Radar, Chaff, Well }
+    public enum MissileLoss { None, Seeker, Gone, Flare, Notch, Radar, Chaff, Well, Blink }
 
     /// <summary>
     /// Radar and radar missiles, for jets only (a warbird has no radar: CombatNumbers.radarRangeFt 0), kept arcade simple.
@@ -428,6 +432,8 @@ namespace Ooda.Turn.Core
         public Vec3d bailPos, bailVel;
         /// <summary>Where the nose points (it leaves the path in vertical flight: a tail slide, a hammerhead); zero in an old recording: along vel.</summary>
         public Vec3d nose;
+        /// <summary>The aircraft blinked (see Specials) in the step that ends at this frame: it jumped here from the frame before.</summary>
+        public bool blink;
         /// <summary>The nose along vel when it isn't recorded.</summary>
         public Vec3d Nose => nose.Length > 0.5 ? nose : vel.Normalized;    // the heat blade glowing; stealthy (unseen by the other side)
     }

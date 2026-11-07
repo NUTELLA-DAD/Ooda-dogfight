@@ -48,6 +48,12 @@ namespace Ooda.Turn.Core
     /// you too: planes, rounds, missiles and flares all move (and turn, burn and count down) at that share of the clock, and
     /// come back to full speed as they leave. It does no damage: a tailer caught in it falls back and its stream crawls, a
     /// missile in it loses seconds, a target ahead in it is a sitting duck (until you fly in after it).
+    ///
+    /// Blink: at any moment of the turn you plan (TurnPlan.blinkAt) you vanish and reappear BlinkFt farther along your
+    /// planned path, flying on as if you had flown it (the same speed, heading and bank you would have had there), in a
+    /// single step. The other side's rounds and missiles already in the air inside BlinkShakeFt fly on at the empty sky
+    /// and can't hit you any more (a missile on you loses you) (an enemy radar tracking you starts its lock over). The hop is cut short
+    /// before it would reach the ground or an obstacle.
     /// </summary>
     public static class Specials
     {
@@ -79,8 +85,14 @@ namespace Ooda.Turn.Core
         public const double WellPlaneG = 2.5, WellMissileG = 22, WellRoundG = 60;
         /// <summary>A missile drawn this close to the middle of a gravity well loses its target for good.</summary>
         public const double WellCaptureFt = 450;
+        /// <summary>
+        /// The blink: how far along the planned path it jumps (the path flown on ahead, cut short before the ground or an
+        /// obstacle, and never under BlinkFloorFt over the ground), and how close a heat-seeker or radar missile on you must
+        /// be to lose you (it closes on where you were).
+        /// </summary>
+        public const double BlinkFt = 1500, BlinkFloorFt = 150, BlinkShakeFt = 5000;
         /// <summary>What each fighter carries with Arcade on.</summary>
-        public const int Mines = 2, Blades = 1, Stealths = 1, Jammers = 1, Wells = 2, SlowBombs = 2;
+        public const int Mines = 2, Blades = 1, Stealths = 1, Jammers = 1, Wells = 2, SlowBombs = 2, Blinks = 2;
         /// <summary>The time slow bomb's throw: at the nearest threat within SlowReachFt, flying SlowFlySec to burst (none in reach: SlowAheadFt ahead).</summary>
         public const double SlowReachFt = 5000, SlowFlySec = 0.6, SlowAheadFt = 1200, SlowClearFt = 200;
         /// <summary>The time slow bubble: SlowRadiusFt round its middle (full slow inside SlowCoreShare of it, easing to none at the edge), for SlowLifeSec after it bursts, fading over SlowFadeSec.</summary>
@@ -152,7 +164,7 @@ namespace Ooda.Turn.Core
         /// <summary>Give a fighter its arcade load (the same numbers, changed in place, returned for chaining).</summary>
         public static CombatNumbers Arm(CombatNumbers c)
         {
-            c.balloonMines = Mines; c.heatBlades = Blades; c.stealths = Stealths; c.jammers = Jammers; c.wells = Wells; c.slowBombs = SlowBombs;
+            c.balloonMines = Mines; c.heatBlades = Blades; c.stealths = Stealths; c.jammers = Jammers; c.wells = Wells; c.slowBombs = SlowBombs; c.blinks = Blinks;
             return c;
         }
     }
