@@ -65,6 +65,9 @@ Shader "Ooda/ToonLit"
             #pragma fragment frag
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE
             #pragma multi_compile_fragment _ _SHADOWS_SOFT
+            #pragma multi_compile_fragment _ _REFLECTION_PROBE_BLENDING
+            #pragma multi_compile_fragment _ _REFLECTION_PROBE_BOX_PROJECTION
+            #pragma multi_compile _ EVALUATE_SH_MIXED EVALUATE_SH_VERTEX
             #pragma multi_compile_fog
             #pragma multi_compile_instancing
             #pragma shader_feature_local _METALLICSPECGLOSSMAP
@@ -126,7 +129,8 @@ Shader "Ooda/ToonLit"
                 // polished metal: the scene's reflection, and a drawn horizon over it
                 half3 R = reflect(-V, N);
                 half rough = 1 - smooth;
-                half3 env = clamp(GlossyEnvironmentReflection(R, rough, 1), 0, 16);
+                // the same call Lit makes: the object's own reflection probe (blended, box-projected), not the global sky cube
+                half3 env = clamp(GlossyEnvironmentReflection(R, i.positionWS, rough, 1.0h, GetNormalizedScreenSpaceUV(i.positionCS)), 0, 16);
                 half up = R.y + (rough * rough) * 0.0;
                 half w = max(0.012, rough * 0.6);
                 half3 drawn = lerp(_ChromeGround.rgb, _ChromeHorizon.rgb, smoothstep(-w, w, up));
