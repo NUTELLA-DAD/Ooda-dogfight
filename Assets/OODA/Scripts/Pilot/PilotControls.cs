@@ -29,6 +29,10 @@ namespace Ooda.Pilot
         [Range(0, 1)] public float handWeight = 1f;
         [Tooltip("Seconds a hand takes to ease off its control when a gesture starts, and back on when it ends.")]
         public float handEase = 0.22f;
+        [Tooltip("Where the left elbow is drawn toward, from the throttle hand, in the pilot's own axes (x right, y up, z forward).")]
+        public Vector3 elbowTuckLeft = new Vector3(0.10f, -0.30f, -0.18f);
+        [Tooltip("Where the right elbow is drawn toward, from the stick hand.")]
+        public Vector3 elbowTuckRight = new Vector3(0.14f, -0.30f, -0.18f);
         [Tooltip("For a pilot with finger bones: where his wrist goes relative to the cockpit's wrist point, in his own frame (m at scale 1; x right, y up, z forward), so the stick sits in his palm.")]
         public Vector3 pawStickOffset = new Vector3(0.017f, 0.015f, -0.021f);
         public Vector3 pawThrottleOffset = new Vector3(-0.028f, 0.087f, -0.024f);
@@ -203,7 +207,15 @@ namespace Ooda.Pilot
         {
             if (at == null) { anim.SetIKPositionWeight(goal, 0); return; }
             anim.SetIKPositionWeight(goal, w);
-            anim.SetIKPosition(goal, paws ? at.position + transform.TransformVector(pawOffset) : at.position);
+            Vector3 hand = paws ? at.position + transform.TransformVector(pawOffset) : at.position;
+            anim.SetIKPosition(goal, hand);
+            if (!paws) return;
+            // Keep the elbows tucked: down, back, and for the throttle arm in toward the seat, or the sleeve goes through
+            // the cockpit wall. The hint only sets which way the elbow swings; the hand stays on its control.
+            bool left = goal == AvatarIKGoal.LeftHand;
+            var hint = left ? AvatarIKHint.LeftElbow : AvatarIKHint.RightElbow;
+            anim.SetIKHintPositionWeight(hint, w);
+            anim.SetIKHintPosition(hint, hand + transform.TransformVector(left ? elbowTuckLeft : elbowTuckRight));
         }
     }
 }

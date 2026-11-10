@@ -112,20 +112,21 @@ Shader "Ooda/ToonLit"
                 half3 N = normalize(i.normalWS);
                 half3 V = normalize(GetWorldSpaceViewDir(i.positionWS));
                 Light sun = GetMainLight(TransformWorldToShadowCoord(i.positionWS));
+                sun.color = clamp(sun.color, 0, 16);     // a first frame can arrive before the lighting is set up
                 half3 L = sun.direction;
                 half shadow = sun.shadowAttenuation * sun.distanceAttenuation;
                 half ndl = dot(N, L), ndv = saturate(dot(N, V));
 
                 // two tones: lit, and a cool shade
                 half lit = smoothstep(_BandEdge - _BandSoft, _BandEdge + _BandSoft, ndl) * smoothstep(0.35, 0.65, shadow);
-                half3 sky = SampleSH(N) * _Ambient;
+                half3 sky = clamp(SampleSH(N), 0, 8) * _Ambient;
                 half3 light = lerp(_ShadeColor.rgb * (sun.color * 0.55 + sky), sun.color + sky * 0.35, lit);
                 half3 col = base.rgb * (1 - metal) * light;
 
                 // polished metal: the scene's reflection, and a drawn horizon over it
                 half3 R = reflect(-V, N);
                 half rough = 1 - smooth;
-                half3 env = GlossyEnvironmentReflection(R, rough, 1);
+                half3 env = clamp(GlossyEnvironmentReflection(R, rough, 1), 0, 16);
                 half up = R.y + (rough * rough) * 0.0;
                 half w = max(0.012, rough * 0.6);
                 half3 drawn = lerp(_ChromeGround.rgb, _ChromeHorizon.rgb, smoothstep(-w, w, up));
@@ -147,6 +148,7 @@ Shader "Ooda/ToonLit"
                 half rim = smoothstep(_RimEdge, _RimEdge + 0.06, 1 - ndv) * saturate(ndl * 0.5 + 0.5) * lit;
                 col += rim * _RimStrength * _RimColor.rgb * sun.color * lerp(base.rgb + 0.15, half3(1, 1, 1), metal * 0.5);
 
+                if (AnyIsNaN(col) || AnyIsInf(col)) col = base.rgb * 0.6;
                 col += _EmissionColor.rgb;
                 col = MixFog(col, i.fog);
                 return half4(col, 1);
@@ -185,7 +187,7 @@ Shader "Ooda/ToonLit"
                 // set the shell a little behind the surface, so it shows at the silhouette and not in every small dent
                 float3 away = ws - GetCameraPositionWS();
                 float dist = length(away);
-                ws += away / max(dist, 1e-4) * min(0.02, dist * 0.004);
+                ws += away / max(dist, 1e-4) * min(0.12, dist * 0.004);
                 o.positionCS = TransformWorldToHClip(ws);
                 float3 nCS = TransformWorldToHClipDir(TransformObjectToWorldNormal(a.normalOS));
                 float2 dir = nCS.xy; float len = length(dir);
