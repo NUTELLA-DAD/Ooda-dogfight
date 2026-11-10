@@ -31,7 +31,7 @@ namespace Ooda.Pilot
         public float handEase = 0.22f;
         [Tooltip("For a pilot with finger bones: where his wrist goes relative to the cockpit's wrist point, in his own frame (m at scale 1; x right, y up, z forward), so the stick sits in his palm.")]
         public Vector3 pawStickOffset = new Vector3(0.017f, 0.015f, -0.021f);
-        public Vector3 pawThrottleOffset = new Vector3(-0.028f, 0.043f, -0.047f);
+        public Vector3 pawThrottleOffset = new Vector3(-0.028f, 0.065f, -0.047f);
 
         [Header("Gestures")]
         [Tooltip("Shake a fist at the enemy the head is watching when it comes this close (m).")]
