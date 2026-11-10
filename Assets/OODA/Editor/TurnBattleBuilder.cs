@@ -188,7 +188,7 @@ namespace Ooda.EditorTools
             if (!File.Exists(P38Fbx)) { Debug.LogWarning($"OODA: no {P38Fbx}; the dogfight's P-38s show as P-51s (or Bf 109s on their side)."); return null; }
             ImportPlane(P38Fbx, Art + "/P38/P38_MetallicSmoothness.png");
             var body = TestWorldBuilder.Textured("P38", Art + "/P38/P38_BaseColor.png", Art + "/P38/P38_MetallicSmoothness.png");
-            var tigerMat = TestWorldBuilder.Textured("TigerPilot", Art + "/TigerPilot/Pilot_BaseColor.png", Art + "/TigerPilot/Pilot_MetallicSmoothness.png");
+            var tigerMat = TestWorldBuilder.Textured("TigerPilot", Art + "/TigerPilot/Pilot_BaseColor.png", Art + "/TigerPilot/Pilot_MetallicSmoothness.png", toon: true);
             var tigerCtrl = TestWorldBuilder.MakePilotController(TigerFbx, "TigerPilot");
             return MakeFighter("P38", P38Fbx, new[] { "P38_PropR", "P38_PropL" }, P38PrefabPath, P38Seat, mats, body,
                                TigerFbx, Ooda.Turn.Core.PilotKind.Tiger, tigerMat, tigerCtrl, maxRpm: 1500);
@@ -231,7 +231,7 @@ namespace Ooda.EditorTools
             if (!File.Exists(F15Fbx)) { Debug.LogWarning($"OODA: no {F15Fbx}; the dogfight's F-15s show as P-51s (or Bf 109s on their side)."); return null; }
             ImportPlane(F15Fbx, Art + "/F15/F15_MetallicSmoothness.png");
             var body = TestWorldBuilder.Textured("F15", Art + "/F15/F15_BaseColor.png", Art + "/F15/F15_MetallicSmoothness.png");
-            var tigerMat = TestWorldBuilder.Textured("TigerPilot", Art + "/TigerPilot/Pilot_BaseColor.png", Art + "/TigerPilot/Pilot_MetallicSmoothness.png");
+            var tigerMat = TestWorldBuilder.Textured("TigerPilot", Art + "/TigerPilot/Pilot_BaseColor.png", Art + "/TigerPilot/Pilot_MetallicSmoothness.png", toon: true);
             var tigerCtrl = TestWorldBuilder.MakePilotController(TigerFbx, "TigerPilot");
             return MakeFighter("F15", F15Fbx, new string[0], F15PrefabPath, F15Seat, mats, body,
                                TigerFbx, Ooda.Turn.Core.PilotKind.Tiger, tigerMat, tigerCtrl, extra: (root, model) =>

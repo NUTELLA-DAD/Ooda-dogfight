@@ -23,7 +23,7 @@ ModelImporter:
     animationDoRetargetingWarnings: 0
     importAnimatedCustomProperties: 0
     importConstraints: 0
-    animationCompression: 1
+    animationCompression: 0
     animationRotationError: 0.5
     animationPositionError: 0.5
     animationScaleError: 0.5
@@ -56,8 +56,116 @@ ModelImporter:
       bodyMask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000
       curves: []
       events: []
-      transformMask: []
-      maskType: 3
+      transformMask:
+      - path: 
+        weight: 1
+      - path: Pilot_Body
+        weight: 1
+      - path: PilotRig
+        weight: 1
+      - path: PilotRig/Hips
+        weight: 1
+      - path: PilotRig/Hips/LeftUpperLeg
+        weight: 1
+      - path: PilotRig/Hips/LeftUpperLeg/LeftLowerLeg
+        weight: 1
+      - path: PilotRig/Hips/LeftUpperLeg/LeftLowerLeg/LeftFoot
+        weight: 1
+      - path: PilotRig/Hips/LeftUpperLeg/LeftLowerLeg/LeftFoot/LeftToes
+        weight: 1
+      - path: PilotRig/Hips/RightUpperLeg
+        weight: 1
+      - path: PilotRig/Hips/RightUpperLeg/RightLowerLeg
+        weight: 1
+      - path: PilotRig/Hips/RightUpperLeg/RightLowerLeg/RightFoot
+        weight: 1
+      - path: PilotRig/Hips/RightUpperLeg/RightLowerLeg/RightFoot/RightToes
+        weight: 1
+      - path: PilotRig/Hips/Spine
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal/LeftIndexIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal/LeftIndexIntermediate/LeftIndexDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal/LeftMiddleIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal/LeftMiddleIntermediate/LeftMiddleDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftRingProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftRingProximal/LeftRingIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftRingProximal/LeftRingIntermediate/LeftRingDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal/LeftThumbIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal/LeftThumbIntermediate/LeftThumbDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/Neck
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/Neck/Head
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/Neck/Head/LeftEar
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/Neck/Head/RightEar
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal/RightIndexIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal/RightIndexIntermediate/RightIndexDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal/RightMiddleIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal/RightMiddleIntermediate/RightMiddleDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightRingProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightRingProximal/RightRingIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightRingProximal/RightRingIntermediate/RightRingDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal/RightThumbIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal/RightThumbIntermediate/RightThumbDistal
+        weight: 1
+      - path: PilotRig/Hips/Tail1
+        weight: 1
+      - path: PilotRig/Hips/Tail1/Tail2
+        weight: 1
+      - path: PilotRig/Hips/Tail1/Tail2/Tail3
+        weight: 1
+      - path: PilotRig/Hips/Tail1/Tail2/Tail3/Tail4
+        weight: 1
+      maskType: 0
       maskSource: {instanceID: 0}
       additiveReferencePoseFrame: 0
     - serializedVersion: 16
@@ -85,8 +193,116 @@ ModelImporter:
       bodyMask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000
       curves: []
       events: []
-      transformMask: []
-      maskType: 3
+      transformMask:
+      - path: 
+        weight: 1
+      - path: Pilot_Body
+        weight: 1
+      - path: PilotRig
+        weight: 1
+      - path: PilotRig/Hips
+        weight: 1
+      - path: PilotRig/Hips/LeftUpperLeg
+        weight: 1
+      - path: PilotRig/Hips/LeftUpperLeg/LeftLowerLeg
+        weight: 1
+      - path: PilotRig/Hips/LeftUpperLeg/LeftLowerLeg/LeftFoot
+        weight: 1
+      - path: PilotRig/Hips/LeftUpperLeg/LeftLowerLeg/LeftFoot/LeftToes
+        weight: 1
+      - path: PilotRig/Hips/RightUpperLeg
+        weight: 1
+      - path: PilotRig/Hips/RightUpperLeg/RightLowerLeg
+        weight: 1
+      - path: PilotRig/Hips/RightUpperLeg/RightLowerLeg/RightFoot
+        weight: 1
+      - path: PilotRig/Hips/RightUpperLeg/RightLowerLeg/RightFoot/RightToes
+        weight: 1
+      - path: PilotRig/Hips/Spine
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal/LeftIndexIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal/LeftIndexIntermediate/LeftIndexDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal/LeftMiddleIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal/LeftMiddleIntermediate/LeftMiddleDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftRingProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftRingProximal/LeftRingIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftRingProximal/LeftRingIntermediate/LeftRingDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal/LeftThumbIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal/LeftThumbIntermediate/LeftThumbDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/Neck
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/Neck/Head
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/Neck/Head/LeftEar
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/Neck/Head/RightEar
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal/RightIndexIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal/RightIndexIntermediate/RightIndexDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal/RightMiddleIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal/RightMiddleIntermediate/RightMiddleDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightRingProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightRingProximal/RightRingIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightRingProximal/RightRingIntermediate/RightRingDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal/RightThumbIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal/RightThumbIntermediate/RightThumbDistal
+        weight: 1
+      - path: PilotRig/Hips/Tail1
+        weight: 1
+      - path: PilotRig/Hips/Tail1/Tail2
+        weight: 1
+      - path: PilotRig/Hips/Tail1/Tail2/Tail3
+        weight: 1
+      - path: PilotRig/Hips/Tail1/Tail2/Tail3/Tail4
+        weight: 1
+      maskType: 0
       maskSource: {instanceID: 0}
       additiveReferencePoseFrame: 0
     - serializedVersion: 16
@@ -114,8 +330,116 @@ ModelImporter:
       bodyMask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000
       curves: []
       events: []
-      transformMask: []
-      maskType: 3
+      transformMask:
+      - path: 
+        weight: 1
+      - path: Pilot_Body
+        weight: 1
+      - path: PilotRig
+        weight: 1
+      - path: PilotRig/Hips
+        weight: 1
+      - path: PilotRig/Hips/LeftUpperLeg
+        weight: 1
+      - path: PilotRig/Hips/LeftUpperLeg/LeftLowerLeg
+        weight: 1
+      - path: PilotRig/Hips/LeftUpperLeg/LeftLowerLeg/LeftFoot
+        weight: 1
+      - path: PilotRig/Hips/LeftUpperLeg/LeftLowerLeg/LeftFoot/LeftToes
+        weight: 1
+      - path: PilotRig/Hips/RightUpperLeg
+        weight: 1
+      - path: PilotRig/Hips/RightUpperLeg/RightLowerLeg
+        weight: 1
+      - path: PilotRig/Hips/RightUpperLeg/RightLowerLeg/RightFoot
+        weight: 1
+      - path: PilotRig/Hips/RightUpperLeg/RightLowerLeg/RightFoot/RightToes
+        weight: 1
+      - path: PilotRig/Hips/Spine
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal/LeftIndexIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal/LeftIndexIntermediate/LeftIndexDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal/LeftMiddleIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal/LeftMiddleIntermediate/LeftMiddleDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftRingProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftRingProximal/LeftRingIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftRingProximal/LeftRingIntermediate/LeftRingDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal/LeftThumbIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal/LeftThumbIntermediate/LeftThumbDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/Neck
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/Neck/Head
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/Neck/Head/LeftEar
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/Neck/Head/RightEar
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal/RightIndexIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal/RightIndexIntermediate/RightIndexDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal/RightMiddleIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal/RightMiddleIntermediate/RightMiddleDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightRingProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightRingProximal/RightRingIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightRingProximal/RightRingIntermediate/RightRingDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal/RightThumbIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal/RightThumbIntermediate/RightThumbDistal
+        weight: 1
+      - path: PilotRig/Hips/Tail1
+        weight: 1
+      - path: PilotRig/Hips/Tail1/Tail2
+        weight: 1
+      - path: PilotRig/Hips/Tail1/Tail2/Tail3
+        weight: 1
+      - path: PilotRig/Hips/Tail1/Tail2/Tail3/Tail4
+        weight: 1
+      maskType: 0
       maskSource: {instanceID: 0}
       additiveReferencePoseFrame: 0
     - serializedVersion: 16
@@ -123,7 +447,7 @@ ModelImporter:
       takeName: PilotRig|Fly
       internalID: -2649923164635500361
       firstFrame: 0
-      lastFrame: 120
+      lastFrame: 240
       wrapMode: 0
       orientationOffsetY: 0
       level: 0
@@ -143,8 +467,116 @@ ModelImporter:
       bodyMask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000
       curves: []
       events: []
-      transformMask: []
-      maskType: 3
+      transformMask:
+      - path: 
+        weight: 1
+      - path: Pilot_Body
+        weight: 1
+      - path: PilotRig
+        weight: 1
+      - path: PilotRig/Hips
+        weight: 1
+      - path: PilotRig/Hips/LeftUpperLeg
+        weight: 1
+      - path: PilotRig/Hips/LeftUpperLeg/LeftLowerLeg
+        weight: 1
+      - path: PilotRig/Hips/LeftUpperLeg/LeftLowerLeg/LeftFoot
+        weight: 1
+      - path: PilotRig/Hips/LeftUpperLeg/LeftLowerLeg/LeftFoot/LeftToes
+        weight: 1
+      - path: PilotRig/Hips/RightUpperLeg
+        weight: 1
+      - path: PilotRig/Hips/RightUpperLeg/RightLowerLeg
+        weight: 1
+      - path: PilotRig/Hips/RightUpperLeg/RightLowerLeg/RightFoot
+        weight: 1
+      - path: PilotRig/Hips/RightUpperLeg/RightLowerLeg/RightFoot/RightToes
+        weight: 1
+      - path: PilotRig/Hips/Spine
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal/LeftIndexIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal/LeftIndexIntermediate/LeftIndexDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal/LeftMiddleIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal/LeftMiddleIntermediate/LeftMiddleDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftRingProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftRingProximal/LeftRingIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftRingProximal/LeftRingIntermediate/LeftRingDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal/LeftThumbIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal/LeftThumbIntermediate/LeftThumbDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/Neck
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/Neck/Head
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/Neck/Head/LeftEar
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/Neck/Head/RightEar
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal/RightIndexIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal/RightIndexIntermediate/RightIndexDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal/RightMiddleIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal/RightMiddleIntermediate/RightMiddleDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightRingProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightRingProximal/RightRingIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightRingProximal/RightRingIntermediate/RightRingDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal/RightThumbIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal/RightThumbIntermediate/RightThumbDistal
+        weight: 1
+      - path: PilotRig/Hips/Tail1
+        weight: 1
+      - path: PilotRig/Hips/Tail1/Tail2
+        weight: 1
+      - path: PilotRig/Hips/Tail1/Tail2/Tail3
+        weight: 1
+      - path: PilotRig/Hips/Tail1/Tail2/Tail3/Tail4
+        weight: 1
+      maskType: 0
       maskSource: {instanceID: 0}
       additiveReferencePoseFrame: 0
     - serializedVersion: 16
@@ -172,8 +604,116 @@ ModelImporter:
       bodyMask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000
       curves: []
       events: []
-      transformMask: []
-      maskType: 3
+      transformMask:
+      - path: 
+        weight: 1
+      - path: Pilot_Body
+        weight: 1
+      - path: PilotRig
+        weight: 1
+      - path: PilotRig/Hips
+        weight: 1
+      - path: PilotRig/Hips/LeftUpperLeg
+        weight: 1
+      - path: PilotRig/Hips/LeftUpperLeg/LeftLowerLeg
+        weight: 1
+      - path: PilotRig/Hips/LeftUpperLeg/LeftLowerLeg/LeftFoot
+        weight: 1
+      - path: PilotRig/Hips/LeftUpperLeg/LeftLowerLeg/LeftFoot/LeftToes
+        weight: 1
+      - path: PilotRig/Hips/RightUpperLeg
+        weight: 1
+      - path: PilotRig/Hips/RightUpperLeg/RightLowerLeg
+        weight: 1
+      - path: PilotRig/Hips/RightUpperLeg/RightLowerLeg/RightFoot
+        weight: 1
+      - path: PilotRig/Hips/RightUpperLeg/RightLowerLeg/RightFoot/RightToes
+        weight: 1
+      - path: PilotRig/Hips/Spine
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal/LeftIndexIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal/LeftIndexIntermediate/LeftIndexDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal/LeftMiddleIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal/LeftMiddleIntermediate/LeftMiddleDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftRingProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftRingProximal/LeftRingIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftRingProximal/LeftRingIntermediate/LeftRingDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal/LeftThumbIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal/LeftThumbIntermediate/LeftThumbDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/Neck
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/Neck/Head
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/Neck/Head/LeftEar
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/Neck/Head/RightEar
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal/RightIndexIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal/RightIndexIntermediate/RightIndexDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal/RightMiddleIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal/RightMiddleIntermediate/RightMiddleDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightRingProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightRingProximal/RightRingIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightRingProximal/RightRingIntermediate/RightRingDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal/RightThumbIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal/RightThumbIntermediate/RightThumbDistal
+        weight: 1
+      - path: PilotRig/Hips/Tail1
+        weight: 1
+      - path: PilotRig/Hips/Tail1/Tail2
+        weight: 1
+      - path: PilotRig/Hips/Tail1/Tail2/Tail3
+        weight: 1
+      - path: PilotRig/Hips/Tail1/Tail2/Tail3/Tail4
+        weight: 1
+      maskType: 0
       maskSource: {instanceID: 0}
       additiveReferencePoseFrame: 0
     - serializedVersion: 16
@@ -201,8 +741,116 @@ ModelImporter:
       bodyMask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000
       curves: []
       events: []
-      transformMask: []
-      maskType: 3
+      transformMask:
+      - path: 
+        weight: 1
+      - path: Pilot_Body
+        weight: 1
+      - path: PilotRig
+        weight: 1
+      - path: PilotRig/Hips
+        weight: 1
+      - path: PilotRig/Hips/LeftUpperLeg
+        weight: 1
+      - path: PilotRig/Hips/LeftUpperLeg/LeftLowerLeg
+        weight: 1
+      - path: PilotRig/Hips/LeftUpperLeg/LeftLowerLeg/LeftFoot
+        weight: 1
+      - path: PilotRig/Hips/LeftUpperLeg/LeftLowerLeg/LeftFoot/LeftToes
+        weight: 1
+      - path: PilotRig/Hips/RightUpperLeg
+        weight: 1
+      - path: PilotRig/Hips/RightUpperLeg/RightLowerLeg
+        weight: 1
+      - path: PilotRig/Hips/RightUpperLeg/RightLowerLeg/RightFoot
+        weight: 1
+      - path: PilotRig/Hips/RightUpperLeg/RightLowerLeg/RightFoot/RightToes
+        weight: 1
+      - path: PilotRig/Hips/Spine
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal/LeftIndexIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal/LeftIndexIntermediate/LeftIndexDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal/LeftMiddleIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal/LeftMiddleIntermediate/LeftMiddleDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftRingProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftRingProximal/LeftRingIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftRingProximal/LeftRingIntermediate/LeftRingDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal/LeftThumbIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal/LeftThumbIntermediate/LeftThumbDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/Neck
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/Neck/Head
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/Neck/Head/LeftEar
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/Neck/Head/RightEar
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal/RightIndexIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal/RightIndexIntermediate/RightIndexDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal/RightMiddleIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal/RightMiddleIntermediate/RightMiddleDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightRingProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightRingProximal/RightRingIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightRingProximal/RightRingIntermediate/RightRingDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal/RightThumbIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal/RightThumbIntermediate/RightThumbDistal
+        weight: 1
+      - path: PilotRig/Hips/Tail1
+        weight: 1
+      - path: PilotRig/Hips/Tail1/Tail2
+        weight: 1
+      - path: PilotRig/Hips/Tail1/Tail2/Tail3
+        weight: 1
+      - path: PilotRig/Hips/Tail1/Tail2/Tail3/Tail4
+        weight: 1
+      maskType: 0
       maskSource: {instanceID: 0}
       additiveReferencePoseFrame: 0
     - serializedVersion: 16
@@ -230,8 +878,116 @@ ModelImporter:
       bodyMask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000
       curves: []
       events: []
-      transformMask: []
-      maskType: 3
+      transformMask:
+      - path: 
+        weight: 1
+      - path: Pilot_Body
+        weight: 1
+      - path: PilotRig
+        weight: 1
+      - path: PilotRig/Hips
+        weight: 1
+      - path: PilotRig/Hips/LeftUpperLeg
+        weight: 1
+      - path: PilotRig/Hips/LeftUpperLeg/LeftLowerLeg
+        weight: 1
+      - path: PilotRig/Hips/LeftUpperLeg/LeftLowerLeg/LeftFoot
+        weight: 1
+      - path: PilotRig/Hips/LeftUpperLeg/LeftLowerLeg/LeftFoot/LeftToes
+        weight: 1
+      - path: PilotRig/Hips/RightUpperLeg
+        weight: 1
+      - path: PilotRig/Hips/RightUpperLeg/RightLowerLeg
+        weight: 1
+      - path: PilotRig/Hips/RightUpperLeg/RightLowerLeg/RightFoot
+        weight: 1
+      - path: PilotRig/Hips/RightUpperLeg/RightLowerLeg/RightFoot/RightToes
+        weight: 1
+      - path: PilotRig/Hips/Spine
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal/LeftIndexIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal/LeftIndexIntermediate/LeftIndexDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal/LeftMiddleIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal/LeftMiddleIntermediate/LeftMiddleDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftRingProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftRingProximal/LeftRingIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftRingProximal/LeftRingIntermediate/LeftRingDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal/LeftThumbIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal/LeftThumbIntermediate/LeftThumbDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/Neck
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/Neck/Head
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/Neck/Head/LeftEar
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/Neck/Head/RightEar
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal/RightIndexIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal/RightIndexIntermediate/RightIndexDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal/RightMiddleIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal/RightMiddleIntermediate/RightMiddleDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightRingProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightRingProximal/RightRingIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightRingProximal/RightRingIntermediate/RightRingDistal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal/RightThumbIntermediate
+        weight: 1
+      - path: PilotRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal/RightThumbIntermediate/RightThumbDistal
+        weight: 1
+      - path: PilotRig/Hips/Tail1
+        weight: 1
+      - path: PilotRig/Hips/Tail1/Tail2
+        weight: 1
+      - path: PilotRig/Hips/Tail1/Tail2/Tail3
+        weight: 1
+      - path: PilotRig/Hips/Tail1/Tail2/Tail3/Tail4
+        weight: 1
+      maskType: 0
       maskSource: {instanceID: 0}
       additiveReferencePoseFrame: 0
     isReadable: 0
@@ -597,7 +1353,7 @@ ModelImporter:
       rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
       scale: {x: 1, y: 1, z: 1}
     armTwist: 0.5
-    foreArmTwist: 0.5
+    foreArmTwist: 0
     upperLegTwist: 0.5
     legTwist: 0.5
     armStretch: 0.05

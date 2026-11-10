@@ -528,6 +528,9 @@ MonoBehaviour:
   stickRollDeg: 16
   throttleTravelDeg: 50
   handWeight: 1
+  handEase: 0.22
+  pawStickOffset: {x: 0.017, y: 0.015, z: -0.021}
+  pawThrottleOffset: {x: -0.028, y: 0.081, z: -0.021}
   fistRange: 450
   fistCooldown: 14
   idleEvery: {x: 9, y: 20}
@@ -710,6 +713,9 @@ MonoBehaviour:
   stickRollDeg: 16
   throttleTravelDeg: 50
   handWeight: 1
+  handEase: 0.22
+  pawStickOffset: {x: 0.017, y: 0.015, z: -0.021}
+  pawThrottleOffset: {x: -0.028, y: 0.081, z: -0.021}
   fistRange: 450
   fistCooldown: 14
   idleEvery: {x: 9, y: 20}
@@ -884,6 +890,9 @@ MonoBehaviour:
   stickRollDeg: 16
   throttleTravelDeg: 50
   handWeight: 1
+  handEase: 0.22
+  pawStickOffset: {x: 0.017, y: 0.015, z: -0.021}
+  pawThrottleOffset: {x: -0.028, y: 0.081, z: -0.021}
   fistRange: 450
   fistCooldown: 14
   idleEvery: {x: 9, y: 20}
@@ -1058,6 +1067,9 @@ MonoBehaviour:
   stickRollDeg: 16
   throttleTravelDeg: 50
   handWeight: 1
+  handEase: 0.22
+  pawStickOffset: {x: 0.017, y: 0.015, z: -0.021}
+  pawThrottleOffset: {x: -0.028, y: 0.081, z: -0.021}
   fistRange: 450
   fistCooldown: 14
   idleEvery: {x: 9, y: 20}
@@ -1232,6 +1244,9 @@ MonoBehaviour:
   stickRollDeg: 16
   throttleTravelDeg: 50
   handWeight: 1
+  handEase: 0.22
+  pawStickOffset: {x: 0.017, y: 0.015, z: -0.021}
+  pawThrottleOffset: {x: -0.028, y: 0.081, z: -0.021}
   fistRange: 450
   fistCooldown: 14
   idleEvery: {x: 9, y: 20}
@@ -1614,6 +1629,9 @@ MonoBehaviour:
   stickRollDeg: 16
   throttleTravelDeg: 50
   handWeight: 1
+  handEase: 0.22
+  pawStickOffset: {x: 0.017, y: 0.015, z: -0.021}
+  pawThrottleOffset: {x: -0.028, y: 0.081, z: -0.021}
   fistRange: 450
   fistCooldown: 14
   idleEvery: {x: 9, y: 20}
@@ -1783,6 +1801,9 @@ MonoBehaviour:
   stickRollDeg: 16
   throttleTravelDeg: 50
   handWeight: 1
+  handEase: 0.22
+  pawStickOffset: {x: 0.017, y: 0.015, z: -0.021}
+  pawThrottleOffset: {x: -0.028, y: 0.081, z: -0.021}
   fistRange: 450
   fistCooldown: 14
   idleEvery: {x: 9, y: 20}
@@ -2018,6 +2039,9 @@ MonoBehaviour:
   stickRollDeg: 16
   throttleTravelDeg: 50
   handWeight: 1
+  handEase: 0.22
+  pawStickOffset: {x: 0.017, y: 0.015, z: -0.021}
+  pawThrottleOffset: {x: -0.028, y: 0.081, z: -0.021}
   fistRange: 450
   fistCooldown: 14
   idleEvery: {x: 9, y: 20}
@@ -2246,6 +2270,9 @@ MonoBehaviour:
   stickRollDeg: 16
   throttleTravelDeg: 50
   handWeight: 1
+  handEase: 0.22
+  pawStickOffset: {x: 0.017, y: 0.015, z: -0.021}
+  pawThrottleOffset: {x: -0.028, y: 0.081, z: -0.021}
   fistRange: 450
   fistCooldown: 14
   idleEvery: {x: 9, y: 20}
@@ -2313,14 +2340,6 @@ PrefabInstance:
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
       objectReference: {fileID: 2100000, guid: c1720a4db6b9603489e36d9bc2f6a667, type: 2}
-    - target: {fileID: -2977584368205095557, guid: 1b6c0665b77971d40a2b3d17dcb811ba, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 0.5111723
-      objectReference: {fileID: 0}
-    - target: {fileID: -2977584368205095557, guid: 1b6c0665b77971d40a2b3d17dcb811ba, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: -0.6723639
-      objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 1b6c0665b77971d40a2b3d17dcb811ba, type: 3}
       propertyPath: m_Name
       value: TigerPilot
@@ -2328,6 +2347,14 @@ PrefabInstance:
     - target: {fileID: 919132149155446097, guid: 1b6c0665b77971d40a2b3d17dcb811ba, type: 3}
       propertyPath: m_IsActive
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3079725995391228195, guid: 1b6c0665b77971d40a2b3d17dcb811ba, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0.027610663
+      objectReference: {fileID: 0}
+    - target: {fileID: 3079725995391228195, guid: 1b6c0665b77971d40a2b3d17dcb811ba, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0.021148052
       objectReference: {fileID: 0}
     - target: {fileID: 5866666021909216657, guid: 1b6c0665b77971d40a2b3d17dcb811ba, type: 3}
       propertyPath: m_Controller
@@ -2423,6 +2450,9 @@ MonoBehaviour:
   stickRollDeg: 16
   throttleTravelDeg: 50
   handWeight: 1
+  handEase: 0.22
+  pawStickOffset: {x: 0.017, y: 0.015, z: -0.021}
+  pawThrottleOffset: {x: -0.028, y: 0.081, z: -0.021}
   fistRange: 450
   fistCooldown: 14
   idleEvery: {x: 9, y: 20}

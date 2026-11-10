@@ -34,7 +34,7 @@ namespace Ooda.EditorTools
             if (glass.Length == 0) { Debug.LogWarning("OODA: the Phantom has no canopy glass; no crew."); return null; }
             float z0 = glass.Min(p => p.z), z1 = glass.Max(p => p.z);
 
-            var tigerMat = TestWorldBuilder.Textured("TigerPilot", "Assets/OODA/Art/TigerPilot/Pilot_BaseColor.png", "Assets/OODA/Art/TigerPilot/Pilot_MetallicSmoothness.png");
+            var tigerMat = TestWorldBuilder.Textured("TigerPilot", "Assets/OODA/Art/TigerPilot/Pilot_BaseColor.png", "Assets/OODA/Art/TigerPilot/Pilot_MetallicSmoothness.png", toon: true);
             var wolfMat = TestWorldBuilder.Textured("WolfPilot", "Assets/OODA/Art/WolfPilot/Wolf_BaseColor.png", "Assets/OODA/Art/WolfPilot/Wolf_MetallicSmoothness.png");
             var tigerCtrl = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>("Assets/OODA/Generated/TigerPilot.controller");
             var wolfCtrl = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>("Assets/OODA/Generated/WolfPilot.controller");

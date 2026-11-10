@@ -163,9 +163,14 @@ namespace Ooda.EditorTools
             return m;
         }
 
-        internal static Material Textured(string name, string baseMap, string metalSmooth)
+        /// <summary>The toon look (Fx/ToonLit.shader): two-tone light, rim, drawn horizon in the metal, inked outline.
+        /// It keeps Lit's property names, so tints, heat glow and the rest work on it unchanged.</summary>
+        internal static Shader Toon => Shader.Find("Ooda/ToonLit");
+
+        internal static Material Textured(string name, string baseMap, string metalSmooth, bool toon = false)
         {
             var m = Mat(name, Color.white, 1f, 1f);
+            if (toon && Toon != null) m.shader = Toon;
             m.SetTexture("_BaseMap", AssetDatabase.LoadAssetAtPath<Texture2D>(baseMap));
             m.SetTexture("_MainTex", AssetDatabase.LoadAssetAtPath<Texture2D>(baseMap));
             m.SetTexture("_MetallicGlossMap", AssetDatabase.LoadAssetAtPath<Texture2D>(metalSmooth));
@@ -193,8 +198,8 @@ namespace Ooda.EditorTools
         {
             var r = new Mats
             {
-                plane = Textured("P51", Art + "/P51/P51_BaseColor.png", Art + "/P51/P51_MetallicSmoothness.png"),
-                pilot = Textured("TigerPilot", Art + "/TigerPilot/Pilot_BaseColor.png", Art + "/TigerPilot/Pilot_MetallicSmoothness.png"),
+                plane = Textured("P51", Art + "/P51/P51_BaseColor.png", Art + "/P51/P51_MetallicSmoothness.png", toon: true),
+                pilot = Textured("TigerPilot", Art + "/TigerPilot/Pilot_BaseColor.png", Art + "/TigerPilot/Pilot_MetallicSmoothness.png", toon: true),
                 canopy = Mat("P51_CanopyGlass", new Color(0.92f, 0.96f, 1f, 0.06f), 0.8f),
                 cockpit = Mat("P51_Cockpit", new Color(0.13f, 0.15f, 0.10f), 0.2f),
                 water = Mat("Sea", new Color(0.08f, 0.22f, 0.35f), 0.85f),
@@ -226,6 +231,28 @@ namespace Ooda.EditorTools
 
         static RuntimeAnimatorController MakePilotAnimator() => MakePilotController(PilotFbx, "TigerPilot");
 
+        /// <summary>
+        /// A pilot with finger bones (LeftIndexProximal and so on) has his clips move every bone of the rig, not only
+        /// the Humanoid ones: a Humanoid clip drops the curves of the other bones (fingers, ears, tail) unless its mask
+        /// names them. The fingers are left out of the avatar on purpose: mapped, their curls went through the muscle
+        /// space and came out as a third of what was authored.
+        /// </summary>
+        static void AnimateExtraBones(string fbx, ModelImporterClipAnimation[] clips)
+        {
+            var go = AssetDatabase.LoadAssetAtPath<GameObject>(fbx);
+            if (go == null || !go.GetComponentsInChildren<Transform>(true).Any(t => t.name == "LeftIndexProximal")) return;
+            var mask = new AvatarMask();
+            for (int i = 0; i < (int)AvatarMaskBodyPart.LastBodyPart; i++) mask.SetHumanoidBodyPartActive((AvatarMaskBodyPart)i, true);
+            mask.AddTransformPath(go.transform, true);
+            for (int i = 0; i < mask.transformCount; i++) mask.SetTransformActive(i, true);
+            foreach (var c in clips)
+            {
+                c.maskType = ClipAnimationMaskType.CreateFromThisModel;
+                c.ConfigureClipFromMask(mask);
+            }
+            Object.DestroyImmediate(mask);
+        }
+
         /// <summary>A pilot FBX as a Humanoid with one clip per take (named after the take), the root locked in his seat.</summary>
         internal static void ImportPilot(string fbx, string label)
         {
@@ -234,7 +261,10 @@ namespace Ooda.EditorTools
             pilot.animationType = ModelImporterAnimationType.Human;
             pilot.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
             pilot.importAnimation = true;
-            var clips = pilot.defaultClipAnimations;
+            pilot.animationCompression = ModelImporterAnimationCompression.Off;   // keyframe reduction roughened the small moves
+            pilot.importBlendShapes = true;                                       // the eyelids (PilotFace)
+            // a pilot with eyelids also exports an empty take per clip for its shape keys ("Key|..."): not clips
+            var clips = pilot.defaultClipAnimations.Where(c => !(c.takeName ?? c.name).StartsWith("Key|")).ToArray();
             foreach (var c in clips)
             {
                 string take = c.takeName ?? c.name;
@@ -247,6 +277,7 @@ namespace Ooda.EditorTools
                 c.keepOriginalPositionY = true;
                 c.keepOriginalPositionXZ = true;
             }
+            AnimateExtraBones(fbx, clips);
             pilot.clipAnimations = clips;
             pilot.SaveAndReimport();
             var avatar = AssetDatabase.LoadAllAssetsAtPath(fbx).OfType<Avatar>().FirstOrDefault();
