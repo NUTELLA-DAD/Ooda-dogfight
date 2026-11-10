@@ -253,6 +253,10 @@ for a in list(bpy.data.actions):
 seated.use_fake_user = True
 rig.animation_data.action = seated
 sc.frame_set(1)
+# Lids open in the file: the face is driven in the game (PilotFace), never by a clip.
+for key in bpy.data.shape_keys:
+    key.animation_data_clear()
+    for kb in key.key_blocks[1:]: kb.value = 0.0
 bpy.ops.wm.save_as_mainfile(filepath=DST)
 if FBX:
     for o in bpy.data.objects: o.select_set(False)

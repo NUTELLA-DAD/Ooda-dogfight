@@ -51,7 +51,8 @@ namespace Ooda.Pilot
             exprTarget = Mathf.Clamp01(closed); exprUntil = Time.time + seconds;
         }
 
-        void Update()
+        // After the Animator: the clips carry the lid shapes (held open), and whatever writes last wins.
+        void LateUpdate()
         {
             if (smr == null) return;
             float dt = Time.deltaTime;

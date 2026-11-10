@@ -65,7 +65,7 @@ lid = bpy.data.objects.new('Lids', lm); bpy.context.scene.collection.objects.lin
 if sum(p.normal.y for p in lm.polygons if p.area > 0) > 0 or True:
     lid.shape_key_add(name='Basis');
     for kname in ('BlinkHalf', 'Blink'):
-        k = lid.shape_key_add(name=kname)
+        k = lid.shape_key_add(name=kname); k.value = 0.0
         for i, v in enumerate(keys[kname]): k.data[i].co = v
 lid.vertex_groups.new(name='Head').add(list(range(len(verts))), 1.0, 'REPLACE')
 lid.data.materials.append(body.material_slots[0].material)
@@ -78,6 +78,7 @@ if nrm.y > 0: lm.flip_normals()
 # join into the body: the body gets the same shape keys (it does not move in them)
 n_body = len(me.vertices)
 body.shape_key_add(name='Basis'); body.shape_key_add(name='BlinkHalf'); body.shape_key_add(name='Blink')
+for kb in body.data.shape_keys.key_blocks[1:]: kb.value = 0.0   # open at rest
 for o in bpy.data.objects: o.select_set(o in (lid, body))
 bpy.context.view_layer.objects.active = body
 bpy.ops.object.join()
