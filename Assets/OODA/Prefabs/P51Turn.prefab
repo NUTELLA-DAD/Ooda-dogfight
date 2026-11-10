@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1358742951459912604}
   - component: {fileID: 677702163046847156}
+  - component: {fileID: 2208374274582027483}
   - component: {fileID: 2194529153109133804}
   - component: {fileID: 6385624554883762384}
   - component: {fileID: 1745143117241610090}
@@ -53,6 +54,23 @@ MonoBehaviour:
   idleRpm: 400
   maxRpm: 1400
   reverse: 0
+--- !u!114 &2208374274582027483
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 567333442783511349}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fef8b6872d1146b8bfc004b59624a866, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Ooda.Flight.PlaneLivery
+  standard: {fileID: 2100000, guid: f125d38149cecf14c85b75602a430890, type: 2}
+  others:
+  - {fileID: 2100000, guid: bc3226223d7c2a64aa6316424745bbc7, type: 2}
+  - {fileID: 2100000, guid: a6cc92353c31f0244be4b27f607e58d1, type: 2}
+  - {fileID: 2100000, guid: c83a2ddb7da3f0a47abbde79c69a726c, type: 2}
 --- !u!114 &2194529153109133804
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -827,18 +845,6 @@ PrefabInstance:
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
       objectReference: {fileID: 2100000, guid: f125d38149cecf14c85b75602a430890, type: 2}
-    - target: {fileID: 2285500499473957907, guid: b0c85af7bcaa5c647ab8e497f0584373, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 2285500499473957907, guid: b0c85af7bcaa5c647ab8e497f0584373, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 0.22559968
-      objectReference: {fileID: 0}
-    - target: {fileID: 2285500499473957907, guid: b0c85af7bcaa5c647ab8e497f0584373, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: 4.4274783
-      objectReference: {fileID: 0}
     - target: {fileID: 4737465412642453598, guid: b0c85af7bcaa5c647ab8e497f0584373, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
