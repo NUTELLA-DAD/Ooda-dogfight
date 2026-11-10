@@ -52,7 +52,8 @@ def hull_top(x, y):
 
 # the cockpit opening: between OY0 and OY1, as wide as xs(y)
 OY0, OY1 = -1.75, 0.80
-fxs = PchipInterpolator([-3.97, -1.75, -1.30, -0.50, 0.30, 0.80, 2.0, 4.25], [0.30, 0.38, 0.47, 0.48, 0.42, 0.26, 0.15, 0.008])
+# wide beside the pilot: the sill sits lower round the hull's curve there, so his face shows over it
+fxs = PchipInterpolator([-3.97, -1.75, -1.30, -0.95, -0.35, 0.30, 0.80, 2.0, 4.25], [0.30, 0.38, 0.49, 0.55, 0.55, 0.44, 0.26, 0.15, 0.008])
 def xs(y): return float(fxs(y))
 def th_split(y):
     zt, zb, w, zc, n = sec(y); return math.acos(min(0.98, xs(y) / w) ** (n / 2))
@@ -264,6 +265,8 @@ old_body = bpy.data.objects['P51_Body']; mat = bpy.data.materials['P51_Mat']; gl
 for nme in [o.name for o in bpy.data.objects if o.type == 'MESH' and (o.name.startswith('P51_') and o.name not in ('P51_Body', 'P51_Propeller') or o.name == 'Pit_Tub')] \
         + [o.name for o in bpy.data.objects if o.name.endswith('_Hinge')]:
     bpy.data.objects.remove(bpy.data.objects[nme], do_unlink=True)
+# seat the pilot 10 cm higher than the old model did, so his face clears the sill from level views
+bpy.data.objects['PilotMount'].location.z = 0.02
 # the propeller keeps its palette square
 texmap = {'pos': np.zeros((SIZE, SIZE, 3), np.float32), 'nrm': np.zeros((SIZE, SIZE, 3), np.float32), 'chart': np.zeros((SIZE, SIZE), np.uint8)}
 CH = sorted(rect); chid = {c: i + 1 for i, c in enumerate(CH)}
