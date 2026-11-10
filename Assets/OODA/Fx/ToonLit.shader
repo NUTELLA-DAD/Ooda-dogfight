@@ -38,6 +38,7 @@ Shader "Ooda/ToonLit"
         _OutlineColor ("Outline", Color) = (0.07, 0.07, 0.10, 1)
         _OutlineWidth ("Outline width, pixels", Range(0, 8)) = 2.2
         _OutlineNear ("Full width within, metres", Range(1, 400)) = 40
+        _OutlineMinDepth ("No outline nearer than, metres", Range(0, 3)) = 0.8
 
         [HideInInspector] _Surface ("__surface", Float) = 0
         [HideInInspector] _Blend ("__blend", Float) = 0
@@ -76,7 +77,7 @@ Shader "Ooda/ToonLit"
                 float4 _BaseMap_ST;
                 half4 _BaseColor, _EmissionColor, _ShadeColor, _RimColor, _ChromeSky, _ChromeHorizon, _ChromeGround, _OutlineColor;
                 half _Metallic, _Smoothness, _Cutoff, _BandEdge, _BandSoft, _Ambient, _RimEdge, _RimStrength, _GlintSize, _GlintStrength, _ChromeToon;
-                half _OutlineWidth, _OutlineNear;
+                half _OutlineWidth, _OutlineNear, _OutlineMinDepth;
             CBUFFER_END
 
             struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
@@ -170,32 +171,39 @@ Shader "Ooda/ToonLit"
                 float4 _BaseMap_ST;
                 half4 _BaseColor, _EmissionColor, _ShadeColor, _RimColor, _ChromeSky, _ChromeHorizon, _ChromeGround, _OutlineColor;
                 half _Metallic, _Smoothness, _Cutoff, _BandEdge, _BandSoft, _Ambient, _RimEdge, _RimStrength, _GlintSize, _GlintStrength, _ChromeToon;
-                half _OutlineWidth, _OutlineNear;
+                half _OutlineWidth, _OutlineNear, _OutlineMinDepth;
             CBUFFER_END
 
             struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; UNITY_VERTEX_INPUT_INSTANCE_ID };
-            struct Varyings { float4 positionCS : SV_POSITION; half fog : TEXCOORD0; UNITY_VERTEX_OUTPUT_STEREO };
+            struct Varyings { float4 positionCS : SV_POSITION; half fog : TEXCOORD0; float depth : TEXCOORD1; UNITY_VERTEX_OUTPUT_STEREO };
 
             Varyings vert(Attributes a)
             {
                 Varyings o = (Varyings)0;
                 UNITY_SETUP_INSTANCE_ID(a); UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
                 float3 ws = TransformObjectToWorld(a.positionOS.xyz);
+                // set the shell a little behind the surface, so it shows at the silhouette and not in every small dent
+                float3 away = ws - GetCameraPositionWS();
+                float dist = length(away);
+                ws += away / max(dist, 1e-4) * min(0.02, dist * 0.004);
                 o.positionCS = TransformWorldToHClip(ws);
                 float3 nCS = TransformWorldToHClipDir(TransformObjectToWorldNormal(a.normalOS));
                 float2 dir = nCS.xy; float len = length(dir);
                 dir = len > 1e-5 ? dir / len : float2(0, 0);
                 // a width in pixels, thinning with distance so a far aircraft is not all ink
                 float px = _OutlineWidth * clamp(_OutlineNear / max(o.positionCS.w, 0.01), 0.3, 1.0);
-                px *= step(0.35, o.positionCS.w);          // nothing right against the lens (the pilot's own cockpit)
                 o.positionCS.xy += dir * px * 2.0 / _ScreenParams.xy * o.positionCS.w;
                 o.fog = ComputeFogFactor(o.positionCS.z);
+                o.depth = o.positionCS.w;
                 return o;
             }
 
             half4 frag(Varyings i) : SV_Target
             {
                 clip(_OutlineWidth - 0.01);
+                // no ink within arm's reach of the lens: from the pilot's seat the shell of his own head and shoulders
+                // would be seen from inside, as a black wall
+                clip(i.depth - _OutlineMinDepth);
                 return half4(MixFog(_OutlineColor.rgb, i.fog), 1);
             }
             ENDHLSL
