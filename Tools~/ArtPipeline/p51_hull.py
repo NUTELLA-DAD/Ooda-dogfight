@@ -35,7 +35,7 @@ def part(name):
 
 # ------------------------------------------------------------------ fuselage sections
 ST = np.array([   # y, top, bottom, half width
-    (-3.97, 0.701, -0.249, 0.475), (-3.60, 0.860, -0.520, 0.590), (-3.20, 0.890, -0.680, 0.620),
+    (-3.97, 0.760, -0.160, 0.460), (-3.75, 0.800, -0.290, 0.502), (-3.45, 0.845, -0.490, 0.555), (-3.10, 0.880, -0.670, 0.605),
     (-2.60, 0.890, -0.800, 0.630), (-1.90, 0.870, -0.860, 0.630), (-1.00, 0.720, -0.900, 0.650),
     (0.00, 0.560, -0.900, 0.625), (0.90, 0.440, -0.860, 0.520), (1.50, 0.390, -0.760, 0.430),
     (2.10, 0.350, -0.620, 0.330), (2.70, 0.320, -0.480, 0.240), (3.30, 0.290, -0.360, 0.160),
@@ -269,8 +269,8 @@ for nme in [o.name for o in bpy.data.objects if o.type == 'MESH' and (o.name.sta
 bpy.data.objects['PilotMount'].location.z = 0.02
 bpy.data.objects['CockpitCamera'].location.z = 0.759     # and his eye point with him
 # The spinner: the old one was a blunt dome as wide as the old nose. It becomes a slimmer, pointed ogive whose base
-# sits just inside the cowl's front ring (the game no longer slides the propeller forward). The blades stay put.
-def slim_spinner(ob, base_r=0.455, base_y=-3.95, length=1.02):
+# continues the cowl's own lines, flush with its front ring (the game no longer slides the propeller forward). The blades stay put.
+def slim_spinner(ob, base_r=0.457, base_y=-3.965, length=1.0, axis_z=0.30, a=0.42):
     import bmesh
     mw = ob.matrix_world; inv = mw.inverted()
     bm = bmesh.new(); bm.from_mesh(ob.data); bm.verts.ensure_lookup_table()
@@ -286,10 +286,11 @@ def slim_spinner(ob, base_r=0.455, base_y=-3.95, length=1.02):
     for i in seen:
         c = wco[i]; r = math.hypot(c.x - ax_x, c.z - ax_z); t = (y_back - c.y) / (y_back - y_tip)
         if t < 0.02: nr = r / old_r * base_r                      # the back plate keeps its disc
-        else: nr = base_r * max(0.0, 1 - t ** 1.7) ** 0.85 if r > 1e-5 else 0.0
+        else: nr = base_r * max(0.0, 1 - a * t - (1 - a) * t ** 2.2) ** 0.9 if r > 1e-5 else 0.0   # leaves the cowl at the cowl's own slope
         k = nr / r if r > 1e-5 else 0.0
         bm.verts[i].co = inv @ Vector((ax_x + (c.x - ax_x) * k, base_y - t * length, ax_z + (c.z - ax_z) * k))
     bm.normal_update(); bm.to_mesh(ob.data); bm.free(); ob.data.update()
+    ob.location.z += axis_z - ax_z          # the thrust line sits high on the nose: the cowl's top runs straight into the spinner
     print('spinner: %d verts, old radius %.3f length %.3f' % (len(seen), old_r, y_back - y_tip))
 slim_spinner(bpy.data.objects['P51_Propeller'])
 # the propeller keeps its palette square
