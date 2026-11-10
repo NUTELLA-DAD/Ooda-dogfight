@@ -10,6 +10,9 @@ namespace Ooda.Pilot
     /// He also does things: works the instruments and checks six now and then, shakes his fist at an enemy that comes
     /// close, flinches when he is hit and cheers a kill (<see cref="Play"/>). The gestures are Animator states named
     /// like the triggers; the base state is Fly.
+    /// A pilot with finger bones (the tiger's rebuilt paws) holds the controls in his palm, not at his wrist: his wrist
+    /// targets sit back from the cockpit's by <see cref="pawStickOffset"/> and <see cref="pawThrottleOffset"/>. The hands
+    /// ease on and off the controls (no pop when a gesture starts), and a pilot with eyelids gets a <see cref="PilotFace"/>.
     /// </summary>
     [ExecuteAlways] // so the editor's shot tools see the paws on the stick and throttle too
     [RequireComponent(typeof(Animator))]
@@ -24,6 +27,11 @@ namespace Ooda.Pilot
         [Header("Stick and throttle travel")]
         public float stickPitchDeg = 14f, stickRollDeg = 16f, throttleTravelDeg = 50f;
         [Range(0, 1)] public float handWeight = 1f;
+        [Tooltip("Seconds a hand takes to ease off its control when a gesture starts, and back on when it ends.")]
+        public float handEase = 0.22f;
+        [Tooltip("For a pilot with finger bones: where his wrist goes relative to the cockpit's wrist point, in his own frame (m at scale 1; x right, y up, z forward), so the stick sits in his palm.")]
+        public Vector3 pawStickOffset = new Vector3(0.017f, 0.015f, -0.021f);
+        public Vector3 pawThrottleOffset = new Vector3(-0.028f, 0.087f, -0.024f);
 
         [Header("Gestures")]
         [Tooltip("Shake a fist at the enemy the head is watching when it comes this close (m).")]
@@ -38,6 +46,9 @@ namespace Ooda.Pilot
         Quaternion stickRest, throttleRest, aspRest, altRest, climbRest, rpmRest, horizonRest;
         float pitchS, rollS, thrS, nextIdle, lastFist = -99f, leftFree, rightFree, lookFree;
         float gestureEnd;
+        float leftW = 1f, rightW = 1f, leftVel, rightVel;
+        bool paws;
+        PilotFace face;
 
         static readonly int[] Triggers =
         {
@@ -49,6 +60,7 @@ namespace Ooda.Pilot
         {
             anim = GetComponent<Animator>();
             look = GetComponent<PilotHeadLook>();
+            paws = Find(transform, "RightIndexProximal") != null;
         }
 
         void Start()
@@ -75,6 +87,11 @@ namespace Ooda.Pilot
             var rails = GetComponent<PilotRails>();
             if (rails != null && stickWrist != null) { rails.weight = 0; rails.enabled = false; }
             nextIdle = Time.time + Random.Range(idleEvery.x, idleEvery.y);
+            if (Application.isPlaying)
+            {
+                face = GetComponent<PilotFace>();
+                if (face == null && PilotFace.HasLids(gameObject)) face = gameObject.AddComponent<PilotFace>();
+            }
         }
 
         static Transform Find(Transform t, string name)
@@ -96,6 +113,14 @@ namespace Ooda.Pilot
             if (g == Gesture.Flinch) { leftFree = Mathf.Max(leftFree, 0.6f); rightFree = 0.6f; }
             if (g == Gesture.CheckSix || g == Gesture.Instruments) lookFree = len;
             if (g == Gesture.ShakeFist) lastFist = Time.time;
+            if (face != null)
+            {
+                // the eyes act too: shut on a hit, narrowed at the enemy, squeezed shut in a cheer, a blink as the head turns
+                if (g == Gesture.Flinch) face.Express(1f, 0.35f);
+                else if (g == Gesture.ShakeFist) face.Express(0.38f, 1.9f);
+                else if (g == Gesture.Cheer) face.Express(1f, 1.1f);
+                else face.Blink();
+            }
         }
 
         void Update()
@@ -103,6 +128,9 @@ namespace Ooda.Pilot
             if (!Application.isPlaying) return;   // in the editor only the hands are posed
             float dt = Time.deltaTime;
             leftFree = Mathf.Max(0, leftFree - dt); rightFree = Mathf.Max(0, rightFree - dt); lookFree = Mathf.Max(0, lookFree - dt);
+            // the hands ease off the controls and back on; a jump in the IK weight is what made them pop
+            leftW = Mathf.SmoothDamp(leftW, leftFree > 0.3f ? 0f : 1f, ref leftVel, handEase);
+            rightW = Mathf.SmoothDamp(rightW, rightFree > 0.3f ? 0f : 1f, ref rightVel, handEase);
             // the head-look would fight a look back over the shoulder or down at the panel
             if (look != null) look.headWeight = Mathf.MoveTowards(look.headWeight, lookFree > 0 ? 0f : 1f, dt * 3f);
 
@@ -165,17 +193,17 @@ namespace Ooda.Pilot
         void OnAnimatorIK(int layer)
         {
             if (anim == null) return;
-            float wl = handWeight * (1 - Mathf.Clamp01(leftFree * 3f)), wr = handWeight * (1 - Mathf.Clamp01(rightFree * 3f));
-            // ease back onto the controls as the gesture ends rather than snapping
-            Hand(AvatarIKGoal.LeftHand, throttleWrist, wl);
-            Hand(AvatarIKGoal.RightHand, stickWrist, wr);
+            bool playing = Application.isPlaying;   // in the editor the hands are simply posed on the controls
+            float wl = handWeight * (playing ? Mathf.Clamp01(leftW) : 1f), wr = handWeight * (playing ? Mathf.Clamp01(rightW) : 1f);
+            Hand(AvatarIKGoal.LeftHand, throttleWrist, wl, pawThrottleOffset);
+            Hand(AvatarIKGoal.RightHand, stickWrist, wr, pawStickOffset);
         }
 
-        void Hand(AvatarIKGoal goal, Transform at, float w)
+        void Hand(AvatarIKGoal goal, Transform at, float w, Vector3 pawOffset)
         {
             if (at == null) { anim.SetIKPositionWeight(goal, 0); return; }
             anim.SetIKPositionWeight(goal, w);
-            anim.SetIKPosition(goal, at.position);
+            anim.SetIKPosition(goal, paws ? at.position + transform.TransformVector(pawOffset) : at.position);
         }
     }
 }

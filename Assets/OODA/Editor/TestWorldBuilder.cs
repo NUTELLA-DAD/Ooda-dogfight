@@ -234,7 +234,10 @@ namespace Ooda.EditorTools
             pilot.animationType = ModelImporterAnimationType.Human;
             pilot.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
             pilot.importAnimation = true;
-            var clips = pilot.defaultClipAnimations;
+            pilot.animationCompression = ModelImporterAnimationCompression.Off;   // keyframe reduction roughened the small moves
+            pilot.importBlendShapes = true;                                       // the eyelids (PilotFace)
+            // a pilot with eyelids also exports an empty take per clip for its shape keys ("Key|..."): not clips
+            var clips = pilot.defaultClipAnimations.Where(c => !(c.takeName ?? c.name).StartsWith("Key|")).ToArray();
             foreach (var c in clips)
             {
                 string take = c.takeName ?? c.name;
