@@ -265,8 +265,9 @@ old_body = bpy.data.objects['P51_Body']; mat = bpy.data.materials['P51_Mat']; gl
 for nme in [o.name for o in bpy.data.objects if o.type == 'MESH' and (o.name.startswith('P51_') and o.name not in ('P51_Body', 'P51_Propeller') or o.name == 'Pit_Tub')] \
         + [o.name for o in bpy.data.objects if o.name.endswith('_Hinge')]:
     bpy.data.objects.remove(bpy.data.objects[nme], do_unlink=True)
-# seat the pilot 10 cm higher than the old model did, so his face clears the sill from level views
+# seat the pilot 10 cm higher than the old model did (mount -0.08, eye 0.659), so his face clears the sill from level views
 bpy.data.objects['PilotMount'].location.z = 0.02
+bpy.data.objects['CockpitCamera'].location.z = 0.759     # and his eye point with him
 # the propeller keeps its palette square
 texmap = {'pos': np.zeros((SIZE, SIZE, 3), np.float32), 'nrm': np.zeros((SIZE, SIZE, 3), np.float32), 'chart': np.zeros((SIZE, SIZE), np.uint8)}
 CH = sorted(rect); chid = {c: i + 1 for i, c in enumerate(CH)}
