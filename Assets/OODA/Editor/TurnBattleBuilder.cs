@@ -168,7 +168,7 @@ namespace Ooda.EditorTools
         static GameObject MakeBf109Prefab(TestWorldBuilder.Mats mats, Material pilotMat, RuntimeAnimatorController pilotCtrl)
         {
             ImportPlane(Bf109Fbx, Art + "/Bf109/Bf109_MetallicSmoothness.png");
-            var body = TestWorldBuilder.Textured("Bf109", Art + "/Bf109/Bf109_BaseColor.png", Art + "/Bf109/Bf109_MetallicSmoothness.png");
+            var body = TestWorldBuilder.Textured("Bf109", Art + "/Bf109/Bf109_BaseColor.png", Art + "/Bf109/Bf109_MetallicSmoothness.png", toon: true);
             return MakeWolfFighter("Bf109", Bf109Fbx, "Bf109_Propeller", Bf109PrefabPath, Bf109Seat, mats, body, pilotMat, pilotCtrl);
         }
 
