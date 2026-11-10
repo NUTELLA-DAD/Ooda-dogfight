@@ -71,27 +71,6 @@ namespace Ooda.Pilot
         void LateUpdate()
         {
             if (head != null) head.localScale = hideHead ? Vector3.one * 0.001f : Vector3.one;
-            if (hideHead != inkHidden) Ink(!hideHead);
-        }
-
-        // The toon outline (Fx/ToonLit) draws the mesh again inside out. With the head shrunk away, the skin stretched
-        // from the collar to that point would ink as black streaks across the pilot's own view: no outline on him then.
-        bool inkHidden;
-        static readonly int OutlineWidth = Shader.PropertyToID("_OutlineWidth");
-        MaterialPropertyBlock block;
-
-        void Ink(bool on)
-        {
-            inkHidden = !on;
-            block ??= new MaterialPropertyBlock();
-            foreach (var r in GetComponentsInChildren<Renderer>(true))
-            {
-                var m = r.sharedMaterial;
-                if (m == null || !m.HasProperty(OutlineWidth)) continue;
-                r.GetPropertyBlock(block);
-                block.SetFloat(OutlineWidth, on ? m.GetFloat(OutlineWidth) : 0f);
-                r.SetPropertyBlock(block);
-            }
         }
     }
 }

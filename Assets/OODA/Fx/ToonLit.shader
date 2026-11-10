@@ -4,7 +4,7 @@
 // It answers to the same property names as URP's Lit (_BaseMap, _BaseColor, _MetallicGlossMap, _Metallic, _Smoothness,
 // _EmissionColor), so everything in the game that tints, heats or frosts a Lit material works on it unchanged.
 // The outline is the same mesh drawn again inside out and pushed along its normals by a width in pixels, so it wants
-// smooth normals. Shadows and depth come from Lit's own passes.
+// smooth normals.
 Shader "Ooda/ToonLit"
 {
     Properties
@@ -54,6 +54,17 @@ Shader "Ooda/ToonLit"
     {
         Tags { "RenderType" = "Opaque" "Queue" = "Geometry" "RenderPipeline" = "UniversalPipeline" }
 
+        // One set of material constants for every pass (so the SRP batcher takes the shader, and no pass reads another's layout).
+        HLSLINCLUDE
+        #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+        CBUFFER_START(UnityPerMaterial)
+            float4 _BaseMap_ST;
+            half4 _BaseColor, _EmissionColor, _ShadeColor, _RimColor, _ChromeSky, _ChromeHorizon, _ChromeGround, _OutlineColor;
+            half _Metallic, _Smoothness, _Cutoff, _BandEdge, _BandSoft, _Ambient, _RimEdge, _RimStrength, _GlintSize, _GlintStrength, _ChromeToon;
+            half _OutlineWidth, _OutlineNear, _OutlineMinDepth;
+        CBUFFER_END
+        ENDHLSL
+
         Pass
         {
             Name "ToonForward"
@@ -76,12 +87,6 @@ Shader "Ooda/ToonLit"
 
             TEXTURE2D(_BaseMap); SAMPLER(sampler_BaseMap);
             TEXTURE2D(_MetallicGlossMap); SAMPLER(sampler_MetallicGlossMap);
-            CBUFFER_START(UnityPerMaterial)
-                float4 _BaseMap_ST;
-                half4 _BaseColor, _EmissionColor, _ShadeColor, _RimColor, _ChromeSky, _ChromeHorizon, _ChromeGround, _OutlineColor;
-                half _Metallic, _Smoothness, _Cutoff, _BandEdge, _BandSoft, _Ambient, _RimEdge, _RimStrength, _GlintSize, _GlintStrength, _ChromeToon;
-                half _OutlineWidth, _OutlineNear, _OutlineMinDepth;
-            CBUFFER_END
 
             struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct Varyings
@@ -173,12 +178,6 @@ Shader "Ooda/ToonLit"
             #pragma multi_compile_instancing
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
-            CBUFFER_START(UnityPerMaterial)
-                float4 _BaseMap_ST;
-                half4 _BaseColor, _EmissionColor, _ShadeColor, _RimColor, _ChromeSky, _ChromeHorizon, _ChromeGround, _OutlineColor;
-                half _Metallic, _Smoothness, _Cutoff, _BandEdge, _BandSoft, _Ambient, _RimEdge, _RimStrength, _GlintSize, _GlintStrength, _ChromeToon;
-                half _OutlineWidth, _OutlineNear, _OutlineMinDepth;
-            CBUFFER_END
 
             struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct Varyings { float4 positionCS : SV_POSITION; half fog : TEXCOORD0; float depth : TEXCOORD1; UNITY_VERTEX_OUTPUT_STEREO };
@@ -215,9 +214,94 @@ Shader "Ooda/ToonLit"
             ENDHLSL
         }
 
-        UsePass "Universal Render Pipeline/Lit/ShadowCaster"
-        UsePass "Universal Render Pipeline/Lit/DepthOnly"
-        UsePass "Universal Render Pipeline/Lit/DepthNormals"
+        Pass
+        {
+            Name "ShadowCaster"
+            Tags { "LightMode" = "ShadowCaster" }
+            ZWrite On
+            ZTest LEqual
+            ColorMask 0
+            Cull [_Cull]
+            HLSLPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+            #pragma multi_compile_instancing
+            #pragma multi_compile_vertex _ _CASTING_PUNCTUAL_LIGHT_SHADOW
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
+            float3 _LightDirection;
+            float3 _LightPosition;
+            struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct Varyings { float4 positionCS : SV_POSITION; };
+            Varyings vert(Attributes a)
+            {
+                Varyings o;
+                UNITY_SETUP_INSTANCE_ID(a);
+                float3 ws = TransformObjectToWorld(a.positionOS.xyz);
+                float3 n = TransformObjectToWorldNormal(a.normalOS);
+            #if _CASTING_PUNCTUAL_LIGHT_SHADOW
+                float3 toLight = normalize(_LightPosition - ws);
+            #else
+                float3 toLight = _LightDirection;
+            #endif
+                o.positionCS = TransformWorldToHClip(ApplyShadowBias(ws, n, toLight));
+            #if UNITY_REVERSED_Z
+                o.positionCS.z = min(o.positionCS.z, UNITY_NEAR_CLIP_VALUE);
+            #else
+                o.positionCS.z = max(o.positionCS.z, UNITY_NEAR_CLIP_VALUE);
+            #endif
+                return o;
+            }
+            half4 frag(Varyings i) : SV_Target { return 0; }
+            ENDHLSL
+        }
+
+        Pass
+        {
+            Name "DepthOnly"
+            Tags { "LightMode" = "DepthOnly" }
+            ZWrite On
+            ColorMask R
+            Cull [_Cull]
+            HLSLPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+            #pragma multi_compile_instancing
+            struct Attributes { float4 positionOS : POSITION; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct Varyings { float4 positionCS : SV_POSITION; UNITY_VERTEX_OUTPUT_STEREO };
+            Varyings vert(Attributes a)
+            {
+                Varyings o = (Varyings)0;
+                UNITY_SETUP_INSTANCE_ID(a); UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
+                o.positionCS = TransformObjectToHClip(a.positionOS.xyz);
+                return o;
+            }
+            half4 frag(Varyings i) : SV_Target { return i.positionCS.z; }
+            ENDHLSL
+        }
+
+        Pass
+        {
+            Name "DepthNormals"
+            Tags { "LightMode" = "DepthNormals" }
+            ZWrite On
+            Cull [_Cull]
+            HLSLPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+            #pragma multi_compile_instancing
+            struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct Varyings { float4 positionCS : SV_POSITION; half3 normalWS : TEXCOORD0; UNITY_VERTEX_OUTPUT_STEREO };
+            Varyings vert(Attributes a)
+            {
+                Varyings o = (Varyings)0;
+                UNITY_SETUP_INSTANCE_ID(a); UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
+                o.positionCS = TransformObjectToHClip(a.positionOS.xyz);
+                o.normalWS = TransformObjectToWorldNormal(a.normalOS);
+                return o;
+            }
+            half4 frag(Varyings i) : SV_Target { return half4(normalize(i.normalWS), 0); }
+            ENDHLSL
+        }
     }
     Fallback "Universal Render Pipeline/Lit"
 }
