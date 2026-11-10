@@ -232,37 +232,25 @@ namespace Ooda.EditorTools
         static RuntimeAnimatorController MakePilotAnimator() => MakePilotController(PilotFbx, "TigerPilot");
 
         /// <summary>
-        /// A pilot with finger bones (LeftIndexProximal and so on) gets them into his Humanoid avatar, so the clips'
-        /// finger curls play: a Humanoid clip cannot move a bone the avatar does not map. The avatar's skeleton is
-        /// written again from the model, since it has to hold every mapped bone.
+        /// A pilot with finger bones (LeftIndexProximal and so on) has his clips move every bone of the rig, not only
+        /// the Humanoid ones: a Humanoid clip drops the curves of the other bones (fingers, ears, tail) unless its mask
+        /// names them. The fingers are left out of the avatar on purpose: mapped, their curls went through the muscle
+        /// space and came out as a third of what was authored.
         /// </summary>
-        static void MapFingers(ModelImporter pilot, string fbx)
+        static void AnimateExtraBones(string fbx, ModelImporterClipAnimation[] clips)
         {
             var go = AssetDatabase.LoadAssetAtPath<GameObject>(fbx);
-            if (go == null) return;
-            var all = go.GetComponentsInChildren<Transform>(true);
-            var hd = pilot.humanDescription;
-            if (hd.human == null || hd.human.Length == 0) return;   // not mapped yet: Unity maps the body itself first
-            var human = hd.human.ToList();
-            bool fingers = false;
-            foreach (string side in new[] { "Left", "Right" })
-                foreach (string finger in new[] { "Thumb", "Index", "Middle", "Ring", "Little" })
-                    foreach (string seg in new[] { "Proximal", "Intermediate", "Distal" })
-                    {
-                        string bone = side + finger + seg, name = $"{side} {finger} {seg}";
-                        if (!all.Any(t => t.name == bone)) continue;
-                        fingers = true;
-                        if (human.Any(h => h.humanName == name)) continue;
-                        human.Add(new HumanBone { boneName = bone, humanName = name, limit = new HumanLimit { useDefaultValues = true } });
-                    }
-            if (!fingers) return;
-            hd.human = human.ToArray();
-            hd.skeleton = all.Select(t => new SkeletonBone
+            if (go == null || !go.GetComponentsInChildren<Transform>(true).Any(t => t.name == "LeftIndexProximal")) return;
+            var mask = new AvatarMask();
+            for (int i = 0; i < (int)AvatarMaskBodyPart.LastBodyPart; i++) mask.SetHumanoidBodyPartActive((AvatarMaskBodyPart)i, true);
+            mask.AddTransformPath(go.transform, true);
+            for (int i = 0; i < mask.transformCount; i++) mask.SetTransformActive(i, true);
+            foreach (var c in clips)
             {
-                name = t == go.transform ? go.name + "(Clone)" : t.name,
-                position = t.localPosition, rotation = t.localRotation, scale = t.localScale,
-            }).ToArray();
-            pilot.humanDescription = hd;
+                c.maskType = ClipAnimationMaskType.CreateFromThisModel;
+                c.ConfigureClipFromMask(mask);
+            }
+            Object.DestroyImmediate(mask);
         }
 
         /// <summary>A pilot FBX as a Humanoid with one clip per take (named after the take), the root locked in his seat.</summary>
@@ -289,8 +277,8 @@ namespace Ooda.EditorTools
                 c.keepOriginalPositionY = true;
                 c.keepOriginalPositionXZ = true;
             }
+            AnimateExtraBones(fbx, clips);
             pilot.clipAnimations = clips;
-            MapFingers(pilot, fbx);
             pilot.SaveAndReimport();
             var avatar = AssetDatabase.LoadAllAssetsAtPath(fbx).OfType<Avatar>().FirstOrDefault();
             if (avatar != null && avatar.isValid && avatar.isHuman) Debug.Log($"OODA: {label} avatar is valid (Humanoid), clips: {string.Join(", ", clips.Select(c => c.name))}.");
