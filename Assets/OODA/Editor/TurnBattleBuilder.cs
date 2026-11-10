@@ -41,7 +41,7 @@ namespace Ooda.EditorTools
             PilotCast.Prepare();
             var mats = TestWorldBuilder.MakeMaterials();
             var spitMat = TestWorldBuilder.Textured("Spitfire", Art + "/Spitfire/Spit_BaseColor.png", Art + "/Spitfire/Spit_MetallicSmoothness.png");
-            var wolfMat = TestWorldBuilder.Textured("WolfPilot", Art + "/WolfPilot/Wolf_BaseColor.png", Art + "/WolfPilot/Wolf_MetallicSmoothness.png");
+            var wolfMat = TestWorldBuilder.Textured("WolfPilot", Art + "/WolfPilot/Wolf_BaseColor.png", Art + "/WolfPilot/Wolf_MetallicSmoothness.png", toon: true);
             var wolfCtrl = MakeSeatedAnimator(WolfFbx, "WolfPilot");
             var spit = MakeSpitfirePrefab(mats, spitMat, wolfMat, wolfCtrl);
             var bf109 = MakeBf109Prefab(mats, wolfMat, wolfCtrl);

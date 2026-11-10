@@ -2,22 +2,25 @@
 # lid follows the curve of the eye on its way down) and an ear bone each side for flicks and for laying the ears back.
 # The lids are clean grids laid on the eye's own surface, folded away along the upper lid line until the shapes
 # unfold them; their paint goes in the atlas strip above the paws.
-# Run: python -I pilot_face.py -- <in.blend> <basecolor.png in/out> <out.blend>
-import bpy, sys, math, bmesh, numpy as np
+# Run: python -I pilot_face.py -- <in.blend> <basecolor.png in/out> <out.blend> [pilot spec.json]
+#   The spec (specs/wolf_pilot.json) names another pilot's rig and body, where his eyes are, and how to find his ears;
+#   without one the values are the tiger's.
+import bpy, sys, math, bmesh, json, numpy as np
 from mathutils import Vector
 from mathutils.bvhtree import BVHTree
 from PIL import Image
 Image.MAX_IMAGE_PIXELS = None
 
 a = sys.argv[sys.argv.index('--') + 1:]
-SRC, TEX, DST = a
+SRC, TEX, DST = a[:3]
+SPEC = json.load(open(a[3])) if len(a) > 3 else {}
 bpy.ops.wm.open_mainfile(filepath=SRC)
-rig = bpy.data.objects['PilotRig']; body = bpy.data.objects['Pilot_Body']; me = body.data
+rig = bpy.data.objects[SPEC.get('rig', 'PilotRig')]; body = bpy.data.objects[SPEC.get('body', 'Pilot_Body')]; me = body.data
 rig.data.pose_position = 'REST'
 bpy.context.view_layer.update()
 
 # the eyes, seen from the front in the rest pose: centre x, centre z, half width, half height
-EYES = {'R': (-0.083, 0.765, 0.050, 0.049), 'L': (0.095, 0.768, 0.051, 0.048)}
+EYES = {k: tuple(v) for k, v in SPEC['eyes'].items()} if 'eyes' in SPEC else {'R': (-0.083, 0.765, 0.050, 0.049), 'L': (0.095, 0.768, 0.051, 0.048)}
 NU, NV, OFF = 16, 9, 0.0080
 KEEP = 0.9375; SIZE = 4096
 PATCH = (int((KEEP + 0.006) * SIZE), 600, 120, 120)     # x, y from the bottom, w, h in pixels of the 4K atlas
@@ -92,14 +95,33 @@ hw = np.array([next((g.weight for g in v.groups if g.group == gi['Head']), 0) fo
 C = np.array((0.0, 0.83))
 d = np.hypot(co[:, 0] - C[0], co[:, 2] - C[1])
 def sstep(x, a_, b_): t = np.clip((x - a_) / (b_ - a_), 0, 1); return t * t * (3 - 2 * t)
-earw = sstep(d, 0.180, 0.232) * (co[:, 2] > 0.855) * (np.abs(co[:, 0]) > 0.10) * (co[:, 1] > -0.05) * (hw > 0.5)
+EAR = SPEC.get('ears')
+if EAR is None:   # the tiger's round ears: a band of the head's outline
+    earw = sstep(d, 0.180, 0.232) * (co[:, 2] > 0.855) * (np.abs(co[:, 0]) > 0.10) * (co[:, 1] > -0.05) * (hw > 0.5)
+else:
+    # tall ears standing out of a helmet: the fur (grey, unsaturated paint) above the helmet's brim, weighted up from
+    # the root so the root stays put where it meets the leather
+    tx = np.asarray(Image.open(TEX).convert('RGB')).astype(float); th_, tw_ = tx.shape[:2]
+    col = np.zeros((len(co), 3)); cnt = np.zeros(len(co)); uvd = me.uv_layers.active.data
+    for l in me.loops:
+        u_, v_ = uvd[l.index].uv; col[l.vertex_index] += tx[min(th_ - 1, int((1 - v_) * th_)), min(tw_ - 1, int(u_ * tw_))]; cnt[l.vertex_index] += 1
+    col /= np.maximum(cnt, 1)[:, None]
+    fur = ((col.max(1) - col.min(1)) < EAR['max_sat']).astype(float)
+    # spread the fur mask over the mesh a little, so the paint's speckle does not tear the ear
+    edges = np.array([e.vertices[:] for e in me.edges])
+    for _ in range(3):
+        acc = np.zeros(len(co)); n_ = np.zeros(len(co))
+        np.add.at(acc, edges[:, 0], fur[edges[:, 1]]); np.add.at(acc, edges[:, 1], fur[edges[:, 0]])
+        np.add.at(n_, edges[:, 0], 1); np.add.at(n_, edges[:, 1], 1)
+        fur = 0.5 * fur + 0.5 * acc / np.maximum(n_, 1)
+    earw = sstep(co[:, 2], *EAR['z_ramp']) * sstep(fur, 0.35, 0.75) * (np.abs(co[:, 0]) > EAR['min_x']) * (hw > 0.5)
 bpy.context.view_layer.objects.active = rig
 for o in bpy.data.objects: o.select_set(o == rig)
 bpy.ops.object.mode_set(mode='EDIT')
 for side, sx in (('Left', 1), ('Right', -1)):
     sel = (earw > 0.5) & (co[:, 0] * sx > 0)
     pts = co[sel]
-    root = np.array((sx * 0.150, float(pts[:, 1].mean()), 0.875)); tipi = np.argmax(d * sel); tip = np.array((co[tipi, 0], float(pts[:, 1].mean()), co[tipi, 2]))
+    root = np.array((sx * (EAR['root'][0] if EAR else 0.150), float(pts[:, 1].mean()), EAR['root'][1] if EAR else 0.875)); tipi = np.argmax(d * sel); tip = np.array((co[tipi, 0], float(pts[:, 1].mean()), co[tipi, 2]))
     eb = rig.data.edit_bones.new(side + 'Ear'); eb.head = Vector(root); eb.tail = Vector(root + (tip - root) * 0.9)
     eb.align_roll(Vector((0, 1, 0))); eb.parent = rig.data.edit_bones['Head']
     print(side, 'ear verts', int(sel.sum()), 'root', root.round(3), 'tip', tip.round(3))
@@ -114,7 +136,7 @@ for side, sx in (('Left', 1), ('Right', -1)):
 im = Image.open(TEX).convert('RGB'); px = np.asarray(im).copy()
 x0, yb, w, h = PATCH
 # fur colour: sampled just above each eye would be brow white; take the cheek orange from the paw strip's wrist rows
-fur = px[SIZE - 40, int((KEEP + 0.03) * SIZE)].astype(float)
+fur = np.array(SPEC['lid'], float) if 'lid' in SPEC else px[SIZE - 40, int((KEEP + 0.03) * SIZE)].astype(float)
 dark = np.array((52, 30, 26.0))
 vv = np.linspace(0, 1, h)[:, None]            # 0 at the top of the lid, 1 at its lower edge
 uu = np.linspace(0, 1, w)[None, :]
