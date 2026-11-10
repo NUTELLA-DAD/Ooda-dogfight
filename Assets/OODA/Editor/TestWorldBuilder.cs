@@ -163,9 +163,14 @@ namespace Ooda.EditorTools
             return m;
         }
 
-        internal static Material Textured(string name, string baseMap, string metalSmooth)
+        /// <summary>The toon look (Fx/ToonLit.shader): two-tone light, rim, drawn horizon in the metal, inked outline.
+        /// It keeps Lit's property names, so tints, heat glow and the rest work on it unchanged.</summary>
+        internal static Shader Toon => Shader.Find("Ooda/ToonLit");
+
+        internal static Material Textured(string name, string baseMap, string metalSmooth, bool toon = false)
         {
             var m = Mat(name, Color.white, 1f, 1f);
+            if (toon && Toon != null) m.shader = Toon;
             m.SetTexture("_BaseMap", AssetDatabase.LoadAssetAtPath<Texture2D>(baseMap));
             m.SetTexture("_MainTex", AssetDatabase.LoadAssetAtPath<Texture2D>(baseMap));
             m.SetTexture("_MetallicGlossMap", AssetDatabase.LoadAssetAtPath<Texture2D>(metalSmooth));
@@ -193,8 +198,8 @@ namespace Ooda.EditorTools
         {
             var r = new Mats
             {
-                plane = Textured("P51", Art + "/P51/P51_BaseColor.png", Art + "/P51/P51_MetallicSmoothness.png"),
-                pilot = Textured("TigerPilot", Art + "/TigerPilot/Pilot_BaseColor.png", Art + "/TigerPilot/Pilot_MetallicSmoothness.png"),
+                plane = Textured("P51", Art + "/P51/P51_BaseColor.png", Art + "/P51/P51_MetallicSmoothness.png", toon: true),
+                pilot = Textured("TigerPilot", Art + "/TigerPilot/Pilot_BaseColor.png", Art + "/TigerPilot/Pilot_MetallicSmoothness.png", toon: true),
                 canopy = Mat("P51_CanopyGlass", new Color(0.92f, 0.96f, 1f, 0.06f), 0.8f),
                 cockpit = Mat("P51_Cockpit", new Color(0.13f, 0.15f, 0.10f), 0.2f),
                 water = Mat("Sea", new Color(0.08f, 0.22f, 0.35f), 0.85f),
