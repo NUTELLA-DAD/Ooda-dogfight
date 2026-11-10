@@ -32,6 +32,8 @@ namespace Ooda.Pilot
         [Tooltip("For a pilot with finger bones: where his wrist goes relative to the cockpit's wrist point, in his own frame (m at scale 1; x right, y up, z forward), so the stick sits in his palm.")]
         public Vector3 pawStickOffset = new Vector3(0.017f, 0.015f, -0.021f);
         public Vector3 pawThrottleOffset = new Vector3(-0.028f, 0.081f, -0.021f);
+        [Tooltip("Where the left elbow points while the hand is on the throttle, from the left shoulder in his own frame (m at scale 1); zero leaves it to the IK. For a seat set forward of the throttle, so the elbow drops instead of swinging out through the cockpit side.")]
+        public Vector3 throttleElbowHint;
 
         [Header("Gestures")]
         [Tooltip("Shake a fist at the enemy the head is watching when it comes this close (m).")]
@@ -197,6 +199,12 @@ namespace Ooda.Pilot
             float wl = handWeight * (playing ? Mathf.Clamp01(leftW) : 1f), wr = handWeight * (playing ? Mathf.Clamp01(rightW) : 1f);
             Hand(AvatarIKGoal.LeftHand, throttleWrist, wl, pawThrottleOffset);
             Hand(AvatarIKGoal.RightHand, stickWrist, wr, pawStickOffset);
+            var shoulder = throttleElbowHint != Vector3.zero && throttleWrist != null ? anim.GetBoneTransform(HumanBodyBones.LeftUpperArm) : null;
+            if (shoulder != null)
+            {
+                anim.SetIKHintPositionWeight(AvatarIKHint.LeftElbow, wl);
+                anim.SetIKHintPosition(AvatarIKHint.LeftElbow, shoulder.position + transform.TransformVector(throttleElbowHint));
+            }
         }
 
         void Hand(AvatarIKGoal goal, Transform at, float w, Vector3 pawOffset)

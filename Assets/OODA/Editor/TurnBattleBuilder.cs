@@ -30,7 +30,8 @@ namespace Ooda.EditorTools
         const string ScenePath = Root + "/Scenes/TurnBattle.unity";
 
         // Cartoon size, no glass: the wolf nearly overfills the cockpit with his forearms on the rails (0.82 fitted under the canopy).
-        static readonly TestWorldBuilder.Seat WolfSeat = new TestWorldBuilder.Seat { scale = 1.35f, lift = -0.57f, back = 0f, railHalfWidth = 0.37f, railHeight = 0.42f, railForward = 0.22f };
+        // 14 cm forward (back -0.14) so his right paw reaches the stick: his arm is shorter than the tiger's.
+        static readonly TestWorldBuilder.Seat WolfSeat = new TestWorldBuilder.Seat { scale = 1.35f, lift = -0.55f, back = -0.14f, railHalfWidth = 0.37f, railHeight = 0.42f, railForward = 0.22f };
         const float PlaneSmoothingAngle = 80f;
 
         [MenuItem("OODA/Build Turn Battle")]
@@ -147,7 +148,10 @@ namespace Ooda.EditorTools
         const string P51TurnPrefabPath = Root + "/Prefabs/P51Turn.prefab";
         const string FlakFbx = Art + "/Flak/Flak.fbx";
         // The 109's cockpit is narrow with high sills: a bigger wolf, raised a little, so his head and shoulders are out.
-        static readonly TestWorldBuilder.Seat Bf109Seat = new TestWorldBuilder.Seat { scale = 1.55f, lift = -0.55f, back = 0f, railHalfWidth = 0.36f, railHeight = 0.48f, railForward = 0.22f };
+        // 20 cm forward so his right paw reaches the stick, and 8 cm up so his eyes clear the windscreen frame.
+        static readonly TestWorldBuilder.Seat Bf109Seat = new TestWorldBuilder.Seat { scale = 1.55f, lift = -0.47f, back = -0.20f, railHalfWidth = 0.36f, railHeight = 0.48f, railForward = 0.22f };
+        // Seated that far forward, the throttle is beside his hip and his left elbow swung out through the cockpit side: point it down and back.
+        static readonly Vector3 Bf109ThrottleElbowHint = new Vector3(0f, -0.20f, -0.10f);
 
         static void ImportPlane(string fbx, string metallicSmoothness)
         {
@@ -169,7 +173,11 @@ namespace Ooda.EditorTools
         {
             ImportPlane(Bf109Fbx, Art + "/Bf109/Bf109_MetallicSmoothness.png");
             var body = TestWorldBuilder.Textured("Bf109", Art + "/Bf109/Bf109_BaseColor.png", Art + "/Bf109/Bf109_MetallicSmoothness.png", toon: true);
-            return MakeWolfFighter("Bf109", Bf109Fbx, "Bf109_Propeller", Bf109PrefabPath, Bf109Seat, mats, body, pilotMat, pilotCtrl);
+            return MakeFighter("Bf109", Bf109Fbx, new[] { "Bf109_Propeller" }, Bf109PrefabPath, Bf109Seat, mats, body, WolfFbx, Ooda.Turn.Core.PilotKind.Wolf, pilotMat, pilotCtrl,
+                extra: (root, model) =>
+                {
+                    foreach (var pc in root.GetComponentsInChildren<PilotControls>(true)) pc.throttleElbowHint = Bf109ThrottleElbowHint;   // every pilot in the roster sits there
+                });
         }
 
         // ---------- the P-38 ----------
