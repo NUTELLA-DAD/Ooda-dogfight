@@ -26,9 +26,9 @@ namespace Ooda.UI
 
         // the map texture: the island on the left, the city's island on the right (the sea between them shortened)
         const int TexW = 1024, TexH = 640;
-        const float IslandPx0 = 40, IslandPy0 = 24, IslandPx = 592;   // the island's 20 km square, pixels
+        const float IslandPx0 = 40, IslandPy0 = 24, IslandSizePx = 592;   // the island's 20 km square, pixels
         const float IslandHalfM = 10000f;
-        const float Scale = IslandPx / (2 * IslandHalfM);              // pixels a metre, the same for both
+        const float Scale = IslandSizePx / (2 * IslandHalfM);              // pixels a metre, the same for both
         const float CityCx = 838, CityCy = 320;                         // where the city's middle is drawn
         const float BreakPx = 690;                                      // the cut in the sea between them
         static Texture2D map;
