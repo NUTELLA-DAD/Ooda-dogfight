@@ -428,7 +428,9 @@ namespace Ooda.EditorTools
                 float z = dense[k].y;
                 float farm = Step(-2600f, -4200f, z);   // 1 on the farmland
                 float meander = Mathf.Lerp(45f, 150f, farm) * Mathf.Sin(along / Mathf.Lerp(380f, 700f, farm));
-                if (z < -2700f && z > -3100f || z > -900f && z < -500f) meander *= 0.2f;   // straight into and out of the lake
+                // straight into and out of the lake, easing in over 100 m (a sudden change jogged the line sideways by 36 m)
+                float straight = Mathf.Max(Step(-3200f, -3100f, z) * Step(-2600f, -2700f, z), Step(-1000f, -900f, z) * Step(-400f, -500f, z));
+                meander *= 1f - 0.8f * straight;
                 river.Add(new RiverPoint
                 {
                     p = dense[k] + across * meander,

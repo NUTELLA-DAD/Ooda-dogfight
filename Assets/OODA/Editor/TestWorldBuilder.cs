@@ -204,7 +204,7 @@ namespace Ooda.EditorTools
                 pilot = Textured("TigerPilot", Art + "/TigerPilot/Pilot_BaseColor.png", Art + "/TigerPilot/Pilot_MetallicSmoothness.png", toon: true),
                 canopy = Mat("P51_CanopyGlass", new Color(0.92f, 0.96f, 1f, 0.06f), 0.8f),
                 cockpit = Mat("P51_Cockpit", new Color(0.13f, 0.15f, 0.10f), 0.2f),
-                water = Mat("Sea", new Color(0.08f, 0.22f, 0.35f), 0.85f),
+                water = ToonWorld.Water(Mat("Sea", new Color(0.08f, 0.22f, 0.35f), 0.85f), sea: true),   // (every builder makes it: each keeps it toon)
                 cloud = Mat("Cloud", new Color(1f, 1f, 1f), 0f),
                 towerRed = Mat("TowerRed", new Color(0.8f, 0.12f, 0.1f), 0.3f),
                 towerWhite = Mat("TowerWhite", new Color(0.92f, 0.92f, 0.9f), 0.3f),
@@ -520,7 +520,7 @@ namespace Ooda.EditorTools
             sea.name = "Sea";
             sea.transform.position = Vector3.zero;
             sea.transform.localScale = new Vector3(40000f, 1f, 40000f); // 400 km: past the far clip from any height
-            sea.GetComponent<Renderer>().sharedMaterial = ToonWorld.Water(mats.water, sea: true);
+            sea.GetComponent<Renderer>().sharedMaterial = mats.water;
             sea.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
         }
 

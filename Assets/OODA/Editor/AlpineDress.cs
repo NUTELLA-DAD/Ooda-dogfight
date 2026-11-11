@@ -89,8 +89,8 @@ namespace Ooda.EditorTools
                 && SampleArr(h, rp.p.x - across.x * off, rp.p.y - across.y * off) > rp.surface + 0.3f;
         }
 
-        /// <summary>Under a lake's own water (its disc reaches 1.05 of its radii): the river's ribbon stops here, overlapping it a little.</summary>
-        static bool InLakeWater(float x, float z) => Lakes.Any(l => LakeR(l, x, z) < 1.0f);
+        /// <summary>Under a lake's own water (its mesh reaches 1.12 of its shore): the river's ribbon stops here, overlapping it a little.</summary>
+        static bool InLakeWater(float x, float z) => Lakes.Any(l => LakeR(l, x, z) < 1.1f);
 
         static bool[,] riverNear;
         static bool RiverNear(float x, float z) => riverNear != null && riverNear[Idx(z), Idx(x)];

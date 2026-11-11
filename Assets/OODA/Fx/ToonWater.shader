@@ -102,6 +102,7 @@ Shader "Ooda/ToonWater"
 
                 // the river's streaks: long thin lights drawn along the flow, and white flecks where it runs fast
                 half streak = 0;
+                float px = fwidth(q.y);   // metres across the flow in a pixel (outside the branch: derivatives need every pixel)
                 if (speed > 1e-3)
                 {
                     float s1 = LandNoise(float2(run / 22, q.y / 2.2));
@@ -109,6 +110,8 @@ Shader "Ooda/ToonWater"
                     streak = smoothstep(0.70, 0.73, s1) * _Streak;
                     half white = saturate((speed - 1.2) / 1.5);
                     streak = max(streak, smoothstep(0.62 - 0.22 * white, 0.66 - 0.22 * white, s2) * white);
+                    // far off, the fine streaks break up into white noise: fade them to a soft even sheen
+                    streak = lerp(streak, 0.08 * _Streak + 0.3 * white, smoothstep(0.3, 1.0, px));
                 }
 
                 // the shore: a foam line where the water gets thin, wobbling and lapping in and out, and a second line
