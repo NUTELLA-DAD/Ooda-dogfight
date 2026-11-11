@@ -19,13 +19,13 @@ namespace Ooda.Fx
         int rocketFrame = -1;
 
         static readonly Color RkInk = Hex("#5a1206"), RkRed = Hex("#e8401c"), RkOrange = Hex("#ff8f1f"), RkYellow = Hex("#ffe04a"), RkWhite = Hex("#fffbea");
-        static readonly Color RkGlow = new Color(1f, 0.55f, 0.15f, 0.3f), RkSpeed = new Color(1f, 1f, 1f, 0.8f);
+        static readonly Color RkGlow = new Color(1f, 0.55f, 0.15f, 0.3f), RkSpeed = new Color(1f, 1f, 1f, 0.9f);
         // the flame's bands, outside in: how long (share of the flame), how wide (share), colour
         static readonly float[] RkLen = { 1.05f, 1f, 0.8f, 0.58f, 0.34f }, RkWid = { 1f, 1f, 0.72f, 0.5f, 0.27f };
         static readonly Color[] RkBand = { RkInk, RkRed, RkOrange, RkYellow, RkWhite };
         const int RkN = 14;          // samples down the flame
-        const float RkLenM = 24f;    // the flame's length at size 1 (a fighter), m
-        const float RkWidM = 1.7f;   // its half width at the widest, m
+        const float RkLenM = 34f;    // the flame's length at size 1 (a fighter), m
+        const float RkWidM = 2.2f;   // its half width at the widest, m
 
         /// <summary>
         /// A rocket burning this frame: its nozzle, the way the flame goes (aft), the aircraft's middle (for the speed
@@ -61,7 +61,7 @@ namespace Ooda.Fx
             Vector3 d = q.D;
             float dist = Vector3.Dot(q.P - camPos, camFwd);
             if (dist < 0.3f && Vector3.Dot(q.P + d * RkLenM * q.S - camPos, camFwd) < 0.3f) return;   // (all of it behind the camera)
-            float s = q.S * Mathf.Min(2f, MinScreen(q.P, RkLenM * q.S, 0.1f));
+            float s = q.S * Mathf.Min(2.5f, MinScreen(q.P, RkLenM * q.S, 0.2f));   // (it reads from the far chase view too)
             int seed = q.Seed;
             // it lights long and fat, then settles to a flicker; it shrinks as it burns out
             float ign = ka < 0.45f ? 1f + 0.9f * (1f - ka / 0.45f) : 1f;
@@ -139,8 +139,9 @@ namespace Ooda.Fx
             {
                 Vector3 p = q.P + toCam * (0.5f * s);
                 float fw = Mathf.Min(W, near / 3f);
-                if (key == 0) { Circle(p, right, up, fw * 4.2f, 28, new Color(1f, 0.92f, 0.5f, 0.6f)); Circle(p + toCam * 0.01f, right, up, fw * 3f, 24, FlashWhite); }
-                if (key == 1 || key == 2) Star(p, fw * (key == 1 ? 3.6f : 2.6f), fw * 1.1f, 8, seed + key, key == 1 ? FlashWhite : FlashYellow, R01(seed, 3) * 6.28f);
+                bool close = dist < 30f;   // (a cockpit close-up: the rings and sparks, not a flat disc filling the view)
+                if (key == 0 && !close) { Circle(p, right, up, fw * 4.2f, 28, new Color(1f, 0.92f, 0.5f, 0.6f)); Circle(p + toCam * 0.01f, right, up, fw * 3f, 24, FlashWhite); }
+                if ((key == 1 || key == 2) && !close) Star(p, fw * (key == 1 ? 3.6f : 2.6f), fw * 1.1f, 8, seed + key, key == 1 ? FlashWhite : FlashYellow, R01(seed, 3) * 6.28f);
                 if (key <= 5)
                 {
                     TaperRing(p, right, up, W * (2.2f + 1.7f * key), Mathf.Max(lw, W * (0.7f - 0.1f * key)), seed + 11, 4, new Color(1f, 0.98f, 0.9f, 1f));
@@ -153,7 +154,7 @@ namespace Ooda.Fx
         // anime speed lines: white streaks streaming aft past the aircraft, a new set each key
         void SpeedLines(in RocketReq q, float s, int key, Vector3 e1, Vector3 e2, float px)
         {
-            const int N = 14;
+            const int N = 22;
             float alpha = RkSpeed.a * q.Burn;
             if (alpha < 0.05f) return;
             Color col = new Color(RkSpeed.r, RkSpeed.g, RkSpeed.b, alpha);
@@ -161,13 +162,13 @@ namespace Ooda.Fx
             {
                 int h = key * 31 + j;
                 if (R01(q.Seed, h + 900) < 0.35f) continue;
-                float a = Rng(q.Seed, h + 910, 0f, 6.283f), rr = Rng(q.Seed, h + 920, 3.5f, 8.5f) * s;
-                Vector3 start = q.C + (e1 * Mathf.Cos(a) + e2 * Mathf.Sin(a)) * rr - q.D * (Rng(q.Seed, h + 930, -4f, 7f) * s);
+                float a = Rng(q.Seed, h + 910, 0f, 6.283f), rr = Rng(q.Seed, h + 920, 2.5f, 9f) * s;
+                Vector3 start = q.C + (e1 * Mathf.Cos(a) + e2 * Mathf.Sin(a)) * rr - q.D * (Rng(q.Seed, h + 930, -4f, 28f) * s);   // (from well ahead, so they stream past the cockpit too)
                 float len = Rng(q.Seed, h + 940, 9f, 20f) * s;
                 Vector3 end = start + q.D * len;
                 float dd = Mathf.Max(0.3f, Vector3.Dot(start - camPos, camFwd));
                 if (dd < 0.5f) continue;
-                float w = Mathf.Max(0.12f * s, 1.6f * dd / pxPerM1);
+                float w = Mathf.Max(0.14f * s, 2.6f * dd / pxPerM1);
                 pts.Clear(); pts.Add(start); pts.Add(Vector3.Lerp(start, end, 0.3f)); pts.Add(end);
                 Stroke(pts, w, 0.01f, col);
             }
