@@ -163,7 +163,7 @@ namespace Ooda.Fx
         // from the cockpit: anime zoom lines, streaks flying out to the edges of the view from round its middle, a new set each key
         void ZoomLines(in RocketReq q, int key, Color col)
         {
-            const int N = 30;
+            const int N = 40;
             const float D = 1.2f;   // (just past the windscreen: the frame and the panel still stand in front of them)
             float h = Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad) * D, px = D / pxPerM1;
             Vector3 c = camPos + camFwd * D;
@@ -176,7 +176,7 @@ namespace Ooda.Fx
                 Vector3 dir = right * Mathf.Cos(a) * cam.aspect + up * Mathf.Sin(a);
                 float r0 = Rng(q.Seed, k + 980, 0.55f, 0.95f) * h, r1 = r0 + Rng(q.Seed, k + 990, 0.35f, 0.9f) * h;
                 pts.Clear(); pts.Add(c + dir * r0); pts.Add(c + dir * Mathf.Lerp(r0, r1, 0.5f)); pts.Add(c + dir * r1);
-                float w = Rng(q.Seed, k + 995, 3f, 7f) * px;
+                float w = Rng(q.Seed, k + 995, 5f, 12f) * px;
                 Stroke(pts, px, w * 1.8f, ink);
                 Stroke(pts, px * 0.5f, w, col);
             }
