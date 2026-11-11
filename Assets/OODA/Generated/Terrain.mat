@@ -21,7 +21,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: Terrain
-  m_Shader: {fileID: 4800000, guid: 69c1f799e772cb6438f56c23efccb782, type: 3}
+  m_Shader: {fileID: 4800000, guid: c1dbab126ccc47728cfbd6c35f45520c, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
@@ -38,6 +38,46 @@ Material:
     m_TexEnvs:
     - _Control:
         m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _Ctrl0:
+        m_Texture: {fileID: 7532721054937657251, guid: e191c13d6b467504caebf957f82b2ceb, type: 2}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _Ctrl1:
+        m_Texture: {fileID: 5361953197689979905, guid: e191c13d6b467504caebf957f82b2ceb, type: 2}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _Lay0:
+        m_Texture: {fileID: 2800000, guid: 4432f3bd419a97242a1b3e8296a67076, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _Lay1:
+        m_Texture: {fileID: 2800000, guid: ab441848351491440a5bb18196a10ebd, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _Lay2:
+        m_Texture: {fileID: 2800000, guid: 1ea3aba614024174fba7effb1e33547a, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _Lay3:
+        m_Texture: {fileID: 2800000, guid: 313cf8b1e20ec7a4394368cf1cba1b68, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _Lay4:
+        m_Texture: {fileID: 2800000, guid: 8a7d7fad1006a0b44891ff868d03b597, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _Lay5:
+        m_Texture: {fileID: 2800000, guid: 8e5454124c5b8d34b96a7a7a2ebd8b8e, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _Lay6:
+        m_Texture: {fileID: 2800000, guid: dbd7b3ab0b756a14a8bcfb1c607b1778, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _Lay7:
+        m_Texture: {fileID: 2800000, guid: 3db65e58a1cc4dc45980cff929cbe983, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MainTex:
@@ -98,19 +138,31 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _Ambient: 0.55
+    - _BandEdge: 0.05
+    - _BandSoft: 0.05
+    - _Break: 0.35
+    - _BreakScale: 60
     - _EnableHeightBlend: 0
     - _EnableInstancedPerPixelNormal: 1
     - _HeightTransition: 0
+    - _Macro: 450
     - _Metallic0: 0
     - _Metallic1: 0
     - _Metallic2: 0
     - _Metallic3: 0
+    - _MidBand: 0.12
     - _NumLayersCount: 1
+    - _Sharp: 6
     - _Smoothness0: 0.5
     - _Smoothness1: 0.5
     - _Smoothness2: 0.5
     - _Smoothness3: 0.5
     m_Colors:
     - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
+    - _LitTint: {r: 1, g: 0.97, b: 0.9, a: 1}
+    - _ShadeColor: {r: 0.56, g: 0.6, b: 0.78, a: 1}
+    - _Tile0123: {r: 80, g: 80, b: 120, a: 120}
+    - _Tile4567: {r: 480, g: 60, b: 480, a: 480}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
