@@ -90,6 +90,7 @@ namespace Ooda.EditorTools
             Set("m_ShadowCascadeCount", p => p.intValue = 4);
             Set("m_Cascade4Split", p => p.vector3Value = new Vector3(0.02f, 0.08f, 0.3f)); // 60 m, 240 m, 900 m, 3 km
             Set("m_SoftShadowsSupported", p => p.boolValue = true);
+            Set("m_RequireDepthTexture", p => p.boolValue = true);   // the water reads it for its depth and shore foam
             so.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(urp);
             ToonWorld.EnsureInk(urp);
@@ -519,7 +520,7 @@ namespace Ooda.EditorTools
             sea.name = "Sea";
             sea.transform.position = Vector3.zero;
             sea.transform.localScale = new Vector3(40000f, 1f, 40000f); // 400 km: past the far clip from any height
-            sea.GetComponent<Renderer>().sharedMaterial = mats.water;
+            sea.GetComponent<Renderer>().sharedMaterial = ToonWorld.Water(mats.water, sea: true);
             sea.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
         }
 

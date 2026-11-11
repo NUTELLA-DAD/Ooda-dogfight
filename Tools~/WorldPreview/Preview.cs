@@ -181,7 +181,7 @@ namespace Ooda.EditorTools
             float g = SampleArr(h, x, z);
             level = 0;
             if (g < 0) return true;
-            foreach (var l in Lakes) { float ex = (x - l.c.x) / l.r.x, ez = (z - l.c.y) / l.r.y; if (ex * ex + ez * ez < 1.1f && g < l.level) { level = l.level; return true; } }
+            foreach (var l in Lakes) { if (LakeR(l, x, z) < 1.05f && g < l.level) { level = l.level; return true; } }
             if (RiverNear(x, z))
             {
                 // the nearest river point's surface

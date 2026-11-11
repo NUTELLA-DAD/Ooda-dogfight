@@ -80,6 +80,31 @@ namespace Ooda.EditorTools
             EditorUtility.SetDirty(m);
         }
 
+        /// <summary>A water material on the toon water shader (Fx/ToonWater.shader): banded by depth, foam along the shore,
+        /// streaks running with the river's flow. The sea is darker and bluer than the lakes and the river.</summary>
+        public static Material Water(Material m, bool sea)
+        {
+            var shader = Shader.Find("Ooda/ToonWater");
+            if (shader == null) { Debug.LogWarning("OODA: no Ooda/ToonWater shader; the water keeps Lit."); return m; }
+            m.shader = shader;
+            m.renderQueue = (int)RenderQueue.Transparent;
+            if (sea)
+            {
+                m.SetColor("_Shallow", Hex("#5fd6d0")); m.SetColor("_Mid", Hex("#2a9fc2")); m.SetColor("_Deep", Hex("#1d5f9e"));
+                m.SetFloat("_DeepDepth", 40f); m.SetFloat("_FoamWidth", 3.5f); m.SetFloat("_Ripple", 30f);
+                m.SetFloat("_FlowOn", 0f); m.SetFloat("_ShallowAlpha", 0.35f);
+            }
+            else
+            {
+                m.SetColor("_Shallow", Hex("#7fe6d6")); m.SetColor("_Mid", Hex("#33bfc8")); m.SetColor("_Deep", Hex("#1f8aa8"));
+                // the river is only 3 m deep: it reaches the middle tone, and the lakes (25 m) the deep one
+                m.SetFloat("_DeepDepth", 6f); m.SetFloat("_FoamWidth", 1.5f); m.SetFloat("_Ripple", 14f);
+                m.SetFloat("_FlowOn", 1f); m.SetFloat("_ShallowAlpha", 0.55f);
+            }
+            EditorUtility.SetDirty(m);
+            return m;
+        }
+
         /// <summary>The buildings (chalets, church, viaduct stone) on the aircraft's toon shader, which inks their outline:
         /// the full-screen ink skips them (a house in a field is too small a depth jump), so they ink themselves.</summary>
         public static void Building(Material m)

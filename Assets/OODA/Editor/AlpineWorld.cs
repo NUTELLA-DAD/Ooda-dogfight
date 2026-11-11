@@ -304,7 +304,7 @@ namespace Ooda.EditorTools
             wood = TestWorldBuilder.Mat("Alpine_ChaletWood", new Color(0.48f, 0.29f, 0.15f), 0.15f),
             plaster = TestWorldBuilder.Mat("Alpine_Plaster", new Color(0.94f, 0.92f, 0.86f), 0.1f),
             roof = TestWorldBuilder.Mat("Alpine_Roof", new Color(0.30f, 0.20f, 0.17f), 0.1f),
-            river = TestWorldBuilder.Mat("Alpine_River", new Color(0.18f, 0.66f, 0.74f), 0.9f),
+            river = ToonWorld.Water(TestWorldBuilder.Mat("Alpine_River", new Color(0.18f, 0.66f, 0.74f), 0.9f), sea: false),
             slate = TestWorldBuilder.Mat("Alpine_Slate", new Color(0.33f, 0.34f, 0.38f), 0.2f),
             cobbles = TestWorldBuilder.Mat("Alpine_Cobbles", new Color(0.62f, 0.60f, 0.56f), 0.1f),
         };
@@ -490,21 +490,49 @@ namespace Ooda.EditorTools
 
         static void MakeLakes(WMats m)
         {
-            var mb = new MeshBuilder(1);
-            foreach (var l in Lakes) mb.Disc(new Vector3(l.c.x, l.level, l.c.y), l.r * 1.05f, 48, 0);
-            var go = MeshObject("Lakes", SaveMesh(mb, "Lakes"), new[] { m.river }, null);
+            // each lake's water out past its shore (bays and points, AlpineLayout.LakeShape): the ground rises over its rim,
+            // so the shore is where the beach meets it, and the water shader draws the foam and the shallows along that line
+            var v = new List<Vector3>(); var flow = new List<Vector2>(); var t = new List<int>();
+            const int Sides = 160;
+            foreach (var l in Lakes)
+            {
+                int c = v.Count;
+                v.Add(new Vector3(l.c.x, l.level, l.c.y)); flow.Add(Vector2.zero);
+                for (int s = 0; s < Sides; s++)
+                {
+                    var q = LakePoint(l, 2 * Mathf.PI * s / Sides, 1.12f);
+                    v.Add(new Vector3(q.x, l.level, q.y)); flow.Add(Vector2.zero);
+                }
+                for (int s = 0; s < Sides; s++) { t.Add(c); t.Add(c + 1 + (s + 1) % Sides); t.Add(c + 1 + s); }   // clockwise from above
+            }
+            var go = MeshObject("Lakes", WaterMesh("Lakes", v, flow, t), new[] { m.river }, null);
             go.GetComponent<MeshRenderer>().shadowCastingMode = ShadowCastingMode.Off;
+        }
+
+        /// <summary>A water surface's mesh, facing up: its second UV is the water's flow (direction times speed: 1 a calm
+        /// river, up to 3 in the rapids, 0 still), which the water shader runs its streaks and foam along.</summary>
+        static Mesh WaterMesh(string name, List<Vector3> v, List<Vector2> flow, List<int> t)
+        {
+            var mesh = new Mesh { name = name, indexFormat = v.Count > 65000 ? IndexFormat.UInt32 : IndexFormat.UInt16 };
+            mesh.SetVertices(v);
+            mesh.SetNormals(Enumerable.Repeat(Vector3.up, v.Count).ToList());
+            mesh.SetUVs(0, v.Select(p => new Vector2(p.x, p.z)).ToList());
+            mesh.SetUVs(1, flow);
+            mesh.SetTriangles(t, 0);
+            mesh.RecalculateBounds();
+            string path = $"{Dir}/{name}.asset";
+            AssetDatabase.CreateAsset(mesh, path);
+            return mesh;
         }
 
         /// <summary>
         /// The river's water: a ribbon at its surface down the channel CarveRiver cut, a little wider than the channel's floor
         /// so it laps the banks. Left out inside the lakes (their water is there already) and where the banks are lower than the
-        /// water (at the sea, where the sea takes over).
+        /// water (at the sea, where the sea takes over). Each stretch carries its flow, faster where the river drops.
         /// </summary>
         static void MakeRiver(float[,] h, WMats m)
         {
             var r = River();
-            var mb = new MeshBuilder(1);
             bool Wet(int k) => RiverWet(h, r, k);
             Vector3 Edge(int k, float side)
             {
@@ -513,14 +541,31 @@ namespace Ooda.EditorTools
                 Vector2 e = rp.p + across * side * (rp.half + 4f);
                 return new Vector3(e.x, rp.surface, e.y);
             }
+            Vector2 Flow(int k)
+            {
+                int a = Mathf.Max(k - 6, 0), b = Mathf.Min(k + 6, r.Count - 1);
+                Vector2 d = r[b].p - r[a].p;
+                float run = Mathf.Max(d.magnitude, 1f), drop = Mathf.Max(0f, r[a].surface - r[b].surface);
+                // calm at 1, white water from a 1.5 % drop, full rapids at 4 %
+                float speed = 1f + 2f * Mathf.Clamp01((drop / run - 0.015f) / 0.025f);
+                return d / run * speed;
+            }
+            var v = new List<Vector3>(); var flow = new List<Vector2>(); var t = new List<int>();
             int quads = 0;
             for (int k = 0; k + 2 < r.Count; k += 2)
             {
                 if (!Wet(k) || !Wet(k + 2)) continue;
-                mb.Flat(Edge(k, -1), Edge(k, 1), Edge(k + 2, 1), Edge(k + 2, -1), 0);
+                Vector3 a = Edge(k, -1), b = Edge(k, 1), c = Edge(k + 2, 1), d = Edge(k + 2, -1);
+                int i = v.Count;
+                v.Add(a); v.Add(b); v.Add(c); v.Add(d);
+                Vector2 f0 = Flow(k), f1 = Flow(k + 2);
+                flow.Add(f0); flow.Add(f0); flow.Add(f1); flow.Add(f1);
+                // clockwise seen from above (as MeshBuilder.Flat)
+                if (Vector3.Cross(d - a, b - a).y > 0) t.AddRange(new[] { i, i + 2, i + 1, i, i + 3, i + 2 });
+                else t.AddRange(new[] { i, i + 1, i + 2, i, i + 2, i + 3 });
                 quads++;
             }
-            var go = MeshObject("River", SaveMesh(mb, "River"), new[] { m.river }, null);
+            var go = MeshObject("River", WaterMesh("River", v, flow, t), new[] { m.river }, null);
             go.GetComponent<MeshRenderer>().shadowCastingMode = ShadowCastingMode.Off;
             Debug.Log($"OODA: the river's water: {quads * 20 / 1000f:F1} km of it.");
         }
