@@ -91,8 +91,10 @@ namespace Ooda.EditorTools
             Set("m_ShadowCascadeCount", p => p.intValue = 4);
             Set("m_Cascade4Split", p => p.vector3Value = new Vector3(0.02f, 0.08f, 0.3f)); // 60 m, 240 m, 900 m, 3 km
             Set("m_SoftShadowsSupported", p => p.boolValue = true);
+            Set("m_RequireDepthTexture", p => p.boolValue = true);   // the water reads it for its depth and shore foam
             so.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(urp);
+            ToonWorld.EnsureInk(urp);
 
             int current = QualitySettings.GetQualityLevel();
             for (int i = 0; i < QualitySettings.names.Length; i++)
@@ -204,7 +206,7 @@ namespace Ooda.EditorTools
                 pilot = Textured("TigerPilot", Art + "/TigerPilot/Pilot_BaseColor.png", Art + "/TigerPilot/Pilot_MetallicSmoothness.png", toon: true),
                 canopy = Mat("P51_CanopyGlass", new Color(0.92f, 0.96f, 1f, 0.06f), 0.8f),
                 cockpit = Mat("P51_Cockpit", new Color(0.13f, 0.15f, 0.10f), 0.2f),
-                water = Mat("Sea", new Color(0.08f, 0.22f, 0.35f), 0.85f),
+                water = ToonWorld.Water(Mat("Sea", new Color(0.08f, 0.22f, 0.35f), 0.85f), sea: true),   // (every builder makes it: each keeps it toon)
                 cloud = Mat("Cloud", new Color(1f, 1f, 1f), 0f),
                 towerRed = Mat("TowerRed", new Color(0.8f, 0.12f, 0.1f), 0.3f),
                 towerWhite = Mat("TowerWhite", new Color(0.92f, 0.92f, 0.9f), 0.3f),

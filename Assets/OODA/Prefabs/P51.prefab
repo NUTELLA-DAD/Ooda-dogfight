@@ -828,6 +828,7 @@ MonoBehaviour:
   handEase: 0.22
   pawStickOffset: {x: 0.017, y: 0.015, z: -0.021}
   pawThrottleOffset: {x: -0.028, y: 0.081, z: -0.021}
+  throttleElbowHint: {x: 0, y: 0, z: 0}
   fistRange: 450
   fistCooldown: 14
   idleEvery: {x: 9, y: 20}
@@ -1010,6 +1011,7 @@ MonoBehaviour:
   handEase: 0.22
   pawStickOffset: {x: 0.017, y: 0.015, z: -0.021}
   pawThrottleOffset: {x: -0.028, y: 0.081, z: -0.021}
+  throttleElbowHint: {x: 0, y: 0, z: 0}
   fistRange: 450
   fistCooldown: 14
   idleEvery: {x: 9, y: 20}
@@ -1208,6 +1210,7 @@ MonoBehaviour:
   handEase: 0.22
   pawStickOffset: {x: 0.017, y: 0.015, z: -0.021}
   pawThrottleOffset: {x: -0.028, y: 0.081, z: -0.021}
+  throttleElbowHint: {x: 0, y: 0, z: 0}
   fistRange: 450
   fistCooldown: 14
   idleEvery: {x: 9, y: 20}
@@ -1349,6 +1352,22 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: -5052707330853464604, guid: cff4b24c95a70b242b747c9cf2c57e25, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.7829707
+      objectReference: {fileID: 0}
+    - target: {fileID: -5052707330853464604, guid: cff4b24c95a70b242b747c9cf2c57e25, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0.001668374
+      objectReference: {fileID: 0}
+    - target: {fileID: -5052707330853464604, guid: cff4b24c95a70b242b747c9cf2c57e25, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0.6220523
+      objectReference: {fileID: 0}
+    - target: {fileID: -5052707330853464604, guid: cff4b24c95a70b242b747c9cf2c57e25, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0.0022445314
+      objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: cff4b24c95a70b242b747c9cf2c57e25, type: 3}
       propertyPath: m_Name
       value: WolfPilot
@@ -1458,6 +1477,7 @@ MonoBehaviour:
   handEase: 0.22
   pawStickOffset: {x: 0.017, y: 0.015, z: -0.021}
   pawThrottleOffset: {x: -0.028, y: 0.081, z: -0.021}
+  throttleElbowHint: {x: 0, y: 0, z: 0}
   fistRange: 450
   fistCooldown: 14
   idleEvery: {x: 9, y: 20}
@@ -1640,6 +1660,7 @@ MonoBehaviour:
   handEase: 0.22
   pawStickOffset: {x: 0.017, y: 0.015, z: -0.021}
   pawThrottleOffset: {x: -0.028, y: 0.081, z: -0.021}
+  throttleElbowHint: {x: 0, y: 0, z: 0}
   fistRange: 450
   fistCooldown: 14
   idleEvery: {x: 9, y: 20}
@@ -1825,6 +1846,7 @@ MonoBehaviour:
   handEase: 0.22
   pawStickOffset: {x: 0.017, y: 0.015, z: -0.021}
   pawThrottleOffset: {x: -0.028, y: 0.081, z: -0.021}
+  throttleElbowHint: {x: 0, y: 0, z: 0}
   fistRange: 450
   fistCooldown: 14
   idleEvery: {x: 9, y: 20}
@@ -2008,6 +2030,7 @@ MonoBehaviour:
   handEase: 0.22
   pawStickOffset: {x: 0.017, y: 0.015, z: -0.021}
   pawThrottleOffset: {x: -0.028, y: 0.081, z: -0.021}
+  throttleElbowHint: {x: 0, y: 0, z: 0}
   fistRange: 450
   fistCooldown: 14
   idleEvery: {x: 9, y: 20}
@@ -2190,6 +2213,7 @@ MonoBehaviour:
   handEase: 0.22
   pawStickOffset: {x: 0.017, y: 0.015, z: -0.021}
   pawThrottleOffset: {x: -0.028, y: 0.081, z: -0.021}
+  throttleElbowHint: {x: 0, y: 0, z: 0}
   fistRange: 450
   fistCooldown: 14
   idleEvery: {x: 9, y: 20}
@@ -2367,6 +2391,7 @@ MonoBehaviour:
   handEase: 0.22
   pawStickOffset: {x: 0.017, y: 0.015, z: -0.021}
   pawThrottleOffset: {x: -0.028, y: 0.081, z: -0.021}
+  throttleElbowHint: {x: 0, y: 0, z: 0}
   fistRange: 450
   fistCooldown: 14
   idleEvery: {x: 9, y: 20}
@@ -2543,6 +2568,7 @@ MonoBehaviour:
   handEase: 0.22
   pawStickOffset: {x: 0.017, y: 0.015, z: -0.021}
   pawThrottleOffset: {x: -0.028, y: 0.081, z: -0.021}
+  throttleElbowHint: {x: 0, y: 0, z: 0}
   fistRange: 450
   fistCooldown: 14
   idleEvery: {x: 9, y: 20}
