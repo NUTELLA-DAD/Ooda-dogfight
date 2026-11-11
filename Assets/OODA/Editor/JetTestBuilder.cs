@@ -14,7 +14,8 @@ namespace Ooda.EditorTools
 {
     /// <summary>
     /// OODA > Build Jet Test: a side test, away from the WW2 missions. The Phantom (Art/Phantom: the Hi3D model cut to about
-    /// 50k triangles, 19.2 m long) in free flight over the alpine test world, with jet numbers (AircraftNumbers.Phantom)
+    /// 50k triangles, 19.2 m long, with its ailerons, stabilators and rudder cut out to move: Phantom.fbx, made from
+    /// Phantom.obj by Tools~/ArtPipeline/control_surfaces.py with specs/phantom_controls.json) in free flight over the alpine test world, with jet numbers (AircraftNumbers.Phantom)
     /// and an afterburner on the WEP button, painted in SEA camo with a tiger and a wolf for its crew (JetTestBuilder.Paint,
     /// .Crew). Saved as JetTest.unity and added to the build; the title's Jet Test button
     /// (or J) opens it. Run it after Build Test World (it starts from that scene) and Build Title.
@@ -22,7 +23,8 @@ namespace Ooda.EditorTools
     public static partial class JetTestBuilder
     {
         const string Dir = "Assets/OODA/Art/Phantom";
-        const string Obj = Dir + "/Phantom.obj";
+        const string Obj = Dir + "/Phantom.fbx";
+        const string BodyName = "Phantom_Body";
         const string BaseTex = Dir + "/Phantom_BaseColor.jpg";
         const string MetalTex = Dir + "/Phantom_MetallicSmoothness.png";
         const string PerfPath = "Assets/OODA/Settings/Phantom.asset";
@@ -54,11 +56,14 @@ namespace Ooda.EditorTools
             mi.importNormals = ModelImporterNormals.Import;
             mi.importTangents = ModelImporterTangents.CalculateMikk;
             mi.indexFormat = ModelImporterIndexFormat.Auto;
+            mi.preserveHierarchy = true;   // the body stays a node of its own, its moving surfaces under it
             mi.SaveAndReimport();
 
-            foreach (var (path, size, srgb) in new[] { (BaseTex, 4096, true), (MetalTex, 2048, false) })
+            var liveryMaps = Liveries.Select(n => ($"{Dir}/Phantom_{n}_BaseColor.jpg", 4096, true));
+            foreach (var (path, size, srgb) in new[] { (BaseTex, 4096, true), (MetalTex, 2048, false) }.Concat(liveryMaps))
             {
                 var ti = (TextureImporter)AssetImporter.GetAtPath(path);
+                if (ti == null) continue;
                 ti.sRGBTexture = srgb;
                 ti.mipmapEnabled = true;
                 ti.anisoLevel = 8;
@@ -103,30 +108,65 @@ namespace Ooda.EditorTools
             return saved;
         }
 
-        /// <summary>The model (camo body and clear canopy), turned and scaled so its nose is +z, its fin up, and it is Length long, centred on its bounds; its crew; and the cockpit eye at the pilot's.</summary>
+        /// <summary>The Phantom's other paint jobs (Tools~/ArtPipeline/phantom_recolor.py repaints the SEA camo): the Navy's
+        /// light gull grey over white, the USAF's later Hill Grey, and Europe One's greens and grey. Handed out in turn.</summary>
+        static readonly string[] Liveries = { "Navy", "HillGrey", "EuropeOne" };
+
+        /// <summary>
+        /// The model (camo body and clear canopy, its moving surfaces under it), turned and scaled so its nose is +z, its
+        /// fin up, and it is Length long, centred on its bounds; its crew; the cockpit eye at the pilot's; and the parts
+        /// that swing the surfaces and hand out the paint jobs.
+        /// </summary>
         static PilotHeadLook AddModel(Transform root)
         {
             var (mesh, body, glass) = Paint();
-            var model = new GameObject("Model");
-            model.transform.SetParent(root, false);
-            model.AddComponent<MeshFilter>().sharedMesh = mesh;
-            var mr = model.AddComponent<MeshRenderer>();
-            mr.sharedMaterials = new[] { body, glass };
-            mr.shadowCastingMode = ShadowCastingMode.On;
             if (mesh == null) return null;
+            var model = (GameObject)PrefabUtility.InstantiatePrefab(AssetDatabase.LoadAssetAtPath<GameObject>(Obj));
+            PrefabUtility.UnpackPrefabInstance(model, PrefabUnpackMode.Completely, InteractionMode.AutomatedAction);
+            model.name = "Model";
+            model.transform.SetParent(root, false);
+            var bodyT = BodyOf(model.transform);
+            bodyT.GetComponent<MeshFilter>().sharedMesh = mesh;
+            foreach (var r in model.GetComponentsInChildren<Renderer>())
+            {
+                r.sharedMaterials = r.transform == bodyT ? new[] { body, glass } : new[] { body };
+                r.shadowCastingMode = ShadowCastingMode.On;
+            }
             var (turn, k, centre) = FitOf(mesh);
             model.transform.localRotation = turn;
             model.transform.localScale = Vector3.one * k;
             model.transform.localPosition = -(turn * centre) * k;
-            Debug.Log($"OODA: the Phantom's mesh: {mesh.vertexCount} vertices, {mesh.triangles.Length / 3} triangles, scaled {k:F3} to {Length} m.");
+            Debug.Log($"OODA: the Phantom's mesh: {mesh.vertexCount} vertices, {mesh.triangles.Length / 3} triangles, scaled {k:F3} to {Length} m, " +
+                      $"{model.GetComponentsInChildren<Renderer>().Length - 1} moving surfaces.");
 
-            var look = AddCrew(root, mesh, model.transform);
+            root.gameObject.AddComponent<ControlSurfaces>();
+            AddLiveries(root.gameObject, body);
+
+            var look = AddCrew(root, mesh, bodyT);
             // the eye for the C camera: the front pilot's (his head is hidden in that view)
             var eye = new GameObject("CockpitCamera").transform;
             eye.SetParent(root, false);
             eye.localPosition = new Vector3(0, 1.4f, 1.5f);
             if (look != null) EyeAtHead(root, eye);
             return look;
+        }
+
+        /// <summary>The body's node in the model: the mesh the canopy is split from and the crew are fitted to. FitOf and the
+        /// paint work in its space, so it must sit on the model's root unmoved (as unity_export.py writes it).</summary>
+        static Transform BodyOf(Transform model)
+        {
+            var t = TestWorldBuilder.FindDeep(model, BodyName) ?? model;
+            if (t != model && (t.localPosition.sqrMagnitude > 1e-6f || Quaternion.Angle(t.localRotation, Quaternion.identity) > 0.01f || (t.localScale - Vector3.one).sqrMagnitude > 1e-6f))
+                Debug.LogWarning($"OODA: {BodyName} is moved within Phantom.fbx; the canopy and crew may sit off the model.");
+            return t;
+        }
+
+        /// <summary>The paint jobs, each with the camo's flat-paint gloss map (the repaint keeps where the paint is).</summary>
+        static void AddLiveries(GameObject root, Material body)
+        {
+            var livery = root.AddComponent<PlaneLivery>();
+            livery.standard = body;
+            livery.others = Liveries.Select(n => TestWorldBuilder.Textured("Phantom_" + n, $"{Dir}/Phantom_{n}_BaseColor.jpg", CamoMetalTex, toon: true)).ToArray();
         }
 
         const string TurnPrefabPath = "Assets/OODA/Prefabs/PhantomTurn.prefab";

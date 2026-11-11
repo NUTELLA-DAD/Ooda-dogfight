@@ -1,0 +1,10 @@
+{
+ "body": "Phantom_Body",
+ "prefix": "Phantom",
+ "surfaces": [
+  {"name": "Aileron", "kind": "wing", "s": [2.9, 4.3], "f": 0.78, "box": {"y": [-1.0, 4.6], "z": [-1.7, -0.8]}, "te_parallel": true},
+  {"name": "Elevator", "kind": "wing", "s": [1.1, 2.0], "f": 0.45, "box": {"y": [5.6, 9.3], "z": [-2.4, -0.9]}, "band": 0.14,
+   "pivot": {"y": 7.2, "fwd": 1.22, "tip": 2.65}},
+  {"name": "Rudder", "kind": "fin", "x": 0.0, "z": [0.5, 1.75], "f": 0.73, "y": [5.5, 9.4]}
+ ]
+}

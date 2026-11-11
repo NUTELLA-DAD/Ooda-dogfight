@@ -74,7 +74,9 @@ for sf in spec['surfaces']:
             if sf.get('pivot'):
                 # an all-moving tailplane: it turns whole about a spanwise axis at y (square to the fuselage), from
                 # the root cut out past the tip, so the part reaches forward of the axis too
-                P_ = sf['pivot']; A.y = B.y = P_['y']; B.x = sx * P_.get('tip', sf['s'][1])
+                P_ = sf['pivot']; A.y = B.y = P_['y']
+                tip = P_.get('tip', sf['s'][1])
+                B = A + (B - A) * ((tip - sf['s'][0]) / (sf['s'][1] - sf['s'][0]))   # on out along the dihedral (or anhedral)
                 jobs.append((f"{spec['prefix']}_{sf['name']}{tag}", A, B, ca + 0.3, sf.get('band', 0.25), P_['fwd'], 'root'))
             else:
                 jobs.append((f"{spec['prefix']}_{sf['name']}{tag}", A, B, ca * (1 - sf['f']) + 0.15, sf.get('band', 0.25), 0.0, 'all'))
