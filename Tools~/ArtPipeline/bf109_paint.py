@@ -4,8 +4,11 @@
 # sits on the aircraft (texmap.npz from bf109_hull.py), so every marking is drawn as an exact shape in aircraft space and
 # lies the right way round on each side: the chevrons point at the nose on both sides, and the lettering reads from
 # left to right on both sides. Built the same way as p51_paint.py.
-# Run: python bf109_paint.py <dir with charts.json, texmap.npz> <out dir>
-import sys, json, math, numpy as np
+# Four paint jobs: LIVERY=grey (the standard one, above), desert (sand over light blue, white band and wingtips), green
+# (dark green splinter over light blue, yellow cowl and rudder) or winter (white distemper worn over the grey). The game
+# gives each 109 in a fight the next one (PlaneLivery).
+# Run: [LIVERY=desert] python bf109_paint.py <dir with charts.json, texmap.npz> <out dir>
+import os, sys, json, math, numpy as np
 from PIL import Image, ImageDraw, ImageFont
 from scipy import ndimage
 Image.MAX_IMAGE_PIXELS = None
@@ -27,7 +30,24 @@ for n, (x, y, w, h) in rect.items():
 RLM74 = np.array((72, 80, 74.0)); RLM75 = np.array((100, 100, 110.0)); RLM76 = np.array((176, 196, 206.0))
 YELLOW = np.array((236, 186, 28.0)); BLACK = np.array((26, 26, 28.0)); WHITE = np.array((240, 240, 236.0))
 RLM70 = np.array((38, 46, 36.0)); INK = np.array((30, 32, 34.0)); STEEL = np.array((70, 66, 64.0))
-img = np.zeros((S, S, 3), np.float32); img[:] = RLM76
+RLM79 = np.array((186, 148, 98.0)); RLM80 = np.array((86, 92, 58.0)); RLM78 = np.array((140, 178, 204.0))
+RLM71 = np.array((64, 78, 52.0)); RLM65 = np.array((146, 176, 196.0)); DISTEMPER = np.array((226, 228, 224.0))
+LIVERIES = {
+    'grey':   dict(top=(RLM74, RLM75), under=RLM76, mott=(RLM75, np.array((110, 118, 108.0))), mott_amt=1.0, nose=YELLOW,
+                   cowl_under=YELLOW, cowl_all=False, band=YELLOW, rudder=None, tips=None, spin=RLM70, spin_mark='spiral',
+                   num='15458', whitewash=False),
+    'desert': dict(top=(RLM79, RLM79 * 0.93), under=RLM78, mott=(RLM80, RLM80), mott_amt=0.55, nose=None,
+                   cowl_under=None, cowl_all=False, band=WHITE, rudder=None, tips=WHITE, spin=RLM79, spin_mark='tip',
+                   num='8471', whitewash=False),
+    'green':  dict(top=(RLM70, RLM71), under=RLM65, mott=None, mott_amt=0.0, nose=YELLOW,
+                   cowl_under=YELLOW, cowl_all=True, band=None, rudder=YELLOW, tips=None, spin=RLM70, spin_mark='tip',
+                   num='3579', whitewash=False),
+    'winter': dict(top=(RLM74, RLM75), under=RLM76, mott=(RLM75, np.array((110, 118, 108.0))), mott_amt=1.0, nose=YELLOW,
+                   cowl_under=YELLOW, cowl_all=False, band=YELLOW, rudder=None, tips=None, spin=BLACK, spin_mark='spiral',
+                   num='10639', whitewash=True),
+}
+LNAME = os.environ.get('LIVERY', 'grey'); LV = LIVERIES[LNAME]; TOP1, TOP2 = LV['top']; UNDER_C = LV['under']
+img = np.zeros((S, S, 3), np.float32); img[:] = UNDER_C
 def lay(mask, col):
     global img
     m = np.clip(mask, 0, 1)[..., None]; img = img * (1 - m) + np.asarray(col, np.float32) * m
@@ -54,16 +74,16 @@ def splinter(a_, b_, lines):
     return k % 2
 SPL_W = splinter(AX, Y, [(1, 0.85, -0.2), (1, 0.85, -1.5), (1, 0.85, -2.8), (1, 0.85, -4.0), (1, -0.9, -3.3)])
 SPL_T = splinter(AX, Y, [(1, 0.6, -2.2), (1, -0.5, 0.1)])
-img[:] = RLM76
+img[:] = UNDER_C
 w_mid = lambda s: -0.36 + 0.105 * s
 top_w = (WING & ((NZ > 0) | (Z > w_mid(AX)))) | (TAIL & ((NZ > 0) | (Z > 0.12)))        # above the mean line, so the root fillets stay grey
-lay(top_w * (1 - SPL_W) * WING, RLM74); lay(top_w * SPL_W * WING, RLM75)
-lay(top_w * (1 - SPL_T) * TAIL, RLM74); lay(top_w * SPL_T * TAIL, RLM75)
+lay(top_w * (1 - SPL_W) * WING, TOP1); lay(top_w * SPL_W * WING, TOP2)
+lay(top_w * (1 - SPL_T) * TAIL, TOP1); lay(top_w * SPL_T * TAIL, TOP2)
 # the fuselage: the spine in 74/75 down to a soft line, the sides 76 with mottle that thins out downward
 def hullz_top(y): return np.interp(y, [-3.36, -2.8, -1.4, -0.2, 0.4, 1.0, 1.6, 2.2, 2.8, 3.35, 3.9], [0.82, 0.875, 0.82, 0.755, 0.68, 0.58, 0.47, 0.37, 0.28, 0.205, 0.09])
 spine = sstep(Z - (hullz_top(Y) - 0.16), -0.02, 0.02) * (FUS | FIN | RUD)
 spine_spl = splinter(X * 0 + Y, X, [(1, 0, 1.2), (1, 0, -0.9), (1, 0, -2.6), (0.5, 1, 0.0)])
-lay(spine * spine_spl, RLM74); lay(spine * (1 - spine_spl), RLM75)
+lay(spine * spine_spl, TOP1); lay(spine * (1 - spine_spl), TOP2)
 # mottle: a smooth random field in side view, thresholded softly
 rng = np.random.default_rng(109)
 NOI = ndimage.gaussian_filter(rng.random((210, 75)), 1.5)          # cells of 4 cm over y -4.2..4.2, z -0.9..2.1
@@ -74,18 +94,36 @@ noi = (NOI[iy0, iz0] * (1 - fy) * (1 - fz) + NOI[iy0 + 1, iz0] * fy * (1 - fz) +
 noi = noi + 0.35 * np.sin(X * 13.0)                                  # the two sides differ
 dens = sstep(Z, -0.25, hullz_top(Y) - 0.15)                          # more mottle higher up the side
 mott = sstep(noi + 1.6 * dens - 1.55, -0.12, 0.12) * (FUS | FIN | RUD) * (np.abs(NX) > 0.2) * (1 - spine)
-lay(mott * 0.9 * (noi > 0.7), RLM75); lay(mott * 0.9 * (noi <= 0.7), np.array((110, 118, 108.0)))
+if LV['mott'] is not None:
+    if LV['mott_amt'] < 1: mott = mott * sstep(noi, 1.0, 1.3)          # sparse blotches only
+    lay(mott * 0.9 * (noi > 0.7), LV['mott'][0]); lay(mott * 0.9 * (noi <= 0.7), LV['mott'][1])
+if LV['whitewash']:
+    # white distemper brushed over the upper surfaces in the field: streaky, worn through to the grey along the
+    # brush strokes, at the panel edges and where the crew walked on the wing roots
+    NW = ndimage.gaussian_filter(rng.random((420, 300)), (7.0, 1.6))      # strokes run fore and aft
+    NW = (NW - NW.mean()) / NW.std()
+    gx = np.clip((X + 5.0) / 0.0334, 0, 298.999); gy2 = np.clip((Y + 4.2) / 0.02, 0, 418.999)
+    nw = NW[gy2.astype(int), gx.astype(int)] + 0.5 * NOI[iy0, iz0]
+    upper = np.clip(top_w * (WING | TAIL) + spine + sstep(Z, 0.05, 0.35) * (FUS | FIN | RUD), 0, 1)
+    walk = WING & (AX < 1.15) & (NZ > 0.3)
+    lay(upper * sstep(nw, -1.25, -0.85) * (1 - 0.8 * walk) * 0.95, DISTEMPER)
 
 # ---------------------------------------------------------------- the bright parts
 COWL = FUS & (Y < -1.95)
-lay(COWL * aa(Y + 2.98), YELLOW)                                     # the nose ring
-lay((COWL * aa(Z - 0.20) + CHIN * 1.0) * (1 - aa(Y + 2.98)), YELLOW)  # under the cowl, and the oil cooler
-lay(FUS * band(Y, 1.92, 2.34), YELLOW)                               # the band round the rear fuselage
+if LV['cowl_all']: lay(COWL * 1.0 + CHIN * 1.0, LV['nose'])          # the whole cowl
+if LV['nose'] is not None: lay(COWL * aa(Y + 2.98), LV['nose'])      # the nose ring
+if LV['cowl_under'] is not None:
+    lay((COWL * aa(Z - 0.20) + CHIN * 1.0) * (1 - aa(Y + 2.98)), LV['cowl_under'])  # under the cowl, and the oil cooler
+if LV['band'] is not None: lay(FUS * band(Y, 1.92, 2.34), LV['band'])  # the band round the rear fuselage
+if LV['rudder'] is not None: lay(RUD * 1.0 + FIN * (fc > 0.70), LV['rudder'])
+if LV['tips'] is not None: lay(WING * aa(3.95 - AX), LV['tips'])     # the wingtips, top and bottom
 lay(FUS * band(Y, -3.36, -3.30), RLM70)                              # a dark lip where the spinner meets the cowl
 # the spinner: black-green with one white spiral from the point back to the base
 phi = np.arctan2(X, Z - TZ) / (2 * np.pi); t = np.clip((Y - (-3.36 - 0.56)) / 0.56, 0, 1)
 spiral = (np.mod(phi + 1.15 * t, 1.0) < 0.16 + 0.04 * t)
-lay(SPIN * 1.0, RLM70); lay(SPIN * spiral * aa(-t + 0.03), WHITE)
+lay(SPIN * 1.0, LV['spin'])
+if LV['spin_mark'] == 'spiral': lay(SPIN * spiral * aa(-t + 0.03), WHITE)
+else: lay(SPIN * aa(t - 0.30), WHITE)                                # a white tip
 # exhaust staining: soot streaks back along the side from the stacks
 soot = FUS * sstep(-Y, 1.0, 2.3) * np.exp(-((Z - 0.27) / (0.07 + 0.05 * np.clip(Y + 2.9, 0, 2))) ** 2) * (Y > -2.95) * (np.abs(NX) > 0.3)
 lay(soot * 0.55, np.array((44, 42, 40.0)))
@@ -167,7 +205,7 @@ def text(s, h_units, col, outline=None):
                stroke_width=int(H * 0.04) if outline is not None else 0, stroke_fill=None if outline is None else rgba(outline))
     return decal(fn, h_units * asp, h_units), h_units * asp, h_units
 SIDE = FUS & (np.abs(NX) > 0.30)
-cr, cw, chh = cross(0.30); ch_, chw, chh2 = chevrons(0.40); wn, wnw, wnh = text('15458', 0.075, BLACK)
+cr, cw, chh = cross(0.30); ch_, chw, chh2 = chevrons(0.40); wn, wnw, wnh = text(LV['num'], 0.075, BLACK)
 for sx in (1, -1):
     # seen from this side, "left to right" runs toward the tail on the left (+X) side and toward the nose on the right
     a_ = Y * sx; m = SIDE & (X * sx > 0)
@@ -196,8 +234,8 @@ for sx in (1, -1):
 ring(FUS & (NZ > 0.5), X, Y, 0.0, 0.90, 0.06)                            # the fuel filler behind the cockpit
 
 # ---------------------------------------------------------------- swatches, edges, maps
-for n, col in (('sw_paint', RLM74), ('sw_under', RLM76), ('sw_ink', INK), ('sw_frame', RLM74), ('sw_steel', STEEL),
-               ('sw_glass', (200, 220, 230)), ('sw_glassframe', RLM74), ('sw_prop', RLM70)):
+for n, col in (('sw_paint', TOP1), ('sw_under', UNDER_C), ('sw_ink', INK), ('sw_frame', TOP1), ('sw_steel', STEEL),
+               ('sw_glass', (200, 220, 230)), ('sw_glassframe', TOP1), ('sw_prop', RLM70)):
     x, y, w, h_ = rect[n]; img[y:y + h_, x:x + w] = col; cov[y:y + h_, x:x + w] = True
 miss = ~cov
 _, (iy, ix) = ndimage.distance_transform_edt(miss, return_indices=True)
@@ -207,6 +245,7 @@ smooth = 0.42 * (1 - steel) + 0.55 * steel; smooth = smooth * (1 - 0.5 * line)
 gloss = SPIN[iy, ix]; smooth = np.where(gloss, 0.55, smooth)
 out = np.clip(img, 0, 255).astype(np.uint8)
 msm = np.zeros((S, S, 4), np.uint8); msm[..., 0] = msm[..., 1] = msm[..., 2] = (steel * 200).astype(np.uint8); msm[..., 3] = (smooth * 255).astype(np.uint8)
-Image.fromarray(out).save(OUT + '/Bf109_BaseColor.png'); Image.fromarray(msm).resize((S // 2, S // 2), Image.LANCZOS).save(OUT + '/Bf109_MetallicSmoothness.png')
-Image.fromarray(out).resize((1024, 1024), Image.LANCZOS).save(OUT + '/atlas_preview.jpg', quality=88)
+TAG = '' if LNAME == 'grey' else '_' + LNAME.capitalize()
+Image.fromarray(out).save(OUT + '/Bf109%s_BaseColor.png' % TAG); Image.fromarray(msm).resize((S // 2, S // 2), Image.LANCZOS).save(OUT + '/Bf109%s_MetallicSmoothness.png' % TAG)
+Image.fromarray(out).resize((1024, 1024), Image.LANCZOS).save(OUT + '/atlas_preview%s.jpg' % TAG, quality=88)
 print('painted')

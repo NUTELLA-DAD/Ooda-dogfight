@@ -152,6 +152,8 @@ namespace Ooda.EditorTools
         static readonly TestWorldBuilder.Seat Bf109Seat = new TestWorldBuilder.Seat { scale = 1.55f, lift = -0.47f, back = -0.20f, railHalfWidth = 0.36f, railHeight = 0.48f, railForward = 0.22f };
         // Seated that far forward, the throttle is beside his hip and his left elbow swung out through the cockpit side: point it down and back.
         static readonly Vector3 Bf109ThrottleElbowHint = new Vector3(0f, -0.20f, -0.10f);
+        /// <summary>The 109's other paint jobs (Art/Bf109/Bf109_&lt;name&gt;_BaseColor.png, Tools~/ArtPipeline/bf109_paint.py), for when more than one flies.</summary>
+        static readonly string[] Bf109Liveries = { "Desert", "Green", "Winter" };
 
         static void ImportPlane(string fbx, string metallicSmoothness)
         {
@@ -172,11 +174,20 @@ namespace Ooda.EditorTools
         static GameObject MakeBf109Prefab(TestWorldBuilder.Mats mats, Material pilotMat, RuntimeAnimatorController pilotCtrl)
         {
             ImportPlane(Bf109Fbx, Art + "/Bf109/Bf109_MetallicSmoothness.png");
+            foreach (var n in Bf109Liveries)
+            {
+                var ms = (TextureImporter)AssetImporter.GetAtPath(Art + $"/Bf109/Bf109_{n}_MetallicSmoothness.png");
+                if (ms != null && ms.sRGBTexture) { ms.sRGBTexture = false; ms.SaveAndReimport(); }
+            }
             var body = TestWorldBuilder.Textured("Bf109", Art + "/Bf109/Bf109_BaseColor.png", Art + "/Bf109/Bf109_MetallicSmoothness.png", toon: true);
             return MakeFighter("Bf109", Bf109Fbx, new[] { "Bf109_Propeller" }, Bf109PrefabPath, Bf109Seat, mats, body, WolfFbx, Ooda.Turn.Core.PilotKind.Wolf, pilotMat, pilotCtrl,
                 extra: (root, model) =>
                 {
                     foreach (var pc in root.GetComponentsInChildren<PilotControls>(true)) pc.throttleElbowHint = Bf109ThrottleElbowHint;   // every pilot in the roster sits there
+                    // a paint job of its own for each 109 in the air: the first grey, then desert, green and winter
+                    var livery = root.AddComponent<PlaneLivery>();
+                    livery.standard = body;
+                    livery.others = Bf109Liveries.Select(n => TestWorldBuilder.Textured("Bf109_" + n, Art + $"/Bf109/Bf109_{n}_BaseColor.png", Art + $"/Bf109/Bf109_{n}_MetallicSmoothness.png", toon: true)).ToArray();
                 });
         }
 
