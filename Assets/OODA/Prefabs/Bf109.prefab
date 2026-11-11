@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 6718540654399714899}
   - component: {fileID: 5805227579415831182}
   - component: {fileID: 4305586913695445612}
+  - component: {fileID: 3122033833625751598}
   m_Layer: 0
   m_Name: Bf109
   m_TagString: Untagged
@@ -105,6 +106,23 @@ MonoBehaviour:
   lion: {fileID: 4217987830191486815}
   penguin: {fileID: 6446500933609276150}
   spectre: {fileID: 7609369455425711816}
+--- !u!114 &3122033833625751598
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 868256559171294026}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fef8b6872d1146b8bfc004b59624a866, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Ooda.Flight.PlaneLivery
+  standard: {fileID: 2100000, guid: b5f93b75e10db7d4386849ae0f162249, type: 2}
+  others:
+  - {fileID: 2100000, guid: 8d059032283e30f488e30c2d6c7aa962, type: 2}
+  - {fileID: 2100000, guid: bcbcc411a7c8b674a8fd6de30c290871, type: 2}
+  - {fileID: 2100000, guid: 1be3b21d158921b459a28f32f86d35e6, type: 2}
 --- !u!1 &1811056698326403471
 GameObject:
   m_ObjectHideFlags: 0
