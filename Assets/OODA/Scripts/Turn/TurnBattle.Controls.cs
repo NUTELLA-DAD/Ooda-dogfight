@@ -239,7 +239,7 @@ namespace Ooda.Turn
             }
         }
 
-        /// <summary>During playback: a flame behind each aircraft whose rocket is burning, and the brake panels out to its sides.</summary>
+        /// <summary>During playback: the brake panels out to the sides of each aircraft whose brake is out (the rocket's flame is its RocketPlume), and the camera kicked by your own rocket.</summary>
         void DrawExtras(int now) => DrawExtras(views, last, now);
 
         void DrawExtras(IList<TurnAircraftView> vs, TurnResult r, int now)
@@ -260,22 +260,19 @@ namespace Ooda.Turn
             {
                 if (vs[k] == null || r.frames[k] == null) continue;
                 var f = r.frames[k][Mathf.Min(now, r.frames[k].Length - 1)];
-                if (f.down || (!f.rocket && !f.brake)) continue;
+                if (f.down || !f.brake) continue;
                 var t = vs[k].transform;
                 Vector3 fwd = UnityFrame.Dir(f.vel.Normalized), up = UnityFrame.Dir(f.up), right = Vector3.Cross(up, fwd);
-                Vector3 tail = t.position - fwd * 5f;
-                if (f.rocket)
-                {
-                    float flick = 0.75f + 0.25f * Mathf.Sin(Time.time * 47f + k);
-                    lines.Line(tail, tail - fwd * 14f * flick, 2.4f, rocketFlame);
-                    lines.Line(tail, tail - fwd * 7f * flick, 1.4f, new Color(1f, 0.95f, 0.7f, 1f));
-                }
-                if (f.brake)
-                {
-                    var grey = new Color(0.85f, 0.85f, 0.9f, 0.9f);
-                    lines.Line(t.position + right * 1.2f, t.position + right * 1.2f + up * 1.8f - fwd * 0.6f, 0.9f, grey);
-                    lines.Line(t.position - right * 1.2f, t.position - right * 1.2f + up * 1.8f - fwd * 0.6f, 0.9f, grey);
-                }
+                var grey = new Color(0.85f, 0.85f, 0.9f, 0.9f);
+                lines.Line(t.position + right * 1.2f, t.position + right * 1.2f + up * 1.8f - fwd * 0.6f, 0.9f, grey);
+                lines.Line(t.position - right * 1.2f, t.position - right * 1.2f + up * 1.8f - fwd * 0.6f, 0.9f, grey);
+            }
+            // the rocket you ride: the view widens and shudders while it burns, and kicks as it lights
+            if (view != null)
+            {
+                TurnAircraftView mine = null;
+                for (int k = 0; k < vs.Count && mine == null; k++) if (vs[k] != null && vs[k].transform == view.player) mine = vs[k];
+                view.Boost(mine != null && !mine.Crashed ? mine.RocketAge : -1f);
             }
         }
 

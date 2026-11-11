@@ -18,6 +18,10 @@ namespace Ooda.Turn
         public bool Wep { get; private set; }
         /// <summary>The pilot's G stress, 0 to 1 (1 blacked out: G-LOC), for the screen to grey.</summary>
         public float GreyOut { get; private set; }
+        /// <summary>Seconds since its rocket lit, in battle time, or -1 when the rocket isn't burning (for its RocketPlume and the pilot's PilotThrust).</summary>
+        public float RocketAge { get; private set; } = -1f;
+        /// <summary>Hidden whole (stealth).</summary>
+        public bool Hidden => hidden;
 
         [Tooltip("Where the smoke comes from (the engine); empty uses the aircraft's centre.")]
         public Transform smokePoint;
@@ -27,6 +31,8 @@ namespace Ooda.Turn
         float lastPuffT;
         bool hasLastPuff, wasCrashed;
         Vector3 lastUp;
+        double rocketFrom = double.NaN;
+        RocketPlume plume;
 
         public void Bind(FlightModel model)
         {
@@ -42,6 +48,8 @@ namespace Ooda.Turn
             Model.state = m.state; Model.g = m.g; Model.throttle = m.throttle; Model.rollRateDps = 0;
             Wep = false;
             GreyOut = (float)m.GreyOut;
+            rocketFrom = double.NaN;
+            SetRocket(m.RocketBurning ? (float)System.Math.Max(0, m.numbers.rocketSec - m.rocketBurnSec) : -1f);
             var s = m.systems;
             ShowBailout(s.bailed && !double.IsNaN(now), s.bailPos, s.bailVel, now - s.bailAt);
             Place(m.state.pos, m.Forward, m.state.up, m.AlphaDeg);   // the nose (in a tail slide it isn't along the path)
@@ -64,6 +72,10 @@ namespace Ooda.Turn
             Wep = b.wep;
             GreyOut = (float)(a.greyOut + (b.greyOut - a.greyOut) * u);
             double t = a.time + (b.time - a.time) * u;
+            // the rocket: lit in this step (or already burning when the playback starts here), out when the frame says so
+            if (!b.rocket) rocketFrom = double.NaN;
+            else if (double.IsNaN(rocketFrom) || t < rocketFrom) rocketFrom = a.time;
+            SetRocket(b.rocket ? (float)(t - rocketFrom) : -1f);
             ShowBailout(b.bailed && t >= b.bailAt, b.bailPos, b.bailVel, t - b.bailAt);
             Vector3 upU = UnityFrame.Dir(up);
             if (dt > 0 && lastUp != Vector3.zero)
@@ -71,6 +83,14 @@ namespace Ooda.Turn
             lastUp = upU;
             Crashed = crashed;
             Place(pos, nose, up, alpha);
+        }
+
+        void SetRocket(float age)
+        {
+            RocketAge = age;
+            Model.rocketBurnSec = age >= 0 ? System.Math.Max(0.01, Model.numbers.rocketSec - age) : 0;
+            // the flame and the pilot's shove are made the first time it lights (most planes never do)
+            if (age >= 0 && plume == null && (plume = GetComponent<RocketPlume>()) == null) plume = gameObject.AddComponent<RocketPlume>();
         }
 
         Renderer[] rends;

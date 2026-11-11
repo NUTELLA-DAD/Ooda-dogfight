@@ -17,7 +17,7 @@ namespace Ooda.Fx
     /// One mesh, rebuilt each frame: the whole sky of effects is one draw call.
     /// </summary>
     [DefaultExecutionOrder(1000)]   // after the cameras have moved: the puffs face where the camera is this frame
-    public sealed class ToonFx : MonoBehaviour
+    public sealed partial class ToonFx : MonoBehaviour
     {
         // ---- caps and timing
         const float KeysPerSec = 15f;
@@ -70,7 +70,7 @@ namespace Ooda.Fx
             for (int i = 0; i < MaxShards; i++) shards[i].On = false;
             for (int i = 0; i < MaxFlashes; i++) flashes[i].On = false;
             for (int i = 0; i < MaxColumns; i++) columns[i].On = false;
-            tracerQ.Clear(); wispQ.Clear();
+            tracerQ.Clear(); wispQ.Clear(); rocketQ.Clear();
         }
 
         // ---------------------------------------------------------------------------------------------------------
@@ -88,15 +88,16 @@ namespace Ooda.Fx
         int nextPuff, nextShard, nextFlash, nextColumn;
 
         // ---- puff styles (fills paling with age, rim lines)
-        const byte Smoke = 0, Trail = 1, Black = 2, ColumnS = 3;
+        const byte Smoke = 0, Trail = 1, Black = 2, ColumnS = 3, RocketS = 4;
         static readonly Color[][] Fills =
         {
             new[] { Hex("#2f2a38"), Hex("#3d3747"), Hex("#5a5466") },   // explosion smoke: charcoal purple-grey, paling
             new[] { Hex("#6a6570"), Hex("#85808c"), Hex("#a8a4ae") },   // a hurt aircraft's thin grey trail
             new[] { Hex("#26232c"), Hex("#38343f"), Hex("#57525e") },   // a falling aircraft's thick black trail
             new[] { Hex("#4a4054"), Hex("#695d77"), Hex("#93889f") },   // a smoke column: warm purple-grey, lightening as it climbs
+            new[] { Hex("#ffc93a"), Hex("#f0602a"), Hex("#5a5064") },   // a rocket's exhaust: fire, cooling red, then smoke (ToonFx.Rocket.cs)
         };
-        static readonly Color[] Lines = { Hex("#16131c"), Hex("#3a363f"), Hex("#121016"), Hex("#2a2233") };
+        static readonly Color[] Lines = { Hex("#16131c"), Hex("#3a363f"), Hex("#121016"), Hex("#2a2233"), Hex("#6a1c0c") };
         static readonly Color[] Metal = { Hex("#3a3f48"), Hex("#5a606a"), Hex("#2a2d33"), Hex("#6e5a48") };
         static readonly Color[] Rubble = { Hex("#4a4038"), Hex("#6e6152"), Hex("#3a3330"), Hex("#7a4a2a") };
         static readonly Color FlashWhite = new Color(1f, 1f, 0.94f, 1f), FlashYellow = new Color(1f, 0.92f, 0.36f, 1f);
@@ -415,6 +416,7 @@ namespace Ooda.Fx
                 }
                 DrawGroups();
                 DrawTracers(now);
+                DrawRockets(now);
                 DrawFlashes(now);
             }
             if (mesh == null) return;
