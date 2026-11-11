@@ -41,7 +41,7 @@ namespace Ooda.EditorTools
             ConfigureImports();
             PilotCast.Prepare();
             var mats = TestWorldBuilder.MakeMaterials();
-            var spitMat = TestWorldBuilder.Textured("Spitfire", Art + "/Spitfire/Spit_BaseColor.png", Art + "/Spitfire/Spit_MetallicSmoothness.png");
+            var spitMat = TestWorldBuilder.Textured("Spitfire", Art + "/Spitfire/Spit_BaseColor.png", Art + "/Spitfire/Spit_MetallicSmoothness.png", toon: true);
             var wolfMat = TestWorldBuilder.Textured("WolfPilot", Art + "/WolfPilot/Wolf_BaseColor.png", Art + "/WolfPilot/Wolf_MetallicSmoothness.png", toon: true);
             var wolfCtrl = MakeSeatedAnimator(WolfFbx, "WolfPilot");
             var spit = MakeSpitfirePrefab(mats, spitMat, wolfMat, wolfCtrl);
@@ -82,13 +82,26 @@ namespace Ooda.EditorTools
 
         static RuntimeAnimatorController MakeSeatedAnimator(string fbx, string name) => TestWorldBuilder.MakePilotController(fbx, name);
 
-        static GameObject MakeSpitfirePrefab(TestWorldBuilder.Mats mats, Material body, Material pilotMat, RuntimeAnimatorController pilotCtrl) =>
-            MakeWolfFighter("Spitfire", SpitFbx, "Spit_Propeller", SpitPrefabPath, WolfSeat, mats, body, pilotMat, pilotCtrl);
+        /// <summary>The Spitfire's other paint jobs (Art/Spitfire/Spit_&lt;name&gt;_BaseColor.png, Tools~/ArtPipeline/specs/spit_paint.py), for when more than one flies.</summary>
+        static readonly string[] SpitLiveries = { "Desert", "Malta", "Invasion" };
 
-        /// <summary>An enemy fighter for the turn battle: the model with its canopy hidden, the wolf seated in it, and its propeller turning.</summary>
-        static GameObject MakeWolfFighter(string name, string fbx, string propeller, string prefabPath, TestWorldBuilder.Seat seat,
-                                          TestWorldBuilder.Mats mats, Material body, Material pilotMat, RuntimeAnimatorController pilotCtrl) =>
-            MakeFighter(name, fbx, new[] { propeller }, prefabPath, seat, mats, body, WolfFbx, Ooda.Turn.Core.PilotKind.Wolf, pilotMat, pilotCtrl);
+        static GameObject MakeSpitfirePrefab(TestWorldBuilder.Mats mats, Material body, Material pilotMat, RuntimeAnimatorController pilotCtrl) =>
+            MakeFighter("Spitfire", SpitFbx, new[] { "Spit_Propeller" }, SpitPrefabPath, WolfSeat, mats, body, WolfFbx, Ooda.Turn.Core.PilotKind.Wolf, pilotMat, pilotCtrl,
+                        extra: (root, model) => AddLiveries(root, body, "Spitfire", Art + "/Spitfire/Spit", SpitLiveries));
+
+        /// <summary>A paint job of its own for each aircraft of a type in the air (PlaneLivery): the first keeps the
+        /// standard paint, the next ones take &lt;path&gt;_&lt;name&gt;_BaseColor.png and its MetallicSmoothness in turn.</summary>
+        static void AddLiveries(GameObject root, Material body, string matName, string path, string[] names)
+        {
+            foreach (var n in names)
+            {
+                var ms = (TextureImporter)AssetImporter.GetAtPath($"{path}_{n}_MetallicSmoothness.png");
+                if (ms != null && ms.sRGBTexture) { ms.sRGBTexture = false; ms.SaveAndReimport(); }
+            }
+            var livery = root.AddComponent<PlaneLivery>();
+            livery.standard = body;
+            livery.others = names.Select(n => TestWorldBuilder.Textured(matName + "_" + n, $"{path}_{n}_BaseColor.png", $"{path}_{n}_MetallicSmoothness.png", toon: true)).ToArray();
+        }
 
         /// <summary>A fighter for the turn battle: the model with its canopy hidden, its usual pilot seated in it (the others
         /// beside him, hidden), and each propeller turning (every one after the first the other way, for the P-38's pair).</summary>
@@ -202,15 +215,19 @@ namespace Ooda.EditorTools
 
         /// <summary>The P-38 Lightning with the tiger in it, its two propellers turning outward at the top (the Allisons'
         /// 3,000 rpm through the 0.5 reduction gear). Null, with a warning, if its FBX isn't there.</summary>
+        /// <summary>The P-38's other paint jobs (Tools~/ArtPipeline/specs/p38_paint.py), for when more than one flies.</summary>
+        static readonly string[] P38Liveries = { "Silver", "Invasion", "Pacific" };
+
         static GameObject MakeP38Prefab(TestWorldBuilder.Mats mats)
         {
             if (!File.Exists(P38Fbx)) { Debug.LogWarning($"OODA: no {P38Fbx}; the dogfight's P-38s show as P-51s (or Bf 109s on their side)."); return null; }
             ImportPlane(P38Fbx, Art + "/P38/P38_MetallicSmoothness.png");
-            var body = TestWorldBuilder.Textured("P38", Art + "/P38/P38_BaseColor.png", Art + "/P38/P38_MetallicSmoothness.png");
+            var body = TestWorldBuilder.Textured("P38", Art + "/P38/P38_BaseColor.png", Art + "/P38/P38_MetallicSmoothness.png", toon: true);
             var tigerMat = TestWorldBuilder.Textured("TigerPilot", Art + "/TigerPilot/Pilot_BaseColor.png", Art + "/TigerPilot/Pilot_MetallicSmoothness.png", toon: true);
             var tigerCtrl = TestWorldBuilder.MakePilotController(TigerFbx, "TigerPilot");
             return MakeFighter("P38", P38Fbx, new[] { "P38_PropR", "P38_PropL" }, P38PrefabPath, P38Seat, mats, body,
-                               TigerFbx, Ooda.Turn.Core.PilotKind.Tiger, tigerMat, tigerCtrl, maxRpm: 1500);
+                               TigerFbx, Ooda.Turn.Core.PilotKind.Tiger, tigerMat, tigerCtrl, maxRpm: 1500,
+                               extra: (root, model) => AddLiveries(root, body, "P38", Art + "/P38/P38", P38Liveries));
         }
 
         // ---------- the Zero ----------
@@ -224,15 +241,19 @@ namespace Ooda.EditorTools
 
         /// <summary>The A6M2 Zero with the fox in it (the koi and the others beside her, hidden), its three-blade propeller
         /// turning (the Sakae's 2,550 rpm through the 0.58 reduction gear). Null, with a warning, if its FBX isn't there.</summary>
+        /// <summary>The Zero's other paint jobs (Tools~/ArtPipeline/specs/zero_paint.py), for when more than one flies.</summary>
+        static readonly string[] ZeroLiveries = { "Green", "Mottle", "Trainer" };
+
         static GameObject MakeZeroPrefab(TestWorldBuilder.Mats mats)
         {
             if (!File.Exists(ZeroFbx)) { Debug.LogWarning($"OODA: no {ZeroFbx}; the dogfight's Zeros show as P-51s (or Bf 109s on their side)."); return null; }
             ImportPlane(ZeroFbx, Art + "/Zero/Zero_MetallicSmoothness.png");
-            var body = TestWorldBuilder.Textured("Zero", Art + "/Zero/Zero_BaseColor.png", Art + "/Zero/Zero_MetallicSmoothness.png");
+            var body = TestWorldBuilder.Textured("Zero", Art + "/Zero/Zero_BaseColor.png", Art + "/Zero/Zero_MetallicSmoothness.png", toon: true);
             var foxMat = TestWorldBuilder.Textured("FoxPilot", Art + "/FoxPilot/Fox_BaseColor.png", Art + "/FoxPilot/Fox_MetallicSmoothness.png", toon: true);
             var foxCtrl = TestWorldBuilder.MakePilotController(FoxFbx, "FoxPilot");
             return MakeFighter("Zero", ZeroFbx, new[] { "Zero_Propeller" }, ZeroPrefabPath, ZeroSeat, mats, body,
-                               FoxFbx, Ooda.Turn.Core.PilotKind.Fox, foxMat, foxCtrl, maxRpm: 1480);
+                               FoxFbx, Ooda.Turn.Core.PilotKind.Fox, foxMat, foxCtrl, maxRpm: 1480,
+                               extra: (root, model) => AddLiveries(root, body, "Zero", Art + "/Zero/Zero", ZeroLiveries));
         }
 
         // ---------- the F-15 ----------
