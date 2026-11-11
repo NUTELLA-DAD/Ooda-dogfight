@@ -153,7 +153,7 @@ namespace Ooda.UI
             // a dark wash down the left behind the heading and the list
             for (int i = 0; i < 24; i++) Fill(new Rect(i * 16, 0, 16, h), new Color(0.05f, 0.04f, 0.02f, 0.5f * (1f - i / 24f)));
             // and behind the heading itself, so the parked planes don't show through it
-            for (int i = 0; i < 14; i++) Fill(new Rect(0, i * 8, 560, 8), new Color(0.05f, 0.04f, 0.02f, 0.45f * (1f - i / 14f)));
+            for (int i = 0; i < 14; i++) Fill(new Rect(0, i * 8, 560, 8), new Color(0.05f, 0.04f, 0.02f, 0.7f * (1f - i / 16f)));
 
             // the heading
             Shadow(new Rect(28, 14, 600, 64), "MISSION BRIEFING", title);
@@ -189,7 +189,7 @@ namespace Ooda.UI
                         {
                             if (i == j || i == picked || !seen[i] || !seen[j]) continue;
                             if (j != picked && j > i) continue;   // the picked one stays put; of two others the later gives way
-                            float need = (i == picked ? 21 : 15) + (j == picked ? 21 : 15) + 4;
+                            float need = (i == picked ? 21 : 15) + (j == picked ? 21 : 15) + 12;
                             Vector2 d = badgeAt[i] - badgeAt[j];
                             if (d.magnitude >= need) continue;
                             if (d.sqrMagnitude < 1f) d = new Vector2(-1, -1);
@@ -209,7 +209,7 @@ namespace Ooda.UI
             }
 
             // the picked mission
-            var pr = new Rect(w - 300, 160, 284, 280);   // narrow and high, clear of the city and its pin
+            var pr = new Rect(w - 300, 160, 284, 256);   // narrow and high, clear of the city and its pin
             GUI.DrawTexture(pr, panel);
             Shadow(new Rect(pr.x, pr.y + 12, pr.width, 42), m.title, panelTitle);
             Fill(new Rect(pr.x + 24, pr.y + 58, pr.width - 48, 2), new Color(0.85f, 0.80f, 0.62f, 0.7f));
