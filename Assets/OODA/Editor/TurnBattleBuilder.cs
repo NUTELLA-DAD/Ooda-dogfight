@@ -266,11 +266,13 @@ namespace Ooda.EditorTools
 
         /// <summary>The F-15C Eagle with the tiger in it (the others beside him, hidden): no propeller, its afterburner
         /// flames at the model's NozzleL and NozzleR, lit with its WEP. Null, with a warning, if its FBX isn't there.</summary>
+        // the other paint jobs (jet_recolor.py): the camouflage's colours changed, its shading and weathering kept
+        static readonly string[] F15Liveries = { "Desert", "Blue", "Green" };
         static GameObject MakeF15Prefab(TestWorldBuilder.Mats mats)
         {
             if (!File.Exists(F15Fbx)) { Debug.LogWarning($"OODA: no {F15Fbx}; the dogfight's F-15s show as P-51s (or Bf 109s on their side)."); return null; }
             ImportPlane(F15Fbx, Art + "/F15/F15_MetallicSmoothness.png");
-            var body = TestWorldBuilder.Textured("F15", Art + "/F15/F15_BaseColor.png", Art + "/F15/F15_MetallicSmoothness.png");
+            var body = TestWorldBuilder.Textured("F15", Art + "/F15/F15_BaseColor.png", Art + "/F15/F15_MetallicSmoothness.png", toon: true);
             var tigerMat = TestWorldBuilder.Textured("TigerPilot", Art + "/TigerPilot/Pilot_BaseColor.png", Art + "/TigerPilot/Pilot_MetallicSmoothness.png", toon: true);
             var tigerCtrl = TestWorldBuilder.MakePilotController(TigerFbx, "TigerPilot");
             return MakeFighter("F15", F15Fbx, new string[0], F15PrefabPath, F15Seat, mats, body,
@@ -282,6 +284,7 @@ namespace Ooda.EditorTools
                 else Debug.LogWarning("OODA: no NozzleL and NozzleR in F15.fbx; the burner flames sit where the F-4's do.");
                 burner.nozzleRadius = 0.42f;
                 burner.burnerLength = 9f;
+                AddLiveries(root, body, "F15", Art + "/F15/F15", F15Liveries);
                 Debug.Log("OODA: the F-15's nozzles at " + string.Join(", ", burner.nozzles.Select(n => $"({n.x:F2}, {n.y:F2}, {n.z:F2})")) + ".");
             });
         }
@@ -297,11 +300,12 @@ namespace Ooda.EditorTools
 
         /// <summary>The Su-27 Flanker with the bear in it (the others beside him, hidden): no propeller, its afterburner
         /// flames at the model's NozzleL and NozzleR, lit with its WEP. Null, with a warning, if its FBX isn't there.</summary>
+        static readonly string[] Su27Liveries = { "Grey", "Desert", "Green" };
         static GameObject MakeSu27Prefab(TestWorldBuilder.Mats mats)
         {
             if (!File.Exists(Su27Fbx)) { Debug.LogWarning($"OODA: no {Su27Fbx}; the dogfight's Su-27s show as P-51s (or Bf 109s on their side)."); return null; }
             ImportPlane(Su27Fbx, Art + "/Su27/Su27_MetallicSmoothness.png");
-            var body = TestWorldBuilder.Textured("Su27", Art + "/Su27/Su27_BaseColor.png", Art + "/Su27/Su27_MetallicSmoothness.png");
+            var body = TestWorldBuilder.Textured("Su27", Art + "/Su27/Su27_BaseColor.png", Art + "/Su27/Su27_MetallicSmoothness.png", toon: true);
             var bearMat = TestWorldBuilder.Textured("BearPilot", Art + "/BearPilot/Bear_BaseColor.png", Art + "/BearPilot/Bear_MetallicSmoothness.png", toon: true);
             var bearCtrl = TestWorldBuilder.MakePilotController(BearFbx, "BearPilot");
             return MakeFighter("Su27", Su27Fbx, new string[0], Su27PrefabPath, Su27Seat, mats, body,
@@ -313,6 +317,7 @@ namespace Ooda.EditorTools
                 else Debug.LogWarning("OODA: no NozzleL and NozzleR in Su27.fbx; the burner flames sit where the F-4's do.");
                 burner.nozzleRadius = 0.45f;
                 burner.burnerLength = 9.5f;
+                AddLiveries(root, body, "Su27", Art + "/Su27/Su27", Su27Liveries);
                 Debug.Log("OODA: the Su-27's nozzles at " + string.Join(", ", burner.nozzles.Select(n => $"({n.x:F2}, {n.y:F2}, {n.z:F2})")) + ".");
             });
         }
