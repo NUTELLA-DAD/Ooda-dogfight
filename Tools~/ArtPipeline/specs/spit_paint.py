@@ -18,7 +18,7 @@ SCHEMES = {
 }
 
 top_z, bot_z = top_line(), bottom_line()
-def dem(y): return np.interp(y, [-4.0, -3.3, -2.0, 0.0, 2.0, 3.3, 4.0], [-0.24, -0.36, -0.42, -0.40, -0.42, -0.34, -0.30]).astype(np.float32)
+def dem(y): return np.interp(y, [-4.0, -3.3, -2.0, 0.0, 2.0, 3.3, 4.0], [-0.24, -0.36, -0.40, -0.32, -0.06, 0.00, 0.02]).astype(np.float32)
 
 def paint(L):
     TOP1, TOP2 = L['top']; UND = L['under']
@@ -50,7 +50,7 @@ def paint(L):
     # panel lines and rivets
     add_lines(FUS, Y, [-3.62, -2.98, -2.38, -1.95, -1.65, 0.10, 0.55, 1.00, 1.45, 1.90, 2.45, 3.00, 3.50], Vc)
     add_lines(FUS & (Y < -1.95), Z, [0.30, -0.30], Y, rivets=False)
-    zc_ = np.interp(Y, [-3.95, -2.5, 0.0, 2.0, 3.97], [0.08, -0.12, -0.20, -0.30, -0.15])
+    zc_ = np.interp(Y, [-3.95, -2.5, 0.0, 2.0, 3.97], [0.08, -0.15, -0.14, 0.05, 0.06])
     ANG = np.degrees(np.arctan2(np.abs(X), Z - zc_))
     add_lines(FUS & (Y > -1.65), ANG * 0.0105, [40 * 0.0105, 110 * 0.0105], Y)
     add_lines(FUS & (X > 0) & band(Y, -1.30, -0.35).astype(bool), Z, [0.00], Y, rivets=False)        # the cockpit door, on the left
@@ -60,15 +60,15 @@ def paint(L):
     add_lines(WING, WC, [0.22, 0.62], AX, scale=1.8)
     add_lines(WING & (AX > 0.75) & (AX < 3.10), WC, [0.80], AX, scale=1.8, rivets=False)                # the flaps
     add_lines(TAIL, AX, [0.50, 1.05], Y); add_lines(TAIL, TC, [0.28], AX)
-    add_lines(FIN | RUD, Z, [0.40, 0.75], Y)
+    add_lines(FIN | RUD, Z, [0.73, 1.11], Y)
 
     # markings
     c1 = roundel(0.45, [(1.0, RYEL), (0.89, RBLUE), (0.444, RWHITE), (0.333, RRED)])
-    both_sides(FUS, c1, 0.85, -0.25)
-    both_sides(FUS, text(L['codes'][0], 0.46, L['code_col']), 0.00, -0.26)
-    both_sides(FUS, text(L['codes'][1], 0.46, L['code_col']), 1.68, -0.30)
-    both_sides(FUS, text(L['serial'], 0.10, BLACK), 2.95, -0.50)
-    both_sides(FIN, stripes(0.52, 0.56, [RRED, RWHITE, RBLUE]), 3.04, 0.36, nose_first=True)
+    both_sides(FUS, c1, 0.85, 0.03)
+    both_sides(FUS, text(L['codes'][0], 0.46, L['code_col']), 0.00, -0.03)
+    both_sides(FUS, text(L['codes'][1], 0.46, L['code_col']), 1.68, 0.01)
+    both_sides(FUS, text(L['serial'], 0.10, BLACK), 2.95, -0.07)
+    both_sides(FIN, stripes(0.56, 0.60, [RRED, RWHITE, RBLUE]), 3.04, 0.72, nose_first=True)
     on_wings(roundel(0.60, [(1.0, RBLUE), (0.40, RRED)]), 3.75, upper=True, lower=False)
     on_wings(roundel(0.42, [(1.0, RBLUE), (0.50, RWHITE), (0.375, RRED)]), 3.95, upper=False, lower=True)
     GLOSS[:] = SPIN * 0.55
