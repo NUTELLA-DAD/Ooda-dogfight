@@ -137,6 +137,7 @@ GameObject:
   - component: {fileID: 4803367727229081053}
   - component: {fileID: 2263245590190295468}
   - component: {fileID: 505915597186178254}
+  - component: {fileID: 6012808563429834069}
   - component: {fileID: 1654142703339033334}
   - component: {fileID: 1073907471017865639}
   - component: {fileID: 8818311211770976218}
@@ -240,6 +241,23 @@ MonoBehaviour:
   idleRpm: 400
   maxRpm: 1400
   reverse: 0
+--- !u!114 &6012808563429834069
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5297863369346399080}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fef8b6872d1146b8bfc004b59624a866, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Ooda.Flight.PlaneLivery
+  standard: {fileID: 2100000, guid: f125d38149cecf14c85b75602a430890, type: 2}
+  others:
+  - {fileID: 2100000, guid: bc3226223d7c2a64aa6316424745bbc7, type: 2}
+  - {fileID: 2100000, guid: a6cc92353c31f0244be4b27f607e58d1, type: 2}
+  - {fileID: 2100000, guid: c83a2ddb7da3f0a47abbde79c69a726c, type: 2}
 --- !u!114 &1654142703339033334
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -537,18 +555,6 @@ PrefabInstance:
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
       objectReference: {fileID: 2100000, guid: f125d38149cecf14c85b75602a430890, type: 2}
-    - target: {fileID: 2285500499473957907, guid: b0c85af7bcaa5c647ab8e497f0584373, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 2285500499473957907, guid: b0c85af7bcaa5c647ab8e497f0584373, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 0.22559968
-      objectReference: {fileID: 0}
-    - target: {fileID: 2285500499473957907, guid: b0c85af7bcaa5c647ab8e497f0584373, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: 4.4274783
-      objectReference: {fileID: 0}
     - target: {fileID: 4737465412642453598, guid: b0c85af7bcaa5c647ab8e497f0584373, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 

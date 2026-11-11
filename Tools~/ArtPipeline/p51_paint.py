@@ -2,7 +2,7 @@
 # olive anti-glare panel, invasion stripes, star-and-bar insignia, code letters and serial. Every texel knows where it
 # sits on the aircraft (texmap.npz from p51_hull.py), so every marking is drawn as an exact shape in aircraft space.
 # Run: python p51_paint.py <dir with charts.json, texmap.npz> <old BaseColor.png> <old MetallicSmoothness.png> <out dir>
-import sys, json, math, numpy as np
+import os, sys, json, math, numpy as np
 from PIL import Image, ImageDraw, ImageFont
 from scipy import ndimage
 Image.MAX_IMAGE_PIXELS = None
@@ -24,6 +24,15 @@ for n, (x, y, w, h) in rect.items():
 
 METAL = np.array((196, 202, 210.0)); RED = np.array((190, 24, 28.0)); OLIVE = np.array((70, 76, 48.0)); WHITE = np.array((238, 238, 234.0))
 BLACK = np.array((30, 30, 32.0)); NAVY = np.array((22, 44, 92.0)); INK = np.array((34, 36, 40.0)); STEEL = np.array((72, 72, 78.0)); YELLOW = np.array((232, 184, 20.0))
+BLUE = np.array((26, 62, 150.0)); GREEN = np.array((24, 92, 52.0))
+# The paint jobs. LIVERY picks one (default: red); the game gives each P-51 in a fight a different one (PlaneLivery).
+LIVERIES = {
+    'red':    dict(nose=RED, rudder=RED, tip=RED, code='LH', serial='472216', stripes=True, checks=None),
+    'blue':   dict(nose=BLUE, rudder=BLUE, tip=BLUE, code='PE', serial='414151', stripes=True, checks=None),
+    'yellow': dict(nose=YELLOW, rudder=YELLOW, tip=BLACK, code='WZ', serial='413779', stripes=False, checks=BLACK),
+    'green':  dict(nose=GREEN, rudder=WHITE, tip=GREEN, code='B6', serial='463221', stripes=False, checks=None),
+}
+LNAME = os.environ.get('LIVERY', 'red'); LV = LIVERIES[LNAME]; NOSE = LV['nose']
 img = np.zeros((S, S, 3), np.float32); img[:] = METAL
 paint = np.zeros((S, S), np.float32)            # 1 where there is paint over the metal (not metallic, less glossy)
 def lay(mask, col, p=1.0):
@@ -75,11 +84,14 @@ img *= tone[..., None]
 img[..., 2] *= 1 + (h[..., None][..., 0] - 0.5) * 0.02
 
 # ---------------------------------------------------------------- paint
-lay(FB * aa(Y + 3.30), RED)                                                         # nose
+lay(FB * aa(Y + 3.30), NOSE)                                                        # nose
+if LV['checks'] is not None:                                                        # a chequered cowl
+    q = 0.223; chk = ((np.floor((Y + 3.97) / q) + np.floor(Vc / q)) % 2 == 0)
+    lay(FB * aa(Y + 3.30) * chk, LV['checks'])
 lay(FUS * band(Y, -3.30, -3.24), WHITE); lay(FUS * band(Y, -3.24, -3.215), BLACK)     # its trim
 lay(FUS * band(Y, -3.215, -1.76) * aa(np.abs(Vc) - (0.36 + 0.02 * (Y + 3.2))), OLIVE, 0.6)     # anti-glare panel
-lay((RUD | (FIN & (fc > 0.62))) * 1.0, RED)                                          # rudder
-lay(FIN * aa(1.16 - Z), RED)                                                         # fin tip
+lay((RUD | (FIN & (fc > 0.62))) * 1.0, LV['rudder'])                                 # rudder
+lay(FIN * aa(1.16 - Z), LV['tip'])                                                   # fin tip
 # invasion stripes
 def stripes(mask, v, a, wdt):
     k = np.floor((v - a) / wdt); inside = np.minimum(aa(a - v), aa(v - (a + 5 * wdt)))
@@ -87,9 +99,10 @@ def stripes(mask, v, a, wdt):
     col = np.where((k % 2 == 1)[..., None], BLACK, WHITE)
     lay(mask * inside, WHITE)
     lay(mask * inside * (k % 2 == 1) * np.clip(edge / px, 0, 1), BLACK)
-stripes(FB, Y, 1.42, 0.23)
-stripes(WING * (wc < 1.2), AX, 0.95, 0.44)
-stripes(TAIL, AX, 0.55, 0.20)
+if LV['stripes']:
+    stripes(FB, Y, 1.42, 0.23)
+    stripes(WING * (wc < 1.2), AX, 0.95, 0.44)
+    stripes(TAIL, AX, 0.55, 0.20)
 
 # decals drawn flat, then laid on by projection
 def decal(draw_fn, w_units, h_units, res=700):
@@ -129,16 +142,17 @@ sb, sw_, sh_ = star_bar(0.27)
 for sx in (1, -1):
     m = SIDE & (X * sx > 0)
     put(m, Y * sx, Z, sb, 0.62 * sx, -0.20, sw_, sh_)
-    dl, lw, lh = text('LH', 0.50, BLACK)
+    dl, lw, lh = text(LV['code'], 0.50, BLACK)
     put(m, Y * sx, Z, dl, -0.62 * sx if sx > 0 else -0.62 * sx, -0.22, lw, lh)
-    dm, mw, mh = text('MUSTANG', 0.17, RED, WHITE)
+    dm, mw, mh = text('MUSTANG', 0.17, NOSE if LNAME != 'yellow' else BLACK, WHITE)
     put(m, Y * sx, Z, dm, -2.72 * sx, -0.02, mw, mh)
-    ds, dw, dh = text('472216', 0.17, BLACK)
+    ds, dw, dh = text(LV['serial'], 0.17, BLACK if LNAME != 'green' else BLACK)
     put((FIN | RUD) & (X * sx > 0), Y * sx, Z, ds, 3.10 * sx, 0.62, dw, dh)
 sbw, sww, shw = star_bar(0.46)
 ymid = lambda s: float((w_le(np.float32(s)) + w_te(np.float32(s))) / 2 - 0.12)
-put(WING & (X > 0) & (NZ > 0.3), Y, -X, sbw, ymid(4.25), -4.25, sww, shw)             # upper left wing
-put(WING & (X < 0) & (NZ < -0.3), Y, -X, sbw, ymid(4.25), 4.25, sww, shw, flip=True)  # lower right wing
+# bars out along the span, one point of the star forward
+put(WING & (X > 0) & (NZ > 0.3), -X, -Y, sbw, -4.25, -ymid(4.25), sww, shw)             # upper left wing
+put(WING & (X < 0) & (NZ < -0.3), -X, -Y, sbw, 4.25, -ymid(4.25), sww, shw)              # lower right wing
 
 # ---------------------------------------------------------------- lines, rivets, small marks
 ms = np.zeros((S, S, 4), np.float32)
@@ -163,7 +177,7 @@ for sx in (1, -1):
     img = img * (1 - mm) + INK * mm
 
 # ---------------------------------------------------------------- swatches, the propeller's palette, edges
-for n, col in (('sw_red', RED), ('sw_metal', METAL), ('sw_olive', OLIVE), ('sw_ink', INK), ('sw_steel', STEEL), ('sw_glass', (200, 220, 230))):
+for n, col in (('sw_red', LV['tip']), ('sw_metal', METAL), ('sw_olive', OLIVE), ('sw_ink', INK), ('sw_steel', STEEL), ('sw_glass', (200, 220, 230))):
     x, y, w, h_ = rect[n]; img[y:y + h_, x:x + w] = col; paint[y:y + h_, x:x + w] = 0 if n in ('sw_metal', 'sw_steel') else 1
     cov[y:y + h_, x:x + w] = True
 # spread the charts' edges outward so no seam shows
@@ -177,6 +191,12 @@ msm = np.zeros((S, S, 4), np.uint8); msm[..., 0] = msm[..., 1] = msm[..., 2] = (
 kx, ky, kw, kh = C['keep']
 ob = np.asarray(Image.open(OLDB).convert('RGB').resize((S, S))); om = np.asarray(Image.open(OLDM).convert('RGBA').resize((S, S)))
 out[ky:ky + kh, kx:kx + kw] = ob[ky:ky + kh, kx:kx + kw]; msm[ky:ky + kh, kx:kx + kw] = om[ky:ky + kh, kx:kx + kw]
-Image.fromarray(out).save(OUT + '/P51_BaseColor.png'); Image.fromarray(msm).resize((S // 2, S // 2), Image.LANCZOS).save(OUT + '/P51_MetallicSmoothness.png')
+if LNAME != 'red':        # the spinner takes the nose colour: the red of the propeller's palette, repainted
+    sq = out[ky:ky + kh, kx:kx + kw].astype(np.float32); r_, g_, b_ = sq[..., 0], sq[..., 1], sq[..., 2]
+    isred = (r_ > 110) & (g_ < 0.5 * r_) & (b_ < 0.5 * r_)
+    sq[isred] = NOSE[None, :] * (r_[isred] / max(1.0, float(np.median(r_[isred]))))[:, None]
+    out[ky:ky + kh, kx:kx + kw] = np.clip(sq, 0, 255).astype(np.uint8)
+TAG = '' if LNAME == 'red' else '_' + LNAME.capitalize()
+Image.fromarray(out).save(OUT + '/P51%s_BaseColor.png' % TAG); Image.fromarray(msm).resize((S // 2, S // 2), Image.LANCZOS).save(OUT + '/P51%s_MetallicSmoothness.png' % TAG)
 Image.fromarray(out).resize((1024, 1024), Image.LANCZOS).save(OUT + '/atlas_preview.jpg', quality=88)
 print('painted')
