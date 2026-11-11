@@ -12,6 +12,10 @@
 //   4 rain: a shaft of slanting toon streaks under a storm (and the lightning bolt when it flashes).
 // Every bank rides the wind across a stretch of sky: it swells out of nothing at one end, drifts, and dissolves at the
 // other, its puffs coming and going a little out of step; every puff billows slowly as it goes.
+// With _Still on (the cloud sea's own material, CloudScape.cs) the banks stay put, fully grown: they billow but neither
+// drift nor come and go, so a cloud you steer for is still there when you reach it. _NearFill is how much of the screen's
+// height a puff may fill before it thins away (0.6; the cloud sea lets its towers loom bigger, so you can fly right up to
+// one before you are in it).
 // Opaque (cut out, depth written), so it sorts against the world and the smoke on its own.
 Shader "Ooda/ToonCloud"
 {
@@ -19,6 +23,8 @@ Shader "Ooda/ToonCloud"
     {
         _Push ("Line pushed back (radii)", Float) = 0.9
         _FogAmount ("How much the fog takes it", Range(0, 1)) = 0.7
+        _Still ("Stand still (no drift, always grown)", Float) = 0
+        _NearFill ("A puff thins away past this much of the screen's height", Float) = 0.6
     }
     SubShader
     {
@@ -30,6 +36,8 @@ Shader "Ooda/ToonCloud"
         CBUFFER_START(UnityPerMaterial)
             float _Push;
             float _FogAmount;
+            float _Still;
+            float _NearFill;
         CBUFFER_END
 
         float4 _ToonSunDir;
@@ -64,7 +72,7 @@ Shader "Ooda/ToonCloud"
             float t = _ToonTime * _ToonWind.w;
             // the bank's drift across its span, and its life: forming, drifting, dissolving
             float4 drift = _KindDrift[ki];
-            float u = frac(t * drift.x / drift.y + phase);
+            float u = _Still > 0.5 ? 0.5 : frac(t * drift.x / drift.y + phase);   // (0.5: in the middle of its span, fully grown)
             float life = smoothstep(0.0, 0.14, u) * (1.0 - smoothstep(0.86, 1.0, u));
             float3 cw = TransformObjectToWorld(a.positionOS.xyz);
             float R = a.uv0.z;
@@ -113,7 +121,7 @@ Shader "Ooda/ToonCloud"
             // and a puff so close it would fill a third of the screen thins away too: one flat disc that size reads as a
             // ball stuck to the lens, not a cloud; rain only falls once its storm has grown
             float pxFrac = R / (mPerPx * _ScreenParams.y);
-            float fade = rain ? smoothstep(0.55, 0.85, life) : saturate((length(cv) - R * 0.6) / (R * 0.9)) * saturate((0.6 - pxFrac) / 0.25);
+            float fade = rain ? smoothstep(0.55, 0.85, life) : saturate((length(cv) - R * 0.6) / (R * 0.9)) * saturate((_NearFill - pxFrac) / 0.25);
             o.d = float4(baseY, a.uv1.y, a.uv1.z, fade);
             // the lit tone sits toward the sun, always a little up (light from above even with the sun behind you)
             float3 s = mul((float3x3)UNITY_MATRIX_V, _ToonSunDir.xyz);
