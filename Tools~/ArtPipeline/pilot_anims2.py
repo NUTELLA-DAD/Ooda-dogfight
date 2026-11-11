@@ -151,6 +151,10 @@ def life(f, n=240, amt=1.0):
          'LeftShoulder': (0, 0, 1.6 * br * amt), 'RightShoulder': (0, 0, -1.6 * br * amt),
          'Neck': ((1.5 * drift - 0.8 * br) * amt, 2.5 * wob(f, n, 1, 1.9) * amt, 0),
          'Head': (1.5 * wob(f, n / 2, 1, 0.9) * amt, 3.0 * wob(f, n / 3, 1, 0.4) * amt, 1.5 * sway * amt)}
+    # the tail never quite rests: a slow wave runs down it, each segment a few frames behind the one before
+    for i in range(1, 5):
+        if f'Tail{i}' in rig.pose.bones:
+            r[f'Tail{i}'] = ((1.5 + i) * wob(f, n / 4, 1, -0.55 * i), 0, (2.5 + 1.5 * i) * wob(f, n / 3, 1, -0.7 * i))
     return r
 def add(a, b):
     out = dict(a)

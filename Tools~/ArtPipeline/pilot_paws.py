@@ -1,16 +1,21 @@
 # Rebuild the pilot's paws: the fused AI lumps are cut off at the wrist and replaced by a clean cartoon paw
 # (thumb + three fingers) with finger bones, skinned and painted into a strip of the atlas.
-# Run: python -I pilot_paws.py -- <in.blend> <basecolor.png> <metalsmooth.png> <out.blend> <out_dir>
-import bpy, sys, math, bmesh, numpy as np
+# Run: python -I pilot_paws.py -- <in.blend> <basecolor.png> <metalsmooth.png> <out.blend> <out_dir> [pilot spec.json]
+#   The spec (specs/wolf_pilot.json) names another pilot's rig and body, its texture names, and its paw colours;
+#   without one the defaults are the tiger's.
+import bpy, sys, math, bmesh, json, numpy as np
 from mathutils import Vector, Matrix
 from skimage import measure
 from PIL import Image
 Image.MAX_IMAGE_PIXELS = None
 
 a = sys.argv[sys.argv.index('--') + 1:]
-SRC, BASE, MS, DST, OUTDIR = a
+SRC, BASE, MS, DST, OUTDIR = a[:5]
+SPEC = json.load(open(a[5])) if len(a) > 5 else {}
 bpy.ops.wm.open_mainfile(filepath=SRC)
-rig = bpy.data.objects['PilotRig']; body = bpy.data.objects['Pilot_Body']
+rig = bpy.data.objects[SPEC.get('rig', 'PilotRig')]; body = bpy.data.objects[SPEC.get('body', 'Pilot_Body')]
+TEX = SPEC.get('tex', 'Pilot')                      # <TEX>_BaseColor.png and <TEX>_MetallicSmoothness.png
+STRIPES = SPEC.get('stripes', True)                 # the tiger's wedges across the back of the paw
 rig.data.pose_position = 'REST'
 me = body.data
 KEEP = 0.9375          # the old atlas shrinks into this corner; the paws get the strip beside it
@@ -100,7 +105,9 @@ back = sample(lambda n: n.z > 0.6); pads = sample(lambda n: n.z < -0.6)
 lum = back @ np.array((0.3, 0.6, 0.1))
 ORANGE = np.median(back[lum > np.percentile(lum, 45)], 0); STRIPE = np.median(back[lum < np.percentile(lum, 8)], 0)
 CREAM = np.median(pads[(pads @ np.array((0.3, 0.6, 0.1))) > np.percentile(pads @ np.array((0.3, 0.6, 0.1)), 50)], 0)
-print('colours orange', ORANGE.round(), 'stripe', STRIPE.round(), 'cream', CREAM.round())
+for k_, nm in (('back', 'ORANGE'), ('under', 'CREAM'), ('stripe', 'STRIPE')):
+    if k_ in SPEC.get('paw', {}): globals()[nm] = np.array(SPEC['paw'][k_], float)
+print('colours back', ORANGE.round(), 'stripe', STRIPE.round(), 'under', CREAM.round())
 
 bm = bmesh.new(); bm.from_mesh(me)
 killall = sides['Left']['kill'] | sides['Right']['kill']
@@ -250,10 +257,10 @@ def paint(size, P, N):
         wloc = wdt * np.sqrt(q)
         dline = np.abs(s - s0 - lean * (t - t_tip))
         stripe = np.maximum(stripe, np.clip((wloc - dline) / 0.002, 0, 1) * (q > 0))
-    stripe = stripe * (1 - toe)
+    stripe = stripe * (1 - toe) * (1.0 if STRIPES else 0.0)
     furc = furc * (1 - stripe[..., None]) + k * stripe[..., None]
     # underneath: cream, with soft pads on the palm and each toe
-    PAD = np.array((0.72, 0.47, 0.43))
+    PAD = np.array(SPEC.get('paw', {}).get('pad', (184, 120, 110))) / 255
     def blob(cs, ct, rs, rt): return np.clip((1 - np.sqrt(((s - cs) / rs) ** 2 + ((t - ct) / rt) ** 2)) / 0.16, 0, 1)
     pad = blob(0.062, -0.004, 0.026, 0.036)
     for name, base, dr, ln, r in FINGERS:
@@ -272,11 +279,11 @@ def atlas(src, size, mode, fill):
 bc = atlas(BASE, 4096, 'RGB', tuple(int(x) for x in CREAM))
 px0, n_v, rgb = paint(4096, PAWP, PAWN)
 bc.paste(Image.fromarray(rgb[::-1]), (px0, 4096 - n_v))
-bc.save(f'{OUTDIR}/Pilot_BaseColor.png')
+bc.save(f'{OUTDIR}/{TEX}_BaseColor.png')
 ms_src = Image.open(MS).convert('RGBA'); mpx = np.asarray(ms_src)
 msz = ms_src.size[0]
 ms = atlas(MS, msz, 'RGBA', (0, 0, 0, 60))
-ms.save(f'{OUTDIR}/Pilot_MetallicSmoothness.png')
+ms.save(f'{OUTDIR}/{TEX}_MetallicSmoothness.png')
 print('painted', px0, n_v)
 
 # ---------------------------------------------------------------- join, smooth, hook up the paint
@@ -292,7 +299,7 @@ me = body.data
 mat = body.material_slots[0].material
 for n in mat.node_tree.nodes:
     if n.type == 'TEX_IMAGE' and n.image and n.outputs['Color'].links and any(l.to_socket.name == 'Base Color' for l in n.outputs['Color'].links):
-        img = bpy.data.images.load(f'{OUTDIR}/Pilot_BaseColor.png'); n.image = img; img.pack()
+        img = bpy.data.images.load(f'{OUTDIR}/{TEX}_BaseColor.png'); n.image = img; img.pack()
         print('base colour swapped on', n.name)
 rig.data.pose_position = 'POSE'
 bpy.ops.wm.save_as_mainfile(filepath=DST)

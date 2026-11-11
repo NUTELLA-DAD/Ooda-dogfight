@@ -383,11 +383,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 0c0e65be25edd1047bd6517a1c479298, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -0.57
+      value: -0.55
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 0c0e65be25edd1047bd6517a1c479298, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -0
+      value: 0.14
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 0c0e65be25edd1047bd6517a1c479298, type: 3}
       propertyPath: m_LocalRotation.w
@@ -531,6 +531,7 @@ MonoBehaviour:
   handEase: 0.22
   pawStickOffset: {x: 0.017, y: 0.015, z: -0.021}
   pawThrottleOffset: {x: -0.028, y: 0.081, z: -0.021}
+  throttleElbowHint: {x: 0, y: 0, z: 0}
   fistRange: 450
   fistCooldown: 14
   idleEvery: {x: 9, y: 20}
@@ -560,11 +561,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 10cd05f9176f71b40b4cdf350b7373b9, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -0.57
+      value: -0.55
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 10cd05f9176f71b40b4cdf350b7373b9, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -0
+      value: 0.14
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 10cd05f9176f71b40b4cdf350b7373b9, type: 3}
       propertyPath: m_LocalRotation.w
@@ -716,6 +717,7 @@ MonoBehaviour:
   handEase: 0.22
   pawStickOffset: {x: 0.017, y: 0.015, z: -0.021}
   pawThrottleOffset: {x: -0.028, y: 0.081, z: -0.021}
+  throttleElbowHint: {x: 0, y: 0, z: 0}
   fistRange: 450
   fistCooldown: 14
   idleEvery: {x: 9, y: 20}
@@ -745,11 +747,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 902a21a8430178549843645530a0bfde, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -0.57
+      value: -0.55
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 902a21a8430178549843645530a0bfde, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -0
+      value: 0.14
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 902a21a8430178549843645530a0bfde, type: 3}
       propertyPath: m_LocalRotation.w
@@ -893,6 +895,7 @@ MonoBehaviour:
   handEase: 0.22
   pawStickOffset: {x: 0.017, y: 0.015, z: -0.021}
   pawThrottleOffset: {x: -0.028, y: 0.081, z: -0.021}
+  throttleElbowHint: {x: 0, y: 0, z: 0}
   fistRange: 450
   fistCooldown: 14
   idleEvery: {x: 9, y: 20}
@@ -922,11 +925,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 23dd22e29549057449f3f70b38b24ecc, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -0.57
+      value: -0.55
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 23dd22e29549057449f3f70b38b24ecc, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -0
+      value: 0.14
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 23dd22e29549057449f3f70b38b24ecc, type: 3}
       propertyPath: m_LocalRotation.w
@@ -1070,6 +1073,7 @@ MonoBehaviour:
   handEase: 0.22
   pawStickOffset: {x: 0.017, y: 0.015, z: -0.021}
   pawThrottleOffset: {x: -0.028, y: 0.081, z: -0.021}
+  throttleElbowHint: {x: 0, y: 0, z: 0}
   fistRange: 450
   fistCooldown: 14
   idleEvery: {x: 9, y: 20}
@@ -1099,11 +1103,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: be34cfbab716f254ab2ede80746e8030, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -0.57
+      value: -0.55
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: be34cfbab716f254ab2ede80746e8030, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -0
+      value: 0.14
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: be34cfbab716f254ab2ede80746e8030, type: 3}
       propertyPath: m_LocalRotation.w
@@ -1247,6 +1251,7 @@ MonoBehaviour:
   handEase: 0.22
   pawStickOffset: {x: 0.017, y: 0.015, z: -0.021}
   pawThrottleOffset: {x: -0.028, y: 0.081, z: -0.021}
+  throttleElbowHint: {x: 0, y: 0, z: 0}
   fistRange: 450
   fistCooldown: 14
   idleEvery: {x: 9, y: 20}
@@ -1488,11 +1493,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: cff4b24c95a70b242b747c9cf2c57e25, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -0.57
+      value: -0.55
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: cff4b24c95a70b242b747c9cf2c57e25, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -0
+      value: 0.14
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: cff4b24c95a70b242b747c9cf2c57e25, type: 3}
       propertyPath: m_LocalRotation.w
@@ -1521,6 +1526,22 @@ PrefabInstance:
     - target: {fileID: -8679921383154817045, guid: cff4b24c95a70b242b747c9cf2c57e25, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -5052707330853464604, guid: cff4b24c95a70b242b747c9cf2c57e25, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.7829707
+      objectReference: {fileID: 0}
+    - target: {fileID: -5052707330853464604, guid: cff4b24c95a70b242b747c9cf2c57e25, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0.001668374
+      objectReference: {fileID: 0}
+    - target: {fileID: -5052707330853464604, guid: cff4b24c95a70b242b747c9cf2c57e25, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0.6220523
+      objectReference: {fileID: 0}
+    - target: {fileID: -5052707330853464604, guid: cff4b24c95a70b242b747c9cf2c57e25, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0.0022445314
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: cff4b24c95a70b242b747c9cf2c57e25, type: 3}
       propertyPath: m_Name
@@ -1632,6 +1653,7 @@ MonoBehaviour:
   handEase: 0.22
   pawStickOffset: {x: 0.017, y: 0.015, z: -0.021}
   pawThrottleOffset: {x: -0.028, y: 0.081, z: -0.021}
+  throttleElbowHint: {x: 0, y: 0, z: 0}
   fistRange: 450
   fistCooldown: 14
   idleEvery: {x: 9, y: 20}
@@ -1661,11 +1683,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 028d1b6280491d14389ed660ea44ee5f, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -0.57
+      value: -0.55
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 028d1b6280491d14389ed660ea44ee5f, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -0
+      value: 0.14
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 028d1b6280491d14389ed660ea44ee5f, type: 3}
       propertyPath: m_LocalRotation.w
@@ -1804,6 +1826,7 @@ MonoBehaviour:
   handEase: 0.22
   pawStickOffset: {x: 0.017, y: 0.015, z: -0.021}
   pawThrottleOffset: {x: -0.028, y: 0.081, z: -0.021}
+  throttleElbowHint: {x: 0, y: 0, z: 0}
   fistRange: 450
   fistCooldown: 14
   idleEvery: {x: 9, y: 20}
@@ -1838,11 +1861,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 520d9fb7a66674d41b7f5e354ea3d069, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -0.57
+      value: -0.55
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 520d9fb7a66674d41b7f5e354ea3d069, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -0
+      value: 0.14
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 520d9fb7a66674d41b7f5e354ea3d069, type: 3}
       propertyPath: m_LocalRotation.w
@@ -2042,6 +2065,7 @@ MonoBehaviour:
   handEase: 0.22
   pawStickOffset: {x: 0.017, y: 0.015, z: -0.021}
   pawThrottleOffset: {x: -0.028, y: 0.081, z: -0.021}
+  throttleElbowHint: {x: 0, y: 0, z: 0}
   fistRange: 450
   fistCooldown: 14
   idleEvery: {x: 9, y: 20}
@@ -2114,11 +2138,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: ea728a226bb7e1c4791947539b5b095b, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -0.57
+      value: -0.55
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: ea728a226bb7e1c4791947539b5b095b, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -0
+      value: 0.14
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: ea728a226bb7e1c4791947539b5b095b, type: 3}
       propertyPath: m_LocalRotation.w
@@ -2273,6 +2297,7 @@ MonoBehaviour:
   handEase: 0.22
   pawStickOffset: {x: 0.017, y: 0.015, z: -0.021}
   pawThrottleOffset: {x: -0.028, y: 0.081, z: -0.021}
+  throttleElbowHint: {x: 0, y: 0, z: 0}
   fistRange: 450
   fistCooldown: 14
   idleEvery: {x: 9, y: 20}
@@ -2302,11 +2327,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 1b6c0665b77971d40a2b3d17dcb811ba, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -0.57
+      value: -0.55
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 1b6c0665b77971d40a2b3d17dcb811ba, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -0
+      value: 0.14
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 1b6c0665b77971d40a2b3d17dcb811ba, type: 3}
       propertyPath: m_LocalRotation.w
@@ -2453,6 +2478,7 @@ MonoBehaviour:
   handEase: 0.22
   pawStickOffset: {x: 0.017, y: 0.015, z: -0.021}
   pawThrottleOffset: {x: -0.028, y: 0.081, z: -0.021}
+  throttleElbowHint: {x: 0, y: 0, z: 0}
   fistRange: 450
   fistCooldown: 14
   idleEvery: {x: 9, y: 20}
