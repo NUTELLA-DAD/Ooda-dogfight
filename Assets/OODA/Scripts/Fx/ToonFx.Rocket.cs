@@ -61,13 +61,15 @@ namespace Ooda.Fx
             Vector3 d = q.D;
             float dist = Vector3.Dot(q.P - camPos, camFwd);
             if (dist < 0.3f && Vector3.Dot(q.P + d * RkLenM * q.S - camPos, camFwd) < 0.3f) return;   // (all of it behind the camera)
-            float s = q.S * Mathf.Min(2.5f, MinScreen(q.P, RkLenM * q.S, 0.2f));   // (it reads from the far chase view too)
+            // it reads from the far chase view too: seen end on from behind its length is lost, so then it is held big by its width
+            float endOn = Mathf.Abs(Vector3.Dot(d, camFwd));
+            float s = q.S * Mathf.Min(3f, Mathf.Max(MinScreen(q.P, RkLenM * q.S * (1f - endOn), 0.22f), MinScreen(q.P, 2f * RkWidM * q.S, 0.09f)));
             int seed = q.Seed;
             // it lights long and fat, then settles to a flicker; it shrinks as it burns out
             float ign = ka < 0.45f ? 1f + 0.9f * (1f - ka / 0.45f) : 1f;
             float flick = 0.86f + 0.28f * R01(seed, key);
             float L = RkLenM * s * flick * ign * Mathf.Lerp(0.25f, 1f, q.Burn);
-            float W = RkWidM * s * Mathf.Lerp(1f, 1.35f, (ign - 1f) / 0.9f) * Mathf.Lerp(0.55f, 1f, q.Burn);
+            float W = RkWidM * s * (1f + 0.6f * endOn) * Mathf.Lerp(1f, 1.35f, (ign - 1f) / 0.9f) * Mathf.Lerp(0.55f, 1f, q.Burn);
             Vector3 side = Vector3.Cross(d, toCam);
             side = side.sqrMagnitude > 1e-4f ? side.normalized : right;
             SurfaceAxes(d, out Vector3 e1, out Vector3 e2);
@@ -142,12 +144,13 @@ namespace Ooda.Fx
                 bool close = dist < 30f;   // (a cockpit close-up: the rings and sparks, not a flat disc filling the view)
                 if (key == 0 && !close) { Circle(p, right, up, fw * 4.2f, 28, new Color(1f, 0.92f, 0.5f, 0.6f)); Circle(p + toCam * 0.01f, right, up, fw * 3f, 24, FlashWhite); }
                 if ((key == 1 || key == 2) && !close) Star(p, fw * (key == 1 ? 3.6f : 2.6f), fw * 1.1f, 8, seed + key, key == 1 ? FlashWhite : FlashYellow, R01(seed, 3) * 6.28f);
-                if (key <= 5)
+                if (key <= 5 && !close)
                 {
                     TaperRing(p, right, up, W * (2.2f + 1.7f * key), Mathf.Max(lw, W * (0.7f - 0.1f * key)), seed + 11, 4, new Color(1f, 0.98f, 0.9f, 1f));
                     TaperRing(q.P + d * (key * 1.6f * s), e1, e2, W * (1.6f + 1.4f * key), Mathf.Max(lw, W * (0.55f - 0.08f * key)), seed + 13, 3, new Color(1f, 0.85f, 0.45f, 1f));
                 }
-                Sparks(p, s, key, seed, 9, 24f, 2.8f, d);
+                if (!close) Sparks(p, s, key, seed, 9, 24f, 2.8f, d);
+                else TaperRing(q.P + d * (key * 1.6f * s), e1, e2, fw * (1.6f + 1.4f * key), Mathf.Max(lw, fw * 0.3f), seed + 13, 3, new Color(1f, 0.85f, 0.45f, 0.8f));
             }
         }
 
@@ -170,6 +173,7 @@ namespace Ooda.Fx
                 if (dd < 0.5f) continue;
                 float w = Mathf.Max(0.14f * s, 2.6f * dd / pxPerM1);
                 pts.Clear(); pts.Add(start); pts.Add(Vector3.Lerp(start, end, 0.3f)); pts.Add(end);
+                Stroke(pts, w * 1.9f, 0.02f, new Color(0.16f, 0.2f, 0.32f, 0.45f * q.Burn));   // (a dusky edge, so they show against a pale sky)
                 Stroke(pts, w, 0.01f, col);
             }
         }

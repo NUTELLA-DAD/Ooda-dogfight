@@ -91,6 +91,9 @@ namespace Ooda.Turn
             Pilot();
             yield return Shot("5_pilot_pinned", 0.8f);
             view.enabled = true;
+            if (view.cockpitEye != null) view.focus = TurnCamera.Focus.Cockpit;
+            yield return Shot("5b_cockpit_burning", 0.3f);
+            view.focus = TurnCamera.Focus.Player;
             playbackSpeed = 0.3f;
             yield return PlayTo(2.62f);
             playbackSpeed = 0f;
@@ -108,6 +111,7 @@ namespace Ooda.Turn
             yield return PlayTo(0.6f);
             playbackSpeed = 0f;
             yield return Shot("7_cockpit", 0.3f);
+            Debug.Log($"OODA: rocket shots, burn 2 at {playT:F2} s: rocket age {(views[0] != null ? views[0].RocketAge : -9f):F2}, camera {view.focus}");
             playbackSpeed = speed;
             view.focus = TurnCamera.Focus.Player;
             Debug.Log("OODA: rocket shots done");
