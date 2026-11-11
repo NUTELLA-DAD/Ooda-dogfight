@@ -25,7 +25,7 @@ namespace Ooda.Pilot
 
         IFlightView source;
         Animator anim;
-        Transform head, hideBone;
+        Transform head;
         Vector3 lookDir = Vector3.forward;
         float seed;
 
@@ -33,11 +33,6 @@ namespace Ooda.Pilot
         {
             anim = GetComponent<Animator>();
             head = anim.isHuman ? anim.GetBoneTransform(HumanBodyBones.Head) : null;
-            // the head is hidden by shrinking the neck, not the head: the ears, goggle straps and collar fur that are
-            // partly weighted to the neck or chest then fold down between the shoulders, behind and below the eye,
-            // instead of stretching into slivers across the cockpit view from a point at the eye
-            var neck = anim.isHuman ? anim.GetBoneTransform(HumanBodyBones.Neck) : null;
-            hideBone = neck != null ? neck : head;
             seed = Random.value * 100f;
         }
 
@@ -75,7 +70,7 @@ namespace Ooda.Pilot
 
         void LateUpdate()
         {
-            if (hideBone != null) hideBone.localScale = hideHead ? Vector3.one * 0.001f : Vector3.one;
+            if (head != null) head.localScale = hideHead ? Vector3.one * 0.001f : Vector3.one;
         }
     }
 }
