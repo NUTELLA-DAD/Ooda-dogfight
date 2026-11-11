@@ -169,8 +169,8 @@ namespace Ooda.EditorTools
 
         static readonly Crop Wheat = new Crop
         {
-            // honey, not lemon: the toon sun brightens the lit side about 1.5 times
-            crestA = new Color(0.70f, 0.58f, 0.30f), crestB = new Color(0.77f, 0.64f, 0.35f),
+            // honey, not lemon or orange: the toon sun brightens the lit side about 1.5 times
+            crestA = new Color(0.74f, 0.65f, 0.34f), crestB = new Color(0.80f, 0.71f, 0.40f),
             furrow = new Color(0.55f, 0.43f, 0.24f), track = new Color(0.48f, 0.38f, 0.24f), furrowWidth = 0.34f,
         };
         static readonly Crop YoungGrain = new Crop
@@ -284,7 +284,15 @@ namespace Ooda.EditorTools
 
         class WMats { public Material stone, steel, rail, ballast, sleeper, dark, water, river, wood, plaster, roof, slate, cobbles; }
 
-        static WMats WorldMats(TestWorldBuilder.Mats mats) => new WMats
+        static WMats WorldMats(TestWorldBuilder.Mats mats)
+        {
+            var w = AllWorldMats(mats);
+            // the buildings and the stonework in the toon look, inked (ToonWorld)
+            foreach (var bm in new[] { w.stone, w.wood, w.plaster, w.roof, w.slate, w.cobbles }) ToonWorld.Building(bm);
+            return w;
+        }
+
+        static WMats AllWorldMats(TestWorldBuilder.Mats mats) => new WMats
         {
             stone = TestWorldBuilder.Mat("Alpine_Stone", new Color(0.80f, 0.75f, 0.66f), 0.15f),
             steel = TestWorldBuilder.Mat("Alpine_Steel", new Color(0.70f, 0.16f, 0.10f), 0.35f, 0.3f),

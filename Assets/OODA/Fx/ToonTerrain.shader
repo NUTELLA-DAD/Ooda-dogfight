@@ -24,6 +24,7 @@ Shader "Ooda/ToonTerrain"
         _Break ("Edge wobble", Range(0, 1)) = 0.35
         _BreakScale ("Wobble size, m", Range(5, 400)) = 60
         _Sharp ("Edge sharpness", Range(1, 16)) = 6
+        _Macro ("Painted patch size, m", Range(50, 3000)) = 450
 
         [Header(Light)]
         _BandEdge ("Terminator (0 = at the horizon of the light)", Range(-1, 1)) = 0.05
@@ -43,7 +44,7 @@ Shader "Ooda/ToonTerrain"
             float4 _Lay0_ST, _Lay1_ST, _Lay2_ST, _Lay3_ST, _Lay4_ST, _Lay5_ST, _Lay6_ST, _Lay7_ST;
             float4 _Tile0123, _Tile4567;
             half4 _ShadeColor, _LitTint;
-            half _Break, _BreakScale, _Sharp, _BandEdge, _BandSoft, _MidBand, _Ambient;
+            half _Break, _BreakScale, _Sharp, _Macro, _BandEdge, _BandSoft, _MidBand, _Ambient;
         CBUFFER_END
 
         // what the terrain sets for an instanced patch (as URP's own terrain shader reads them)
@@ -140,6 +141,11 @@ Shader "Ooda/ToonTerrain"
                 base += w1.y * SAMPLE_TEXTURE2D(_Lay5, sampler_Lay0, p / _Tile4567.y).rgb;
                 base += w1.z * SAMPLE_TEXTURE2D(_Lay6, sampler_Lay0, p / _Tile4567.z).rgb;
                 base += w1.w * SAMPLE_TEXTURE2D(_Lay7, sampler_Lay0, p / _Tile4567.w).rgb;
+
+                // broad painted patches over everything, cool and darker to warm and lighter, so a flat valley floor
+                // is not one sheet of green (the concept's meadows are mottled at this size)
+                float macro = LandNoise2(p / _Macro);
+                base *= lerp(half3(0.88, 0.91, 0.98), half3(1.07, 1.05, 0.95), smoothstep(0.25, 0.75, macro));
 
                 half3 col = ToonLandLight(base, i.positionWS, normalize(i.normalWS));
                 if (AnyIsNaN(col) || AnyIsInf(col)) col = base * 0.6;

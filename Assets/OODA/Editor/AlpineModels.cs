@@ -34,6 +34,7 @@ namespace Ooda.EditorTools
             m.mat.SetTexture("_MainTex", tex);
             // the mountain and the grass hill take their colour from their shape, in the toon look (ToonWorld)
             if (m == MountainModel || m == FoothillModel) ToonWorld.LandModelMaterial(m.mat, m == MountainModel);
+            if (m == ChaletModel) ToonWorld.Building(m.mat);
             if (!heights) return;
             m.hf = ModelHeights(m.near, m.fit, m.centre);
             m.top = 0; int cover = 0;

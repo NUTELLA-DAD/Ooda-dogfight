@@ -15,11 +15,11 @@ namespace Ooda.EditorTools
     /// </summary>
     static class ToonWorld
     {
-        public static readonly Color MeadowA = Hex("#6a9441"), MeadowB = Hex("#78a34a");
+        public static readonly Color MeadowA = Hex("#5f9a45"), MeadowB = Hex("#6ea94f");
         public static readonly Color ForestA = Hex("#2c5639"), ForestB = Hex("#356142");
-        public static readonly Color RockA = Hex("#8a8193"), RockB = Hex("#9d918d");
+        public static readonly Color RockA = Hex("#7c7d8f"), RockB = Hex("#8d8b97");
         public static readonly Color SnowA = Hex("#d3dbea"), SnowB = Hex("#dfe5f1");
-        public static readonly Color PastureA = Hex("#7da445"), PastureB = Hex("#8bb150");
+        public static readonly Color PastureA = Hex("#74a84a"), PastureB = Hex("#82b554");
 
         public static Shader Terrain => Shader.Find("Ooda/ToonTerrain");
         public static Shader LandModel => Shader.Find("Ooda/ToonLandModel");
@@ -71,10 +71,26 @@ namespace Ooda.EditorTools
             m.SetColor("_GrassA", MeadowA); m.SetColor("_GrassB", MeadowB);
             m.SetColor("_RockA", RockA); m.SetColor("_RockB", RockB);
             m.SetColor("_Snow", SnowA);
-            m.SetFloat("_SnowLow", mountain ? 1950f : 99999f);
-            m.SetFloat("_SnowHigh", mountain ? 3400f : 100000f);
+            m.SetFloat("_SnowLow", mountain ? 1500f : 99999f);
+            m.SetFloat("_SnowHigh", mountain ? 2700f : 100000f);
+            m.SetFloat("_TexSnow", mountain ? 1f : 0f);
+            m.SetColor("_LitTint", new Color(1f, 0.98f, 0.94f));   // grey rock in the sun, not tan
             m.SetFloat("_GrassSlope", mountain ? 0.78f : 0.6f);
             m.SetFloat("_GrassHigh", mountain ? 1800f : 2600f);
+            EditorUtility.SetDirty(m);
+        }
+
+        /// <summary>The buildings (chalets, church, viaduct stone) on the aircraft's toon shader, which inks their outline:
+        /// the full-screen ink skips them (a house in a field is too small a depth jump), so they ink themselves.</summary>
+        public static void Building(Material m)
+        {
+            var toon = TestWorldBuilder.Toon;
+            if (toon == null || m == null) return;
+            m.shader = toon;
+            m.SetFloat("_OutlineWidth", 1.8f);
+            m.SetFloat("_OutlineNear", 120f);    // full width out to 120 m, then thinning to a third
+            m.SetFloat("_GlintStrength", 0.3f);
+            m.SetFloat("_RimStrength", 0.25f);
             EditorUtility.SetDirty(m);
         }
 

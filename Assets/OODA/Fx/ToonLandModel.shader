@@ -13,10 +13,11 @@ Shader "Ooda/ToonLandModel"
         _RockA ("Rock", Color) = (0.56, 0.52, 0.57, 1)
         _RockB ("Rock, second tone", Color) = (0.64, 0.58, 0.56, 1)
         _Snow ("Snow", Color) = (0.84, 0.87, 0.93, 1)
+        _TexSnow ("Snow where the model's own texture is white", Range(0, 1)) = 1
 
         [Header(Where)]
-        _SnowLow ("Snow starts, m", Float) = 1950
-        _SnowHigh ("Snow on every upward face from, m", Float) = 3400
+        _SnowLow ("Snow starts, m", Float) = 1500
+        _SnowHigh ("Snow on every upward face from, m", Float) = 2700
         _GrassSlope ("Grass on faces flatter than (normal y)", Range(0, 1)) = 0.78
         _GrassHigh ("Grass up to, m", Float) = 1800
         _Strata ("Rock strata thickness, m", Float) = 38
@@ -31,7 +32,7 @@ Shader "Ooda/ToonLandModel"
         _Ambient ("Sky light", Range(0, 1.5)) = 0.55
 
         // (so code that sets a Lit material's texture finds somewhere to put it)
-        [HideInInspector] _BaseMap ("Base Map", 2D) = "white" {}
+        _BaseMap ("The model's texture (only its white is read, as snow)", 2D) = "black" {}
         [HideInInspector] _MainTex ("Base Map", 2D) = "white" {}
         [HideInInspector] _BaseColor ("Base Color", Color) = (1, 1, 1, 1)
     }
@@ -45,7 +46,7 @@ Shader "Ooda/ToonLandModel"
             float4 _BaseMap_ST;
             half4 _BaseColor, _GrassA, _GrassB, _RockA, _RockB, _Snow, _ShadeColor, _LitTint;
             float _SnowLow, _SnowHigh, _GrassSlope, _GrassHigh, _Strata, _Patch;
-            half _BandEdge, _BandSoft, _MidBand, _Ambient;
+            half _BandEdge, _BandSoft, _MidBand, _Ambient, _TexSnow;
         CBUFFER_END
         ENDHLSL
 
@@ -62,11 +63,13 @@ Shader "Ooda/ToonLandModel"
             #pragma multi_compile_fog
             #pragma multi_compile_instancing
             #include "ToonLand.hlsl"
+            TEXTURE2D(_BaseMap); SAMPLER(sampler_BaseMap);
 
-            struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct Varyings
             {
                 float4 positionCS : SV_POSITION; float3 positionWS : TEXCOORD0; half3 normalWS : TEXCOORD1; half fog : TEXCOORD2;
+                float2 uv : TEXCOORD3;
                 UNITY_VERTEX_OUTPUT_STEREO
             };
 
@@ -78,6 +81,7 @@ Shader "Ooda/ToonLandModel"
                 o.positionCS = TransformWorldToHClip(o.positionWS);
                 o.normalWS = TransformObjectToWorldNormal(a.normalOS);
                 o.fog = ComputeFogFactor(o.positionCS.z);
+                o.uv = TRANSFORM_TEX(a.uv, _BaseMap);
                 return o;
             }
 
@@ -98,8 +102,12 @@ Shader "Ooda/ToonLandModel"
 
                 // snow on the faces that look up: only the flattest at the snow line, nearly all of them high up
                 float high = saturate((p.y + (n - 0.5) * 220 - _SnowLow) / max(_SnowHigh - _SnowLow, 1));
-                float need = lerp(1.08, 0.42, high);
+                float need = lerp(1.08, 0.36, high);
                 half snow = smoothstep(need - 0.03, need + 0.03, up);
+                // and where the Hi3D model has its own snow painted (its white: only the colour's floor is read, not
+                // its painted light), so each peak keeps the artist's snowfields, drawn in the flat toon snow
+                half3 tex = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, i.uv).rgb;
+                snow = max(snow, _TexSnow * smoothstep(0.58, 0.70, min(tex.r, min(tex.g, tex.b))));
                 col = lerp(col, _Snow.rgb, snow);
 
                 half3 lit = ToonLandLight(col, p, N);
