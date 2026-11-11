@@ -152,6 +152,8 @@ namespace Ooda.UI
 
             // a dark wash down the left behind the heading and the list
             for (int i = 0; i < 24; i++) Fill(new Rect(i * 16, 0, 16, h), new Color(0.05f, 0.04f, 0.02f, 0.5f * (1f - i / 24f)));
+            // and behind the heading itself, so the parked planes don't show through it
+            for (int i = 0; i < 14; i++) Fill(new Rect(0, i * 8, 560, 8), new Color(0.05f, 0.04f, 0.02f, 0.45f * (1f - i / 14f)));
 
             // the heading
             Shadow(new Rect(28, 14, 600, 64), "MISSION BRIEFING", title);
@@ -166,29 +168,54 @@ namespace Ooda.UI
                 if (GUI.Button(r, $"{i + 1:00}   {Campaign.Get(i).title}", i == picked ? itemOn : item)) Pick(i);
             }
 
-            // a numbered badge over each pin, where the camera sees it; a click on one picks it
-            for (int n = 0; n < Campaign.Count; n++)
+            // a numbered badge over each pin, where the camera sees it; a click on one picks it. Where pins stand close
+            // (01 and 02), a badge that would sit under the picked one is pushed clear of it, with a line down to its pin.
+            if (stage != null && stage.TableUp)
             {
-                if (stage == null || !stage.TableUp) break;
-                int i = (picked + 1 + n) % Campaign.Count;   // the picked one last, on top of any it overlaps
-                Vector3 sp = stage.OnScreen(stage.PinTop(i));
-                if (sp.z <= 0) continue;
-                bool on = i == picked;
-                float r = on ? 21 : 15;
-                var at = new Rect(sp.x / k - r, sp.y / k - 2 * r, 2 * r, 2 * r);
-                Fill(new Rect(at.center.x - 1.5f, at.yMax - 4, 3, 10), on ? Gold : Brown);
-                GUI.DrawTexture(at, on ? discOn : disc);
-                if (GUI.Button(at, $"{i + 1:00}", on ? badgeOn : badge)) Pick(i);
+                int n = Campaign.Count;
+                var pinAt = new Vector2[n];
+                var badgeAt = new Vector2[n];
+                var seen = new bool[n];
+                for (int i = 0; i < n; i++)
+                {
+                    Vector3 sp = stage.OnScreen(stage.PinTop(i));
+                    seen[i] = sp.z > 0;
+                    pinAt[i] = new Vector2(sp.x / k, sp.y / k);
+                    badgeAt[i] = pinAt[i] + Vector2.down * (i == picked ? 21 : 15);   // the badge's middle, just over the pin
+                }
+                for (int pass = 0; pass < 3; pass++)
+                    for (int i = 0; i < n; i++)
+                        for (int j = 0; j < n; j++)
+                        {
+                            if (i == j || i == picked || !seen[i] || !seen[j]) continue;
+                            if (j != picked && j > i) continue;   // the picked one stays put; of two others the later gives way
+                            float need = (i == picked ? 21 : 15) + (j == picked ? 21 : 15) + 4;
+                            Vector2 d = badgeAt[i] - badgeAt[j];
+                            if (d.magnitude >= need) continue;
+                            if (d.sqrMagnitude < 1f) d = new Vector2(-1, -1);
+                            badgeAt[i] = badgeAt[j] + d.normalized * need;
+                        }
+                for (int m = 0; m < n; m++)
+                {
+                    int i = (picked + 1 + m) % n;   // the picked one last, on top
+                    if (!seen[i]) continue;
+                    bool on = i == picked;
+                    float r = on ? 21 : 15;
+                    var at = new Rect(badgeAt[i].x - r, badgeAt[i].y - r, 2 * r, 2 * r);
+                    Rule(pinAt[i], badgeAt[i], 2.5f, on ? Gold : Brown);
+                    GUI.DrawTexture(at, on ? discOn : disc);
+                    if (GUI.Button(at, $"{i + 1:00}", on ? badgeOn : badge)) Pick(i);
+                }
             }
 
             // the picked mission
-            var pr = new Rect(w - 300, 160, 284, 300);   // narrow and high, clear of the city and its pin
+            var pr = new Rect(w - 300, 160, 284, 280);   // narrow and high, clear of the city and its pin
             GUI.DrawTexture(pr, panel);
             Shadow(new Rect(pr.x, pr.y + 12, pr.width, 42), m.title, panelTitle);
             Fill(new Rect(pr.x + 24, pr.y + 58, pr.width - 48, 2), new Color(0.85f, 0.80f, 0.62f, 0.7f));
-            GUI.Label(new Rect(pr.x + 14, pr.y + 64, pr.width - 28, 66), m.objective, panelText);
-            Shadow(new Rect(pr.x, pr.y + 130, pr.width, 24), "OVER " + Arenas.Get(m.arena).name.ToUpperInvariant(), overLine);
-            float ry = pr.y + 160;
+            GUI.Label(new Rect(pr.x + 14, pr.y + 64, pr.width - 28, 46), m.objective, panelText);
+            Shadow(new Rect(pr.x, pr.y + 112, pr.width, 24), "OVER " + Arenas.Get(m.arena).name.ToUpperInvariant(), overLine);
+            float ry = pr.y + 142;
             Row(new Rect(pr.x + 18, ry, pr.width - 36, 32), "WINGMEN", (s.Ours - 1).ToString()); ry += 37;
             Row(new Rect(pr.x + 18, ry, pr.width - 36, 32), "BANDITS", s.Theirs.ToString()); ry += 37;
             Row(new Rect(pr.x + 18, ry, pr.width - 36, 32), "DIFFICULTY", Campaign.Difficulty(m.difficulty));
@@ -207,6 +234,17 @@ namespace Ooda.UI
         {
             GUI.Label(r, label, rowLabel);
             Shadow(new Rect(r.x, r.y, r.width - 12, r.height), value, rowValue);
+        }
+
+        /// <summary>A straight line between two GUI points (under the briefing's scaled GUI.matrix).</summary>
+        void Rule(Vector2 a, Vector2 b, float width, Color col)
+        {
+            var d = b - a;
+            if (d.sqrMagnitude < 0.01f) return;
+            var keep = GUI.matrix;
+            GUI.matrix = keep * Matrix4x4.TRS(a, Quaternion.Euler(0, 0, Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg), Vector3.one) * Matrix4x4.Translate(-a);
+            Fill(new Rect(a.x, a.y - width / 2, d.magnitude, width), col);
+            GUI.matrix = keep;
         }
 
         void Fill(Rect r, Color c)
