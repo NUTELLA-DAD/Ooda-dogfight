@@ -1,8 +1,10 @@
 # A clean Bf 109 G airframe, lofted from sections instead of generated: fuselage, chin cooler, wing radiators, cowl
 # bulges, wings, tailplane, fin, hinged control surfaces, the angular framed canopy, exhausts, and a new spinner and
-# three-blade propeller whose spinner continues the cowl's lines. It keeps the old model's size, cockpit opening, hinge
-# lines, propeller axis and cockpit parts (Pit, PilotMount, CockpitCamera), so the game's mounts and scripts fit
-# unchanged. Every part is unwrapped into its own chart; the charts and a per-texel map of where each texel sits on the
+# three-blade propeller whose spinner continues the cowl's lines. It keeps the old model's length, cockpit opening and
+# cockpit parts (Pit, PilotMount, CockpitCamera), so the pilot's seat fits unchanged. The side profile follows a Bf 109 F
+# side drawing (Kenny's "Vati"): the propeller axis sits low on the cowl, the spine runs nearly level from the cockpit to
+# the fin, the belly sweeps up to meet the axis at the rudder, and the fin stands tall; the old model's fuselage drooped
+# behind the cockpit. Every part is unwrapped into its own chart; the charts and a per-texel map of where each texel sits on the
 # aircraft are written out for bf109_paint.py. Built the same way as p51_hull.py.
 # Run: python -I bf109_hull.py -- <in.blend (old Bf 109)> <out.blend> <out_dir for charts.json / texmap.npz>
 import bpy, bmesh, sys, math, json, numpy as np
@@ -37,15 +39,15 @@ def part(name):
 # ------------------------------------------------------------------ fuselage sections
 # The nose is round where it meets the spinner (the cowl's first ring is the spinner's base circle, so the spinner
 # carries the cowl's lines on to its point with no step), deepens into the cowl and the belly, and tapers to the tail.
-TZ = 0.45                                   # the thrust line: the propeller's axis
+TZ = 0.20                                   # the thrust line: the propeller's axis (canopy top 0.76 above it)
 YS, R0 = -3.36, 0.37                        # the spinner's base station and radius
 ST = np.array([   # y, top, bottom, half width, centre fraction (0.5 is round about the middle), squareness
-    (YS, TZ + R0, TZ - R0, R0, 0.50, 2.0), (-3.22, 0.857, 0.038, 0.418, 0.50, 2.05), (-3.05, 0.865, -0.035, 0.465, 0.505, 2.15),
-    (-2.80, 0.875, -0.140, 0.500, 0.52, 2.3), (-2.40, 0.870, -0.300, 0.520, 0.54, 2.45), (-1.90, 0.850, -0.470, 0.525, 0.55, 2.6),
-    (-1.40, 0.820, -0.580, 0.525, 0.55, 2.7), (-0.80, 0.790, -0.635, 0.515, 0.55, 2.7), (-0.20, 0.755, -0.640, 0.490, 0.55, 2.6),
-    (0.40, 0.680, -0.625, 0.440, 0.55, 2.45), (1.00, 0.580, -0.590, 0.375, 0.55, 2.3), (1.60, 0.470, -0.550, 0.310, 0.54, 2.2),
-    (2.20, 0.370, -0.510, 0.245, 0.53, 2.15), (2.80, 0.280, -0.470, 0.175, 0.52, 2.1), (3.35, 0.205, -0.430, 0.110, 0.51, 2.05),
-    (3.80, 0.130, -0.395, 0.045, 0.50, 2.0), (3.90, 0.090, -0.360, 0.012, 0.50, 2.0)])
+    (YS, TZ + R0, TZ - R0, R0, 0.50, 2.0), (-3.22, 0.607, -0.205, 0.418, 0.50, 2.05), (-3.05, 0.625, -0.225, 0.465, 0.505, 2.15),
+    (-2.80, 0.650, -0.235, 0.500, 0.52, 2.3), (-2.40, 0.690, -0.250, 0.520, 0.54, 2.45), (-1.90, 0.735, -0.270, 0.525, 0.55, 2.6),
+    (-1.40, 0.765, -0.285, 0.525, 0.55, 2.7), (-0.80, 0.785, -0.290, 0.515, 0.55, 2.7), (-0.20, 0.805, -0.275, 0.490, 0.55, 2.6),
+    (0.40, 0.915, -0.140, 0.440, 0.55, 2.45), (1.00, 0.895, -0.030, 0.375, 0.55, 2.3), (1.60, 0.865, 0.075, 0.310, 0.54, 2.2),
+    (2.20, 0.825, 0.180, 0.245, 0.53, 2.15), (2.80, 0.780, 0.280, 0.175, 0.52, 2.1), (3.35, 0.725, 0.370, 0.110, 0.51, 2.05),
+    (3.80, 0.655, 0.470, 0.045, 0.50, 2.0), (3.90, 0.625, 0.505, 0.012, 0.50, 2.0)])
 fzt, fzb, fw, fcf, fn = (PchipInterpolator(ST[:, 0], ST[:, k]) for k in (1, 2, 3, 4, 5))
 Y_END = float(ST[-1, 0])
 def sec(y):
@@ -197,7 +199,7 @@ def lin(p0, p1): return lambda s: p0[1] + (p1[1] - p0[1]) * (s - p0[0]) / (p1[0]
 def root(s): return max(0.0, 1 - (s - 0.50) / 0.55) ** 2 if s > 0.50 else 1.0
 w_le = lambda s: -1.86 + 0.035 * s - 0.10 * root(s) + 0.08 * max(0.0, (s - 3.4) / 1.2) ** 2
 w_te = lambda s: 0.12 - 0.135 * s + 0.16 * root(s)
-w_mid = lambda s: -0.36 + 0.105 * s
+w_mid = lambda s: -0.03 + 0.105 * s                              # the root's underside is the belly
 w_tc = lambda s: (0.165 - 0.008 * s) * (1 + 0.35 * root(s))
 A0, A1, AF = 2.95, 4.50, 0.74                                    # the aileron's span and its hinge's chord fraction
 hy = lambda s: w_le(s) + AF * (w_te(s) - w_le(s))
@@ -210,7 +212,7 @@ for sgn, sd in ((1, 'L'), (-1, 'R')):
     lifting('Bf109_Aileron' + sd, 'ail' + sd, list(np.linspace(A0 + 0.015, A1 - 0.015, 14)), c0=lambda s: w_f(s) + 0.012, caps=('sw_ink', 'sw_ink'), **kw)
     HING['Bf109_Aileron' + sd] = ((sgn * A0, w_h(A0), w_mid(A0)), (sgn * A1, w_h(A1), w_mid(A1)))
 # tailplane: cantilever, round tips, set on the fuselage below the fin
-TZT = 0.12
+TZT = 0.60                                                        # on the spine, at the fin's root
 t_le = lambda s: 2.55 + 0.06 * s; t_te = lambda s: 3.42 - 0.02 * s; t_mid = lambda s: TZT; t_tc = lambda s: 0.10
 YE = 3.03; t_f = lambda s: (YE - t_le(s)) / (t_te(s) - t_le(s))
 for sgn, sd in ((1, 'L'), (-1, 'R')):
@@ -222,13 +224,14 @@ for sgn, sd in ((1, 'L'), (-1, 'R')):
     HING['Bf109_Elevator' + sd] = ((sgn * 0.30, YE, TZT), (sgn * 1.20, YE, TZT))
 # fin and rudder (span along z, thickness along x): a swept leading edge, a round top, the rudder hinged on the post
 YR = 3.147
-f_le = lambda s: 2.42 + 0.85 * (s - 0.30); f_te = lambda s: 3.84 - 0.06 * (s - 0.30); f_tc = lambda s: 0.09
+DZF = 0.50                                                        # the fin stands on the raised spine
+f_le = lambda s: 2.42 + 0.85 * (s - DZF - 0.30); f_te = lambda s: 3.84 - 0.06 * (s - DZF - 0.30); f_tc = lambda s: 0.09
 f_f = lambda s: (YR - f_le(s)) / (f_te(s) - f_le(s))
 kw = dict(le=f_le, te=f_te, mid=lambda s: 0, tc=f_tc, span_axis=2, thick_axis=0, sgn=1)
-lifting('Bf109_Body', 'fin', list(np.linspace(0.12, 0.80, 12)), c1=f_f, **kw)
-lifting('Bf109_Body', 'fin', [0.80] + list(0.80 + 0.17 * np.sin(np.linspace(0, math.pi / 2, 8))[1:]), tip_r=0.17, caps=('sw_ink', 'sw_paint'), **kw)
-lifting('Bf109_Rudder', 'rud', list(np.linspace(0.19, 0.79, 10)), c0=lambda s: f_f(s) + 0.02, caps=('sw_ink', 'sw_ink'), **kw)
-HING['Bf109_Rudder'] = ((0, YR, 0.19), (0, YR, 0.79))
+lifting('Bf109_Body', 'fin', list(np.linspace(0.12 + DZF, 0.80 + DZF, 12)), c1=f_f, **kw)
+lifting('Bf109_Body', 'fin', [0.80 + DZF] + list(0.80 + DZF + 0.17 * np.sin(np.linspace(0, math.pi / 2, 8))[1:]), tip_r=0.17, caps=('sw_ink', 'sw_paint'), **kw)
+lifting('Bf109_Rudder', 'rud', list(np.linspace(0.19 + DZF, 0.79 + DZF, 10)), c0=lambda s: f_f(s) + 0.02, caps=('sw_ink', 'sw_ink'), **kw)
+HING['Bf109_Rudder'] = ((0, YR, 0.19 + DZF), (0, YR, 0.79 + DZF))
 
 def loft(pname, chart, secs, mouth=None, nseg=24, n=3.0, cap_back=True):
     """A rounded box lofted through sections (y, half width, z top, z bottom); a dark mouth on the first section."""
@@ -249,8 +252,8 @@ def loft(pname, chart, secs, mouth=None, nseg=24, n=3.0, cap_back=True):
         pt.cap(mv, 'sw_ink')
     if cap_back: pt.cap(list(reversed(Is[-1])), 'sw_ink')
 # the chin oil cooler under the cowl
-loft('Bf109_Body', 'chin', [(-3.12, 0.17, 0.10, -0.10), (-3.02, 0.20, 0.08, -0.22), (-2.80, 0.215, 0.02, -0.29), (-2.55, 0.205, -0.08, -0.31),
-                            (-2.30, 0.175, -0.18, -0.29), (-2.12, 0.11, -0.24, -0.27)], mouth=0.06)
+loft('Bf109_Body', 'chin', [(-3.12, 0.17, -0.08, -0.25), (-3.02, 0.20, -0.10, -0.31), (-2.80, 0.215, -0.13, -0.35), (-2.55, 0.205, -0.15, -0.36),
+                            (-2.30, 0.175, -0.18, -0.34), (-2.12, 0.11, -0.22, -0.30)], mouth=0.06)
 # the wing radiators, one under each wing
 for sgn in (1, -1):
     def low(s, y): return w_mid(s) - 0.5 * aerofoil(min(1, max(0, (y - w_le(s)) / (w_te(s) - w_le(s)))), w_tc(s)) * (w_te(s) - w_le(s))
@@ -285,10 +288,10 @@ def tube(p0, p1, r0, r1, chart, nseg=10, pname='Bf109_Body', squash=1.0, endcap=
     pt.cap(I[1], endcap); pt.cap(I[0], chart)
 for sgn in (-1, 1):
     for k in range(6):                                                  # exhaust stacks along the lower cowl
-        y = -3.00 + k * 0.118; z = 0.30
+        y = -3.00 + k * 0.118; z = 0.09
         hx = hull_x(y, z)
         tube((sgn * (hx - 0.04), y, z), (sgn * (hx + 0.065), y + 0.09, z - 0.02), 0.046, 0.040, 'sw_steel', nseg=8, squash=0.7)
-tube((0.43, -1.98, 0.36), (0.50, -2.40, 0.36), 0.070, 0.088, 'sw_paint', nseg=12, squash=0.9)                     # supercharger intake
+tube((0.43, -1.98, 0.30), (0.50, -2.40, 0.30), 0.070, 0.088, 'sw_paint', nseg=12, squash=0.9)                     # supercharger intake
 tube((0, 0.50, hull_top(0, 0.50) - 0.03), (0, 0.56, hull_top(0, 0.5) + 0.42), 0.030, 0.014, 'sw_paint', nseg=8, squash=0.45)   # mast
 tube((4.15, w_le(4.15) + 0.30, w_mid(4.15) - 0.08), (4.15, w_le(4.15) + 0.30, w_mid(4.15) - 0.17), 0.016, 0.013, 'sw_paint', nseg=6)  # pitot
 tube((4.15, w_le(4.15) + 0.34, w_mid(4.15) - 0.17), (4.15, w_le(4.15) - 0.12, w_mid(4.15) - 0.17), 0.013, 0.010, 'sw_steel', nseg=6)
@@ -375,7 +378,7 @@ bpy.ops.wm.open_mainfile(filepath=SRC)
 old_body = bpy.data.objects['Bf109_Body']; mat = bpy.data.materials['Bf109_Mat']
 glass = bpy.data.materials.get('Bf109_CanopyGlass') or bpy.data.materials.new('Bf109_CanopyGlass')
 old_prop = bpy.data.objects['Bf109_Propeller']
-assert (old_prop.matrix_world.translation - PROP_ORG).length < 1e-3, old_prop.matrix_world.translation
+old_prop.matrix_world.translation = PROP_ORG                    # the propeller's pivot moves down with the axis
 for nme in [o.name for o in bpy.data.objects if o.type == 'MESH' and (o.name.startswith('Bf109_') and o.name not in ('Bf109_Body', 'Bf109_Propeller') or o.name == 'Pit_Tub')] \
         + [o.name for o in bpy.data.objects if o.name.endswith('_Hinge')]:
     bpy.data.objects.remove(bpy.data.objects[nme], do_unlink=True)
@@ -402,6 +405,14 @@ def raster(me, ob_off, nme):
         B = np.stack([b0[m], b1[m], b2[m]], 1)
         texmap['pos'][iy_, ix] = B @ pos; texmap['nrm'][iy_, ix] = B @ nr; texmap['chart'][iy_, ix] = chid[ch]
 fch = {}
+def in_hull(v, m=0.97):
+    x, y, z = v
+    if not (ys[0] < y < ys[-1]): return False
+    zt, zb, w, zc, n = sec(y); hh = (zt - zc) if z > zc else (zc - zb)
+    return (abs(x) / w) ** n + (abs(z - zc) / hh) ** n < m
+bp = PARTS['Bf109_Body']; keep = [k for k, (f, (ch, uv)) in enumerate(zip(bp.F, bp.UV)) if not (ch.startswith('wing') and all(in_hull(bp.V[i]) for i in f))]
+print('wing faces inside the fuselage dropped:', len(bp.F) - len(keep))
+bp.F = [bp.F[k] for k in keep]; bp.UV = [bp.UV[k] for k in keep]
 objs = {}
 for nme, p in PARTS.items():
     me = bpy.data.meshes.new(nme + "_new")

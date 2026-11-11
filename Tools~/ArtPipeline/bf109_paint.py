@@ -60,9 +60,9 @@ def rootf(s): return np.where(s > 0.50, np.clip(1 - (s - 0.50) / 0.55, 0, None) 
 w_le = lambda s: -1.86 + 0.035 * s - 0.10 * rootf(s) + 0.08 * np.clip((s - 3.4) / 1.2, 0, None) ** 2
 w_te = lambda s: 0.12 - 0.135 * s + 0.16 * rootf(s)
 t_le = lambda s: 2.55 + 0.06 * s; t_te = lambda s: 3.42 - 0.02 * s
-f_le = lambda s: 2.42 + 0.85 * (s - 0.30); f_te = lambda s: 3.84 - 0.06 * (s - 0.30)
+DZF = 0.50; f_le = lambda s: 2.42 + 0.85 * (s - DZF - 0.30); f_te = lambda s: 3.84 - 0.06 * (s - DZF - 0.30)
 wc = (Y - w_le(AX)) / (w_te(AX) - w_le(AX)); tcf = (Y - t_le(AX)) / (t_te(AX) - t_le(AX)); fc = (Y - f_le(Z)) / (f_te(Z) - f_le(Z))
-TZ = 0.45
+TZ = 0.20; TZT = 0.60
 
 # ---------------------------------------------------------------- camouflage
 UP = NZ > 0.15
@@ -75,12 +75,13 @@ def splinter(a_, b_, lines):
 SPL_W = splinter(AX, Y, [(1, 0.85, -0.2), (1, 0.85, -1.5), (1, 0.85, -2.8), (1, 0.85, -4.0), (1, -0.9, -3.3)])
 SPL_T = splinter(AX, Y, [(1, 0.6, -2.2), (1, -0.5, 0.1)])
 img[:] = UNDER_C
-w_mid = lambda s: -0.36 + 0.105 * s
-top_w = (WING & ((NZ > 0) | (Z > w_mid(AX)))) | (TAIL & ((NZ > 0) | (Z > 0.12)))        # above the mean line, so the root fillets stay grey
-lay(top_w * (1 - SPL_W) * WING, TOP1); lay(top_w * SPL_W * WING, TOP2)
+w_mid = lambda s: -0.03 + 0.105 * s
+top_w = (WING & ((NZ > 0) | (Z > w_mid(AX)))) | (TAIL & ((NZ > 0) | (Z > TZT))) | (RAD & (NZ > 0.3))     # the radiators' flaps show behind the trailing edge        # above the mean line, so the root fillets stay grey
+lay(top_w * (1 - SPL_W) * (WING | RAD), TOP1); lay(top_w * SPL_W * (WING | RAD), TOP2)
 lay(top_w * (1 - SPL_T) * TAIL, TOP1); lay(top_w * SPL_T * TAIL, TOP2)
 # the fuselage: the spine in 74/75 down to a soft line, the sides 76 with mottle that thins out downward
-def hullz_top(y): return np.interp(y, [-3.36, -2.8, -1.4, -0.2, 0.4, 1.0, 1.6, 2.2, 2.8, 3.35, 3.9], [0.82, 0.875, 0.82, 0.755, 0.68, 0.58, 0.47, 0.37, 0.28, 0.205, 0.09])
+def hullz_top(y): return np.interp(y, [-3.36, -3.22, -3.05, -2.8, -2.4, -1.9, -1.4, -0.8, -0.2, 0.4, 1.0, 1.6, 2.2, 2.8, 3.35, 3.8, 3.9],
+                                   [0.57, 0.607, 0.625, 0.65, 0.69, 0.735, 0.765, 0.785, 0.805, 0.915, 0.895, 0.865, 0.825, 0.78, 0.725, 0.655, 0.625])
 spine = sstep(Z - (hullz_top(Y) - 0.16), -0.02, 0.02) * (FUS | FIN | RUD)
 spine_spl = splinter(X * 0 + Y, X, [(1, 0, 1.2), (1, 0, -0.9), (1, 0, -2.6), (0.5, 1, 0.0)])
 lay(spine * spine_spl, TOP1); lay(spine * (1 - spine_spl), TOP2)
@@ -92,7 +93,7 @@ gy = np.clip((Y + 4.2) / 0.04, 0, 208.999); gz = np.clip((Z + 0.9) / 0.04, 0, 73
 iy0 = gy.astype(int); iz0 = gz.astype(int); fy = gy - iy0; fz = gz - iz0
 noi = (NOI[iy0, iz0] * (1 - fy) * (1 - fz) + NOI[iy0 + 1, iz0] * fy * (1 - fz) + NOI[iy0, iz0 + 1] * (1 - fy) * fz + NOI[iy0 + 1, iz0 + 1] * fy * fz)
 noi = noi + 0.35 * np.sin(X * 13.0)                                  # the two sides differ
-dens = sstep(Z, -0.25, hullz_top(Y) - 0.15)                          # more mottle higher up the side
+dens = sstep(Z, 0.0, hullz_top(Y) - 0.15)                          # more mottle higher up the side
 mott = sstep(noi + 1.6 * dens - 1.55, -0.12, 0.12) * (FUS | FIN | RUD) * (np.abs(NX) > 0.2) * (1 - spine)
 if LV['mott'] is not None:
     if LV['mott_amt'] < 1: mott = mott * sstep(noi, 1.0, 1.3)          # sparse blotches only
@@ -104,7 +105,7 @@ if LV['whitewash']:
     NW = (NW - NW.mean()) / NW.std()
     gx = np.clip((X + 5.0) / 0.0334, 0, 298.999); gy2 = np.clip((Y + 4.2) / 0.02, 0, 418.999)
     nw = NW[gy2.astype(int), gx.astype(int)] + 0.5 * NOI[iy0, iz0]
-    upper = np.clip(top_w * (WING | TAIL) + spine + sstep(Z, 0.05, 0.35) * (FUS | FIN | RUD), 0, 1)
+    upper = np.clip(top_w * (WING | TAIL) + spine + sstep(Z, 0.40, 0.70) * (FUS | FIN | RUD), 0, 1)
     walk = WING & (AX < 1.15) & (NZ > 0.3)
     lay(upper * sstep(nw, -1.25, -0.85) * (1 - 0.8 * walk) * 0.95, DISTEMPER)
 
@@ -113,7 +114,7 @@ COWL = FUS & (Y < -1.95)
 if LV['cowl_all']: lay(COWL * 1.0 + CHIN * 1.0, LV['nose'])          # the whole cowl
 if LV['nose'] is not None: lay(COWL * aa(Y + 2.98), LV['nose'])      # the nose ring
 if LV['cowl_under'] is not None:
-    lay((COWL * aa(Z - 0.20) + CHIN * 1.0) * (1 - aa(Y + 2.98)), LV['cowl_under'])  # under the cowl, and the oil cooler
+    lay((COWL * aa(Z + 0.05) + CHIN * 1.0) * (1 - aa(Y + 2.98)), LV['cowl_under'])  # under the cowl, and the oil cooler
 if LV['band'] is not None: lay(FUS * band(Y, 1.92, 2.34), LV['band'])  # the band round the rear fuselage
 if LV['rudder'] is not None: lay(RUD * 1.0 + FIN * (fc > 0.70), LV['rudder'])
 if LV['tips'] is not None: lay(WING * aa(3.95 - AX), LV['tips'])     # the wingtips, top and bottom
@@ -125,7 +126,7 @@ lay(SPIN * 1.0, LV['spin'])
 if LV['spin_mark'] == 'spiral': lay(SPIN * spiral * aa(-t + 0.03), WHITE)
 else: lay(SPIN * aa(t - 0.30), WHITE)                                # a white tip
 # exhaust staining: soot streaks back along the side from the stacks
-soot = FUS * sstep(-Y, 1.0, 2.3) * np.exp(-((Z - 0.27) / (0.07 + 0.05 * np.clip(Y + 2.9, 0, 2))) ** 2) * (Y > -2.95) * (np.abs(NX) > 0.3)
+soot = FUS * sstep(-Y, 1.0, 2.3) * np.exp(-((Z - 0.06) / (0.07 + 0.05 * np.clip(Y + 2.9, 0, 2))) ** 2) * (Y > -2.95) * (np.abs(NX) > 0.3)
 lay(soot * 0.55, np.array((44, 42, 40.0)))
 
 # ---------------------------------------------------------------- panel lines and rivets
@@ -144,9 +145,9 @@ def add_lines(mask, coord, stations, along, scale=1.0, rivets=True):
         RIVT = np.where(better, along, RIVT); RIV = np.where(mask, np.minimum(RIV, r), RIV)
     PID = np.where(mask, PID * 31 + idx + 7, PID)
 add_lines(FUS, Y, [-3.22, -2.92, -2.40, -1.95, -1.13, -0.55, 0.31, 0.80, 1.30, 1.80, 2.40, 2.95, 3.45], Vc)
-add_lines(FUS & (Y < -1.95), Z, [0.62, 0.22], Y, rivets=False)                 # the cowl's side panels
+add_lines(FUS & (Y < -1.95), Z, [0.37, -0.03], Y, rivets=False)                 # the cowl's side panels
 # seams along the fuselage at fixed angles round its axis, so they stay parallel all the way to the tail
-zc_ = np.interp(Y, [-3.36, -2.8, -1.9, -0.8, 0.4, 1.6, 2.8, 3.9], [0.45, 0.39, 0.29, 0.18, 0.15, 0.13, 0.12, 0.11])
+zc_ = np.interp(Y, [-3.36, -2.8, -1.9, -0.8, 0.4, 1.6, 2.8, 3.9], [0.20, 0.225, 0.283, 0.301, 0.44, 0.502, 0.54, 0.565])
 ANG = np.degrees(np.arctan2(np.abs(X), Z - zc_))
 add_lines(FUS & (Y > -1.95), ANG * 0.0105, [0.55 * 1.05, 1.25 * 1.05], Y)
 add_lines(CHIN | RAD, Y, [-2.9, -2.5, -0.85, -0.45], Vc, rivets=False)
@@ -155,7 +156,7 @@ add_lines(WING, wc, [0.30, 0.62], AX, scale=2.0)
 add_lines(WING & (AX > 2.55) & (AX < 4.30), wc, [0.13], AX, scale=2.0, rivets=False)     # the leading edge slats
 add_lines(WING & (AX < 2.95) & (AX > 0.62), wc, [0.74], AX, scale=2.0, rivets=False)     # the flaps
 add_lines(TAIL, AX, [0.30, 0.75, 1.20], Y); add_lines(TAIL, tcf, [0.25], AX)
-add_lines(FIN | RUD, Z, [0.45, 0.80], Y); add_lines(FIN | RUD, fc, [0.30], Z, scale=1.2)
+add_lines(FIN | RUD, Z, [0.95, 1.30], Y); add_lines(FIN | RUD, fc, [0.30], Z, scale=1.2)
 side = np.sign(X).astype(np.int64)
 PID = PID * 3 + side + np.round(NZ).astype(np.int64) * 5
 h = (np.abs(PID * 2654435761) % 1000) / 1000.0
@@ -209,9 +210,9 @@ cr, cw, chh = cross(0.30); ch_, chw, chh2 = chevrons(0.40); wn, wnw, wnh = text(
 for sx in (1, -1):
     # seen from this side, "left to right" runs toward the tail on the left (+X) side and toward the nose on the right
     a_ = Y * sx; m = SIDE & (X * sx > 0)
-    put(m, a_, Z, cr, 1.25 * sx, 0.02, cw, chh)
-    put(m, a_, Z, ch_, 0.48 * sx, 0.05, chw, chh2, flip=sx < 0)       # flipped on the right so they point at the nose
-    put((FIN | RUD) & (X * sx > 0), a_, Z, wn, 3.38 * sx, 0.70, wnw, wnh)
+    put(m, a_, Z, cr, 1.25 * sx, 0.45, cw, chh)
+    put(m, a_, Z, ch_, 0.48 * sx, 0.40, chw, chh2, flip=sx < 0)       # flipped on the right so they point at the nose
+    put((FIN | RUD) & (X * sx > 0), a_, Z, wn, 3.38 * sx, 1.20, wnw, wnh)
 cwg, cww, chw_ = cross(0.42)
 ymid = lambda s: float((w_le(np.float32(s)) + w_te(np.float32(s))) / 2)
 for sx in (1, -1):
@@ -228,7 +229,7 @@ def ring(mask, a_, b_, ca, cb, r, wdt=0.005):
     global img
     d = np.abs(np.hypot(a_ - ca, b_ - cb) - r); m = (aa(d - wdt, px * 1.2) * mask)[..., None] * 0.8; img = img * (1 - m) + INK * m
 for sx in (1, -1):
-    ring(FUS & (X * sx > 0), Y, Z, 0.95, 0.25, 0.07)                     # the first-aid hatch / fuel filler
+    ring(FUS & (X * sx > 0), Y, Z, 0.95, 0.60, 0.07)                     # the first-aid hatch / fuel filler
     UNDER = WING & (NZ < -0.3)
     ring(UNDER & (AX < 1.2), X, Y, sx * 0.80, -1.42, 0.26)               # the retracted wheel's well, ahead of the radiator
 ring(FUS & (NZ > 0.5), X, Y, 0.0, 0.90, 0.06)                            # the fuel filler behind the cockpit
