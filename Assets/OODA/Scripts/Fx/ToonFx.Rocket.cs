@@ -154,6 +154,28 @@ namespace Ooda.Fx
             }
         }
 
+        // from the cockpit: anime zoom lines, streaks flying out to the edges of the view from round its middle, a new set each key
+        void ZoomLines(in RocketReq q, int key, Color col)
+        {
+            const int N = 30;
+            const float D = 1.2f;   // (just past the windscreen: the frame and the panel still stand in front of them)
+            float h = Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad) * D, px = D / pxPerM1;
+            Vector3 c = camPos + camFwd * D;
+            Color ink = new Color(0.16f, 0.2f, 0.32f, 0.5f * col.a);
+            for (int j = 0; j < N; j++)
+            {
+                int k = key * 37 + j;
+                if (R01(q.Seed, k + 960) < 0.3f) continue;
+                float a = (j + Rng(q.Seed, k + 970, -0.4f, 0.4f)) * Mathf.PI * 2f / N;
+                Vector3 dir = right * Mathf.Cos(a) * cam.aspect + up * Mathf.Sin(a);
+                float r0 = Rng(q.Seed, k + 980, 0.55f, 0.95f) * h, r1 = r0 + Rng(q.Seed, k + 990, 0.35f, 0.9f) * h;
+                pts.Clear(); pts.Add(c + dir * r0); pts.Add(c + dir * Mathf.Lerp(r0, r1, 0.5f)); pts.Add(c + dir * r1);
+                float w = Rng(q.Seed, k + 995, 3f, 7f) * px;
+                Stroke(pts, px, w * 1.8f, ink);
+                Stroke(pts, px * 0.5f, w, col);
+            }
+        }
+
         // anime speed lines: white streaks streaming aft past the aircraft, a new set each key
         void SpeedLines(in RocketReq q, float s, int key, Vector3 e1, Vector3 e2, float px)
         {
@@ -161,6 +183,7 @@ namespace Ooda.Fx
             float alpha = RkSpeed.a * q.Burn;
             if (alpha < 0.05f) return;
             Color col = new Color(RkSpeed.r, RkSpeed.g, RkSpeed.b, alpha);
+            if ((q.C - camPos).sqrMagnitude < 8f * 8f) { ZoomLines(q, key, col); return; }   // (riding it, from the cockpit)
             for (int j = 0; j < N; j++)
             {
                 int h = key * 31 + j;
