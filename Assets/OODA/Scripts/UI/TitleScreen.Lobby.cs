@@ -111,6 +111,7 @@ namespace Ooda.UI
             var kb = Keyboard.current;
             var s = Lobby;
             s?.Pump();
+            if (missions.open) { MissionKeys(missions.Keys()); return true; }   // the mission briefing for the online fight
             if (setup.open) { SetupKeys(setup.Keys()); return true; }   // the briefing for the online fight
             if (kb != null && kb.escapeKey.wasPressedThisFrame) { CloseLobby(); return true; }
             if (s == null) return true;

@@ -71,6 +71,8 @@ Shader "Ooda/ToonLit"
             Name "ToonForward"
             Tags { "LightMode" = "UniversalForward" }
             Cull [_Cull]
+            // (marks itself in the stencil, so the full-screen ink on the land (Ink.shader) leaves it alone)
+            Stencil { Ref 64 WriteMask 64 Comp Always Pass Replace }
             ZWrite On
             HLSLPROGRAM
             #pragma vertex vert
@@ -172,6 +174,8 @@ Shader "Ooda/ToonLit"
             Name "ToonOutline"
             Tags { "LightMode" = "SRPDefaultUnlit" }
             Cull Front
+            // (marks itself in the stencil, so the full-screen ink on the land (Ink.shader) leaves it alone)
+            Stencil { Ref 64 WriteMask 64 Comp Always Pass Replace }
             ZWrite On
             HLSLPROGRAM
             #pragma vertex vert

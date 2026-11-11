@@ -8,7 +8,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: Foothill
-  m_Shader: {fileID: 4800000, guid: 933532a4fcc9baf4fa0491de14d08ed7, type: 3}
+  m_Shader: {fileID: 4800000, guid: e8246da6fdd74e48ace8192150e56cc2, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
@@ -17,8 +17,7 @@ Material:
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
   m_CustomRenderQueue: -1
-  stringTagMap:
-    RenderType: Opaque
+  stringTagMap: {}
   disabledShaderPasses:
   - MOTIONVECTORS
   m_LockedProperties: 
@@ -86,6 +85,9 @@ Material:
     - _AddPrecomputedVelocity: 0
     - _AlphaClip: 0
     - _AlphaToMask: 0
+    - _Ambient: 0.55
+    - _BandEdge: 0.05
+    - _BandSoft: 0.04
     - _Blend: 0
     - _BlendModePreserveSpecular: 1
     - _BumpScale: 1
@@ -101,17 +103,25 @@ Material:
     - _GlossMapScale: 0
     - _Glossiness: 0
     - _GlossyReflections: 0
+    - _GrassHigh: 2600
+    - _GrassSlope: 0.6
     - _Metallic: 0
+    - _MidBand: 0.12
     - _OcclusionStrength: 1
     - _Parallax: 0.005
+    - _Patch: 90
     - _QueueOffset: 0
     - _ReceiveShadows: 1
     - _Smoothness: 0.12
     - _SmoothnessTextureChannel: 0
+    - _SnowHigh: 100000
+    - _SnowLow: 99999
     - _SpecularHighlights: 1
     - _SrcBlend: 1
     - _SrcBlendAlpha: 1
+    - _Strata: 38
     - _Surface: 0
+    - _TexSnow: 0
     - _WorkflowMode: 1
     - _XRMotionVectorsPass: 1
     - _ZWrite: 1
@@ -119,6 +129,13 @@ Material:
     - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
+    - _GrassA: {r: 0.37254903, g: 0.6039216, b: 0.27058825, a: 1}
+    - _GrassB: {r: 0.43137255, g: 0.6627451, b: 0.30980393, a: 1}
+    - _LitTint: {r: 1, g: 0.98, b: 0.94, a: 1}
+    - _RockA: {r: 0.4862745, g: 0.49019608, b: 0.56078434, a: 1}
+    - _RockB: {r: 0.5529412, g: 0.54509807, b: 0.5921569, a: 1}
+    - _ShadeColor: {r: 0.56, g: 0.6, b: 0.78, a: 1}
+    - _Snow: {r: 0.827451, g: 0.85882354, b: 0.91764706, a: 1}
     - _SpecColor: {r: 0.2, g: 0.2, b: 0.2, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

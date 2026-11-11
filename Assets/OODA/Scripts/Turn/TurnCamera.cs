@@ -79,9 +79,34 @@ namespace Ooda.Turn
             joltNow = Mathf.Max(0, joltNow - Time.unscaledDeltaTime * 2f);
         }
 
+        float boostAge = -1f, lastBoostAge = -1f, boost, punch;
+        int boostFrame = -1;
+
+        /// <summary>
+        /// The rocket you ride, each frame it plays: seconds since it lit, or -1 when it isn't burning. The view kicks as it
+        /// lights, widens while it burns (speed) and shudders with it.
+        /// </summary>
+        public void Boost(float rocketAge) { boostAge = rocketAge; boostFrame = Time.frameCount; }
+
+        void ApplyBoost()
+        {
+            float age = boostFrame >= Time.frameCount - 1 ? boostAge : -1f;
+            bool lit = age >= 0f;
+            if (lit && (lastBoostAge < 0f || age < lastBoostAge)) { Jolt(0.85f); punch = 1f; }
+            lastBoostAge = age;
+            float dt = Time.unscaledDeltaTime;
+            boost = Mathf.MoveTowards(boost, lit ? 1f : 0f, dt / (lit ? 0.2f : 0.6f));
+            punch = Mathf.MoveTowards(punch, 0f, dt / 0.45f);
+            if (boost <= 0.001f && punch <= 0.001f) return;
+            if (!sightPose) Cam.fieldOfView += 9f * boost + 10f * punch * punch;
+            float t = Time.unscaledTime * 31f, deg = 0.5f * boost;
+            transform.rotation = transform.rotation * Quaternion.Euler(Mathf.Sin(t * 1.21f) * deg, Mathf.Sin(t + 0.7f) * deg, Mathf.Sin(t * 0.63f + 2f) * deg * 0.6f);
+        }
+
         void LateUpdate()
         {
             Place();
+            ApplyBoost();
             ApplyJolt();
         }
 

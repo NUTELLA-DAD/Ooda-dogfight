@@ -69,6 +69,8 @@ namespace Ooda.UI
             StartShot(0);
             int ss = System.Array.IndexOf(args, "-setupshots");   // the dogfight briefing's self-test (see DogfightSetupScreen.Shots)
             if (ss >= 0 && ss + 1 < args.Length) StartCoroutine(setup.Shots(args[ss + 1]));
+            int ms = System.Array.IndexOf(args, "-missionshots");   // the mission briefing's self-test
+            if (ms >= 0 && ms + 1 < args.Length) StartCoroutine(MissionShots(args[ms + 1]));
             LobbyFromCommandLine();   // the online self-test: -nethost or -netjoin
         }
 
@@ -149,11 +151,13 @@ namespace Ooda.UI
             clock += Time.deltaTime;
             if (clock > shotSec && !setup.open) StartShot(shot + 1);
             setup.Tick(cam, Time.deltaTime);   // the briefing's airfield: built while it is open, and it holds the camera then
+            if (missions.open) missions.Tick(Time.deltaTime);
             if (!setup.open) PlaceCamera(p, flat, r);
 
             if (LobbyUpdate()) return;   // the online panel is open: it takes the keys
             var kb = Keyboard.current;
             var pad = Gamepad.current;
+            if (missions.open) { MissionKeys(missions.Keys()); return; }   // the mission briefing, after the squadron briefing's Ready
             if (setup.open) { SetupKeys(setup.Keys()); return; }   // the dogfight's briefing has the keys while it is up
             if (kb != null && kb.oKey.wasPressedThisFrame) { OpenLobby(); return; }
             if (kb != null && kb.tKey.wasPressedThisFrame) { PlayTutorial(); return; }
@@ -257,8 +261,44 @@ namespace Ooda.UI
         void SetupKeys(DogfightSetupScreen.Result r)
         {
             if (r == DogfightSetupScreen.Result.Back) { setup.open = false; setupOnline = false; }
-            else if (r == DogfightSetupScreen.Result.Fly && setupOnline) { DogfightSetupScreen.Save(); setup.open = false; setupOnline = false; StartOnline(); }   // online: the friend gets the same setup
-            else if (r == DogfightSetupScreen.Result.Fly) { DogfightSetupScreen.Save(); setup.open = false; LoadBattle(); }
+            else if (r == DogfightSetupScreen.Result.Fly) { DogfightSetupScreen.Save(); missions.Open(setup.stage); }   // on to the mission briefing
+        }
+
+        /// <summary>The mission briefing: the map table on the squadron briefing's apron, where the mission (its arena) is picked.</summary>
+        readonly MissionSelectScreen missions = new MissionSelectScreen();
+
+        void MissionKeys(MissionSelectScreen.Result r)
+        {
+            if (r == MissionSelectScreen.Result.Back) missions.Close();   // back to the squadron briefing
+            else if (r == MissionSelectScreen.Result.Launch)
+            {
+                missions.Commit();
+                missions.Close();
+                setup.open = false;
+                if (setupOnline) { setupOnline = false; StartOnline(); }   // online: the friend gets the same setup
+                else LoadBattle();
+            }
+        }
+
+        /// <summary>-missionshots folder: the squadron briefing, then the mission briefing with three missions picked, each saved as a BMP; then quit.</summary>
+        System.Collections.IEnumerator MissionShots(string folder)
+        {
+            System.IO.Directory.CreateDirectory(folder);
+            // a full flight round the table, as in the concept: the tiger leading, the bear, the fox and the penguin (not kept for next time)
+            DogfightSetupScreen.Chosen = new DogfightSetup
+            {
+                ours = new[] { Craft.Mustang, Craft.Su27, Craft.Zero, Craft.Spitfire }, theirs = new[] { Craft.Bf109, Craft.Bf109, Craft.Bf109 },
+                oursPilots = new[] { PilotKind.Tiger, PilotKind.Bear, PilotKind.Fox, PilotKind.Penguin }, theirsPilots = new[] { PilotKind.Usual, PilotKind.Usual, PilotKind.Usual },
+                randomStart = false, start = Scenarios.Start.HeadOn,
+            };
+            setup.open = true;
+            yield return new WaitForSecondsRealtime(4f);
+            missions.Open(setup.stage);
+            yield return new WaitForSecondsRealtime(2f);
+            yield return missions.Shots(folder);
+            missions.Close();
+            setup.open = false;
+            Application.Quit();
         }
 
         /// <summary>Training: the dogfight's lessons, one goal at a time (TurnBattle.Tutorial.cs).</summary>
@@ -304,6 +344,7 @@ namespace Ooda.UI
             float fade = Mathf.Max(Mathf.InverseLerp(fadeSec, 0f, clock), Mathf.InverseLerp(shotSec - fadeSec, shotSec, clock));
             if (fade > 0 && !setup.open) { GUI.color = new Color(1, 1, 1, fade); GUI.DrawTexture(new Rect(0, 0, sw, sh), black); GUI.color = Color.white; }
 
+            if (missions.open) { MissionKeys(missions.Draw(sw, sh)); return; }
             if (setup.open) { SetupKeys(setup.Draw(sw, sh)); return; }
             Shadowed(new Rect(0, sh * 0.08f, sw, 140), "OODA", title);
             Shadowed(new Rect(0, sh * 0.08f + 130, sw, 40), "Observe  ·  Orient  ·  Decide  ·  Act", sub);

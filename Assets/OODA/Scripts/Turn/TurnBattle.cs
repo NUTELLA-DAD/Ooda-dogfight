@@ -646,6 +646,7 @@ namespace Ooda.Turn
             BlinkShotsCheck();
             RicochetShotsCheck();
             GrappleShotsCheck();
+            RocketShotsCheck();
             SnowShotsCheck();
             PortalShotsCheck();
             BotUpdate();

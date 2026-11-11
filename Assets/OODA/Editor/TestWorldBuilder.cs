@@ -30,7 +30,8 @@ namespace Ooda.EditorTools
         const string PrefabPath = Root + "/Prefabs/P51.prefab";
 
         const float PlaneSmoothingAngle = 80f;
-        const float PropellerForward = 0.3f; // metres: the blades sit inside the cowl lip as modelled
+        /// <summary>The P-51's other paint jobs (Art/P51/P51_&lt;name&gt;_BaseColor.png), for when more than one flies.</summary>
+        internal static readonly string[] P51Liveries = { "Blue", "Yellow", "Green" };
 
         [MenuItem("OODA/Build Test World")]
         public static void Build()
@@ -90,8 +91,10 @@ namespace Ooda.EditorTools
             Set("m_ShadowCascadeCount", p => p.intValue = 4);
             Set("m_Cascade4Split", p => p.vector3Value = new Vector3(0.02f, 0.08f, 0.3f)); // 60 m, 240 m, 900 m, 3 km
             Set("m_SoftShadowsSupported", p => p.boolValue = true);
+            Set("m_RequireDepthTexture", p => p.boolValue = true);   // the water reads it for its depth and shore foam
             so.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(urp);
+            ToonWorld.EnsureInk(urp);
 
             int current = QualitySettings.GetQualityLevel();
             for (int i = 0; i < QualitySettings.names.Length; i++)
@@ -135,7 +138,8 @@ namespace Ooda.EditorTools
 
             ImportPilot(PilotFbx, "TigerPilot");
 
-            foreach (var t in new[] { Art + "/P51/P51_MetallicSmoothness.png", Art + "/TigerPilot/Pilot_MetallicSmoothness.png" })
+            foreach (var t in new[] { Art + "/P51/P51_MetallicSmoothness.png", Art + "/TigerPilot/Pilot_MetallicSmoothness.png" }
+                         .Concat(P51Liveries.Select(n => Art + $"/P51/P51_{n}_MetallicSmoothness.png")))
             {
                 var ti = (TextureImporter)AssetImporter.GetAtPath(t);
                 ti.sRGBTexture = false;
@@ -202,7 +206,7 @@ namespace Ooda.EditorTools
                 pilot = Textured("TigerPilot", Art + "/TigerPilot/Pilot_BaseColor.png", Art + "/TigerPilot/Pilot_MetallicSmoothness.png", toon: true),
                 canopy = Mat("P51_CanopyGlass", new Color(0.92f, 0.96f, 1f, 0.06f), 0.8f),
                 cockpit = Mat("P51_Cockpit", new Color(0.13f, 0.15f, 0.10f), 0.2f),
-                water = Mat("Sea", new Color(0.08f, 0.22f, 0.35f), 0.85f),
+                water = ToonWorld.Water(Mat("Sea", new Color(0.08f, 0.22f, 0.35f), 0.85f), sea: true),   // (every builder makes it: each keeps it toon)
                 cloud = Mat("Cloud", new Color(1f, 1f, 1f), 0f),
                 towerRed = Mat("TowerRed", new Color(0.8f, 0.12f, 0.1f), 0.3f),
                 towerWhite = Mat("TowerWhite", new Color(0.92f, 0.92f, 0.9f), 0.3f),
@@ -430,7 +434,10 @@ namespace Ooda.EditorTools
             var spin = root.AddComponent<PropellerSpin>();
             spin.aircraft = ac;
             spin.propeller = FindDeep(model.transform, "P51_Propeller");
-            if (spin.propeller != null) spin.propeller.position += root.transform.forward * PropellerForward;
+            // a paint job of its own for each P-51 in the air
+            var livery = root.AddComponent<PlaneLivery>();
+            livery.standard = mats.plane;
+            livery.others = P51Liveries.Select(n => Textured("P51_" + n, Art + $"/P51/P51_{n}_BaseColor.png", Art + $"/P51/P51_{n}_MetallicSmoothness.png", toon: true)).ToArray();
             root.AddComponent<ControlSurfaces>();   // ailerons, elevators and rudder swing with the flying
 
             HideCanopy(model);

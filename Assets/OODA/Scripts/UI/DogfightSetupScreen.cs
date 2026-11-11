@@ -189,6 +189,7 @@ namespace Ooda.UI
         {
             if (!open) { if (stage.Built) stage.Close(); mission = false; loadout = false; return; }
             if (!stage.Built) { stage.Open(cam); sel = 0; }
+            if (stage.TableUp) { stage.Tick(dt); stage.PlaceTableCamera(); return; }   // the mission briefing's map table has the stage
             var s = Chosen;
             sel = Mathf.Clamp(sel, 0, Count - 1);
             stage.Sync(s);
@@ -580,12 +581,8 @@ namespace Ooda.UI
             Choice(new Rect(x, y, colW, 42), "HEIGHT", new[] { "Low", "Medium", "High" }, ref hgt); y += 52;
             Choice(new Rect(x, y, colW, 42), "SPEED", new[] { "220 kt", "300 kt", "380 kt" }, ref sp); y += 52;
             s.range = (DogfightSetup.Range)rg; s.height = (DogfightSetup.Height)hgt; s.speed = (DogfightSetup.Pace)sp;
-            // where on the island: Random or one of the arenas (short names on the buttons, the arena's own words under them)
-            int ar = s.randomArena ? 0 : s.arena + 1;
-            Choice(new Rect(x, y, colW, 42), "ARENA", new[] { "Random", "Peaks", "Pass", "Lake", "Town", "City" }, ref ar); y += 48;
-            s.randomArena = ar == 0; if (ar > 0) s.arena = ar - 1;
-            GUI.Label(new Rect(x + 100, y, colW - 100, 46), s.randomArena ? "Over one of the five arenas at random: the Peak Maze, the High Pass, Chalet Lake, the Town & Farmland or Skyline City."
-                                                                         : $"{Arenas.Get(s.arena).name}: {Arenas.Get(s.arena).blurb}", new GUIStyle(dim) { wordWrap = true, alignment = TextAnchor.UpperLeft });
+            // where on the island is picked next, on the mission briefing's map (Ready opens it)
+            GUI.Label(new Rect(x, y, colW, 46), "WHERE: pick the mission on the briefing map after Ready.", new GUIStyle(dim) { wordWrap = true, alignment = TextAnchor.UpperLeft });
             float mx = x + colW + 24;
             Map(new Rect(mx, r.y + 58, r.xMax - 20 - mx, r.height - 78), s);
         }
@@ -649,7 +646,7 @@ namespace Ooda.UI
             Application.Quit();
         }
 
-        static System.Collections.IEnumerator Grab(string path)
+        internal static System.Collections.IEnumerator Grab(string path)
         {
             yield return new WaitForEndOfFrame();
             var tex = new Texture2D(Screen.width, Screen.height, TextureFormat.RGB24, false);
