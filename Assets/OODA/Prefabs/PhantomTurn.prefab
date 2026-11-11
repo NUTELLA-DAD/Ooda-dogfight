@@ -722,7 +722,7 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!1 &2166359572220234779
+--- !u!1 &3116063040098917978
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -730,7 +730,7 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 3653424839744154421}
+  - component: {fileID: 3790896662242824311}
   m_Layer: 0
   m_Name: RailL
   m_TagString: Untagged
@@ -738,13 +738,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &3653424839744154421
+--- !u!4 &3790896662242824311
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2166359572220234779}
+  m_GameObject: {fileID: 3116063040098917978}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: -0.34, y: 0.34, z: 0.2}
@@ -1097,8 +1097,8 @@ Transform:
   m_Children:
   - {fileID: 5822246780715986989}
   - {fileID: 2874586379268950575}
-  - {fileID: 3653424839744154421}
-  - {fileID: 9118293721906881395}
+  - {fileID: 3790896662242824311}
+  - {fileID: 1321379697108902080}
   m_Father: {fileID: 4193050771534099442}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &3894213102026726132
@@ -1373,6 +1373,37 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1610056079366260966}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &4432253281953496068
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1321379697108902080}
+  m_Layer: 0
+  m_Name: RailR
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1321379697108902080
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4432253281953496068}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.34, y: 0.34, z: 0.2}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 904110554271832902}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &4646692549708049904
 GameObject:
@@ -1948,37 +1979,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 5414840971103626090}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &7467070390859419790
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 9118293721906881395}
-  m_Layer: 0
-  m_Name: RailR
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &9118293721906881395
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7467070390859419790}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.34, y: 0.34, z: 0.2}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 904110554271832902}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &8000544947161091487
 GameObject:
   m_ObjectHideFlags: 0
@@ -2208,6 +2208,22 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: -5052707330853464604, guid: cff4b24c95a70b242b747c9cf2c57e25, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.7829707
+      objectReference: {fileID: 0}
+    - target: {fileID: -5052707330853464604, guid: cff4b24c95a70b242b747c9cf2c57e25, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0.001668374
+      objectReference: {fileID: 0}
+    - target: {fileID: -5052707330853464604, guid: cff4b24c95a70b242b747c9cf2c57e25, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0.6220523
+      objectReference: {fileID: 0}
+    - target: {fileID: -5052707330853464604, guid: cff4b24c95a70b242b747c9cf2c57e25, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0.0022445314
+      objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: cff4b24c95a70b242b747c9cf2c57e25, type: 3}
       propertyPath: m_Name
       value: WolfPilot
@@ -2261,8 +2277,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8b8ca99a70995f54994c7148bfe65cdb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Ooda.Pilot.PilotRails
-  railL: {fileID: 3653424839744154421}
-  railR: {fileID: 9118293721906881395}
+  railL: {fileID: 3790896662242824311}
+  railR: {fileID: 1321379697108902080}
   weight: 1
   elbowOut: 0.35
   elbowBack: 0.25
@@ -2460,6 +2476,7 @@ MonoBehaviour:
   handEase: 0.22
   pawStickOffset: {x: 0.017, y: 0.015, z: -0.021}
   pawThrottleOffset: {x: -0.028, y: 0.081, z: -0.021}
+  throttleElbowHint: {x: 0, y: 0, z: 0}
   fistRange: 450
   fistCooldown: 14
   idleEvery: {x: 9, y: 20}
