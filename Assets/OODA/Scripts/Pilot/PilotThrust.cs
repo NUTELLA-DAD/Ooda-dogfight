@@ -18,12 +18,12 @@ namespace Ooda.Pilot
     {
         [Header("Pinned back while the rocket burns")]
         [Tooltip("The torso's lean back once it settles, degrees (split over the spine and chest).")]
-        public float leanDeg = 10f;
+        public float leanDeg = 17f;
         [Tooltip("The head's tilt back on top of the torso's, degrees (split over the neck and head).")]
-        public float headDeg = 22f;
+        public float headDeg = 32f;
         [Header("The kick as it lights")]
         [Tooltip("How hard it kicks as it lights: the spring's speed then (1/s). About 14 throws him back to nearly twice where he settles.")]
-        public float kick = 14f;
+        public float kick = 12f;
         [Tooltip("The lurch forward as it burns out (1/s).")]
         public float lurch = 7f;
         public float stiffness = 70f, damping = 7f;

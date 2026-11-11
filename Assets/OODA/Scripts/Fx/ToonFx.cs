@@ -420,6 +420,7 @@ namespace Ooda.Fx
                 DrawFlashes(now);
             }
             if (mesh == null) return;
+            DropNaNs();
             mesh.Clear();
             mesh.SetVertices(verts);
             mesh.SetColors(cols);
@@ -428,6 +429,24 @@ namespace Ooda.Fx
         }
 
         public int Triangles => tris.Count / 3;
+
+        // One bad vertex (a NaN) gives the whole mesh NaN bounds, and Unity culls it: every effect in the sky vanishes. Fold
+        // any onto a good neighbour (its triangles go flat) and say so once.
+        static bool nanSaid;
+        void DropNaNs()
+        {
+            Vector3 good = camPos;
+            for (int i = 0; i < verts.Count; i++)
+            {
+                var v = verts[i];
+                if (float.IsNaN(v.x + v.y + v.z) || float.IsInfinity(v.x + v.y + v.z))
+                {
+                    verts[i] = good;
+                    if (!nanSaid) { nanSaid = true; Debug.LogWarning($"OODA: ToonFx made a bad vertex ({i} of {verts.Count}); folded away"); }
+                }
+                else good = v;
+            }
+        }
 
         // ---- puffs in groups: each group's puffs are drawn as one outlined mass, groups back to front
         struct Flat { public Vector3 P; public float R, D, Px, GD; public Color Fill; public bool Swirl; public int Seed, Group, Index; public byte Lobes; }
@@ -709,7 +728,7 @@ namespace Ooda.Fx
                 for (int i = 0; i <= N; i++)
                 {
                     float u = i / (float)N, a = start + len * u;
-                    float ww = w * Mathf.Pow(Mathf.Sin(Mathf.PI * u), 0.7f);
+                    float ww = w * Mathf.Pow(Mathf.Max(0f, Mathf.Sin(Mathf.PI * u)), 0.7f);   // (sin of the float pi is a hair below zero: a NaN through Pow)
                     Vector3 d = ex * Mathf.Cos(a) + ez * Mathf.Sin(a);
                     pts.Add(c + d * (r - ww * 0.5f)); pts2.Add(c + d * (r + ww * 0.5f));
                 }

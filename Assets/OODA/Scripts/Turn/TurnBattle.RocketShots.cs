@@ -57,7 +57,14 @@ namespace Ooda.Turn
             }
 
             yield return Planning();
-            if (battle.Count < 2 || battle.planes[0].numbers.rocketG <= 0) { Debug.Log("OODA: rocket shots need a dogfight in a plane with a rocket"); Application.Quit(); yield break; }
+            if (battle.Count < 2) { Debug.Log("OODA: rocket shots need a dogfight"); Application.Quit(); yield break; }
+            if (battle.planes[0].numbers.rocketG <= 0)
+            {
+                // (a loadout without the rocket: hand it one, on a copy of the type's numbers)
+                var n = (Ooda.Flight.Core.AircraftNumbers)typeof(Ooda.Flight.Core.AircraftNumbers).GetMethod("MemberwiseClone", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).Invoke(battle.planes[0].numbers, null);
+                n.rocketG = 1.3; n.rocketSec = 2.5; n.rocketCooldownSec = 30;
+                battle.planes[0].numbers = n;
+            }
             float speed = playbackSpeed;
             PlaceFoe(1, 9000, 6000, 150, 250);
             Fly();
@@ -78,6 +85,7 @@ namespace Ooda.Turn
             playbackSpeed = 0f;
             view.enabled = true;
             yield return Shot("3_chase", 0.4f);
+            Debug.Log($"OODA: rocket shots at 1.0 s: rocket age {(views[0] != null ? views[0].RocketAge : -9f):F2}, plume {(views[0] != null && views[0].GetComponent<RocketPlume>() != null)}, pilots shoved {(views[0] != null ? views[0].GetComponentsInChildren<Ooda.Pilot.PilotThrust>(true).Length : 0)}");
             Side(70f);
             yield return Shot("4_side", 0.1f);
             Pilot();

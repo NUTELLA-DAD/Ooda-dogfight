@@ -76,7 +76,9 @@ namespace Ooda.Fx
 
             // the glow round it, under everything
             SoftDisc(q.P + d * (L * 0.22f), W * 3.4f, new Color(RkGlow.r, RkGlow.g, RkGlow.b, RkGlow.a * q.Burn), 20);
-            if (key <= 4) SoftDisc(q.P, W * (6f - key), new Color(1f, 0.85f, 0.5f, 0.5f - 0.1f * key), 22);
+            // (the bang's flash is held to a share of the view when the camera is close, so a cockpit close-up isn't washed out)
+            float near = Mathf.Max(0.5f, dist) * 0.3f;
+            if (key <= 4) SoftDisc(q.P, Mathf.Min(W * (6f - key), near * 1.5f), new Color(1f, 0.85f, 0.5f, 0.5f - 0.1f * key), 22);
 
             SpeedLines(q, s, key, e1, e2, px);
 
@@ -136,8 +138,9 @@ namespace Ooda.Fx
             if (key <= 6)
             {
                 Vector3 p = q.P + toCam * (0.5f * s);
-                if (key == 0) { Circle(p, right, up, W * 4.2f, 28, new Color(1f, 0.92f, 0.5f, 0.6f)); Circle(p + toCam * 0.01f, right, up, W * 3f, 24, FlashWhite); }
-                if (key == 1 || key == 2) Star(p, W * (key == 1 ? 3.6f : 2.6f), W * 1.1f, 8, seed + key, key == 1 ? FlashWhite : FlashYellow, R01(seed, 3) * 6.28f);
+                float fw = Mathf.Min(W, near / 3f);
+                if (key == 0) { Circle(p, right, up, fw * 4.2f, 28, new Color(1f, 0.92f, 0.5f, 0.6f)); Circle(p + toCam * 0.01f, right, up, fw * 3f, 24, FlashWhite); }
+                if (key == 1 || key == 2) Star(p, fw * (key == 1 ? 3.6f : 2.6f), fw * 1.1f, 8, seed + key, key == 1 ? FlashWhite : FlashYellow, R01(seed, 3) * 6.28f);
                 if (key <= 5)
                 {
                     TaperRing(p, right, up, W * (2.2f + 1.7f * key), Mathf.Max(lw, W * (0.7f - 0.1f * key)), seed + 11, 4, new Color(1f, 0.98f, 0.9f, 1f));
