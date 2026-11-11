@@ -14,7 +14,7 @@ namespace Ooda.UI
     /// Built when the briefing opens, taken down when it closes; Sync puts the setup's planes and pilots on it, rebuilding
     /// only the places that changed. Plain C#: the title screen calls Open, Sync, Tick and Close.
     /// </summary>
-    public class BriefingStage
+    public partial class BriefingStage
     {
         /// <summary>The planes to park, by Craft (the dogfight's turn prefabs). A missing one shows the side's usual type.</summary>
         public GameObject[] craftPrefabs;
@@ -768,7 +768,38 @@ namespace Ooda.UI
             return st;
         }
 
-        /// <summary>The muscle values (index by HumanTrait) of a stance: 0 hands on hips, 1 arms folded, 2 one hand on hip, 3 at ease.</summary>
+        /// <summary>The stance of a pilot gathered round the mission briefing's map table.</summary>
+        public const int LeanStance = 4;
+
+        int homeStance;
+        Vector3 homeSpot;
+        Quaternion homeRot;
+        bool gathered;
+
+        /// <summary>Walk him to a spot (local to his parent, on the same flat apron) facing rot, in another stance; Release back with Disperse.</summary>
+        public void Gather(Vector3 localSpot, Quaternion localRot, int newStance)
+        {
+            if (!gathered) { homeStance = stance; homeSpot = home; homeRot = transform.localRotation; gathered = true; }
+            stance = newStance;
+            baseMuscles = Stance(newStance);
+            home = new Vector3(localSpot.x, homeSpot.y, localSpot.z);
+            transform.localPosition = home;
+            transform.localRotation = localRot;
+        }
+
+        /// <summary>Back to where and how he stood before Gather.</summary>
+        public void Disperse()
+        {
+            if (!gathered) return;
+            gathered = false;
+            stance = homeStance;
+            baseMuscles = Stance(homeStance);
+            home = homeSpot;
+            transform.localPosition = home;
+            transform.localRotation = homeRot;
+        }
+
+        /// <summary>The muscle values (index by HumanTrait) of a stance: 0 hands on hips, 1 arms folded, 2 one hand on hip, 3 at ease, 4 leaning on the table.</summary>
         static float[] Stance(int stance)
         {
             var m = new float[HumanTrait.MuscleCount];
@@ -805,6 +836,17 @@ namespace Ooda.UI
                     Both("Arm Down-Up", -0.6f);
                     Both("Arm Front-Back", 0.15f);
                     Both("Forearm Stretch", 0.6f);
+                    break;
+                case LeanStance: // leaning over the map table: bent forward, both hands reaching down to it, looking at the map
+                    S("Spine Front-Back", 0.75f);
+                    S("Chest Front-Back", 0.5f);
+                    S("UpperChest Front-Back", 0.3f);
+                    S("Head Nod Down-Up", -0.6f);
+                    Both("Arm Down-Up", -0.8f);
+                    Both("Arm Front-Back", 0.8f);
+                    Both("Arm Twist In-Out", 0.1f);
+                    Both("Forearm Stretch", 0.7f);
+                    Both("Shoulder Front-Back", 0.4f);
                     break;
                 default: // both hands on the hips
                     Both("Arm Down-Up", -0.25f);
