@@ -1735,6 +1735,7 @@ namespace Ooda.Turn
         void OnGUI()
         {
             if (battle == null) return;
+            if (filming) return;
             Ooda.UI.BriefingStyle.Use();
             // scale up so the GUI is at least 1600x900 points: by height alone a 16:10 screen (2560x1600) left only
             // 1440 points across, and the cockpit squeezed (small dials with no numbers, the MFD pushed to the edge)

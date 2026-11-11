@@ -473,6 +473,7 @@ namespace Ooda.Turn
             s = Array.IndexOf(args, "-dogfightpilots");
             if (s >= 0 && s + 2 < args.Length) { dogSetup.oursPilots = ParsePilots(args[s + 1]); dogSetup.theirsPilots = ParsePilots(args[s + 2]); }
             dogSetup.FitPilots();
+            FilmSetUp(args);
         }
 
         static int? ParseArena(string a)
@@ -513,6 +514,7 @@ namespace Ooda.Turn
             else if (phase == Phase.Over)
             {
                 FightOver();
+                if (FilmFightOver()) return;
                 if (fightNo >= botFights)
                 {
                     int t = Math.Max(1, botTurns);

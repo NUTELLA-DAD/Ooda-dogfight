@@ -63,6 +63,7 @@ namespace Ooda.Turn
 
         void LateUpdate()
         {
+            FilmLateUpdate();
             HideSpareMines();
             var kb = Keyboard.current;
             if (kb != null && kb.iKey.wasPressedThisFrame && !menuOpen && !briefing) ToggleIr();
