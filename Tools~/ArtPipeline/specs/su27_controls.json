@@ -1,0 +1,10 @@
+{
+ "body": "Su27_Body",
+ "prefix": "Su27",
+ "surfaces": [
+  {"name": "Aileron", "kind": "wing", "s": [3.6, 6.5], "f": 0.78, "box": {"y": [0.0, 5.6], "z": [-1.0, -0.4]}, "te_parallel": true},
+  {"name": "Elevator", "kind": "wing", "s": [2.25, 4.0], "f": 0.5, "box": {"y": [5.2, 8.3], "z": [-2.0, -1.6]}, "band": 0.12,
+   "pivot": {"y": 6.9, "fwd": 1.8, "tip": 4.8}},
+  {"name": "Rudder", "kind": "fin", "x": [2.0, -2.0], "z": [0.2, 1.9], "f": 0.72, "y": [4.4, 8.0]}
+ ]
+}

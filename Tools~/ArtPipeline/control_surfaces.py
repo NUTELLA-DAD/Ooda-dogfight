@@ -9,7 +9,7 @@
 # Run: python -I control_surfaces.py -- <in.blend> <out.blend> <spec.json> <BaseColor.png (for the ink colour)>
 #   spec: {"body": "P51_Body", "prefix": "P51", "surfaces": [
 #     {"name": "Aileron", "kind": "wing", "te_parallel": true, "s": [s_in, s_out], "f": 0.74, "box": {"y": [..], "z": [..]}},   both sides
-#     {"name": "Elevator", "kind": "wing", ...},
+#     {"name": "Elevator", "kind": "wing", ...},   (an all-moving one: "pivot": {"y": axis y, "fwd": reach ahead of it, "tip": past the tip})
 #     {"name": "Rudder", "kind": "fin", "z": [z_low, z_high], "f": 0.55, "x": 0.0, "y": [..]}  (or "x": [-2.9, 2.9])]}
 import bpy, bmesh, sys, json, math, numpy as np
 from mathutils import Vector
@@ -43,6 +43,7 @@ def wing_point(sx, s, f, box, back=None):
     y = te - back if back is not None else le + f * (te - le)
     k = m & (np.abs(V[:, 1] - y) < 0.06)
     if k.sum() < 4: k = m & (np.abs(V[:, 1] - y) < 0.2)
+    if k.sum() < 4: k = m & (np.abs(V[:, 1] - y) < 0.5)
     z = (np.percentile(V[k, 2], 2) + np.percentile(V[k, 2], 98)) / 2
     return Vector((sx * s, y, z)), te - le
 
@@ -55,6 +56,7 @@ def fin_point(xc, z, f, yr):
     y = le + f * (te - le)
     k = m & (np.abs(V[:, 1] - y) < 0.06)
     if k.sum() < 4: k = m & (np.abs(V[:, 1] - y) < 0.2)
+    if k.sum() < 4: k = m                                    # a coarse mesh: the fin's middle over its whole chord
     x = (np.percentile(V[k, 0], 2) + np.percentile(V[k, 0], 98)) / 2
     return Vector((x, y, z)), te - le
 
@@ -69,7 +71,15 @@ for sf in spec['surfaces']:
                 A, ca = wing_point(sx, sf['s'][0], sf['f'], sf['box'], back=(1 - sf['f']) * ca)
             else:
                 B, cb = wing_point(sx, sf['s'][1], sf['f'], sf['box'])
-            jobs.append((f"{spec['prefix']}_{sf['name']}{tag}", A, B, ca * (1 - sf['f']) + 0.15, sf.get('band', 0.25)))
+            if sf.get('pivot'):
+                # an all-moving tailplane: it turns whole about a spanwise axis at y (square to the fuselage), from
+                # the root cut out past the tip, so the part reaches forward of the axis too
+                P_ = sf['pivot']; A.y = B.y = P_['y']
+                tip = P_.get('tip', sf['s'][1])
+                B = A + (B - A) * ((tip - sf['s'][0]) / (sf['s'][1] - sf['s'][0]))   # on out along the dihedral (or anhedral)
+                jobs.append((f"{spec['prefix']}_{sf['name']}{tag}", A, B, ca + 0.3, sf.get('band', 0.25), P_['fwd'], 'root'))
+            else:
+                jobs.append((f"{spec['prefix']}_{sf['name']}{tag}", A, B, ca * (1 - sf['f']) + 0.15, sf.get('band', 0.25), 0.0, 'all'))
     else:
         xs = sf['x'] if isinstance(sf['x'], list) else [sf['x']]
         for xc in xs:
@@ -79,7 +89,7 @@ for sf in spec['surfaces']:
             M, cm_ = fin_point(xc, (sf['z'][0] + sf['z'][1]) / 2, sf['f'], sf['y'])
             yh = sf.get('y_hinge', M.y)
             A = Vector((M.x, yh, sf['z'][0])); B = Vector((M.x, yh, sf['z'][1])); ca = cb = cm_ * 1.4
-            jobs.append((f"{spec['prefix']}_{sf['name']}{tag}", A, B, max(ca, cb) * (1 - sf['f']) + 0.15, sf.get('band', 0.2)))
+            jobs.append((f"{spec['prefix']}_{sf['name']}{tag}", A, B, max(ca, cb) * (1 - sf['f']) + 0.15, sf.get('band', 0.2), 0.0, 'all'))
 
 bm = bmesh.new(); bm.from_mesh(body.data)
 uvl = bm.loops.layers.uv.active
@@ -91,9 +101,9 @@ def frame(A, B):
     m = u.cross(n)
     return u, n, m
 
-def inside(c, A, L, u, n, m, depth, band, slack=0.0):
+def inside(c, A, L, u, n, m, depth, band, slack=0.0, fwd=0.0):
     d = c - A; t = d.dot(u); h = d.dot(n); w = d.dot(m)
-    return -slack <= t <= L + slack and -slack <= h <= depth + slack and abs(w) <= band + slack
+    return -slack <= t <= L + slack and -fwd - slack <= h <= depth + slack and abs(w) <= band + slack
 
 def cap(bm_, planes):
     """Close the open edges left on the cut planes with fans of dark-ink triangles (one fan per run of edges)."""
@@ -129,17 +139,17 @@ def cap(bm_, planes):
                 total += 1
     return total
 
-for name, A, B, depth, band in jobs:
+for name, A, B, depth, band, fwd, cuts in jobs:
     u, n, m = frame(A, B); L = (B - A).length
-    planes = [(A, n), (A, u), (B, u)]
-    near = [f for f in bm.faces if inside(f.calc_center_median(), A, L, u, n, m, depth, band, slack=0.25)]
+    planes = [(A, n), (A, u), (B, u)] if cuts == 'all' else [(A, u)]
+    near = [f for f in bm.faces if inside(f.calc_center_median(), A, L, u, n, m, depth, band, slack=0.25, fwd=fwd)]
     geom = list({v for f in near for v in f.verts}) + list({e for f in near for e in f.edges}) + near
     for p, nn in planes:
         r = bmesh.ops.bisect_plane(bm, geom=geom, dist=1e-5, plane_co=p, plane_no=nn)
         geom = [x for x in r['geom'] if x.is_valid] + [x for x in geom if x.is_valid and x not in r['geom']]
         geom = list(set(x for x in geom if x.is_valid))
     bm.faces.ensure_lookup_table()
-    part = [f for f in bm.faces if inside(f.calc_center_median(), A, L, u, n, m, depth, band, slack=1e-4)]
+    part = [f for f in bm.faces if inside(f.calc_center_median(), A, L, u, n, m, depth, band, slack=1e-4, fwd=fwd)]
     # the new object's mesh: the part's faces, about the hinge's first end
     nb = bmesh.new(); nuv = nb.loops.layers.uv.new('UVMap'); vmap = {}
     for f in part:
@@ -155,7 +165,7 @@ for name, A, B, depth, band in jobs:
     loose = [v for v in bm.verts if not v.link_faces]
     bmesh.ops.delete(bm, geom=loose, context='VERTS')
     zero = Vector((0, 0, 0))
-    nc = cap(nb, [(zero, n), (zero, u), (B - A, u)])
+    nc = cap(nb, [(zero, n), (zero, u), (B - A, u)] if cuts == 'all' else [(zero, u)])
     bc = cap(bm, planes)
     me = bpy.data.meshes.new(name); nb.to_mesh(me); nb.free()
     for mat in body.data.materials: me.materials.append(mat)

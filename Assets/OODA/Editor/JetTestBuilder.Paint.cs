@@ -46,7 +46,9 @@ namespace Ooda.EditorTools
         /// <summary>Bake the camo maps when they are missing (or asked), split off the canopy, and set up both materials.</summary>
         static (Mesh mesh, Material body, Material glass) Paint(bool force = false)
         {
-            var src = AssetDatabase.LoadAllAssetsAtPath(Obj).OfType<Mesh>().FirstOrDefault();
+            var fbx = AssetDatabase.LoadAssetAtPath<GameObject>(Obj);
+            var bodyF = fbx != null ? BodyOf(fbx.transform).GetComponent<MeshFilter>() : null;
+            var src = bodyF != null ? bodyF.sharedMesh : null;
             if (src == null) { Debug.LogWarning("OODA: no mesh in " + Obj + "."); return (null, null, null); }
             var (turn, k, centre) = FitOf(src);
             var toRoot = Matrix4x4.TRS(-(turn * centre) * k, turn, Vector3.one * k);
@@ -54,7 +56,9 @@ namespace Ooda.EditorTools
 
             if (force || !File.Exists(CamoTex) || !File.Exists(CamoMetalTex))
             {
-                Bake(src, toRoot, baseRaw, GlassTriangles(src, toRoot, baseRaw));
+                var whole = Whole(bodyF.transform, src);   // the moving surfaces are painted with the body
+                Bake(whole, toRoot, baseRaw, GlassTriangles(whole, toRoot, baseRaw));
+                Object.DestroyImmediate(whole);
                 AssetDatabase.ImportAsset(CamoTex);
                 AssetDatabase.ImportAsset(CamoMetalTex);
             }
@@ -71,12 +75,24 @@ namespace Ooda.EditorTools
 
             var mesh = Split(src, toRoot, baseRaw);
             Object.DestroyImmediate(baseRaw);
-            var body = TestWorldBuilder.Textured("Phantom", CamoTex, CamoMetalTex);
+            var body = TestWorldBuilder.Textured("Phantom", CamoTex, CamoMetalTex, toon: true);
             // clear, lightly tinted and shiny, so the crew and their cockpits show through
             var glass = TestWorldBuilder.Mat("Phantom_CanopyGlass", new Color(0.78f, 0.88f, 0.95f, 0.12f), 0.55f);
             TestWorldBuilder.MakeTransparent(glass);
             glass.SetFloat("_Cull", (float)UnityEngine.Rendering.CullMode.Back);   // seen from outside only, so it is clear from the cockpit
             return (mesh, body, glass);
+        }
+
+        /// <summary>The body and its moving surfaces as one mesh, in the body's space, for the camo bake.</summary>
+        static Mesh Whole(Transform bodyT, Mesh body)
+        {
+            var parts = new List<CombineInstance> { new CombineInstance { mesh = body, transform = Matrix4x4.identity } };
+            foreach (var f in bodyT.GetComponentsInChildren<MeshFilter>())
+                if (f.transform != bodyT && f.sharedMesh != null)
+                    parts.Add(new CombineInstance { mesh = f.sharedMesh, transform = bodyT.worldToLocalMatrix * f.transform.localToWorldMatrix });
+            var m = new Mesh { indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+            m.CombineMeshes(parts.ToArray(), true, true);
+            return m;
         }
 
         /// <summary>The model as two submeshes: the body, and the canopy glass (the triangles painted blue, above the wing).</summary>

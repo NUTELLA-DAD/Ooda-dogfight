@@ -14,6 +14,8 @@ GameObject:
   - component: {fileID: 5527612611976568230}
   - component: {fileID: 7272129160996191456}
   - component: {fileID: 3825357812986705280}
+  - component: {fileID: 938258628197576078}
+  - component: {fileID: 8919488707698873231}
   m_Layer: 0
   m_Name: B17
   m_TagString: Untagged
@@ -118,6 +120,39 @@ MonoBehaviour:
   idleRpm: 400
   maxRpm: 1400
   reverse: 0
+--- !u!114 &938258628197576078
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8493976788984994622}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 46a71c7133b1461d8b77ed285aa5ed19, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Ooda.Flight.ControlSurfaces
+  elevatorDeg: 18
+  aileronDeg: 15
+  rudderDeg: 20
+  fullRollDps: 120
+--- !u!114 &8919488707698873231
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8493976788984994622}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fef8b6872d1146b8bfc004b59624a866, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Ooda.Flight.PlaneLivery
+  standard: {fileID: 2100000, guid: 71a300e5e4475b846ab0f724f0ed4bc2, type: 2}
+  others:
+  - {fileID: 2100000, guid: 55b951a64e99db842b0ab1821d5b7146, type: 2}
+  - {fileID: 2100000, guid: c53eb364f7d58c94d8cad5377758b119, type: 2}
+  - {fileID: 2100000, guid: ddb93e2d9a87f4c44b9aaede02170fe8, type: 2}
 --- !u!1001 &5021385190289568304
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -144,11 +179,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 69e9d7f6d8c4a764387d3daa35b542d1, type: 3}
       propertyPath: m_LocalRotation.x
-      value: 0
+      value: -0.00000003774895
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 69e9d7f6d8c4a764387d3daa35b542d1, type: 3}
       propertyPath: m_LocalRotation.y
-      value: -0
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 69e9d7f6d8c4a764387d3daa35b542d1, type: 3}
       propertyPath: m_LocalRotation.z
@@ -170,7 +205,19 @@ PrefabInstance:
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
       objectReference: {fileID: 2100000, guid: 71a300e5e4475b846ab0f724f0ed4bc2, type: 2}
+    - target: {fileID: -5827270619049603606, guid: 69e9d7f6d8c4a764387d3daa35b542d1, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 71a300e5e4475b846ab0f724f0ed4bc2, type: 2}
     - target: {fileID: -5378585953978376850, guid: 69e9d7f6d8c4a764387d3daa35b542d1, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 71a300e5e4475b846ab0f724f0ed4bc2, type: 2}
+    - target: {fileID: -4196905222083046740, guid: 69e9d7f6d8c4a764387d3daa35b542d1, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 71a300e5e4475b846ab0f724f0ed4bc2, type: 2}
+    - target: {fileID: -1958153780350939418, guid: 69e9d7f6d8c4a764387d3daa35b542d1, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
       objectReference: {fileID: 2100000, guid: 71a300e5e4475b846ab0f724f0ed4bc2, type: 2}
@@ -183,6 +230,14 @@ PrefabInstance:
       value: B17
       objectReference: {fileID: 0}
     - target: {fileID: 5301502648799539193, guid: 69e9d7f6d8c4a764387d3daa35b542d1, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 71a300e5e4475b846ab0f724f0ed4bc2, type: 2}
+    - target: {fileID: 5627111611428460373, guid: 69e9d7f6d8c4a764387d3daa35b542d1, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 71a300e5e4475b846ab0f724f0ed4bc2, type: 2}
+    - target: {fileID: 5900990546397027614, guid: 69e9d7f6d8c4a764387d3daa35b542d1, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
       objectReference: {fileID: 2100000, guid: 71a300e5e4475b846ab0f724f0ed4bc2, type: 2}

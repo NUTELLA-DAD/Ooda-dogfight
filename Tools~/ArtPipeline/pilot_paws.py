@@ -30,6 +30,11 @@ FINGERS = [  # name, base (s,t,u), direction, length, radius
 ]
 THUMB = ('Thumb', (0.042, 0.046, -0.012), (0.50, 0.85, -0.15), 0.052, 0.0275)
 PALM_C, PALM_H, PALM_R = np.array((0.035, 0.0, -0.003)), np.array((0.085, 0.066, 0.041)), 0.034
+# a bonier or a chunkier hand: the spec's paw "radius" scales the fingers' thickness and the palm's depth
+RS = SPEC.get('paw', {}).get('radius', 1.0)
+if RS != 1.0:
+    FINGERS = [(n, b_, d_, l_, r_ * RS) for n, b_, d_, l_, r_ in FINGERS]; THUMB = THUMB[:4] + (THUMB[4] * RS,)
+    PALM_H = PALM_H * np.array((1.0, 0.5 + 0.5 * RS, RS)); PALM_R = PALM_R * RS
 KNUCKLE = 0.012        # the first finger joint sits this far along the capsule (the start is buried in the palm)
 SPLIT = (0.42, 0.72)   # where the second and third joints fall along the rest of the finger
 
@@ -284,6 +289,12 @@ ms_src = Image.open(MS).convert('RGBA'); mpx = np.asarray(ms_src)
 msz = ms_src.size[0]
 ms = atlas(MS, msz, 'RGBA', (0, 0, 0, 60))
 ms.save(f'{OUTDIR}/{TEX}_MetallicSmoothness.png')
+# any other map on the same atlas (the spectre's glow) shrinks the same way, dark beside it
+import os
+for extra in SPEC.get('extra_maps', []):
+    src = os.path.join(os.path.dirname(BASE), extra)
+    em = Image.open(src); atlas(src, em.size[0], em.mode, (0,) * len(em.getbands()) if len(em.getbands()) > 1 else 0).save(f'{OUTDIR}/{extra}')
+    print('shrank', extra)
 print('painted', px0, n_v)
 
 # ---------------------------------------------------------------- join, smooth, hook up the paint
