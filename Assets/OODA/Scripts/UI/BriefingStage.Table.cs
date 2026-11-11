@@ -60,7 +60,7 @@ namespace Ooda.UI
             q.transform.localPosition = new Vector3(0, TableH + 0.004f, 0);
 
             // the lamp over it: a dark shade on a cord, a warm bulb, and its light
-            var lampAt = new Vector3(0.9f, 3.75f, 0.9f);
+            var lampAt = new Vector3(0.6f, 4.05f, -0.4f);   // over the near half of the table, clear of the pilots' heads
             TablePart("Cord", lampAt + Vector3.up * 1.2f, new Vector3(0.03f, 2.4f, 0.03f), dark);
             var shade = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             Object.Destroy(shade.GetComponent<Collider>());

@@ -119,15 +119,15 @@ namespace Ooda.UI
             campaign = Stencil(22, Cream, align: TextAnchor.MiddleCenter);
             item = Stencil(22, Cream, olive, oliveHot, TextAnchor.MiddleLeft);
             itemOn = Stencil(24, Brown, gold, goldHot, TextAnchor.MiddleLeft);
-            panelTitle = Stencil(34, Cream);
+            panelTitle = Stencil(28, Cream);
             panelText = new GUIStyle(GUI.skin.label) { fontSize = 17, wordWrap = true, alignment = TextAnchor.UpperCenter };
             panelText.normal.textColor = Cream;
             rowLabel = Stencil(17, Cream, olive, null, TextAnchor.MiddleLeft);
             rowValue = Stencil(20, Gold, align: TextAnchor.MiddleRight);
             back = Stencil(28, Cream, olive, oliveHot);
             launch = Stencil(40, Brown, gold, goldHot);
-            badge = Stencil(18, Ink);
-            badgeOn = Stencil(22, Cream);
+            badge = Stencil(15, Ink);
+            badgeOn = Stencil(19, Cream);
             hint = new GUIStyle(GUI.skin.label) { fontSize = 15, alignment = TextAnchor.MiddleCenter };
             hint.normal.textColor = new Color(0.92f, 0.88f, 0.74f);
             shade = new Texture2D(1, 1) { hideFlags = HideFlags.HideAndDontSave };
@@ -166,13 +166,14 @@ namespace Ooda.UI
             }
 
             // a numbered badge over each pin, where the camera sees it; a click on one picks it
-            for (int i = 0; i < Campaign.Count; i++)
+            for (int n = 0; n < Campaign.Count; n++)
             {
                 if (stage == null || !stage.TableUp) break;
+                int i = (picked + 1 + n) % Campaign.Count;   // the picked one last, on top of any it overlaps
                 Vector3 sp = stage.OnScreen(stage.PinTop(i));
                 if (sp.z <= 0) continue;
                 bool on = i == picked;
-                float r = on ? 26 : 19;
+                float r = on ? 21 : 15;
                 var at = new Rect(sp.x / k - r, sp.y / k - 2 * r, 2 * r, 2 * r);
                 Fill(new Rect(at.center.x - 1.5f, at.yMax - 4, 3, 10), on ? Gold : Brown);
                 GUI.DrawTexture(at, on ? discOn : disc);
@@ -180,7 +181,7 @@ namespace Ooda.UI
             }
 
             // the picked mission
-            var pr = new Rect(w - 356, 250, 332, 268);
+            var pr = new Rect(w - 300, 160, 284, 268);   // narrow and high, clear of the city and its pin
             GUI.DrawTexture(pr, panel);
             Shadow(new Rect(pr.x, pr.y + 12, pr.width, 42), m.title, panelTitle);
             Fill(new Rect(pr.x + 24, pr.y + 58, pr.width - 48, 2), new Color(0.85f, 0.80f, 0.62f, 0.7f));

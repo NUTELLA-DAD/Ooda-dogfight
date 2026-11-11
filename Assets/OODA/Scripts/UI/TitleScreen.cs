@@ -284,8 +284,15 @@ namespace Ooda.UI
         System.Collections.IEnumerator MissionShots(string folder)
         {
             System.IO.Directory.CreateDirectory(folder);
+            // a full flight round the table, as in the concept: the tiger leading, the bear, the fox and the penguin (not kept for next time)
+            DogfightSetupScreen.Chosen = new DogfightSetup
+            {
+                ours = new[] { Craft.Mustang, Craft.Su27, Craft.Zero, Craft.Spitfire }, theirs = new[] { Craft.Bf109, Craft.Bf109, Craft.Bf109 },
+                oursPilots = new[] { PilotKind.Tiger, PilotKind.Bear, PilotKind.Fox, PilotKind.Penguin }, theirsPilots = new[] { PilotKind.Usual, PilotKind.Usual, PilotKind.Usual },
+                randomStart = false, start = Scenarios.Start.HeadOn,
+            };
             setup.open = true;
-            yield return new WaitForSecondsRealtime(3f);
+            yield return new WaitForSecondsRealtime(4f);
             missions.Open(setup.stage);
             yield return new WaitForSecondsRealtime(2f);
             yield return missions.Shots(folder);

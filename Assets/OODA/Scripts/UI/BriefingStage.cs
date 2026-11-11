@@ -838,14 +838,15 @@ namespace Ooda.UI
                     Both("Forearm Stretch", 0.6f);
                     break;
                 case LeanStance: // leaning over the map table: bent forward, both hands reaching down to it, looking at the map
-                    S("Spine Front-Back", 0.35f);
-                    S("Chest Front-Back", 0.2f);
-                    S("Head Nod Down-Up", -0.3f);
-                    Both("Arm Down-Up", -0.45f);
-                    Both("Arm Front-Back", 0.55f);
+                    S("Spine Front-Back", 0.75f);
+                    S("Chest Front-Back", 0.5f);
+                    S("UpperChest Front-Back", 0.3f);
+                    S("Head Nod Down-Up", -0.6f);
+                    Both("Arm Down-Up", -0.8f);
+                    Both("Arm Front-Back", 0.8f);
                     Both("Arm Twist In-Out", 0.1f);
-                    Both("Forearm Stretch", 0.5f);
-                    Both("Shoulder Front-Back", 0.25f);
+                    Both("Forearm Stretch", 0.7f);
+                    Both("Shoulder Front-Back", 0.4f);
                     break;
                 default: // both hands on the hips
                     Both("Arm Down-Up", -0.25f);
