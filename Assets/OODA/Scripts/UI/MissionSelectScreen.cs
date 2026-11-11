@@ -95,7 +95,7 @@ namespace Ooda.UI
                               Ink = new Color(0.17f, 0.18f, 0.10f), Gold = new Color(0.98f, 0.78f, 0.22f), Brick = new Color(0.62f, 0.10f, 0.08f),
                               Brown = new Color(0.30f, 0.18f, 0.06f);
 
-        GUIStyle title, campaign, item, itemOn, panelTitle, panelText, rowLabel, rowValue, back, launch, badge, badgeOn, hint;
+        GUIStyle overLine, title, campaign, item, itemOn, panelTitle, panelText, rowLabel, rowValue, back, launch, badge, badgeOn, hint;
         Texture2D white, shade, panel, disc, discOn;
 
         void Styles()
@@ -120,10 +120,11 @@ namespace Ooda.UI
             item = Stencil(22, Cream, olive, oliveHot, TextAnchor.MiddleLeft);
             itemOn = Stencil(24, Brown, gold, goldHot, TextAnchor.MiddleLeft);
             panelTitle = Stencil(28, Cream);
-            panelText = new GUIStyle(GUI.skin.label) { fontSize = 17, wordWrap = true, alignment = TextAnchor.UpperCenter };
+            panelText = new GUIStyle(GUI.skin.label) { fontSize = 15, wordWrap = true, alignment = TextAnchor.UpperCenter };
             panelText.normal.textColor = Cream;
             rowLabel = Stencil(17, Cream, olive, null, TextAnchor.MiddleLeft);
             rowValue = Stencil(20, Gold, align: TextAnchor.MiddleRight);
+            overLine = Stencil(16, Gold);
             back = Stencil(28, Cream, olive, oliveHot);
             launch = Stencil(40, Brown, gold, goldHot);
             badge = Stencil(15, Ink);
@@ -181,13 +182,13 @@ namespace Ooda.UI
             }
 
             // the picked mission
-            var pr = new Rect(w - 300, 160, 284, 268);   // narrow and high, clear of the city and its pin
+            var pr = new Rect(w - 300, 160, 284, 300);   // narrow and high, clear of the city and its pin
             GUI.DrawTexture(pr, panel);
             Shadow(new Rect(pr.x, pr.y + 12, pr.width, 42), m.title, panelTitle);
             Fill(new Rect(pr.x + 24, pr.y + 58, pr.width - 48, 2), new Color(0.85f, 0.80f, 0.62f, 0.7f));
-            GUI.Label(new Rect(pr.x + 16, pr.y + 66, pr.width - 32, 48), m.objective, panelText);
-            float ry = pr.y + 118;
-            Row(new Rect(pr.x + 18, ry, pr.width - 36, 32), "OVER", Arenas.Get(m.arena).name.ToUpperInvariant()); ry += 37;
+            GUI.Label(new Rect(pr.x + 14, pr.y + 64, pr.width - 28, 66), m.objective, panelText);
+            Shadow(new Rect(pr.x, pr.y + 130, pr.width, 24), "OVER " + Arenas.Get(m.arena).name.ToUpperInvariant(), overLine);
+            float ry = pr.y + 160;
             Row(new Rect(pr.x + 18, ry, pr.width - 36, 32), "WINGMEN", (s.Ours - 1).ToString()); ry += 37;
             Row(new Rect(pr.x + 18, ry, pr.width - 36, 32), "BANDITS", s.Theirs.ToString()); ry += 37;
             Row(new Rect(pr.x + 18, ry, pr.width - 36, 32), "DIFFICULTY", Campaign.Difficulty(m.difficulty));

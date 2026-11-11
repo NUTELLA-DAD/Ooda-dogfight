@@ -25,8 +25,8 @@ namespace Ooda.UI
         public const float TableW = 5.8f, TableD = 3.7f, TableH = 1.1f;
         /// <summary>The map on the table, a little inside its edge.</summary>
         public const float MapW = 5.4f, MapD = 3.375f;
-        static readonly Vector3 TableCamAt = new Vector3(0, 4.7f, -1.5f), TableCamLook = new Vector3(0, 1.45f, 5.1f);
-        const float TableFov = 42f;
+        static readonly Vector3 TableCamAt = new Vector3(0, 5.0f, -2.7f), TableCamLook = new Vector3(0, 1.5f, 5.1f);
+        const float TableFov = 43f;
 
         /// <summary>Put up the table with the map on it, a pin at each of pinsUv (0 to 1 across the map, v north), and gather
         /// your flight round it.</summary>
