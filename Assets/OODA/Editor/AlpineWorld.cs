@@ -89,6 +89,7 @@ namespace Ooda.EditorTools
             t.treeDistance = 7000;
             t.treeBillboardDistance = 7000;
             t.drawInstanced = true;
+            ToonWorld.BindTerrain(t, mats.terrain);                  // the toon ground: one pass, all eight layers
             MakeMountains();
 
             var m = WorldMats(mats);
@@ -115,15 +116,16 @@ namespace Ooda.EditorTools
 
         static void Paint(TerrainData data, float[,] h)
         {
-            var meadow = TestWorldBuilder.MakeNoiseTexture("Alpine_Meadow", new Color(0.34f, 0.55f, 0.21f), new Color(0.42f, 0.62f, 0.26f));
+            // the toon palette (ToonWorld), shared with the mountain and hill models
+            var meadow = TestWorldBuilder.MakeNoiseTexture("Alpine_Meadow", ToonWorld.MeadowA, ToonWorld.MeadowB);
             // the forest floor in the pines' own blue-green, a little darker, so from far off the gaps between them read as forest
-            var forest = TestWorldBuilder.MakeNoiseTexture("Alpine_Forest", new Color(0.09f, 0.28f, 0.18f), new Color(0.13f, 0.34f, 0.21f));
-            var rock = TestWorldBuilder.MakeNoiseTexture("Alpine_Rock", new Color(0.38f, 0.39f, 0.46f), new Color(0.47f, 0.47f, 0.53f));
-            var snow = TestWorldBuilder.MakeNoiseTexture("Alpine_Snow", new Color(0.90f, 0.93f, 0.98f), new Color(0.98f, 0.99f, 1f));
+            var forest = TestWorldBuilder.MakeNoiseTexture("Alpine_Forest", ToonWorld.ForestA, ToonWorld.ForestB);
+            var rock = TestWorldBuilder.MakeNoiseTexture("Alpine_Rock", ToonWorld.RockA, ToonWorld.RockB);
+            var snow = TestWorldBuilder.MakeNoiseTexture("Alpine_Snow", ToonWorld.SnowA, ToonWorld.SnowB);
             var field = MakeCropTexture("Alpine_Field", Wheat, false);
             var fieldAcross = MakeCropTexture("Alpine_FieldAcross", Wheat, true);
             var young = MakeCropTexture("Alpine_YoungGrain", YoungGrain, false);
-            var pasture = TestWorldBuilder.MakeNoiseTexture("Alpine_Pasture", new Color(0.48f, 0.72f, 0.24f), new Color(0.56f, 0.80f, 0.30f));
+            var pasture = TestWorldBuilder.MakeNoiseTexture("Alpine_Pasture", ToonWorld.PastureA, ToonWorld.PastureB);
             TerrainLayer Layer(string name, Texture2D tex, float tile)
             {
                 string path = $"{Dir}/{name}.terrainlayer";
@@ -167,13 +169,14 @@ namespace Ooda.EditorTools
 
         static readonly Crop Wheat = new Crop
         {
-            crestA = new Color(0.86f, 0.73f, 0.34f), crestB = new Color(0.93f, 0.81f, 0.43f),
-            furrow = new Color(0.66f, 0.52f, 0.25f), track = new Color(0.58f, 0.46f, 0.27f), furrowWidth = 0.34f,
+            // honey, not lemon: the toon sun brightens the lit side about 1.5 times
+            crestA = new Color(0.70f, 0.58f, 0.30f), crestB = new Color(0.77f, 0.64f, 0.35f),
+            furrow = new Color(0.55f, 0.43f, 0.24f), track = new Color(0.48f, 0.38f, 0.24f), furrowWidth = 0.34f,
         };
         static readonly Crop YoungGrain = new Crop
         {
-            crestA = new Color(0.40f, 0.60f, 0.20f), crestB = new Color(0.52f, 0.70f, 0.26f),
-            furrow = new Color(0.47f, 0.38f, 0.24f), track = new Color(0.42f, 0.34f, 0.22f), furrowWidth = 0.46f,
+            crestA = new Color(0.40f, 0.56f, 0.24f), crestB = new Color(0.47f, 0.62f, 0.28f),
+            furrow = new Color(0.45f, 0.36f, 0.23f), track = new Color(0.40f, 0.32f, 0.21f), furrowWidth = 0.46f,
         };
 
         /// <summary>A crop's ground texture: rows along the fields' long side, or across them.</summary>

@@ -172,6 +172,8 @@ Shader "Ooda/ToonCloud"
         {
             Name "CloudLine"
             Tags { "LightMode" = "SRPDefaultUnlit" }
+            // (marks itself in the stencil, so the full-screen ink on the land (Ink.shader) leaves it alone)
+            Stencil { Ref 64 WriteMask 64 Comp Always Pass Replace }
             ZWrite On
             Cull Off
             HLSLPROGRAM
@@ -197,6 +199,8 @@ Shader "Ooda/ToonCloud"
         {
             Name "CloudFill"
             Tags { "LightMode" = "UniversalForward" }
+            // (marks itself in the stencil, so the full-screen ink on the land (Ink.shader) leaves it alone)
+            Stencil { Ref 64 WriteMask 64 Comp Always Pass Replace }
             ZWrite On
             Cull Off
             HLSLPROGRAM

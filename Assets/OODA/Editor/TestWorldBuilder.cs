@@ -92,6 +92,7 @@ namespace Ooda.EditorTools
             Set("m_SoftShadowsSupported", p => p.boolValue = true);
             so.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(urp);
+            ToonWorld.EnsureInk(urp);
 
             int current = QualitySettings.GetQualityLevel();
             for (int i = 0; i < QualitySettings.names.Length; i++)
