@@ -195,9 +195,9 @@ namespace Ooda.UI
                             if (d.sqrMagnitude < 1f) d = new Vector2(-1, -1);
                             badgeAt[i] = badgeAt[j] + d.normalized * need;
                         }
-                for (int m = 0; m < n; m++)
+                for (int order = 0; order < n; order++)
                 {
-                    int i = (picked + 1 + m) % n;   // the picked one last, on top
+                    int i = (picked + 1 + order) % n;   // the picked one last, on top
                     if (!seen[i]) continue;
                     bool on = i == picked;
                     float r = on ? 21 : 15;
