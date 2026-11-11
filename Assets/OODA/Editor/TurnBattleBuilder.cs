@@ -393,6 +393,8 @@ namespace Ooda.EditorTools
         const string B17PrefabPath = Root + "/Prefabs/B17.prefab";
 
         /// <summary>The bomber for the escort: no crew yet, four propellers each turned by its own PropellerSpin.</summary>
+        // the other paint jobs (specs/b17_paint.py): Olive Drab, natural metal with a black square, invasion stripes
+        static readonly string[] B17Liveries = { "Olive", "Silver", "Invasion" };
         static GameObject MakeB17Prefab()
         {
             var imp = (ModelImporter)AssetImporter.GetAtPath(B17Fbx);
@@ -406,7 +408,7 @@ namespace Ooda.EditorTools
             imp.SaveAndReimport();
             var ms = (TextureImporter)AssetImporter.GetAtPath(Art + "/B17/B17_MetallicSmoothness.png");
             if (ms.sRGBTexture) { ms.sRGBTexture = false; ms.SaveAndReimport(); }
-            var body = TestWorldBuilder.Textured("B17", Art + "/B17/B17_BaseColor.png", Art + "/B17/B17_MetallicSmoothness.png");
+            var body = TestWorldBuilder.Textured("B17", Art + "/B17/B17_BaseColor.png", Art + "/B17/B17_MetallicSmoothness.png", toon: true);
 
             var root = new GameObject("B17");
             root.AddComponent<TurnAircraftView>();
@@ -421,6 +423,8 @@ namespace Ooda.EditorTools
                 spin.maxRpm = 1400;   // the Cyclone's 2,500 rpm through the 0.5625 reduction gear
                 if (spin.propeller == null) Debug.LogWarning($"OODA: no B17_Prop{i} in B17.fbx.");
             }
+            root.AddComponent<ControlSurfaces>();   // ailerons, elevators and rudder swing with the flying
+            AddLiveries(root, body, "B17", Art + "/B17/B17", B17Liveries);
             float propZ = Enumerable.Range(0, 4).Select(i => TestWorldBuilder.FindDeep(model.transform, $"B17_Prop{i}")).Where(p => p != null).Average(p => p.position.z);
             var b = model.GetComponentsInChildren<Renderer>().Select(r => r.bounds).Aggregate((x, y) => { x.Encapsulate(y); return x; });
             Debug.Log($"OODA: B-17 prefab made: {b.size.x:F1} m span, {b.size.z:F1} m long, propellers {(propZ > b.center.z ? "ahead (+z)" : "behind (-z)")} of its middle, so the nose points {(propZ > b.center.z ? "+z like the Spitfire" : "-z: CHECK")}.");
