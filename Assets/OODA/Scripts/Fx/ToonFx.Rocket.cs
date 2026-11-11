@@ -60,7 +60,13 @@ namespace Ooda.Fx
             float ka = key / KeysPerSec;   // (the age, stepped)
             Vector3 d = q.D;
             float dist = Vector3.Dot(q.P - camPos, camFwd);
-            if (dist < 0.3f && Vector3.Dot(q.P + d * RkLenM * q.S - camPos, camFwd) < 0.3f) return;   // (all of it behind the camera)
+            if (dist < 0.3f && Vector3.Dot(q.P + d * RkLenM * q.S - camPos, camFwd) < 0.3f)
+            {
+                // all of it behind the camera (riding it from the cockpit): only the lines rushing past
+                SurfaceAxes(d, out Vector3 b1, out Vector3 b2);
+                SpeedLines(q, q.S, key, b1, b2, 0f);
+                return;
+            }
             // it reads from the far chase view too: seen end on from behind its length is lost, so then it is held big by its width
             float endOn = Mathf.Abs(Vector3.Dot(d, camFwd));
             float s = q.S * Mathf.Min(3f, Mathf.Max(MinScreen(q.P, RkLenM * q.S * (1f - endOn), 0.22f), MinScreen(q.P, 2f * RkWidM * q.S, 0.09f)));
