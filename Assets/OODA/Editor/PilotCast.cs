@@ -81,7 +81,7 @@ namespace Ooda.EditorTools
                 p.transform.localPosition = usualPilot.transform.localPosition;
                 p.transform.localRotation = usualPilot.transform.localRotation;
                 p.transform.localScale = usualPilot.transform.localScale;
-                var mat = TestWorldBuilder.Textured(w.label, w.baseMap, w.metalSmooth, toon: w.kind == PilotKind.Tiger || w.kind == PilotKind.Wolf);
+                var mat = TestWorldBuilder.Textured(w.label, w.baseMap, w.metalSmooth, toon: true);
                 if (w.emission != null) Glow(mat, w.emission);
                 foreach (var r in p.GetComponentsInChildren<Renderer>())
                     r.sharedMaterials = Enumerable.Repeat(mat, r.sharedMaterials.Length).ToArray();

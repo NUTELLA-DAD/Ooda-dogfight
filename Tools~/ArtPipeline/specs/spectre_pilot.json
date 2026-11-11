@@ -1,0 +1,41 @@
+{
+ "rig": "SpectreRig",
+ "body": "Spectre_Body",
+ "tex": "Spectre",
+ "stripes": false,
+ "paw": {
+  "pad": [
+   140,
+   165,
+   200
+  ]
+ },
+ "eyes": {
+  "R": [
+   -0.0865,
+   0.819,
+   0.062,
+   0.066
+  ],
+  "L": [
+   0.0875,
+   0.819,
+   0.062,
+   0.066
+  ]
+ },
+ "lid": [
+  30,
+  34,
+  50
+ ],
+ "lash": [
+  14,
+  14,
+  20
+ ],
+ "ears": false,
+ "extra_maps": [
+  "Spectre_Emission.png"
+ ]
+}

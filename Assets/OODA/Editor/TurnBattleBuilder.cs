@@ -218,7 +218,7 @@ namespace Ooda.EditorTools
             if (!File.Exists(ZeroFbx)) { Debug.LogWarning($"OODA: no {ZeroFbx}; the dogfight's Zeros show as P-51s (or Bf 109s on their side)."); return null; }
             ImportPlane(ZeroFbx, Art + "/Zero/Zero_MetallicSmoothness.png");
             var body = TestWorldBuilder.Textured("Zero", Art + "/Zero/Zero_BaseColor.png", Art + "/Zero/Zero_MetallicSmoothness.png");
-            var foxMat = TestWorldBuilder.Textured("FoxPilot", Art + "/FoxPilot/Fox_BaseColor.png", Art + "/FoxPilot/Fox_MetallicSmoothness.png");
+            var foxMat = TestWorldBuilder.Textured("FoxPilot", Art + "/FoxPilot/Fox_BaseColor.png", Art + "/FoxPilot/Fox_MetallicSmoothness.png", toon: true);
             var foxCtrl = TestWorldBuilder.MakePilotController(FoxFbx, "FoxPilot");
             return MakeFighter("Zero", ZeroFbx, new[] { "Zero_Propeller" }, ZeroPrefabPath, ZeroSeat, mats, body,
                                FoxFbx, Ooda.Turn.Core.PilotKind.Fox, foxMat, foxCtrl, maxRpm: 1480);
@@ -270,7 +270,7 @@ namespace Ooda.EditorTools
             if (!File.Exists(Su27Fbx)) { Debug.LogWarning($"OODA: no {Su27Fbx}; the dogfight's Su-27s show as P-51s (or Bf 109s on their side)."); return null; }
             ImportPlane(Su27Fbx, Art + "/Su27/Su27_MetallicSmoothness.png");
             var body = TestWorldBuilder.Textured("Su27", Art + "/Su27/Su27_BaseColor.png", Art + "/Su27/Su27_MetallicSmoothness.png");
-            var bearMat = TestWorldBuilder.Textured("BearPilot", Art + "/BearPilot/Bear_BaseColor.png", Art + "/BearPilot/Bear_MetallicSmoothness.png");
+            var bearMat = TestWorldBuilder.Textured("BearPilot", Art + "/BearPilot/Bear_BaseColor.png", Art + "/BearPilot/Bear_MetallicSmoothness.png", toon: true);
             var bearCtrl = TestWorldBuilder.MakePilotController(BearFbx, "BearPilot");
             return MakeFighter("Su27", Su27Fbx, new string[0], Su27PrefabPath, Su27Seat, mats, body,
                                BearFbx, Ooda.Turn.Core.PilotKind.Bear, bearMat, bearCtrl, extra: (root, model) =>

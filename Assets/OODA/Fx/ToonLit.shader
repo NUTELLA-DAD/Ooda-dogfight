@@ -2,7 +2,7 @@
 // on the sunlit edge, a hard sun glint, and an inked outline. Polished metal reflects a drawn horizon: bright sky above,
 // dark ground below, a crisp line between, blended with the scene's real reflection.
 // It answers to the same property names as URP's Lit (_BaseMap, _BaseColor, _MetallicGlossMap, _Metallic, _Smoothness,
-// _EmissionColor), so everything in the game that tints, heats or frosts a Lit material works on it unchanged.
+// _EmissionColor, _EmissionMap), so everything in the game that tints, heats or frosts a Lit material works on it unchanged.
 // The outline is the same mesh drawn again inside out and pushed along its normals by a width in pixels, so it wants
 // smooth normals.
 Shader "Ooda/ToonLit"
@@ -15,6 +15,7 @@ Shader "Ooda/ToonLit"
         _Metallic ("Metallic", Range(0, 1)) = 0
         _Smoothness ("Smoothness", Range(0, 1)) = 0.5
         [HDR] _EmissionColor ("Emission", Color) = (0, 0, 0, 1)
+        _EmissionMap ("Emission Map", 2D) = "white" {}
         _Cutoff ("Alpha Cutoff", Range(0, 1)) = 0.5
 
         [Header(Light)]
@@ -87,6 +88,7 @@ Shader "Ooda/ToonLit"
 
             TEXTURE2D(_BaseMap); SAMPLER(sampler_BaseMap);
             TEXTURE2D(_MetallicGlossMap); SAMPLER(sampler_MetallicGlossMap);
+            TEXTURE2D(_EmissionMap); SAMPLER(sampler_EmissionMap);
 
             struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct Varyings
@@ -158,7 +160,7 @@ Shader "Ooda/ToonLit"
                 col += rim * _RimStrength * _RimColor.rgb * sun.color * lerp(base.rgb + 0.15, half3(1, 1, 1), metal * 0.5);
 
                 if (AnyIsNaN(col) || AnyIsInf(col)) col = base.rgb * 0.6;
-                col += _EmissionColor.rgb;
+                col += _EmissionColor.rgb * SAMPLE_TEXTURE2D(_EmissionMap, sampler_EmissionMap, i.uv).rgb;   // white when unset: as before
                 col = MixFog(col, i.fog);
                 return half4(col, 1);
             }
