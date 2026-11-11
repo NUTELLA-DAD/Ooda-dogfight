@@ -224,7 +224,29 @@ namespace Ooda.EditorTools
             new Lake { name = "Maze tarn", c = V(4350, 5820), r = V(240, 150), level = 1098 },    // a small tarn on the bowl's floor
         };
 
-        static bool InLake(float x, float z) => Lakes.Any(l => { float ex = (x - l.c.x) / l.r.x, ez = (z - l.c.y) / l.r.y; return ex * ex + ez * ez < 1.3f; });
+        static bool InLake(float x, float z) => Lakes.Any(l => LakeR(l, x, z) < 1.14f);
+
+        /// <summary>A lake's shore line as a share of its radii, by the angle round it: not an ellipse but bays and points
+        /// (three big lobes, five smaller, nine little ones), each lake its own.</summary>
+        static float LakeShape(Lake l, float a)
+        {
+            float s = l.name.Length * 1.7f + l.c.x * 0.001f;
+            return 1f + 0.10f * Mathf.Sin(3 * a + s) + 0.06f * Mathf.Sin(5 * a + 2.1f * s) + 0.035f * Mathf.Sin(9 * a + 0.7f * s);
+        }
+
+        /// <summary>How far a point is from a lake's middle: 1 on its shore, under 1 in the water.</summary>
+        static float LakeR(Lake l, float x, float z)
+        {
+            float ex = (x - l.c.x) / l.r.x, ez = (z - l.c.y) / l.r.y;
+            return Mathf.Sqrt(ex * ex + ez * ez) / LakeShape(l, Mathf.Atan2(ez, ex));
+        }
+
+        /// <summary>The point at lake-distance r (1 = the shore) at angle a round the lake.</summary>
+        static Vector2 LakePoint(Lake l, float a, float r)
+        {
+            float k = r * LakeShape(l, a);
+            return V(l.c.x + Mathf.Cos(a) * l.r.x * k, l.c.y + Mathf.Sin(a) * l.r.y * k);
+        }
 
         // ---------- the railway: its line and its rail height (x, rail top, z) ----------
         // From the station by the town up the east side of the island, across the main valley on a stone viaduct just north
@@ -406,7 +428,9 @@ namespace Ooda.EditorTools
                 float z = dense[k].y;
                 float farm = Step(-2600f, -4200f, z);   // 1 on the farmland
                 float meander = Mathf.Lerp(45f, 150f, farm) * Mathf.Sin(along / Mathf.Lerp(380f, 700f, farm));
-                if (z < -2700f && z > -3100f || z > -900f && z < -500f) meander *= 0.2f;   // straight into and out of the lake
+                // straight into and out of the lake, easing in over 100 m (a sudden change jogged the line sideways by 36 m)
+                float straight = Mathf.Max(Step(-3200f, -3100f, z) * Step(-2600f, -2700f, z), Step(-1000f, -900f, z) * Step(-400f, -500f, z));
+                meander *= 1f - 0.8f * straight;
                 river.Add(new RiverPoint
                 {
                     p = dense[k] + across * meander,
@@ -421,7 +445,7 @@ namespace Ooda.EditorTools
         /// <summary>Cut the river's channel (twice: once before the models go in, and again at the end): its bed 3 m under the surface, the banks rising 0.6 m a metre out to the ground beside it.</summary>
         static int LakeAt(float x, float z)
         {
-            for (int l = 0; l < Lakes.Length; l++) { float ex = (x - Lakes[l].c.x) / Lakes[l].r.x, ez = (z - Lakes[l].c.y) / Lakes[l].r.y; if (ex * ex + ez * ez < 1f) return l; }
+            for (int l = 0; l < Lakes.Length; l++) if (LakeR(Lakes[l], x, z) < 1f) return l;
             return -1;
         }
 
@@ -625,7 +649,8 @@ namespace Ooda.EditorTools
                 for (int a = 0; a < 64; a++)
                 {
                     float t = a * Mathf.PI / 32;
-                    shore = Mathf.Min(shore, SampleArr(h, Lakes[k].c.x + Mathf.Cos(t) * Lakes[k].r.x * 1.15f, Lakes[k].c.y + Mathf.Sin(t) * Lakes[k].r.y * 1.15f));
+                    var q = LakePoint(Lakes[k], t, 1.15f);
+                    shore = Mathf.Min(shore, SampleArr(h, q.x, q.y));
                 }
                 Lakes[k].level = Mathf.Min(Lakes[k].level, shore - 3f);
             }
@@ -634,10 +659,11 @@ namespace Ooda.EditorTools
                 for (int j = 0; j < Res; j++)
                     for (int i = 0; i < Res; i++)
                     {
-                        float ex = (X(i) - l.c.x) / l.r.x, ez = (X(j) - l.c.y) / l.r.y;
-                        float r = Mathf.Sqrt(ex * ex + ez * ez);
+                        if (Mathf.Abs(X(i) - l.c.x) > l.r.x * 2.2f || Mathf.Abs(X(j) - l.c.y) > l.r.y * 2.2f) continue;
+                        float r = LakeR(l, X(i), X(j));
                         if (r > 1.6f) continue;
-                        float target = r < 1 ? l.level - 25f * (1 - r * r) : l.level + (r - 1) * 500f;
+                        // a shelving bed, and a gentle beach up from the water, so the shore is a soft line, not a cliff foot
+                        float target = r < 1 ? l.level - 25f * (1 - r * r) : l.level + (r - 1) * 160f;
                         h[j, i] = Mathf.Min(h[j, i], target);
                     }
 

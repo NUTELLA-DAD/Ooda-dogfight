@@ -89,6 +89,7 @@ namespace Ooda.EditorTools
             t.treeDistance = 7000;
             t.treeBillboardDistance = 7000;
             t.drawInstanced = true;
+            ToonWorld.BindTerrain(t, mats.terrain);                  // the toon ground: one pass, all eight layers
             MakeMountains();
 
             var m = WorldMats(mats);
@@ -115,15 +116,16 @@ namespace Ooda.EditorTools
 
         static void Paint(TerrainData data, float[,] h)
         {
-            var meadow = TestWorldBuilder.MakeNoiseTexture("Alpine_Meadow", new Color(0.34f, 0.55f, 0.21f), new Color(0.42f, 0.62f, 0.26f));
+            // the toon palette (ToonWorld), shared with the mountain and hill models
+            var meadow = TestWorldBuilder.MakeNoiseTexture("Alpine_Meadow", ToonWorld.MeadowA, ToonWorld.MeadowB);
             // the forest floor in the pines' own blue-green, a little darker, so from far off the gaps between them read as forest
-            var forest = TestWorldBuilder.MakeNoiseTexture("Alpine_Forest", new Color(0.09f, 0.28f, 0.18f), new Color(0.13f, 0.34f, 0.21f));
-            var rock = TestWorldBuilder.MakeNoiseTexture("Alpine_Rock", new Color(0.38f, 0.39f, 0.46f), new Color(0.47f, 0.47f, 0.53f));
-            var snow = TestWorldBuilder.MakeNoiseTexture("Alpine_Snow", new Color(0.90f, 0.93f, 0.98f), new Color(0.98f, 0.99f, 1f));
+            var forest = TestWorldBuilder.MakeNoiseTexture("Alpine_Forest", ToonWorld.ForestA, ToonWorld.ForestB);
+            var rock = TestWorldBuilder.MakeNoiseTexture("Alpine_Rock", ToonWorld.RockA, ToonWorld.RockB);
+            var snow = TestWorldBuilder.MakeNoiseTexture("Alpine_Snow", ToonWorld.SnowA, ToonWorld.SnowB);
             var field = MakeCropTexture("Alpine_Field", Wheat, false);
             var fieldAcross = MakeCropTexture("Alpine_FieldAcross", Wheat, true);
             var young = MakeCropTexture("Alpine_YoungGrain", YoungGrain, false);
-            var pasture = TestWorldBuilder.MakeNoiseTexture("Alpine_Pasture", new Color(0.48f, 0.72f, 0.24f), new Color(0.56f, 0.80f, 0.30f));
+            var pasture = TestWorldBuilder.MakeNoiseTexture("Alpine_Pasture", ToonWorld.PastureA, ToonWorld.PastureB);
             TerrainLayer Layer(string name, Texture2D tex, float tile)
             {
                 string path = $"{Dir}/{name}.terrainlayer";
@@ -167,13 +169,14 @@ namespace Ooda.EditorTools
 
         static readonly Crop Wheat = new Crop
         {
-            crestA = new Color(0.86f, 0.73f, 0.34f), crestB = new Color(0.93f, 0.81f, 0.43f),
-            furrow = new Color(0.66f, 0.52f, 0.25f), track = new Color(0.58f, 0.46f, 0.27f), furrowWidth = 0.34f,
+            // honey, not lemon or orange: the toon sun brightens the lit side about 1.5 times
+            crestA = new Color(0.74f, 0.65f, 0.34f), crestB = new Color(0.80f, 0.71f, 0.40f),
+            furrow = new Color(0.55f, 0.43f, 0.24f), track = new Color(0.48f, 0.38f, 0.24f), furrowWidth = 0.34f,
         };
         static readonly Crop YoungGrain = new Crop
         {
-            crestA = new Color(0.40f, 0.60f, 0.20f), crestB = new Color(0.52f, 0.70f, 0.26f),
-            furrow = new Color(0.47f, 0.38f, 0.24f), track = new Color(0.42f, 0.34f, 0.22f), furrowWidth = 0.46f,
+            crestA = new Color(0.40f, 0.56f, 0.24f), crestB = new Color(0.47f, 0.62f, 0.28f),
+            furrow = new Color(0.45f, 0.36f, 0.23f), track = new Color(0.40f, 0.32f, 0.21f), furrowWidth = 0.46f,
         };
 
         /// <summary>A crop's ground texture: rows along the fields' long side, or across them.</summary>
@@ -281,7 +284,15 @@ namespace Ooda.EditorTools
 
         class WMats { public Material stone, steel, rail, ballast, sleeper, dark, water, river, wood, plaster, roof, slate, cobbles; }
 
-        static WMats WorldMats(TestWorldBuilder.Mats mats) => new WMats
+        static WMats WorldMats(TestWorldBuilder.Mats mats)
+        {
+            var w = AllWorldMats(mats);
+            // the buildings and the stonework in the toon look, inked (ToonWorld)
+            foreach (var bm in new[] { w.stone, w.wood, w.plaster, w.roof, w.slate, w.cobbles }) ToonWorld.Building(bm);
+            return w;
+        }
+
+        static WMats AllWorldMats(TestWorldBuilder.Mats mats) => new WMats
         {
             stone = TestWorldBuilder.Mat("Alpine_Stone", new Color(0.80f, 0.75f, 0.66f), 0.15f),
             steel = TestWorldBuilder.Mat("Alpine_Steel", new Color(0.70f, 0.16f, 0.10f), 0.35f, 0.3f),
@@ -293,7 +304,7 @@ namespace Ooda.EditorTools
             wood = TestWorldBuilder.Mat("Alpine_ChaletWood", new Color(0.48f, 0.29f, 0.15f), 0.15f),
             plaster = TestWorldBuilder.Mat("Alpine_Plaster", new Color(0.94f, 0.92f, 0.86f), 0.1f),
             roof = TestWorldBuilder.Mat("Alpine_Roof", new Color(0.30f, 0.20f, 0.17f), 0.1f),
-            river = TestWorldBuilder.Mat("Alpine_River", new Color(0.18f, 0.66f, 0.74f), 0.9f),
+            river = ToonWorld.Water(TestWorldBuilder.Mat("Alpine_River", new Color(0.18f, 0.66f, 0.74f), 0.9f), sea: false),
             slate = TestWorldBuilder.Mat("Alpine_Slate", new Color(0.33f, 0.34f, 0.38f), 0.2f),
             cobbles = TestWorldBuilder.Mat("Alpine_Cobbles", new Color(0.62f, 0.60f, 0.56f), 0.1f),
         };
@@ -479,21 +490,49 @@ namespace Ooda.EditorTools
 
         static void MakeLakes(WMats m)
         {
-            var mb = new MeshBuilder(1);
-            foreach (var l in Lakes) mb.Disc(new Vector3(l.c.x, l.level, l.c.y), l.r * 1.05f, 48, 0);
-            var go = MeshObject("Lakes", SaveMesh(mb, "Lakes"), new[] { m.river }, null);
+            // each lake's water out past its shore (bays and points, AlpineLayout.LakeShape): the ground rises over its rim,
+            // so the shore is where the beach meets it, and the water shader draws the foam and the shallows along that line
+            var v = new List<Vector3>(); var flow = new List<Vector2>(); var t = new List<int>();
+            const int Sides = 160;
+            foreach (var l in Lakes)
+            {
+                int c = v.Count;
+                v.Add(new Vector3(l.c.x, l.level, l.c.y)); flow.Add(Vector2.zero);
+                for (int s = 0; s < Sides; s++)
+                {
+                    var q = LakePoint(l, 2 * Mathf.PI * s / Sides, 1.12f);
+                    v.Add(new Vector3(q.x, l.level, q.y)); flow.Add(Vector2.zero);
+                }
+                for (int s = 0; s < Sides; s++) { t.Add(c); t.Add(c + 1 + (s + 1) % Sides); t.Add(c + 1 + s); }   // clockwise from above
+            }
+            var go = MeshObject("Lakes", WaterMesh("Lakes", v, flow, t), new[] { m.river }, null);
             go.GetComponent<MeshRenderer>().shadowCastingMode = ShadowCastingMode.Off;
+        }
+
+        /// <summary>A water surface's mesh, facing up: its second UV is the water's flow (direction times speed: 1 a calm
+        /// river, up to 3 in the rapids, 0 still), which the water shader runs its streaks and foam along.</summary>
+        static Mesh WaterMesh(string name, List<Vector3> v, List<Vector2> flow, List<int> t)
+        {
+            var mesh = new Mesh { name = name, indexFormat = v.Count > 65000 ? IndexFormat.UInt32 : IndexFormat.UInt16 };
+            mesh.SetVertices(v);
+            mesh.SetNormals(Enumerable.Repeat(Vector3.up, v.Count).ToList());
+            mesh.SetUVs(0, v.Select(p => new Vector2(p.x, p.z)).ToList());
+            mesh.SetUVs(1, flow);
+            mesh.SetTriangles(t, 0);
+            mesh.RecalculateBounds();
+            string path = $"{Dir}/{name}.asset";
+            AssetDatabase.CreateAsset(mesh, path);
+            return mesh;
         }
 
         /// <summary>
         /// The river's water: a ribbon at its surface down the channel CarveRiver cut, a little wider than the channel's floor
         /// so it laps the banks. Left out inside the lakes (their water is there already) and where the banks are lower than the
-        /// water (at the sea, where the sea takes over).
+        /// water (at the sea, where the sea takes over). Each stretch carries its flow, faster where the river drops.
         /// </summary>
         static void MakeRiver(float[,] h, WMats m)
         {
             var r = River();
-            var mb = new MeshBuilder(1);
             bool Wet(int k) => RiverWet(h, r, k);
             Vector3 Edge(int k, float side)
             {
@@ -502,14 +541,31 @@ namespace Ooda.EditorTools
                 Vector2 e = rp.p + across * side * (rp.half + 4f);
                 return new Vector3(e.x, rp.surface, e.y);
             }
+            Vector2 Flow(int k)
+            {
+                int a = Mathf.Max(k - 6, 0), b = Mathf.Min(k + 6, r.Count - 1);
+                Vector2 d = r[b].p - r[a].p;
+                float run = Mathf.Max(d.magnitude, 1f), drop = Mathf.Max(0f, r[a].surface - r[b].surface);
+                // calm at 1, white water from a 1.5 % drop, full rapids at 4 %
+                float speed = 1f + 2f * Mathf.Clamp01((drop / run - 0.015f) / 0.025f);
+                return d / run * speed;
+            }
+            var v = new List<Vector3>(); var flow = new List<Vector2>(); var t = new List<int>();
             int quads = 0;
             for (int k = 0; k + 2 < r.Count; k += 2)
             {
                 if (!Wet(k) || !Wet(k + 2)) continue;
-                mb.Flat(Edge(k, -1), Edge(k, 1), Edge(k + 2, 1), Edge(k + 2, -1), 0);
+                Vector3 a = Edge(k, -1), b = Edge(k, 1), c = Edge(k + 2, 1), d = Edge(k + 2, -1);
+                int i = v.Count;
+                v.Add(a); v.Add(b); v.Add(c); v.Add(d);
+                Vector2 f0 = Flow(k), f1 = Flow(k + 2);
+                flow.Add(f0); flow.Add(f0); flow.Add(f1); flow.Add(f1);
+                // clockwise seen from above (as MeshBuilder.Flat)
+                if (Vector3.Cross(d - a, b - a).y > 0) t.AddRange(new[] { i, i + 2, i + 1, i, i + 3, i + 2 });
+                else t.AddRange(new[] { i, i + 1, i + 2, i, i + 2, i + 3 });
                 quads++;
             }
-            var go = MeshObject("River", SaveMesh(mb, "River"), new[] { m.river }, null);
+            var go = MeshObject("River", WaterMesh("River", v, flow, t), new[] { m.river }, null);
             go.GetComponent<MeshRenderer>().shadowCastingMode = ShadowCastingMode.Off;
             Debug.Log($"OODA: the river's water: {quads * 20 / 1000f:F1} km of it.");
         }
