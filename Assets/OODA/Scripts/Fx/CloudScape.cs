@@ -126,7 +126,7 @@ namespace Ooda.Fx
                 puffs += n;
                 var go = new GameObject($"Clouds {kv.Key:X}");
                 go.transform.SetParent(transform, false);
-                squares.Add(go);
+                this.squares.Add(go);   // (the field, not the local of the same name above)
                 go.AddComponent<MeshFilter>().sharedMesh = mesh;
                 var mr = go.AddComponent<MeshRenderer>();
                 mr.sharedMaterial = mat;
