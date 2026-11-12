@@ -3,6 +3,8 @@
 // colour here comes from the shape instead: snow on the faces that look up, more of them the higher they are (one snow
 // line for every copy); grass on the gentle faces below the tree line; rock everywhere else, in warped horizontal strata
 // like a painted cliff. Then the land's toon light (ToonLand.hlsl), so the models and the ground under them match.
+// With _VertexColour on (the east lands' ground and monuments, Fx/EastlandScape) the colour is the mesh's own, painted
+// per vertex, in two tones by patch; where its alpha is 1 (dressed stone) horizontal courses are cut every _Course metres.
 Shader "Ooda/ToonLandModel"
 {
     Properties
@@ -22,6 +24,11 @@ Shader "Ooda/ToonLandModel"
         _GrassHigh ("Grass up to, m", Float) = 1800
         _Strata ("Rock strata thickness, m", Float) = 38
         _Patch ("Patch size, m", Float) = 90
+
+        [Header(Painted per vertex)]
+        [ToggleUI] _VertexColour ("Colour from the vertices", Float) = 0
+        _Course ("Stone course height, m", Float) = 4
+        _PatchFrom ("Two-tone patches from x, m (fading in over 1.2 km)", Float) = -1000000
 
         [Header(Light)]
         _BandEdge ("Terminator (0 = at the horizon of the light)", Range(-1, 1)) = 0.05
@@ -45,7 +52,7 @@ Shader "Ooda/ToonLandModel"
         CBUFFER_START(UnityPerMaterial)
             float4 _BaseMap_ST;
             half4 _BaseColor, _GrassA, _GrassB, _RockA, _RockB, _Snow, _ShadeColor, _LitTint;
-            float _SnowLow, _SnowHigh, _GrassSlope, _GrassHigh, _Strata, _Patch;
+            float _SnowLow, _SnowHigh, _GrassSlope, _GrassHigh, _Strata, _Patch, _VertexColour, _Course, _PatchFrom;
             half _BandEdge, _BandSoft, _MidBand, _Ambient, _TexSnow;
         CBUFFER_END
         ENDHLSL
@@ -65,11 +72,11 @@ Shader "Ooda/ToonLandModel"
             #include "ToonLand.hlsl"
             TEXTURE2D(_BaseMap); SAMPLER(sampler_BaseMap);
 
-            struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float2 uv : TEXCOORD0; half4 color : COLOR; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct Varyings
             {
                 float4 positionCS : SV_POSITION; float3 positionWS : TEXCOORD0; half3 normalWS : TEXCOORD1; half fog : TEXCOORD2;
-                float2 uv : TEXCOORD3;
+                float2 uv : TEXCOORD3; half4 color : COLOR;
                 UNITY_VERTEX_OUTPUT_STEREO
             };
 
@@ -82,6 +89,7 @@ Shader "Ooda/ToonLandModel"
                 o.normalWS = TransformObjectToWorldNormal(a.normalOS);
                 o.fog = ComputeFogFactor(o.positionCS.z);
                 o.uv = TRANSFORM_TEX(a.uv, _BaseMap);
+                o.color = a.color;
                 return o;
             }
 
@@ -90,6 +98,17 @@ Shader "Ooda/ToonLandModel"
                 half3 N = normalize(i.normalWS);
                 float3 p = i.positionWS;
                 float n = LandNoise2(p.xz / _Patch);
+                if (_VertexColour > 0.5)
+                {
+                    // the east lands: the painted colour, a shade lighter or darker by patch (none at the Alps' edge, fading in
+                    // past _PatchFrom); dressed stone in courses
+                    half3 vc = i.color.rgb * (1 + (step(0.5, n) - 0.5) * 0.07 * saturate((p.x - _PatchFrom) / 1200));
+                    float course = frac(p.y / _Course);
+                    vc *= lerp(1, 0.86, step(0.5, i.color.a) * step(course, 0.1));
+                    half3 vlit = ToonLandLight(vc, p, N);
+                    if (AnyIsNaN(vlit) || AnyIsInf(vlit)) vlit = vc * 0.6;
+                    return half4(MixFog(vlit, i.fog), 1);
+                }
                 float up = N.y + (n - 0.5) * 0.18;
 
                 // rock: two tones in strata, warped by the noise so the lines wander like a painted cliff

@@ -63,11 +63,33 @@ namespace Ooda.EditorTools
             var original = (float[,])h.Clone();
             var states = Classify(rail, original);
             Flatten(h, rail, states);
-            // the island's ground, or the skyscraper city's roofs and streets out at sea where it stands (as the game asks for it)
+            // the island's ground: the skyscraper city's roofs and streets where it stands, the east lands' ground and stone past
+            // the Alps, else the Alps' (as the game asks for it)
             double GroundFt(double xFt, double yFt)
             {
                 double c = City.Skyline.GroundFt(xFt, yFt);
-                return !double.IsNegativeInfinity(c) ? c : Math.Max(0, SampleArr(h, (float)(xFt * Atmosphere.MPerFt), (float)(yFt * Atmosphere.MPerFt))) * Atmosphere.FtPerM;
+                if (!double.IsNegativeInfinity(c)) return c;
+                double e = Eastland.Land.GroundFt(xFt, yFt);
+                return !double.IsNegativeInfinity(e) ? e : Math.Max(0, SampleArr(h, (float)(xFt * Atmosphere.MPerFt), (float)(yFt * Atmosphere.MPerFt))) * Atmosphere.FtPerM;
+            }
+
+            Console.WriteLine("\nThe east lands");
+            {
+                var east = Eastland.Land;
+                float worstStep = 0, at = 0;
+                for (float z = -8000; z <= 8000; z += 20)
+                {
+                    float alps = SampleArr(h, Eastland.X0, z), lands = (float)east.GroundM(Eastland.X0, z);
+                    if (Math.Abs(alps - lands) > worstStep) { worstStep = Math.Abs(alps - lands); at = z; }
+                }
+                Check(worstStep < 2f, $"the Alps meet the east lands without a step (at most {worstStep:F1} m, at z {at:F0})");
+                Check(east.GroundM(City.CentreX, City.CentreZ + City.HalfZ + 300) > -9 && east.GroundM(City.CentreX - 1500, City.CentreZ) < City.StreetM, "the ground under the city is under its streets");
+                foreach (var p in Eastland.Pyramids)
+                    Check(p.baseM > 20 && p.baseM < 90, $"{p.name} at ({p.x:F0}, {p.z:F0}) stands on its pad at {p.baseM:F0} m, {p.rise:F0} m tall");
+                int wet = Eastland.Obelisks.Count(o => o.baseM < 1);
+                Check(wet == 0, $"{Eastland.Obelisks.Length} obelisks, none in the water");
+                double g = Eastland.Land.HeightM(Eastland.Pyramids[0].x, Eastland.Pyramids[0].z);
+                Check(Math.Abs(g - Eastland.Pyramids[0].TopM) < 1, $"the Great Pyramid's top is ground: {g:F0} m");
             }
 
             Console.WriteLine("\nThe railway");
