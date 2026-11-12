@@ -94,7 +94,7 @@ namespace Ooda.EditorTools
             {
                 float d = new Vector2(b.x - c.x, b.z - c.z).magnitude;
                 if (b.kind == Skyscape.Storm && d < bestStorm) { bestStorm = d; storm = b; }
-                if (b.kind == Skyscape.Cumulus && b.topY > 3500f && d < bestTower) { bestTower = d; tower = b; }
+                if (b.kind == Skyscape.Cumulus && b.topY > 3500f && d < bestTower && sky.Density(b.x, b.topY - 900f, b.z) > 0.9f) { bestTower = d; tower = b; }
             }
             if (bestStorm < float.MaxValue)
             {
@@ -104,8 +104,15 @@ namespace Ooda.EditorTools
             }
             if (bestTower < float.MaxValue)
             {
-                var at = new Vector3(tower.x, y, tower.z);
-                Vector3 toward = (at - new Vector3(c.x, y, c.z)).normalized;
+                // (at its thickest: low down a tower is a ring of puffs round a looser middle)
+                float best = -1f, inY = y;
+                for (float h = tower.baseY; h < tower.topY; h += 50f)
+                {
+                    float dn = sky.Density(tower.x, h, tower.z);
+                    if (dn > best) { best = dn; inY = h; }
+                }
+                var at = new Vector3(tower.x, inY, tower.z);
+                Vector3 toward = new Vector3(tower.x - c.x, 0, tower.z - c.z).normalized;
                 Shot(free, clouds, rt, dir, "clouds_tower_outside", at - toward * 2600, at);
                 Shot(free, clouds, rt, dir, "clouds_tower_entering", at - toward * 650, at + toward * 1000);
                 Shot(free, clouds, rt, dir, "clouds_tower_inside", at, at + toward * 1000);

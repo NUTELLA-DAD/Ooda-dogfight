@@ -28,12 +28,20 @@ namespace Ooda.Fx
         /// <summary>How much of the screen's height a puff may fill before it thins away (ToonCloud's _NearFill; 0.6 on the
         /// island's clouds): a tower looms up big before you are in it.</summary>
         public const float NearFill = 1.3f;
+        /// <summary>How far out the veil is drawn (m): past it, deep in cloud, nothing shows.</summary>
+        public const float VeilM = 260f;
         public static readonly Color Inside = new Color(0.90f, 0.91f, 0.99f);
 
         static CloudScape made;
         Material mat;
         readonly List<Mesh> meshes = new List<Mesh>();
+        readonly List<GameObject> squares = new List<GameObject>();
+        // the veil: a sphere of the cloud's white round the camera, VeilM out, drawn over everything past it (the sky, the
+        // sea, far planes, the far clouds) and nothing nearer (your own plane), thicker the deeper in you are
+        GameObject veil;
+        Material veilMat;
         Camera viewer;
+        float FogAmount = 0.7f;
         bool shown;
 
         // the scene's own fog and sky, kept while the white is on so they can be put back exactly
@@ -73,7 +81,8 @@ namespace Ooda.Fx
 
         void SetVisible(bool on)
         {
-            for (int i = 0; i < transform.childCount; i++) transform.GetChild(i).gameObject.SetActive(on);
+            foreach (var go in squares) if (go != null) go.SetActive(on);
+            if (!on && veil != null) veil.SetActive(false);
         }
 
         void OnDisable() => Restore();
@@ -85,6 +94,7 @@ namespace Ooda.Fx
             foreach (var m in meshes) if (m != null) DestroyImmediate(m);
             if (mat != null) DestroyImmediate(mat);
             if (whiteSky != null) DestroyImmediate(whiteSky);
+            if (veilMat != null) DestroyImmediate(veilMat);
         }
 
         // ---------- building ----------
@@ -95,6 +105,7 @@ namespace Ooda.Fx
             if (src == null) { Debug.LogWarning("OODA: no Resources/ToonCloud material; no cloud sea."); return; }
             mat = new Material(src) { name = "ToonCloud (cloud sea)" };
             mat.SetFloat("_Still", 1f);
+            FogAmount = mat.HasProperty("_FogAmount") ? mat.GetFloat("_FogAmount") : 0.7f;
             mat.SetFloat("_NearFill", NearFill);
 
             // each bank into the square its heart is in
@@ -115,6 +126,7 @@ namespace Ooda.Fx
                 puffs += n;
                 var go = new GameObject($"Clouds {kv.Key:X}");
                 go.transform.SetParent(transform, false);
+                squares.Add(go);
                 go.AddComponent<MeshFilter>().sharedMesh = mesh;
                 var mr = go.AddComponent<MeshRenderer>();
                 mr.sharedMaterial = mat;
@@ -207,6 +219,7 @@ namespace Ooda.Fx
             inCloud = snap ? target : inCloud + (target - inCloud) * (1f - Mathf.Exp(-EaseRate * Time.unscaledDeltaTime));
             if (inCloud < 0.002f && target <= 0f) { inCloud = 0f; Restore(); return; }
             Apply(inCloud);
+            Veil(cam, inCloud);
         }
 
         void Keep()
@@ -235,19 +248,50 @@ namespace Ooda.Fx
             float end0 = linear ? keepEnd : 24000f, start0 = linear ? keepStart : 2000f;
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.Linear;
-            RenderSettings.fogEndDistance = end0 * Mathf.Pow(WhiteoutM / end0, k);
+            float kk = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(k / 0.8f));   // (all the way in by 0.8: well inside, it is white)
+            RenderSettings.fogEndDistance = end0 * Mathf.Pow(WhiteoutM / end0, kk);
+            // (the island's clouds let 30% of their ink show through the fog; in here the fog takes them whole)
+            if (mat != null) mat.SetFloat("_FogAmount", Mathf.Lerp(FogAmount, 1f, kk));
             RenderSettings.fogStartDistance = Mathf.Min(start0 * (1f - k), RenderSettings.fogEndDistance * 0.5f);
             RenderSettings.fogColor = Color.Lerp(keepFog, Inside, Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(k * 1.6f)));
             if (whiteSky != null && keepSky != null)
             {
-                float w = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(k * 1.3f)) * 0.95f;
+                float w = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(k * 1.3f));
                 foreach (var name in SkyColours)
                     if (keepSky.HasProperty(name)) whiteSky.SetColor(name, Color.Lerp(keepSky.GetColor(name), Inside, w));
             }
         }
 
+        /// <summary>The veil round the camera, k deep: none at the edge of a cloud, solid white past VeilM well inside.</summary>
+        void Veil(Camera cam, float k)
+        {
+            float a = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.3f, 0.8f, k));
+            if (cam == null || a <= 0.001f) { if (veil != null) veil.SetActive(false); return; }
+            if (veil == null)
+            {
+                veil = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                veil.name = "Cloud veil";
+                DestroyImmediate(veil.GetComponent<Collider>());
+                veil.transform.SetParent(transform, false);
+                var sh = Shader.Find("Sprites/Default");
+                veilMat = new Material(sh) { name = "Cloud veil", renderQueue = 2990 };   // (before the lines, smoke and tracers: your plan still shows over it)
+                var r = veil.GetComponent<MeshRenderer>();
+                r.sharedMaterial = veilMat;
+                r.shadowCastingMode = ShadowCastingMode.Off;
+                r.receiveShadows = false;
+                r.lightProbeUsage = LightProbeUsage.Off;
+                r.reflectionProbeUsage = ReflectionProbeUsage.Off;
+            }
+            veil.SetActive(true);
+            veil.transform.position = cam.transform.position;
+            veil.transform.localScale = Vector3.one * (2f * VeilM);   // (the sphere primitive is 1 across)
+            veilMat.color = new Color(Inside.r, Inside.g, Inside.b, a);
+        }
+
         void Restore()
         {
+            if (veil != null) veil.SetActive(false);
+            if (mat != null) mat.SetFloat("_FogAmount", FogAmount);
             if (!kept) return;
             kept = false;
             RenderSettings.fog = keepFogOn; RenderSettings.fogMode = keepMode;
