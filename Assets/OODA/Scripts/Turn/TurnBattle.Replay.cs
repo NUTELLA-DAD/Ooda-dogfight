@@ -365,15 +365,17 @@ namespace Ooda.Turn
             if (Pressed(Key.Tab) || Pressed(Key.N)) FollowNext(shift ? -1 : 1);
             if (pad != null && pad.rightShoulder.wasPressedThisFrame) FollowNext(1);
             if (pad != null && pad.leftShoulder.wasPressedThisFrame) FollowNext(-1);
-            if ((Pressed(Key.V) || (pad != null && pad.rightStickButton.wasPressedThisFrame)) && view != null) view.NextFocus();
+            if ((Pressed(Key.V) && !AltHeld(kb) || (pad != null && pad.rightStickButton.wasPressedThisFrame)) && view != null) view.NextFocus();
             if (Pressed(Key.C) && view != null) ToggleCockpit();
+            CameraKeys(kb, pad);
             if (pad != null && pad.dpad.up.wasPressedThisFrame) rSpeed = Mathf.Min(ReplaySpeeds.Length - 1, rSpeed + 1);
             if (pad != null && pad.dpad.down.wasPressedThisFrame) rSpeed = Mathf.Max(0, rSpeed - 1);
 
             if (view == null) return;
             if (mouse != null)
             {
-                if (mouse.rightButton.isPressed) view.Orbit(mouse.delta.ReadValue() * 0.25f);
+                if (mouse.rightButton.isPressed) OrbitOrPan(kb, mouse.delta.ReadValue());
+                if (mouse.middleButton.isPressed) view.Pan(mouse.delta.ReadValue());
                 float sc = mouse.scroll.ReadValue().y;
                 if (Mathf.Abs(sc) > 0.01f) view.Zoom(Mathf.Sign(sc));
             }
@@ -382,8 +384,8 @@ namespace Ooda.Turn
             {
                 Vector2 pos = pointer.position.ReadValue();
                 Vector2 gui = new Vector2(pos.x, Screen.height - pos.y) / guiScale;
-                if (pointer.press.wasPressedThisFrame) rDragLook = !replayRects.Any(rc => rc.Contains(gui));
-                else if (pointer.press.isPressed && rDragLook && (mouse == null || !mouse.rightButton.isPressed)) view.Orbit((pos - lastPointer) * 0.25f);
+                if (pointer.press.wasPressedThisFrame) { rDragLook = !replayRects.Any(rc => rc.Contains(gui)); if (rDragLook && DoubleTap(pos)) RecenterView(); }
+                else if (pointer.press.isPressed && rDragLook && (mouse == null || !mouse.rightButton.isPressed)) OrbitOrPan(kb, pos - lastPointer);
                 if (pointer.press.wasReleasedThisFrame) rDragLook = false;
                 lastPointer = pos;
             }

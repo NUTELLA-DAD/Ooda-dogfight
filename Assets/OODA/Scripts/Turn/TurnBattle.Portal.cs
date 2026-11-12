@@ -261,7 +261,7 @@ namespace Ooda.Turn
                 if (!f[k].warped) continue;
                 Vector3 a = UnityFrame.Dir(f[k - 1].vel), b = UnityFrame.Dir(f[k].vel);
                 float turn = Mathf.Atan2(b.x, b.z) * Mathf.Rad2Deg - Mathf.Atan2(a.x, a.z) * Mathf.Rad2Deg;
-                if (view.focus == TurnCamera.Focus.Player) view.yaw += turn;
+                if (view.focus == TurnCamera.Focus.Player && !view.followHeading) view.yaw += turn;   // following, the view turns with the heading by itself
             }
             warpSeen = Math.Max(warpSeen, upTo);
         }
