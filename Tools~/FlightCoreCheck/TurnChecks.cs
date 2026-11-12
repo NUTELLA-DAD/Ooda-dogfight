@@ -304,7 +304,10 @@ static class TurnChecks
             {
                 var t0 = sw.Elapsed.TotalMilliseconds;
                 var plans = new TurnPlan?[n];
-                for (int i = 0; i < n; i++)
+                // the slots are measured until the Bf 109s arrive (within 3,000 ft): once the fight is on, a flight that is
+                // still formed weaves round it, and how wide differs from one machine's arithmetic to another's
+                bool arrived = Nearest(fight) < 3000;
+                for (int i = 0; i < n && !arrived; i++)
                     if (fight.InFormation(i))
                     {
                         var sl = fight.FormationSlot(i); var l = fight.planes[sl.leader];
