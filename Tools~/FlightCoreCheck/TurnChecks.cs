@@ -251,7 +251,8 @@ static class TurnChecks
             int mHits = 0;
             for (int t = 0; t < 3; t++)
             {
-                var r = mb.Resolve(new TurnPlan?[] { t == 0 ? shot : TurnPlan.Straight(mb.planes[0]), TurnPlan.Straight(mb.planes[1]) }, 3);
+                var held = TurnPlan.Straight(mb.planes[1]); held.holdFlares = true;   // (its flares held: let go, a pair pulls most missiles off, which HeatCheck covers)
+                var r = mb.Resolve(new TurnPlan?[] { t == 0 ? shot : TurnPlan.Straight(mb.planes[0]), held }, 3);
                 mHits += r.hits.Count(h => h.shooter == 0 && h.damage >= 5);
             }
             Console.WriteLine($"  missile at a straight-flying 109 from 4,000 ft behind: {mHits} hit, 109 down {mb.Out(1)}, missiles left {mb.missiles[0]}");
