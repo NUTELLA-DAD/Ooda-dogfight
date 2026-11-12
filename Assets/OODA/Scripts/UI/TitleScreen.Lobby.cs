@@ -1,5 +1,6 @@
 using System.Linq;
 using Ooda.Net;
+using Ooda.Online;
 using Ooda.Turn.Core;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -8,18 +9,19 @@ using UnityEngine.SceneManagement;
 namespace Ooda.UI
 {
     /// <summary>
-    /// The online panel (O, or the Online button): host a dogfight or join a friend's by address, and once you are both
+    /// The online panel (O, or the Online button): host a dogfight and get a room code, or join a friend's with their code
+    /// (through Unity Relay, Online/RelayLink.cs: nobody's address is typed or shown), and once you are both
     /// in, the host picks co-op or versus and the sides and starts it. Both games then load the battle with the same
-    /// setup (NetSession.Current carries it across). The friend needs the same build of the game. The host's address
-    /// is never on screen unless the host asks for it (Show my address): a screenshot or a stream must not give it away.
+    /// setup (NetSession.Current carries it across). The friend needs the same build of the game. The self-tests
+    /// (-nethost, -netjoin address) still connect directly, and an address typed in the code box joins directly too.
     /// </summary>
     public partial class TitleScreen
     {
         bool lobbyOpen;
         string joinAddress, myName, lobbyError;
         bool lobbyVersus;
-        /// <summary>The host asked to see this PC's addresses (hidden until then, and again each time a game is hosted).</summary>
-        bool showAddress;
+        /// <summary>Host directly on this PC's port (the command line's -nethost) instead of opening a room on the relay.</summary>
+        bool hostDirect;
         /// <summary>The dogfight's briefing is open for the online fight: Fly starts it for both of you.</summary>
         bool setupOnline;
 
@@ -42,7 +44,7 @@ namespace Ooda.UI
             dog.theirs = DogfightSetup.Resize(dog.theirs, Mathf.Clamp(t, 1, 4));
             lobbyVersus = System.Array.IndexOf(args, "-netversus") >= 0;
             autoStart = h >= 0;
-            if (h >= 0) HostGame();
+            if (h >= 0) { hostDirect = true; HostGame(); }
             else if (j + 1 < args.Length) { joinAddress = args[j + 1]; JoinGame(); }
             return true;
         }
@@ -53,7 +55,7 @@ namespace Ooda.UI
         {
             lobbyOpen = true;
             lobbyError = null;
-            if (joinAddress == null) joinAddress = PlayerPrefs.GetString("OODA.JoinAddress", "");
+            if (joinAddress == null) joinAddress = "";   // a room code is new every time, and an address is never kept
             if (myName == null) myName = PlayerPrefs.GetString("OODA.Name", System.Environment.UserName);
             Application.runInBackground = true;   // the hello and the start come in while the window is behind another
         }
@@ -67,20 +69,26 @@ namespace Ooda.UI
         void HostGame()
         {
             lobbyError = null;
-            showAddress = false;
             Lobby?.Close();
             PlayerPrefs.SetString("OODA.Name", myName);
-            try { NetSession.Current = NetSession.Host(GameVersion, myName); }
-            catch (System.Exception e) { lobbyError = $"Could not host on port {NetLink.DefaultPort}: {e.Message}"; }
+            try { NetSession.Current = hostDirect ? NetSession.Host(GameVersion, myName) : new NetSession(RelayLink.Host(), GameVersion, myName); }
+            catch (System.Exception e) { lobbyError = hostDirect ? $"Could not host on port {NetLink.DefaultPort}: {e.Message}" : $"Could not open a room: {e.Message}"; }
         }
 
         void JoinGame()
         {
             lobbyError = null;
-            if (!NetLink.ParseAddress(joinAddress, out var host, out int port)) { lobbyError = "Type the host's address first (from their screen)."; return; }
-            Lobby?.Close();
-            PlayerPrefs.SetString("OODA.JoinAddress", joinAddress.Trim());
             PlayerPrefs.SetString("OODA.Name", myName);
+            if (RelayLink.LooksLikeCode(joinAddress))
+            {
+                Lobby?.Close();
+                try { NetSession.Current = new NetSession(RelayLink.Join(joinAddress), GameVersion, myName); }
+                catch (System.Exception e) { lobbyError = $"Could not join: {e.Message}"; }
+                return;
+            }
+            // an address (it has a dot or a colon): straight to that machine, as the self-tests do
+            if (!NetLink.ParseAddress(joinAddress, out var host, out int port)) { lobbyError = "Type your friend's room code first (from their screen)."; return; }
+            Lobby?.Close();
             NetSession.Current = NetSession.Join(host, port, GameVersion, myName);
         }
 
@@ -133,16 +141,14 @@ namespace Ooda.UI
         string LobbyStatus(NetSession s)
         {
             if (lobbyError != null) return lobbyError;
-            if (s == null) return "Host a dogfight, or join your friend's with their address.";
+            if (s == null) return "Host a dogfight, or join your friend's with their room code.";
             if (s.Problem != null) return s.Problem;
             if (s.IsHost)
             {
                 if (!s.link.Connected)
                 {
-                    if (!showAddress) return "Hosting. Waiting for your friend to join...";
-                    var mine = NetLink.MyAddresses();
-                    string where = mine.Length == 0 ? "this PC's address" : string.Join(",  ", mine.Take(3));
-                    return $"Hosting. Your friend joins with: {where}. Waiting for them...";
+                    if (!(s.link is RelayLink room)) return "Hosting. Waiting for your friend to join...";
+                    return room.JoinCode == null ? "Opening a room..." : $"Room code:  {room.JoinCode}   Give it to your friend. Waiting for them...";
                 }
                 return s.Ready ? $"{s.friendName} joined! Pick the fight and start it." : "Someone is connecting...";
             }
@@ -169,13 +175,7 @@ namespace Ooda.UI
                 joinAddress = GUI.TextField(new Rect(x + 320, y, 260, 48), joinAddress ?? "", 64, button);
                 if (GUI.Button(new Rect(x + 590, y, 130, 48), "Join", picked)) JoinGame();
                 y += 60;
-                Shadowed(new Rect(x - 100, y, w + 200, 52), "To join, type the address your friend gives you. Same build of the game on both.", hint);
-            }
-            else if (s.IsHost && !s.link.Connected)
-            {
-                // the address stays off the screen until asked for: it must not end up in a screenshot or a stream
-                if (GUI.Button(new Rect((sw - 300) / 2, y, 300, 44), showAddress ? "Hide my address" : "Show my address", button)) showAddress = !showAddress;
-                y += 56;
+                Shadowed(new Rect(x - 100, y, w + 200, 52), "Host to get a room code for your friend, or type theirs and Join. Same build of the game on both.", hint);
             }
             else if (s.IsHost && s.Online)
             {
