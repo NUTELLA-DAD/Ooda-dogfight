@@ -10,15 +10,16 @@ namespace Ooda.UI
     /// <summary>
     /// The online panel (O, or the Online button): host a dogfight or join a friend's by address, and once you are both
     /// in, the host picks co-op or versus and the sides and starts it. Both games then load the battle with the same
-    /// setup (NetSession.Current carries it across). The friend needs the same build of the game. To reach each other
-    /// over the internet, both run Tailscale and the friend types the host's 100.x address; on one network, the host's
-    /// local address works as it is.
+    /// setup (NetSession.Current carries it across). The friend needs the same build of the game. The host's address
+    /// is never on screen unless the host asks for it (Show my address): a screenshot or a stream must not give it away.
     /// </summary>
     public partial class TitleScreen
     {
         bool lobbyOpen;
         string joinAddress, myName, lobbyError;
         bool lobbyVersus;
+        /// <summary>The host asked to see this PC's addresses (hidden until then, and again each time a game is hosted).</summary>
+        bool showAddress;
         /// <summary>The dogfight's briefing is open for the online fight: Fly starts it for both of you.</summary>
         bool setupOnline;
 
@@ -66,6 +67,7 @@ namespace Ooda.UI
         void HostGame()
         {
             lobbyError = null;
+            showAddress = false;
             Lobby?.Close();
             PlayerPrefs.SetString("OODA.Name", myName);
             try { NetSession.Current = NetSession.Host(GameVersion, myName); }
@@ -137,9 +139,9 @@ namespace Ooda.UI
             {
                 if (!s.link.Connected)
                 {
+                    if (!showAddress) return "Hosting. Waiting for your friend to join...";
                     var mine = NetLink.MyAddresses();
-                    string where = mine.Length == 0 ? "this PC's address"
-                        : string.Join(",  ", mine.Take(3).Select(a => NetLink.IsTailscale(a) ? $"{a} (Tailscale)" : a));
+                    string where = mine.Length == 0 ? "this PC's address" : string.Join(",  ", mine.Take(3));
                     return $"Hosting. Your friend joins with: {where}. Waiting for them...";
                 }
                 return s.Ready ? $"{s.friendName} joined! Pick the fight and start it." : "Someone is connecting...";
@@ -167,7 +169,13 @@ namespace Ooda.UI
                 joinAddress = GUI.TextField(new Rect(x + 320, y, 260, 48), joinAddress ?? "", 64, button);
                 if (GUI.Button(new Rect(x + 590, y, 130, 48), "Join", picked)) JoinGame();
                 y += 60;
-                Shadowed(new Rect(x - 100, y, w + 200, 52), "Over the internet: both install Tailscale (tailscale.com) and sign in, the host shares their PC with you, and you join its 100.x address. Same build of the game on both.", hint);
+                Shadowed(new Rect(x - 100, y, w + 200, 52), "To join, type the address your friend gives you. Same build of the game on both.", hint);
+            }
+            else if (s.IsHost && !s.link.Connected)
+            {
+                // the address stays off the screen until asked for: it must not end up in a screenshot or a stream
+                if (GUI.Button(new Rect((sw - 300) / 2, y, 300, 44), showAddress ? "Hide my address" : "Show my address", button)) showAddress = !showAddress;
+                y += 56;
             }
             else if (s.IsHost && s.Online)
             {
