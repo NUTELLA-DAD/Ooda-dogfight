@@ -23,6 +23,7 @@ namespace Ooda.Turn
     /// OODA (O) switches to short 1 s turns, to line up a shot one small step at a time.
     ///
     /// Mouse or touch: drag the yellow tip; drag anywhere else (or right-drag) to look around; wheel zooms;
+    /// Alt+drag or middle-drag pans; Home or a double-click recenters; Alt+V the view follows your heading or not;
     /// drag on the timeline to set the burst. Keyboard: WASD or arrows move the arrow, Shift/Ctrl throttle,
     /// Space WEP, F fire at predicted hits, B burst presets, Enter fly, R replay, P projection, V camera,
     /// X straight ahead, Backspace restart, H help. Gamepad: left stick arrow, triggers throttle, A fly,
@@ -924,14 +925,16 @@ namespace Ooda.Turn
             if (Pressed(Key.Backspace) || (pad != null && pad.startButton.wasPressedThisFrame)) Restart();
             if (Pressed(Key.R) || (pad != null && pad.buttonEast.wasPressedThisFrame)) { if (phase == Phase.Over && Dogfighting) Restart(); else Replay(); }   // a new one on one once it is over
             if (Pressed(Key.P) || (pad != null && pad.buttonNorth.wasPressedThisFrame)) showProjection = !showProjection;
-            if ((Pressed(Key.V) || (pad != null && pad.rightStickButton.wasPressedThisFrame)) && view != null) view.NextFocus();
+            if ((Pressed(Key.V) && !AltHeld(kb) || (pad != null && pad.rightStickButton.wasPressedThisFrame)) && view != null) view.NextFocus();
+            CameraKeys(kb, pad);
 
-            // Looking around: right-drag, a drag off the arrow, the right stick; the wheel zooms
+            // Looking around: right-drag, a drag off the arrow, the right stick; the wheel zooms; Alt+drag or the middle button pans
             if (view != null)
             {
                 if (mouse != null)
                 {
-                    if (mouse.rightButton.isPressed) view.Orbit(mouse.delta.ReadValue() * 0.25f);
+                    if (mouse.rightButton.isPressed) OrbitOrPan(kb, mouse.delta.ReadValue());
+                    if (mouse.middleButton.isPressed) view.Pan(mouse.delta.ReadValue());
                     float sc = mouse.scroll.ReadValue().y;
                     Vector2 mp = mouse.position.ReadValue();
                     bool overPanel = guiRects.Any(r => r.Contains(new Vector2(mp.x, Screen.height - mp.y) / guiScale));   // the wheel scrolls the help there
@@ -977,7 +980,7 @@ namespace Ooda.Turn
                     else if (guiRects.Any(r => r.Contains(gui))) { }
                     else if (phase == Phase.Planning && !plan.HasMarks && ArrowShown && NearTip(pos)) dragArrow = true;
                     else if (phase == Phase.Planning && plan.portal && placingExit && view != null) { dragExit = true; ExitPress(pos); }
-                    else dragLook = true;
+                    else { dragLook = true; if (DoubleTap(pos)) RecenterView(); }
                 }
                 else if (pointer.press.isPressed)
                 {
@@ -996,7 +999,7 @@ namespace Ooda.Turn
                     else if (dragExit) ExitDrag(pos);
                     else if (dragBurst) SetBurstFromBar(gui.x, false);
                     else if (dragMoves) SetMarkTime(gui.x);
-                    else if (dragLook && view != null && (mouse == null || !mouse.rightButton.isPressed)) view.Orbit((pos - lastPointer) * 0.25f);
+                    else if (dragLook && view != null && (mouse == null || !mouse.rightButton.isPressed)) OrbitOrPan(kb, pos - lastPointer);
                 }
                 if (pointer.press.wasReleasedThisFrame && dragExit) { placingExit = false; Notice("Portal exit placed. Shift+9 or EXIT places it again."); }
                 if (pointer.press.wasReleasedThisFrame) { dragArrow = dragLook = dragMoves = dragStick = dragPedals = dragThrottle = dragMine = dragWell = dragSlow = dragBlink = dragGrapple = dragSnow = dragLane = dragPortalBar = dragExit = false; if (dragBurst) { dragBurst = false; TidyBurst(); } }
@@ -1816,7 +1819,7 @@ namespace Ooda.Turn
 
             // Right: buttons
             float bx = sw - 190, by = 10;
-            Rect buttons = new Rect(bx - 10, 0, 200, 416);
+            Rect buttons = new Rect(bx - 10, 0, 200, 452);
             guiRects.Add(buttons);
             bool planning = phase == Phase.Planning;
             GUI.enabled = planning;
@@ -1830,6 +1833,8 @@ namespace Ooda.Turn
             if (GUI.Button(new Rect(bx, by, 180, 30), showProjection ? "Projection: on  (P)" : "Projection: off  (P)")) { showProjection = !showProjection; }
             by += 36;
             if (GUI.Button(new Rect(bx, by, 180, 30), $"View: {(view != null ? view.focus.ToString() : "-")}  (V)") && view != null) view.NextFocus();
+            by += 36;
+            CameraButtons(bx, by);
             by += 36;
             GUI.enabled = net == null || net.IsHost;
             if (GUI.Button(new Rect(bx, by, 180, 30), "Restart  (Backspace)")) Restart();
@@ -1897,7 +1902,8 @@ namespace Ooda.Turn
                     "A jet: J radar missile, U the radar page; notch a radar missile (fly square across it).\n" +
                     "Z/C rudder pedals (slow and nose-high, the rudder swings the nose: hammerhead).\n" +
                     "Enter fly, R replay, P projection, V view, X straight, M mission, H help.\n" +
-                    "Drag the view or right-drag to look; wheel zooms. F2: the old arrow.\n" +
+                    "Drag the view or right-drag to look; wheel or +/- zooms; Alt+drag or middle-drag pans;\n" +
+                    "Home or double-click recenters behind you; Alt+V the view follows your heading or not. F2: the old arrow.\n" +
                     "Pad: left stick arrow, triggers throttle, A fly, X bursts,\n" +
                     "RB fire at predicted hits, Y projection, B replay, right stick look,\n" +
                     "d-pad right rocket, left speed brake, View button your next plane.";
