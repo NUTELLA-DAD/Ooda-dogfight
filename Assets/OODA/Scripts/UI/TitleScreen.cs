@@ -18,6 +18,9 @@ namespace Ooda.UI
     /// </summary>
     public partial class TitleScreen : MonoBehaviour
     {
+        /// <summary>The game's name, as the player sees it on the title and the briefing bar (the build's product name is set to match in Project Settings).</summary>
+        public const string GameName = "Furball";
+
         /// <summary>The mission picked here (TurnBattle.Mission's order: Squadron, Escort, Dogfight, ValleyRun, TownStrike), for the battle to read.</summary>
         public static int? ChosenMission;
         /// <summary>The dogfight's sides picked here: your planes and the enemy's, 1 to 4 each.</summary>
@@ -346,7 +349,7 @@ namespace Ooda.UI
 
             if (missions.open) { MissionKeys(missions.Draw(sw, sh)); return; }
             if (setup.open) { SetupKeys(setup.Draw(sw, sh)); return; }
-            Shadowed(new Rect(0, sh * 0.08f, sw, 140), "OODA", title);
+            Shadowed(new Rect(0, sh * 0.08f, sw, 140), GameName.ToUpperInvariant(), title);
             Shadowed(new Rect(0, sh * 0.08f + 130, sw, 40), "Observe  ·  Orient  ·  Decide  ·  Act", sub);
             Shadowed(new Rect(0, sh * 0.08f + 168, sw, 34), "Dogfights over the Alps", note);
 
