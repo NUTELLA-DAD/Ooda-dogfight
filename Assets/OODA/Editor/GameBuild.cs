@@ -29,7 +29,7 @@ namespace Ooda.EditorTools
             if (Application.isBatchMode && report.summary.result != BuildResult.Succeeded) EditorApplication.Exit(1);
         }
 
-        const string IconPath = "Assets/OODA/Art/FurballIcon.png";   // redrawn by Tools~/ArtPipeline/furball_icon.py
+        const string IconPath = "Assets/OODA/Art/FurballIcon.png";   // Kenny's art, cropped square to 1024 px
 
         /// <summary>OODA > Set Game Icon: the red and blue turn circles as the exe's and the window's icon. It is kept in
         /// Project Settings, so builds from File > Build Profiles get it too; Build Windows Game sets it each time.</summary>
