@@ -31,6 +31,19 @@ namespace Ooda.App
         /// <summary>A player who has neither flown a lesson nor declined: offer training before their first fight.</summary>
         public static bool OfferTraining => LessonsDone == 0 && !SkippedTraining;
 
+        const string WinsKey = "Record.Wins", LossesKey = "Record.Losses", DrawsKey = "Record.Draws";
+        public static int Wins => PlayerPrefs.GetInt(WinsKey, 0);
+        public static int Losses => PlayerPrefs.GetInt(LossesKey, 0);
+        public static int Draws => PlayerPrefs.GetInt(DrawsKey, 0);
+
+        /// <summary>A fight ended: one more on the record.</summary>
+        public static void FightFlown(bool won, bool draw)
+        {
+            string key = draw ? DrawsKey : won ? WinsKey : LossesKey;
+            PlayerPrefs.SetInt(key, PlayerPrefs.GetInt(key, 0) + 1);
+            PlayerPrefs.Save();
+        }
+
         /// <summary>The battle's help panel: closed until the player opens it, then as they left it.</summary>
         public static bool HelpOpen
         {

@@ -365,7 +365,7 @@ namespace Ooda.Turn
 
         // ---------- the log, and how far the ghost was off ----------
 
-        int fightNo, fightBursts, fightHits, fightTaken;
+        int fightNo, fightBursts, fightHits, fightTaken, fightKills;
         double fightBurstSec;
         bool fightLogged;
         // the bot's running totals
@@ -392,7 +392,7 @@ namespace Ooda.Turn
         {
             ghostReport = null;
             if (!Dogfighting) return;
-            fightNo++; fightBursts = fightHits = fightTaken = 0; fightBurstSec = 0; fightLogged = false;
+            fightNo++; fightBursts = fightHits = fightTaken = fightKills = 0; fightBurstSec = 0; fightLogged = false; debrief = null;
             Log($"fight {fightNo} begins over {ArenaName}: {Scenarios.Name(dogStart)}{(bot ? " (bot)" : "")}");
         }
 
@@ -404,7 +404,7 @@ namespace Ooda.Turn
             int hits = last.hits.Count(h => h.shooter == 0), taken = last.hits.Count(h => h.target == 0);
             double burst = Math.Abs(plan.burstEnd - plan.burstStart);
             if (burst > 0) { fightBursts++; fightBurstSec += burst; }
-            fightHits += hits; fightTaken += taken;
+            fightHits += hits; fightTaken += taken; fightKills += last.hits.Count(h => h.shooter == 0 && h.downed);
             if (rd?.spread != null && rd.target >= 0 && rd.target < battle.Count)
             {
                 int j = rd.target;
@@ -428,11 +428,29 @@ namespace Ooda.Turn
             if (bot && onLead && rd != null) { botLeadTurns++; botLeadHitsSaid += rd.leadHits; botLeadHitsGot += hits; }
         }
 
+        /// <summary>The end screen's second line: what your own plane did in the fight, and your record over every fight flown.</summary>
+        string debrief;
+
+        void Debrief()
+        {
+            string guns = fightBursts == 0 ? "no bursts fired"
+                : $"{fightBursts} burst{(fightBursts == 1 ? "" : "s")} ({fightBurstSec:F1} s), {fightHits} hit{(fightHits == 1 ? "" : "s")}";
+            debrief = $"{battle.turn} turn{(battle.turn == 1 ? "" : "s")}   ·   {guns}   ·   hit {fightTaken} time{(fightTaken == 1 ? "" : "s")}";
+            if (fightKills > 0) debrief += $"   ·   {fightKills} shot down by your guns";
+            if (bot || tutorial || outcome == null) return;
+            // the record: fights against the AI, and with a friend against it (not versus, where one of you always loses)
+            if (Online && net != null && net.setup != null && net.setup.versus) return;
+            bool won = outcome.Contains("win"), draw = outcome.Contains("draw");
+            Ooda.App.Progress.FightFlown(won, draw);
+            debrief += $"\nYour record: {Ooda.App.Progress.Wins} won, {Ooda.App.Progress.Losses} lost" + (Ooda.App.Progress.Draws > 0 ? $", {Ooda.App.Progress.Draws} drawn" : "");
+        }
+
         void FightOver()
         {
             if (fightLogged || !Dogfighting) return;
             fightLogged = true;
             if (bot) { if (battle.Out(1) && !battle.Out(0)) botKills++; else if (battle.Out(0) && !battle.Out(1)) botLosses++; else botDraws++; }
+            Debrief();
             Log($"fight {fightNo} over after {battle.turn} turns: {outcome ?? "stopped"}  bursts {fightBursts} ({fightBurstSec:F1} s), hits {fightHits}, hit by {fightTaken}, ammo left {battle.ammo[0]:F1} s");
         }
 

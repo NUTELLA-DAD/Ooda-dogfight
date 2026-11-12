@@ -200,7 +200,7 @@ The first time someone presses **Play** without having flown a lesson, the title
 
 ### The menu and the replay
 
-**Esc** (or the **Menu** button under Help) pauses the battle and opens the menu: Resume, Restart mission, Main menu (back to the title screen) and Quit game. When the fight is over the end screen has **Watch replay** (W), **Fly again** and **Main menu**.
+**Esc** (or the **Menu** button under Help) pauses the battle and opens the menu: Resume, Restart mission, Main menu (back to the title screen) and Quit game. When the fight is over the end screen has **Watch replay** (W), **Fly again** and **Main menu**. After a dogfight it also gives a debrief of your own plane (turns, bursts and hits, how often you were hit, kills by your guns) and your record over every fight flown, kept between runs.
 
 **The replay** flies the whole fight again, turn after turn, with the tracers, the hits, the smoke and the pilots' gestures. Every turn is kept as it is flown, by aircraft in their starting order (`TurnBattle.Replay.cs`), so it follows each plane even after you Tab between yours. Any camera on any aircraft: **V** (or the View button) steps through chase, target, both and cockpit, **C** jumps in and out of the cockpit, **Tab** follows the next plane (Shift+Tab back, the pad's bumpers). **Space** pauses, the left and right arrows step a turn, up and down change the speed (a quarter to four times), the bar along the bottom jumps anywhere in the fight, and **Backspace** (pad B) leaves the replay. Drag or right-drag to look round, the wheel zooms.
 

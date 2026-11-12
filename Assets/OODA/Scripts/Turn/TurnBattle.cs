@@ -1870,9 +1870,12 @@ namespace Ooda.Turn
             if (phase == Phase.Over && outcome != null)
             {
                 GUI.Label(new Rect(0, sh * 0.3f, sw, 50), outcome, big);
-                GUI.Label(new Rect(0, sh * 0.3f + 50, sw, 30), tape.Count > 0 ? "Watch the whole fight again from any camera, fly it again, or go back to the main menu." : "Fly it again, or go back to the main menu.", new GUIStyle(label) { alignment = TextAnchor.MiddleCenter });
+                // under it the debrief (a dogfight's), or failing that what the buttons do
+                string under = Dogfighting && debrief != null ? debrief : tape.Count > 0 ? "Watch the whole fight again from any camera, fly it again, or go back to the main menu." : "Fly it again, or go back to the main menu.";
+                float underH = under.Contains("\n") ? 52 : 30;
+                GUI.Label(new Rect(0, sh * 0.3f + 50, sw, underH), under, new GUIStyle(label) { alignment = TextAnchor.MiddleCenter, fontSize = 17 });
                 bool was = GUI.enabled;
-                EndButtons(sw, sh * 0.3f + 92);
+                EndButtons(sw, sh * 0.3f + 62 + underH);
                 GUI.enabled = was;
             }
             if (notice != null && Time.time < noticeUntil)
