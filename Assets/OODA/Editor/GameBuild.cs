@@ -1,6 +1,7 @@
 using System.IO;
 using System.Linq;
 using UnityEditor;
+using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
 
@@ -16,6 +17,7 @@ namespace Ooda.EditorTools
         [MenuItem("OODA/Build Windows Game")]
         public static void Windows()
         {
+            ApplyIcon();
             MissileRacks.Fit();   // the wing hardpoints from the airframes as they are now (a game build can't read the meshes)
             var args = System.Environment.GetCommandLineArgs();
             int at = System.Array.IndexOf(args, "-buildPath");
@@ -25,6 +27,20 @@ namespace Ooda.EditorTools
             var report = BuildPipeline.BuildPlayer(scenes, path, BuildTarget.StandaloneWindows64, BuildOptions.None);
             Debug.Log($"OODA: build {report.summary.result} to {path}: {report.summary.totalErrors} errors, {report.summary.totalSize / 1048576} MB");
             if (Application.isBatchMode && report.summary.result != BuildResult.Succeeded) EditorApplication.Exit(1);
+        }
+
+        const string IconPath = "Assets/OODA/Art/FurballIcon.png";   // redrawn by Tools~/ArtPipeline/furball_icon.py
+
+        /// <summary>OODA > Set Game Icon: the red and blue turn circles as the exe's and the window's icon. It is kept in
+        /// Project Settings, so builds from File > Build Profiles get it too; Build Windows Game sets it each time.</summary>
+        [MenuItem("OODA/Set Game Icon")]
+        public static void ApplyIcon()
+        {
+            var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(IconPath);
+            if (tex == null) { Debug.LogWarning($"OODA: no game icon at {IconPath}; the build keeps Unity's."); return; }
+            PlayerSettings.SetIcons(NamedBuildTarget.Unknown, new[] { tex }, IconKind.Any);
+            AssetDatabase.SaveAssets();
+            Debug.Log($"OODA: game icon set from {IconPath} ({tex.width}x{tex.height}).");
         }
     }
 }
