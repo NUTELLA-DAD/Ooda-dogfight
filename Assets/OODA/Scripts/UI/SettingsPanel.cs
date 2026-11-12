@@ -58,19 +58,20 @@ namespace Ooda.UI
         /// <summary>Draw the rows at x, y, w wide (Height tall). skillLocked: the pilots can't be changed here (mid-fight they are already flying).</summary>
         public static void Draw(float x, float y, float w, GUIStyle label, bool skillLocked = false)
         {
-            const float lw = 110;
+            const float lw = 150;
+            var button = new GUIStyle(GUI.skin.button) { fontSize = label.fontSize };   // the buttons' text the size of the rows' labels
             float vol = Ooda.Audio.GameAudio.Volume;
             GUI.Label(new Rect(x, y + 6, lw, 24), $"Volume {vol * 100:F0}", label);
             float v = GUI.HorizontalSlider(new Rect(x + lw, y + 14, w - lw, 20), vol, 0f, 1f);
             if (Mathf.Abs(v - vol) > 0.004f) Ooda.Audio.GameAudio.Volume = v;
             y += RowH;
             GUI.Label(new Rect(x, y + 6, lw, 24), "Display", label);
-            if (GUI.Button(new Rect(x + lw, y, w - lw, 32), DisplayName())) NextDisplay();
+            if (GUI.Button(new Rect(x + lw, y, w - lw, 32), DisplayName(), button)) NextDisplay();
             y += RowH;
             GUI.Label(new Rect(x, y + 6, lw, 24), "Enemy pilots", label);
             bool was = GUI.enabled;
             GUI.enabled = was && !skillLocked;
-            if (GUI.Button(new Rect(x + lw, y, w - lw, 32), skillLocked ? $"{EnemySkillName} (next fight)" : EnemySkillName)) EnemySkill = (EnemySkill + 1) % SkillNames.Length;
+            if (GUI.Button(new Rect(x + lw, y, w - lw, 32), skillLocked ? $"{EnemySkillName} (next fight)" : EnemySkillName, button)) EnemySkill = (EnemySkill + 1) % SkillNames.Length;
             GUI.enabled = was;
         }
     }
