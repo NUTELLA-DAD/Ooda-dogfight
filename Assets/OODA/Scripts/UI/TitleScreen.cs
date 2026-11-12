@@ -160,6 +160,12 @@ namespace Ooda.UI
             var pad = Gamepad.current;
             if (missions.open) { MissionKeys(missions.Keys()); return; }   // the mission briefing, after the squadron briefing's Ready
             if (setup.open) { SetupKeys(setup.Keys()); return; }   // the dogfight's briefing has the keys while it is up
+            if (offerOpen)   // training offered: Enter or T takes it, Esc goes back to the title
+            {
+                if (kb != null && (kb.enterKey.wasPressedThisFrame || kb.numpadEnterKey.wasPressedThisFrame || kb.tKey.wasPressedThisFrame) || pad != null && pad.buttonSouth.wasPressedThisFrame) { offerOpen = false; PlayTutorial(); }
+                else if (kb != null && kb.escapeKey.wasPressedThisFrame || pad != null && pad.buttonEast.wasPressedThisFrame) offerOpen = false;
+                return;
+            }
             if (kb != null && kb.oKey.wasPressedThisFrame) { OpenLobby(); return; }
             if (kb != null && kb.tKey.wasPressedThisFrame) { PlayTutorial(); return; }
             if ((kb != null && (kb.leftArrowKey.wasPressedThisFrame || kb.aKey.wasPressedThisFrame)) || (pad != null && pad.dpad.left.wasPressedThisFrame)) pick = Menu[(MenuIndex + Menu.Length - 1) % Menu.Length];
@@ -244,8 +250,25 @@ namespace Ooda.UI
 
         public void Play()
         {
+            if (Ooda.App.Progress.OfferTraining && !offerOpen && !offerAnswered) { offerOpen = true; return; }   // a new player: training first?
+            offerOpen = false;
             if (pick == 2) { setup.open = true; return; }   // the dogfight opens its briefing first
             LoadBattle();
+        }
+
+        /// <summary>The first time Play is pressed by someone who has flown no lesson: training is offered, once.</summary>
+        bool offerOpen, offerAnswered;
+
+        void OfferGUI(float sw, float sh)
+        {
+            float w = 620, h = 230, x = (sw - w) / 2, y = (sh - h) / 2;
+            GUI.Box(new Rect(x, y, w, h), GUIContent.none);
+            GUI.Box(new Rect(x, y, w, h), GUIContent.none);
+            GUI.Label(new Rect(x, y + 18, w, 40), "First time flying?", sub);
+            var body = new GUIStyle(note) { wordWrap = true };
+            GUI.Label(new Rect(x + 30, y + 64, w - 60, 70), $"Training teaches a dogfight in {Tutorial.Count} short lessons: planning a turn, turning hard, guns, and getting out of trouble.", body);
+            if (GUI.Button(new Rect(x + 30, y + h - 76, 270, 52), "Start training", picked)) { offerOpen = false; PlayTutorial(); }
+            if (GUI.Button(new Rect(x + w - 300, y + h - 76, 270, 52), "Skip, just fly", button)) { Ooda.App.Progress.SkippedTraining = true; offerAnswered = true; Play(); }
         }
 
         /// <summary>Into the turn battle with the picked mission (and the dogfight's setup, DogfightSetupScreen.Chosen).</summary>
@@ -306,9 +329,18 @@ namespace Ooda.UI
         public void PlayTutorial()
         {
             TurnBattle.TutorialRequested = true;
-            TurnBattle.TutorialStartLesson = 0;
+            int done = Ooda.App.Progress.LessonsDone;
+            TurnBattle.TutorialStartLesson = done < Tutorial.Count ? done : 0;   // on from where they left off; all done, from the top
             ChosenMission = (int)TurnBattle.Mission.Dogfight;
             SceneManager.LoadScene(battleScene);
+        }
+
+        void QuitGame()
+        {
+            Application.Quit();
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.isPlaying = false;
+#endif
         }
 
         /// <summary>The jet test, if it has been built into the game.</summary>
@@ -341,19 +373,28 @@ namespace Ooda.UI
                 black.Apply();
             }
             float sw = Screen.width, sh = Screen.height;
+            var unscaled = GUI.matrix;
             // a dip to black between the shots
             float fade = Mathf.Max(Mathf.InverseLerp(fadeSec, 0f, clock), Mathf.InverseLerp(shotSec - fadeSec, shotSec, clock));
             if (fade > 0 && !setup.open) { GUI.color = new Color(1, 1, 1, fade); GUI.DrawTexture(new Rect(0, 0, sw, sh), black); GUI.color = Color.white; }
 
             if (missions.open) { MissionKeys(missions.Draw(sw, sh)); return; }
             if (setup.open) { SetupKeys(setup.Draw(sw, sh)); return; }
+            // the title's own text and buttons are laid out for a 1600 x 900 screen and scaled up on a bigger one, as the battle's are
+            float k = Mathf.Clamp(Mathf.Min(sh / 900f, sw / 1600f), 1f, 2.5f);
+            GUI.matrix = unscaled * Matrix4x4.Scale(new Vector3(k, k, 1));
+            sw /= k; sh /= k;
             Shadowed(new Rect(0, sh * 0.08f, sw, 140), "OODA", title);
             Shadowed(new Rect(0, sh * 0.08f + 130, sw, 40), "Observe  ·  Orient  ·  Decide  ·  Act", sub);
             Shadowed(new Rect(0, sh * 0.08f + 168, sw, 34), "Dogfights over the Alps", note);
 
             if (lobbyOpen) { LobbyGUI(sw, sh); return; }
             if (GUI.Button(new Rect(24, sh - 72, 212, 48), "Online (O)", button)) OpenLobby();
-            if (GUI.Button(new Rect(24, sh - 128, 212, 48), "Training (T)", picked)) PlayTutorial();   // new players start here
+            if (offerOpen) { OfferGUI(sw, sh); return; }
+            int lessons = Ooda.App.Progress.LessonsDone;
+            string training = lessons == 0 ? "Training (T)" : lessons < Tutorial.Count ? $"Training {lessons + 1}/{Tutorial.Count} (T)" : "Training ✓ (T)";
+            if (GUI.Button(new Rect(24, sh - 128, 212, 48), training, lessons < Tutorial.Count ? picked : button)) PlayTutorial();   // new players start here
+            if (GUI.Button(new Rect(sw - 236, sh - 128, 212, 48), "Quit", button)) QuitGame();
             float bw = 260, gap = 16, total = Menu.Length * bw + (Menu.Length - 1) * gap;
             float x = (sw - total) / 2, y = sh - 230;
             for (int i = 0; i < Menu.Length; i++)

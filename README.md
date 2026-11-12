@@ -194,6 +194,10 @@ A missile's or a balloon mine's blast wears every system at once, by its damage 
 
 Pull too hard for too long and the pilot blacks out. Past 6 G he builds up G stress (G-seconds over 6); at 4.5 of it he is out cold for 4 s: the stick and pedals go slack, the aircraft unloads to 1 G and flies on however it was banked, and nothing he planned happens until he comes round. Only once he unloads, under 3 G, does the stress drain, at 1 a second. So 8 G holds about 2 s past the onset, 7 G about 4 s, 6.5 G about 9 s: one full pull at speed greys you out but two in a row black you out, and slow, the wing can't pull the G to do it. While planning the warning line says when the turn would black you out (G-LOC); in playback the screen greys in from the edges as the stress climbs and goes dark with G-LOC across it while you are out. The AI pilots avoid it. The numbers are `GlocOnsetG`, `GlocLimit`, `GlocRecoverG`, `GlocRecoverPerSec` and `GlocSec` in `FlightModel` (free flight blacks out too).
 
+### A new player's first minutes
+
+The first time someone presses **Play** without having flown a lesson, the title offers training (**Start training**, or **Skip, just fly**, which is not asked again). Finished lessons are remembered (`App/Progress.cs`, in PlayerPrefs): the Training button shows the next one (Training 3/7) and opens there. In a fight the help panel starts closed, with one line for the first two turns saying what to do and that **H** opens the controls; once opened or closed it stays as the player left it. The title's own text and buttons scale up on screens bigger than 1600 x 900, as the battle's do, and it has a **Quit** button.
+
 ### The menu and the replay
 
 **Esc** (or the **Menu** button under Help) pauses the battle and opens the menu: Resume, Restart mission, Main menu (back to the title screen) and Quit game. When the fight is over the end screen has **Watch replay** (W), **Fly again** and **Main menu**.

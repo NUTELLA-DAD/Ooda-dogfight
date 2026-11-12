@@ -914,7 +914,7 @@ namespace Ooda.Turn
             float dt = Time.unscaledDeltaTime;
 
             bool Pressed(Key k) => kb != null && kb[k].wasPressedThisFrame;
-            if (Pressed(Key.H)) showHelp = !showHelp;
+            if (Pressed(Key.H)) { showHelp = !showHelp; if (!tutorial) Ooda.App.Progress.HelpOpen = showHelp; }
             if (Pressed(Key.W) && CanWatchReplay) { StartReplay(); return; }
             if (Pressed(Key.M)) SwitchMission();
             if (Pressed(Key.O)) SwitchOoda();
@@ -1843,7 +1843,7 @@ namespace Ooda.Turn
             if (ooda) oodaStyle.normal.textColor = oodaStyle.hover.textColor = new Color(1f, 0.85f, 0.2f);
             if (GUI.Button(new Rect(bx, by, 180, 30), ooda ? $"OODA: {turnSec:0.#} s turns  (O)" : "OODA  (O)", oodaStyle)) SwitchOoda();
             by += 36;
-            if (GUI.Button(new Rect(bx, by, 180, 30), showHelp ? "Hide help  (H)" : "Help  (H)")) showHelp = !showHelp;
+            if (GUI.Button(new Rect(bx, by, 180, 30), showHelp ? "Hide help  (H)" : "Help  (H)")) { showHelp = !showHelp; if (!tutorial) Ooda.App.Progress.HelpOpen = showHelp; }
             by += 36;
             if (GUI.Button(new Rect(bx, by, 180, 30), "Menu  (Esc)")) OpenMenu(true);
 
@@ -1878,6 +1878,9 @@ namespace Ooda.Turn
             if (notice != null && Time.time < noticeUntil)
                 GUI.Label(new Rect(0, sh * 0.22f, sw, 30), notice, new GUIStyle(label) { alignment = TextAnchor.MiddleCenter, fontSize = 18 });
             NetGUI(sw, label);
+            // the first two turns of a fight, with the help closed: the one thing to do, and where the rest is
+            if (!showHelp && !tutorial && !bot && planning && battle.turn < 2 && warning == null)
+                GUI.Label(new Rect(0, sh * 0.16f, sw, 26), "Drag the stick to aim where your nose points, then Fly turn (Enter).  H shows every control.", new GUIStyle(label) { alignment = TextAnchor.MiddleCenter, fontSize = 17 });
 
             if (showHelp)
             {
