@@ -24,13 +24,11 @@ namespace Ooda.UI
         BriefingStage stage;
         float t;
 
-        // the map texture: the island on the left, the city's island on the right (the sea between them shortened)
+        // the map texture: the whole island, the Alps on the left, the east lands (the city, the desert) on the right
         const int TexW = 1024, TexH = 640;
-        const float IslandPx0 = 40, IslandPy0 = 24, IslandSizePx = 592;   // the island's 20 km square, pixels
-        const float IslandHalfM = 10000f;
-        const float Scale = IslandSizePx / (2 * IslandHalfM);              // pixels a metre, the same for both
-        const float CityCx = 838, CityCy = 320;                         // where the city's middle is drawn
-        const float BreakPx = 690;                                      // the cut in the sea between them
+        const float MapW0 = -10600f, MapW1 = 28600f, MapS0 = -10000f;   // the world from the west edge to past the east coast, m
+        const float Scale = (TexW - 48f) / (MapW1 - MapW0);             // pixels a metre
+        const float MapPy0 = (TexH - 20000f * Scale) / 2;               // the island's 20 km north to south, centred
         static Texture2D map;
 
         /// <summary>Open on the stage the squadron briefing stands on: the table goes up, the pick starts on the setup's arena.</summary>
@@ -305,12 +303,12 @@ namespace Ooda.UI
         static Vector2 MissionUv(int i)
         {
             var a = Arenas.Get(Campaign.Get(i).arena);
-            var p = Arenas.IsCity(Campaign.Get(i).arena) ? CityPx((float)a.x, (float)a.z) : IslandPx((float)a.x, (float)a.z);
+            var p = WorldPx((float)a.x, (float)a.z);
             return new Vector2(p.x / TexW, p.y / TexH);
         }
 
-        static Vector2 IslandPx(float x, float z) => new Vector2(IslandPx0 + (x + IslandHalfM) * Scale, IslandPy0 + (z + IslandHalfM) * Scale);
-        static Vector2 CityPx(float x, float z) => new Vector2(CityCx + (x - City.CentreX) * Scale, CityCy + (z - City.CentreZ) * Scale);
+        static Vector2 WorldPx(float x, float z) => new Vector2(24 + (x - MapW0) * Scale, MapPy0 + (z - MapS0) * Scale);
+        static Vector2 PxWorld(float px, float py) => new Vector2((px - 24) / Scale + MapW0, (py - MapPy0) / Scale + MapS0);
 
         // the island's two lakes (as AlpineLayout lays them out: centre, half-axes, level, metres)
         static readonly (float x, float z, float rx, float rz, float level)[] Lakes = { (0, -1750, 340, 880, 175), (4350, 5820, 240, 150, 1098) };
@@ -318,15 +316,17 @@ namespace Ooda.UI
         /// <summary>
         /// The island painted as an old campaign map, from the terrain's own heights: a teal sea with paler shallows and an inked
         /// coast, meadows and the farmland's patchwork low down, woods up the slopes, rock and snow on the peaks, contour
-        /// lines every 250 m, shaded from the north-west; the lakes, the runway, the city's blocks and river out to the east;
+        /// lines every 250 m, shaded from the north-west; the lakes, the runway, the city's blocks and river on the east coast,
+        /// the desert's sand south and east of it with its pyramids and obelisks inked in;
         /// the campaign's route dotted in gold from pin to pin; on parchment with a worn, darkened edge.
         /// </summary>
         static Texture2D Paint()
         {
             var terrain = Terrain.activeTerrain;
             var city = City.Skyline;
+            var east = Eastland.Land;
             var hgt = new float[TexW * TexH];      // metres; < 0 the sea
-            var kind = new byte[TexW * TexH];      // 0 sea, 1 land, 2 lake, 3 city ground, 4 tower, 5 river
+            var kind = new byte[TexW * TexH];      // 0 sea, 1 land, 2 lake, 3 city ground, 4 tower, 5 river, 6 stone
             Bounds tb = default;
             if (terrain != null) { var d = terrain.terrainData; tb = new Bounds(terrain.transform.position + d.size / 2, d.size); }
             for (int y = 0; y < TexH; y++)
@@ -334,9 +334,23 @@ namespace Ooda.UI
                 {
                     int i = y * TexW + x;
                     hgt[i] = -1;
-                    if (x < BreakPx)
+                    var w = PxWorld(x + 0.5f, y + 0.5f);
+                    float wx = w.x, wz = w.y;
+                    if (city != null && city.Over(wx, wz))
                     {
-                        float wx = (x + 0.5f - IslandPx0) / Scale - IslandHalfM, wz = (y + 0.5f - IslandPy0) / Scale - IslandHalfM;
+                        float top = (float)city.HeightM(wx, wz);
+                        hgt[i] = top;
+                        kind[i] = (byte)(Mathf.Abs(wx - City.CentreX) < City.RiverHalfM ? 5 : top > City.StreetM + 0.5f ? 4 : 3);
+                    }
+                    else if (Eastland.Over(wx, wz))
+                    {
+                        float g = (float)east.GroundM(wx, wz);
+                        hgt[i] = g;
+                        if (g < 1.5f) { if (g > -20f && g < -4f && Eastland.ValleyWeight(wx, wz) > 0.5f) kind[i] = 5; continue; }   // the river and the oasis
+                        kind[i] = (byte)(east.MonumentM(wx, wz) > g + 0.5f ? 6 : 1);
+                    }
+                    else
+                    {
                         if (terrain == null || wx < tb.min.x || wx > tb.max.x || wz < tb.min.z || wz > tb.max.z) continue;
                         float g = terrain.SampleHeight(new Vector3(wx, 0, wz)) + terrain.transform.position.y;
                         hgt[i] = g;
@@ -347,14 +361,6 @@ namespace Ooda.UI
                             float ex = (wx - l.x) / l.rx, ez = (wz - l.z) / l.rz;
                             if (ex * ex + ez * ez < 1.3f && g <= l.level + 2f) kind[i] = 2;
                         }
-                    }
-                    else
-                    {
-                        float wx = (x + 0.5f - CityCx) / Scale + City.CentreX, wz = (y + 0.5f - CityCy) / Scale + City.CentreZ;
-                        if (city == null || !city.Over(wx, wz)) continue;
-                        float top = (float)city.HeightM(wx, wz);
-                        hgt[i] = top;
-                        kind[i] = (byte)(Mathf.Abs(wx - City.CentreX) < City.RiverHalfM ? 5 : top > City.StreetM + 0.5f ? 4 : 3);
                     }
                 }
 
@@ -389,6 +395,7 @@ namespace Ooda.UI
                     if (kd == 0) c = Color.Lerp(sea, shallow, near[i] * near[i]);
                     else if (kd == 2 || kd == 5) c = lake;
                     else if (kd == 3) c = new Color(0.78f, 0.75f, 0.68f);
+                    else if (kd == 6) c = new Color(0.42f, 0.30f, 0.17f);     // a pyramid or an obelisk, inked in
                     else if (kd == 4)
                     {
                         float tall = Mathf.InverseLerp(0, 300, hgt[i]);
@@ -397,7 +404,8 @@ namespace Ooda.UI
                     else
                     {
                         float g = hgt[i];
-                        float wx = (x + 0.5f - IslandPx0) / Scale - IslandHalfM, wz = (y + 0.5f - IslandPy0) / Scale - IslandHalfM;
+                        var w = PxWorld(x + 0.5f, y + 0.5f);
+                        float wx = w.x, wz = w.y;
                         // meadow low down, the farmland's patchwork of fields in the south, woods, then rock and snow
                         var meadow = new Color(0.60f, 0.71f, 0.37f);
                         if (wz < -3200 && g < 320)
@@ -411,6 +419,12 @@ namespace Ooda.UI
                         c = Color.Lerp(meadow, woods, woodsAmt);
                         c = Color.Lerp(c, new Color(0.58f, 0.54f, 0.48f), Mathf.InverseLerp(1450, 1750, g));
                         c = Color.Lerp(c, new Color(0.97f, 0.97f, 0.95f), Mathf.InverseLerp(1850, 2100, g));
+                        // the east lands: sand in the desert, the river's valley green with fields
+                        if (wx > Eastland.X0 - 1)
+                        {
+                            float dw = (float)Eastland.DesertWeight(wx, wz) * (1 - (float)Eastland.ValleyWeight(wx, wz));
+                            c = Color.Lerp(new Color(0.60f, 0.71f, 0.37f), new Color(0.90f, 0.79f, 0.52f), dw);
+                        }
                         // shaded from the north-west
                         float dx = hgt[y * TexW + Mathf.Min(TexW - 1, x + 1)] - hgt[y * TexW + Mathf.Max(0, x - 1)];
                         float dz = hgt[Mathf.Min(TexH - 1, y + 1) * TexW + x] - hgt[Mathf.Max(0, y - 1) * TexW + x];
@@ -429,9 +443,23 @@ namespace Ooda.UI
             var rs = GameObject.Find("RunwayStart");
             var re = GameObject.Find("RunwayEnd");
             if (rs != null && re != null)
-                Line(px, IslandPx(rs.transform.position.x, rs.transform.position.z), IslandPx(re.transform.position.x, re.transform.position.z), 2.2f, new Color(0.35f, 0.33f, 0.30f));
-            // the cut in the sea between the island and the city, and the route from pin to pin
-            for (int y = 30; y < TexH - 30; y += 22) Line(px, new Vector2(BreakPx - 8, y), new Vector2(BreakPx + 8, y + 11), 1.2f, Color.Lerp(sea, ink, 0.5f));
+                Line(px, WorldPx(rs.transform.position.x, rs.transform.position.z), WorldPx(re.transform.position.x, re.transform.position.z), 2.2f, new Color(0.35f, 0.33f, 0.30f));
+            // the pyramids and the obelisks, bigger than life so they read: a shaded triangle each, a dot each
+            foreach (var py in Eastland.Pyramids)
+            {
+                var c = WorldPx(py.x, py.z);
+                float r = Mathf.Max(3f, py.half * Scale * 1.6f);
+                for (int y = (int)(c.y - r); y <= (int)(c.y + r); y++)
+                    for (int x = (int)(c.x - r); x <= (int)(c.x + r); x++)
+                    {
+                        if (x < 0 || y < 0 || x >= TexW || y >= TexH) continue;
+                        float u = (x + 0.5f - c.x) / r, v = (y + 0.5f - c.y) / r;   // v up the texture is north; the apex points north
+                        if (v < -1 || v > 1 || Mathf.Abs(u) > (1 - v) / 2) continue;
+                        px[y * TexW + x] = u < 0 ? new Color(0.93f, 0.80f, 0.50f) : new Color(0.62f, 0.47f, 0.27f);
+                    }
+            }
+            foreach (var o in Eastland.Obelisks) Dot(px, WorldPx(o.x, o.z), 1.1f, ink);
+            // the route from pin to pin
             for (int m = 0; m + 1 < Campaign.Count; m++)
             {
                 Vector2 a = Vector2.Scale(MissionUv(m), new Vector2(TexW, TexH)), b = Vector2.Scale(MissionUv(m + 1), new Vector2(TexW, TexH));

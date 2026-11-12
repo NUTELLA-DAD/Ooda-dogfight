@@ -14,12 +14,15 @@ namespace Ooda.EditorTools
     /// pine valleys: the chalet lake with its village and church at the north end, the main valley weaving north from it
     /// between mountains, and the railway crossing it on a stone viaduct. The north is the snowy peaks: tall rock and snow,
     /// the bowl of the Peak Maze with canyons leading out of it, and the high pass the railway climbs to, through tunnels
-    /// and over viaducts. The dogfight's four arenas (Ooda.Turn.Core.Arenas) are carved and kept clear here.
+    /// and over viaducts. The dogfight's arenas on the island (Ooda.Turn.Core.Arenas) are carved and kept clear here. The east
+    /// edge has no coast: the land runs on into the east lands (Ooda.Turn.Core.Eastland), where the city and the desert are.
     /// Units are metres, Unity x east and z north; heights are above the sea.
     /// </summary>
     internal static partial class AlpineWorld
     {
         public const float Size = 20000f, Base = -80f, Height = 7000f;   // room for the mountain models over the noise peaks
+        /// <summary>Where the Alps start easing into the east lands' ground, and where they are wholly it (m east): the coast's old place.</summary>
+        const float EastFrom = 8400f, EastTo = 9800f;
         const int Res = 1025;                      // heightmap: about 20 m a sample
         const int SplatRes = 1024;
         const float Cell = Size / (Res - 1);
@@ -667,14 +670,18 @@ namespace Ooda.EditorTools
                         h[j, i] = Mathf.Min(h[j, i], target);
                     }
 
-            // the island: down to the sea floor at the edges
+            // the island: down to the sea floor at the west, north and south edges; to the east it runs on into the east lands
+            // (Ooda.Turn.Core.Eastland: the plain, the city, the desert), easing into their ground over the last 1.6 km, so the
+            // two meet at the edge (x = Eastland.X0) without a step
             for (int j = 0; j < Res; j++)
                 for (int i = 0; i < Res; i++)
                 {
-                    float d = Mathf.Max(Mathf.Abs(X(i)), Mathf.Abs(X(j))) / (Size / 2);
+                    float d = Mathf.Max(Mathf.Max(-X(i), 0f), Mathf.Abs(X(j))) / (Size / 2);
                     d += 0.04f * (Mathf.PerlinNoise(X(i) * 0.0004f + 2, X(j) * 0.0004f + 6) - 0.5f);
                     float e = Mathf.SmoothStep(0, 1, Mathf.InverseLerp(0.84f, 0.98f, d));
                     h[j, i] = Mathf.Lerp(h[j, i], Base + 20f, e);
+                    float east = Step(EastFrom, EastTo, X(i));
+                    if (east > 0) h[j, i] = Mathf.Lerp(h[j, i], (float)Eastland.Raw(X(i), X(j)), east);
                 }
             // and the river again, now the lakes, the railway's cuttings and the coast are in: its water settles under the ground
             // as it is now, so it shows all the way down

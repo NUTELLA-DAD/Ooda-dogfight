@@ -5,8 +5,8 @@ using Ooda.Flight.Core;
 namespace Ooda.Turn.Core
 {
     /// <summary>
-    /// The skyscraper city: a dense grid of towers on a flat island of its own out at sea, east of the Alps, with a wide
-    /// river down its middle (the start corridor), narrow street canyons, wide avenues and boulevards, a tall downtown
+    /// The skyscraper city: a dense grid of towers on the island's north-east coast, past the Alps on the plain of the east
+    /// lands (Eastland.cs), with a wide river down its middle running north to the sea (the start corridor), narrow street canyons, wide avenues and boulevards, a tall downtown
     /// and a second cluster of towers in midtown. Every tower is a stack of boxes (its setbacks), all standing on the
     /// ground, so the city is a height field: GroundFt is the roof under a point (or the street), and the turn engine,
     /// the ghost preview, the rounds, the radar's line of sight and the AI pilots all treat a tower like a mountain.
@@ -31,11 +31,11 @@ namespace Ooda.Turn.Core
         /// <summary>A flat patch of the ground: a block's pavement, a park, a plaza.</summary>
         public struct Pad { public float x0, z0, x1, z1; public byte kind; }   // kind 0 pavement, 1 park, 2 plaza
 
-        /// <summary>The middle of the city (and of its arena), metres.</summary>
-        public const float CentreX = 32000f, CentreZ = 0f;
+        /// <summary>The middle of the city (and of its arena), metres: on the east lands' north coast, 5.5 km past the Alps' edge.</summary>
+        public const float CentreX = 15500f, CentreZ = 3200f;
         /// <summary>How far it reaches either side of the middle, east-west and north-south, metres.</summary>
         public const float HalfX = 3600f, HalfZ = 4400f;
-        /// <summary>The ground: the streets and the island stand this high over the sea, metres.</summary>
+        /// <summary>The ground: the streets stand this high over the sea, metres.</summary>
         public const float StreetM = 4f;
         /// <summary>The river down the middle (north-south), its water this far either side of the centre line, and the
         /// riverside road out to RiverRoadM: no tower stands closer to the centre line than that.</summary>
@@ -95,11 +95,11 @@ namespace Ooda.Turn.Core
 
         static int Clamp(int i, int n) => i < 0 ? 0 : i >= n ? n - 1 : i;
 
-        /// <summary>Whether a point (metres) is over the city's island at all.</summary>
+        /// <summary>Whether a point (metres) is over the city's square at all.</summary>
         public bool Over(double x, double z) => x >= minX && x < maxX && z >= minZ && z < maxZ;
 
         /// <summary>The top of whatever stands at a point (metres over the sea): a roof, the street, or the river's water
-        /// (0). Off the city's island, NegativeInfinity (the rest of the world decides).</summary>
+        /// (0). Off the city's square, NegativeInfinity (the rest of the world decides).</summary>
         public double HeightM(double x, double z)
         {
             if (x < minX || x >= maxX || z < minZ || z >= maxZ) return double.NegativeInfinity;
@@ -113,7 +113,7 @@ namespace Ooda.Turn.Core
             return h;
         }
 
-        /// <summary>The same in the flight core's frame: feet, x east, y north. Off the island, NegativeInfinity.</summary>
+        /// <summary>The same in the flight core's frame: feet, x east, y north. Off the city, NegativeInfinity.</summary>
         public double GroundFt(double xFt, double yFt)
         {
             double h = HeightM(xFt * Atmosphere.MPerFt, yFt * Atmosphere.MPerFt);

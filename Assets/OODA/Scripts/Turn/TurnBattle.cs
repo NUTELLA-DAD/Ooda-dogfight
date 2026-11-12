@@ -192,7 +192,7 @@ namespace Ooda.Turn
             tip.SetParent(transform, false);
             if (terrain == null) terrain = Terrain.activeTerrain;
             grid = MakeGrid(terrain);
-            CityStart();   // the skyscraper city's towers, out at sea (TurnBattle.City)
+            CityStart();   // the skyscraper city's towers and the east lands round it (TurnBattle.City)
             gauge = Ooda.UI.StickThrottleGauge.Create();
             if (gauge != null && view != null && view.Cam != null) view.Cam.cullingMask &= ~(1 << Ooda.UI.StickThrottleGauge.Layer);
             if (view != null) { view.player = player.transform; view.enemy = enemy.transform; }
@@ -1259,7 +1259,7 @@ namespace Ooda.Turn
             bool stalls = preview.frames[0].Any(f => f.stalled);
             // flown into the ground or an obstacle (not shot down first and falling)
             previewCrashes = !battle.Out(0) && sim.crashed[0] && !sim.SystemsOf(0).Lost;
-            if (previewCrashes) warning = sim.hitObstacle[0] ? "OBSTACLE: this turn hits a cable or structure" : CrashedIntoTower(sim, 0) ? "BUILDING: this turn flies into a tower" : "TERRAIN: this turn flies into the ground";
+            if (previewCrashes) warning = sim.hitObstacle[0] ? "OBSTACLE: this turn hits a cable or structure" : CrashedIntoTower(sim, 0) ? "BUILDING: this turn flies into a tower" : CrashedIntoMonument(sim, 0) ? "MONUMENT: this turn flies into the stone" : "TERRAIN: this turn flies into the ground";
             else if (battle.planes[0].BlackedOut) warning = $"G-LOC: you are blacked out, you come round in {battle.planes[0].glocLeftSec:F0} s";
             else if (preview.frames[0].Any(f => f.greyOut >= 1)) warning = "G-LOC: this many G for this long blacks you out";
             else if (battle.planes[0].Departed)
