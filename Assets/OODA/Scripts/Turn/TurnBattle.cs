@@ -178,6 +178,7 @@ namespace Ooda.Turn
             if (Ooda.UI.TitleScreen.ChosenMission is int chosen) mission = (Mission)chosen;   // picked on the title screen
             dogSetup = Ooda.UI.DogfightSetupScreen.Chosen.Copy();   // picked on the setup screen
             BotSetUp();
+            CircleShotsSetUp();   // -circleshots: a Spitfire against a 109 over the farmland (TurnBattle.CircleShots)
             TutorialSetUp();
             NetSetUp();
             NetBotSetUp();
@@ -649,6 +650,7 @@ namespace Ooda.Turn
             RocketShotsCheck();
             SnowShotsCheck();
             PortalShotsCheck();
+            CircleShotsCheck();
             BotUpdate();
             NetBotUpdate();
             PortalsBegin();
@@ -656,6 +658,7 @@ namespace Ooda.Turn
             if (phase == Phase.Playing) Playback();
             else if (phase == Phase.Planning || phase == Phase.Thinking) DrawPlanning();
             else { DrawLastPaths(last != null ? last.FrameCount - 1 : 0); RevealAll(); }
+            CircleShotsDraw();
             lines.End();
             tip.gameObject.SetActive((phase == Phase.Planning || phase == Phase.Thinking) && !plan.HasMarks && ArrowShown);
             if (phase != Phase.Planning && phase != Phase.Thinking)
@@ -674,7 +677,7 @@ namespace Ooda.Turn
         {
             SyncWep();
             if (gauge == null) { Rumble(0); return; }
-            bool show = phase != Phase.Over && !battle.Out(0);
+            bool show = phase != Phase.Over && !battle.Out(0) && !(circleClean && view != null && !view.enabled);
             gauge.SetVisible(show);
             if (!show) { gauge.Shake = 0; Rumble(0); return; }
             GaugeInput(out var stick, out float over, out float throttle, out bool wep);
@@ -1736,6 +1739,7 @@ namespace Ooda.Turn
         {
             if (battle == null) return;
             Ooda.UI.BriefingStyle.Use();
+            if (circleClean && CircleShotsGui()) return;   // -circleshots: a clean picture, only the circles' labels
             // scale up so the GUI is at least 1600x900 points: by height alone a 16:10 screen (2560x1600) left only
             // 1440 points across, and the cockpit squeezed (small dials with no numbers, the MFD pushed to the edge)
             guiScale = Mathf.Clamp(Mathf.Min(Screen.height / 900f, Screen.width / 1600f), 1f, 2.5f);
@@ -1747,6 +1751,7 @@ namespace Ooda.Turn
             IrGui(sw, sh);
             RadarGui(sw, sh);
             if (menuOpen) MenuGUI(sw, sh);
+            if (!circleClean) CircleShotsGui();
         }
 
         void BattleGUI(float sw, float sh)
