@@ -20,8 +20,9 @@ namespace Ooda.Fx
     public class CloudScape : MonoBehaviour
     {
         public const float ChunkM = 3000f;
-        /// <summary>How far you see, deep in cloud (m): the fog's far end there.</summary>
-        public const float WhiteoutM = 140f;
+        /// <summary>How far you see, deep in cloud (m): the fog's far end there, the fog starting at 60% of it, so your own
+        /// plane (the chase camera sits 160 to 180 m behind it) shows through the white while anything past the veil is gone.</summary>
+        public const float WhiteoutM = 250f;
         /// <summary>How fast the white comes and goes (1/s).</summary>
         public const float EaseRate = 7f;
         /// <summary>The colour of the inside of a cloud: between the cumulus' lit and shade tones (ToonSky).</summary>
@@ -252,7 +253,7 @@ namespace Ooda.Fx
             RenderSettings.fogEndDistance = end0 * Mathf.Pow(WhiteoutM / end0, kk);
             // (the island's clouds let 30% of their ink show through the fog; in here the fog takes them whole)
             if (mat != null) mat.SetFloat("_FogAmount", Mathf.Lerp(FogAmount, 1f, kk));
-            RenderSettings.fogStartDistance = Mathf.Min(start0 * (1f - k), RenderSettings.fogEndDistance * 0.5f);
+            RenderSettings.fogStartDistance = Mathf.Min(start0 * (1f - k), RenderSettings.fogEndDistance * 0.6f);
             RenderSettings.fogColor = Color.Lerp(keepFog, Inside, Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(k * 1.6f)));
             if (whiteSky != null && keepSky != null)
             {
@@ -274,7 +275,7 @@ namespace Ooda.Fx
                 DestroyImmediate(veil.GetComponent<Collider>());
                 veil.transform.SetParent(transform, false);
                 var sh = Shader.Find("Sprites/Default");
-                veilMat = new Material(sh) { name = "Cloud veil", renderQueue = 2990 };   // (before the lines, smoke and tracers: your plan still shows over it)
+                veilMat = new Material(sh) { name = "Cloud veil", renderQueue = 2995 };   // (after the water (2990), before the lines, smoke and tracers: your plan still shows over it)
                 var r = veil.GetComponent<MeshRenderer>();
                 r.sharedMaterial = veilMat;
                 r.shadowCastingMode = ShadowCastingMode.Off;
