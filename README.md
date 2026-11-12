@@ -1,6 +1,6 @@
-# OODA Dogfight
+# Furball
 
-An open-world WW2 dogfighting game in Unity: arcade-paced like a space-shooter, but free-roaming instead of on rails. The flight model is the OODA tool's point-mass model (`dads-debreif`, `src/core/point-mass.js`), ported to C#.
+Furball (working title OODA Dogfight) is an open-world WW2 dogfighting game in Unity: arcade-paced like a space-shooter, but free-roaming instead of on rails. The flight model is the OODA tool's point-mass model (`dads-debreif`, `src/core/point-mass.js`), ported to C#.
 
 ## Milestone 1: fly the P-51 (now the sandbox)
 
