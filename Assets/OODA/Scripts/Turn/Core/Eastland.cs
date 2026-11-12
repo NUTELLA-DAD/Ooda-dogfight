@@ -211,8 +211,8 @@ namespace Ooda.Turn.Core
             double h = Raw0(x, z);
             foreach (var p in Pyramids)
             {
-                double d = Math.Max(Math.Abs(x - p.x), Math.Abs(z - p.z));
                 double inner = p.half * 1.12;
+                double d = inner + Rounded(x - p.x, z - p.z, inner);   // a square pad with rounded corners: no creases along its diagonals
                 if (d > inner + 260) continue;
                 double w = 1 - Smooth(inner, inner + 260, d);
                 h += (p.baseM - h) * w;
@@ -226,7 +226,7 @@ namespace Ooda.Turn.Core
             double k = 1;
             foreach (var p in PyramidSpots)
             {
-                double d = Math.Max(Math.Abs(x - p.x), Math.Abs(z - p.z)) - p.half * 1.1;
+                double d = Rounded(x - p.x, z - p.z, p.half * 1.1);
                 if (d < 700) k = Math.Min(k, Smooth(100, 700, d));
             }
             foreach (var o in ObeliskSpots)
@@ -258,6 +258,13 @@ namespace Ooda.Turn.Core
             for (int k = 0; k < 8; k++) { double a = k * Math.PI / 4 + 0.2; l.Add(S(22300 + 650 * Math.Cos(a), 2600 + 650 * Math.Sin(a), 6)); }
             l.Add(S(23600, -1080, 6));
             return l.ToArray();
+        }
+
+        /// <summary>How far a point (dx, dz from the middle) is outside a square of this half side, round its corners (0 inside).</summary>
+        static double Rounded(double dx, double dz, double half)
+        {
+            double ox = Math.Max(0, Math.Abs(dx) - half), oz = Math.Max(0, Math.Abs(dz) - half);
+            return Math.Sqrt(ox * ox + oz * oz);
         }
 
         /// <summary>Transverse dunes, 0 to 1: a gentle windward slope up to the crest, a steep slip face down the lee.</summary>

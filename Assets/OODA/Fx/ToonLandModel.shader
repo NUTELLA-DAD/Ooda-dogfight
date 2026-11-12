@@ -99,8 +99,8 @@ Shader "Ooda/ToonLandModel"
                 float n = LandNoise2(p.xz / _Patch);
                 if (_VertexColour > 0.5)
                 {
-                    // the east lands: the painted colour, a shade lighter or darker by patch; dressed stone in courses
-                    half3 vc = i.color.rgb * (1 + (step(0.5, n) - 0.5) * 0.07);
+                    // the east lands: the painted colour (its patches are painted in, fading out at the Alps' edge); dressed stone in courses
+                    half3 vc = i.color.rgb;
                     float course = frac(p.y / _Course);
                     vc *= lerp(1, 0.86, step(0.5, i.color.a) * step(course, 0.1));
                     half3 vlit = ToonLandLight(vc, p, N);
