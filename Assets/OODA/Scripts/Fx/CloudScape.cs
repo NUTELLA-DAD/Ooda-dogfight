@@ -20,7 +20,7 @@ namespace Ooda.Fx
     public class CloudScape : MonoBehaviour
     {
         public const float ChunkM = 3000f;
-        /// <summary>How far you see, deep in cloud (m): the fog's far end there, the fog starting at 60% of it, so your own
+        /// <summary>How far you see, deep in cloud (m): the fog's far end there, the fog starting at 80% of it, so your own
         /// plane (the chase camera sits 160 to 180 m behind it) shows through the white while anything past the veil is gone.</summary>
         public const float WhiteoutM = 250f;
         /// <summary>How fast the white comes and goes (1/s).</summary>
@@ -31,6 +31,7 @@ namespace Ooda.Fx
         public const float NearFill = 1.3f;
         /// <summary>How far out the veil is drawn (m): past it, deep in cloud, nothing shows.</summary>
         public const float VeilM = 260f;
+        const int VeilQueue = 2995;
         public static readonly Color Inside = new Color(0.90f, 0.91f, 0.99f);
 
         static CloudScape made;
@@ -253,7 +254,7 @@ namespace Ooda.Fx
             RenderSettings.fogEndDistance = end0 * Mathf.Pow(WhiteoutM / end0, kk);
             // (the island's clouds let 30% of their ink show through the fog; in here the fog takes them whole)
             if (mat != null) mat.SetFloat("_FogAmount", Mathf.Lerp(FogAmount, 1f, kk));
-            RenderSettings.fogStartDistance = Mathf.Min(start0 * (1f - k), RenderSettings.fogEndDistance * 0.6f);
+            RenderSettings.fogStartDistance = Mathf.Min(start0 * (1f - k), RenderSettings.fogEndDistance * 0.8f);
             RenderSettings.fogColor = Color.Lerp(keepFog, Inside, Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(k * 1.6f)));
             if (whiteSky != null && keepSky != null)
             {
@@ -267,7 +268,7 @@ namespace Ooda.Fx
         void Veil(Camera cam, float k)
         {
             float a = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.3f, 0.8f, k));
-            if (cam == null || a <= 0.001f) { if (veil != null) veil.SetActive(false); return; }
+            if (cam == null || a <= 0.001f) { if (veil != null) veil.SetActive(false); SeaUnderVeil(false); return; }
             if (veil == null)
             {
                 veil = GameObject.CreatePrimitive(PrimitiveType.Sphere);
@@ -275,7 +276,7 @@ namespace Ooda.Fx
                 DestroyImmediate(veil.GetComponent<Collider>());
                 veil.transform.SetParent(transform, false);
                 var sh = Shader.Find("Sprites/Default");
-                veilMat = new Material(sh) { name = "Cloud veil", renderQueue = 2995 };   // (after the water (2990), before the lines, smoke and tracers: your plan still shows over it)
+                veilMat = new Material(sh) { name = "Cloud veil", renderQueue = VeilQueue };   // (after the water, before the lines, smoke and tracers: your plan still shows over it)
                 var r = veil.GetComponent<MeshRenderer>();
                 r.sharedMaterial = veilMat;
                 r.shadowCastingMode = ShadowCastingMode.Off;
@@ -284,14 +285,39 @@ namespace Ooda.Fx
                 r.reflectionProbeUsage = ReflectionProbeUsage.Off;
             }
             veil.SetActive(true);
+            SeaUnderVeil(true);
             veil.transform.position = cam.transform.position;
             veil.transform.localScale = Vector3.one * (2f * VeilM);   // (the sphere primitive is 1 across)
             veilMat.color = new Color(Inside.r, Inside.g, Inside.b, a);
         }
 
+        // the sea's material is drawn at 3000 (its own queue, not its shader's), after the veil: while the veil is up it goes
+        // just under it, then back
+        Material seaMat;
+        int seaQueue = -1;
+
+        void SeaUnderVeil(bool on)
+        {
+            if (on && seaQueue < 0)
+            {
+                var sea = GameObject.Find("Sea");
+                var r = sea != null ? sea.GetComponent<Renderer>() : null;
+                if (r == null || r.sharedMaterial == null) return;
+                seaMat = r.sharedMaterial;
+                seaQueue = seaMat.renderQueue;
+                seaMat.renderQueue = Mathf.Min(seaQueue, VeilQueue - 5);
+            }
+            else if (!on && seaQueue >= 0)
+            {
+                if (seaMat != null) seaMat.renderQueue = seaQueue;
+                seaMat = null; seaQueue = -1;
+            }
+        }
+
         void Restore()
         {
             if (veil != null) veil.SetActive(false);
+            SeaUnderVeil(false);
             if (mat != null) mat.SetFloat("_FogAmount", FogAmount);
             if (!kept) return;
             kept = false;
