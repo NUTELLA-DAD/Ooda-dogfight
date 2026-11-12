@@ -191,8 +191,8 @@ namespace Ooda.Turn
             {
                 Cam.nearClipPlane = 0.3f;
                 Cam.fieldOfView = Mathf.Lerp(Cam.fieldOfView, sightFov, 1 - Mathf.Exp(-10f * Time.unscaledDeltaTime));
-                float k = 1 - Mathf.Exp(-12f * Time.unscaledDeltaTime);   // eases onto the gun line rather than jumping
-                transform.SetPositionAndRotation(Vector3.Lerp(transform.position, sightPos, k), Quaternion.Slerp(transform.rotation, sightRot, k));
+                float ease = 1 - Mathf.Exp(-12f * Time.unscaledDeltaTime);   // eases onto the gun line rather than jumping
+                transform.SetPositionAndRotation(Vector3.Lerp(transform.position, sightPos, ease), Quaternion.Slerp(transform.rotation, sightRot, ease));
                 return;
             }
             if (player == null) return;
