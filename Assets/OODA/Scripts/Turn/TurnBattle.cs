@@ -371,6 +371,7 @@ namespace Ooda.Turn
                     me = i, rng = new Lcg((uint)(77 + 13 * i)), ignoreObstacles = true,
                     role = ours ? (i % 2 == 0 ? EnemyAi.Role.Escort : EnemyAi.Role.Fighter) : (i % 2 == 1 ? EnemyAi.Role.Hunter : EnemyAi.Role.Fighter),
                 };
+                if (!ours && !bot && netBotTurns < 0) ais[i].sloppiness = Ooda.UI.SettingsPanel.EnemySloppiness;   // the enemy as sharp as the settings say (the self-tests fly the sharp one)
             }
             CityPilots();       // in the city: braver about the roofs, and looking ahead finely enough not to skip a tower
             CloudStart();       // over the cloud sea: its clouds up, and the white as you fly into one (TurnBattle.Clouds)

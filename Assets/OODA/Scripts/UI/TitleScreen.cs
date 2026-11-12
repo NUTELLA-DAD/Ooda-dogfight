@@ -166,6 +166,7 @@ namespace Ooda.UI
             var pad = Gamepad.current;
             if (missions.open) { MissionKeys(missions.Keys()); return; }   // the mission briefing, after the squadron briefing's Ready
             if (setup.open) { SetupKeys(setup.Keys()); return; }   // the dogfight's briefing has the keys while it is up
+            if (settingsOpen) { if (kb != null && (kb.escapeKey.wasPressedThisFrame || kb.enterKey.wasPressedThisFrame) || pad != null && pad.buttonEast.wasPressedThisFrame) settingsOpen = false; return; }
             if (offerOpen)   // training offered: Enter or T takes it, Esc goes back to the title
             {
                 if (kb != null && (kb.enterKey.wasPressedThisFrame || kb.numpadEnterKey.wasPressedThisFrame || kb.tKey.wasPressedThisFrame) || pad != null && pad.buttonSouth.wasPressedThisFrame) { offerOpen = false; PlayTutorial(); }
@@ -341,6 +342,18 @@ namespace Ooda.UI
             SceneManager.LoadScene(battleScene);
         }
 
+        bool settingsOpen;
+
+        void SettingsGUI(float sw, float sh)
+        {
+            float w = 520, h = SettingsPanel.Height + 150, x = (sw - w) / 2, y = (sh - h) / 2;
+            GUI.Box(new Rect(x, y, w, h), GUIContent.none);
+            GUI.Box(new Rect(x, y, w, h), GUIContent.none);
+            GUI.Label(new Rect(x, y + 14, w, 40), "Settings", sub);
+            SettingsPanel.Draw(x + 30, y + 66, w - 60, hint);
+            if (GUI.Button(new Rect(x + (w - 200) / 2, y + h - 64, 200, 44), "Done (Esc)", picked)) settingsOpen = false;
+        }
+
         void QuitGame()
         {
             Application.Quit();
@@ -396,6 +409,8 @@ namespace Ooda.UI
 
             if (lobbyOpen) { LobbyGUI(sw, sh); return; }
             if (offerOpen) { OfferGUI(sw, sh); return; }
+            if (settingsOpen) { SettingsGUI(sw, sh); return; }
+            if (GUI.Button(new Rect(sw - 236, sh - 184, 212, 48), "Settings", button)) settingsOpen = true;
             if (GUI.Button(new Rect(24, sh - 72, 212, 48), "Online (O)", button)) OpenLobby();
             int lessons = Ooda.App.Progress.LessonsDone;
             string training = lessons == 0 ? "Training (T)" : lessons < Tutorial.Count ? $"Training {lessons + 1}/{Tutorial.Count} (T)" : "Training ✓ (T)";
@@ -438,7 +453,8 @@ namespace Ooda.UI
         {
             var c = style.normal.textColor;
             style.normal.textColor = new Color(0, 0, 0, 0.6f);
-            GUI.Label(new Rect(r.x + 3, r.y + 3, r.width, r.height), text, style);
+            float off = Mathf.Clamp(style.fontSize / 14f, 1f, 3f);   // a small line's shadow sits close under it, or it reads as a second copy
+            GUI.Label(new Rect(r.x + off, r.y + off, r.width, r.height), text, style);
             style.normal.textColor = c;
             GUI.Label(r, text, style);
         }
