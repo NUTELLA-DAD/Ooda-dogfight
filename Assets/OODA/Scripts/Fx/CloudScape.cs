@@ -254,7 +254,7 @@ namespace Ooda.Fx
             RenderSettings.fogEndDistance = end0 * Mathf.Pow(WhiteoutM / end0, kk);
             // (the island's clouds let 30% of their ink show through the fog; in here the fog takes them whole)
             if (mat != null) mat.SetFloat("_FogAmount", Mathf.Lerp(FogAmount, 1f, kk));
-            RenderSettings.fogStartDistance = Mathf.Min(start0 * (1f - k), RenderSettings.fogEndDistance * 0.8f);
+            RenderSettings.fogStartDistance = Mathf.Min(Mathf.Lerp(start0, RenderSettings.fogEndDistance * 0.8f, kk), RenderSettings.fogEndDistance * 0.8f);
             RenderSettings.fogColor = Color.Lerp(keepFog, Inside, Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(k * 1.6f)));
             if (whiteSky != null && keepSky != null)
             {

@@ -37,7 +37,11 @@ namespace Ooda.EditorTools
                 Ooda.UI.DogfightSetupScreen.Chosen = keepSetup;
                 Ooda.UI.TitleScreen.ChosenMission = keepMission;
                 var clouds = Ooda.Fx.CloudScape.Existing;
-                if (clouds != null) Object.DestroyImmediate(clouds.gameObject);   // (puts the fog and the sky back)
+                if (clouds != null)
+                {
+                    clouds.Show(false, null);   // (puts the fog, the sky and the sea's queue back: OnDestroy doesn't run in edit mode)
+                    Object.DestroyImmediate(clouds.gameObject);
+                }
             }
         }
 
