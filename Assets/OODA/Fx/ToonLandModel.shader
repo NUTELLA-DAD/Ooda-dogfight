@@ -28,6 +28,7 @@ Shader "Ooda/ToonLandModel"
         [Header(Painted per vertex)]
         [ToggleUI] _VertexColour ("Colour from the vertices", Float) = 0
         _Course ("Stone course height, m", Float) = 4
+        _PatchFrom ("Two-tone patches from x, m (fading in over 1.2 km)", Float) = -1000000
 
         [Header(Light)]
         _BandEdge ("Terminator (0 = at the horizon of the light)", Range(-1, 1)) = 0.05
@@ -51,7 +52,7 @@ Shader "Ooda/ToonLandModel"
         CBUFFER_START(UnityPerMaterial)
             float4 _BaseMap_ST;
             half4 _BaseColor, _GrassA, _GrassB, _RockA, _RockB, _Snow, _ShadeColor, _LitTint;
-            float _SnowLow, _SnowHigh, _GrassSlope, _GrassHigh, _Strata, _Patch, _VertexColour, _Course;
+            float _SnowLow, _SnowHigh, _GrassSlope, _GrassHigh, _Strata, _Patch, _VertexColour, _Course, _PatchFrom;
             half _BandEdge, _BandSoft, _MidBand, _Ambient, _TexSnow;
         CBUFFER_END
         ENDHLSL
@@ -99,8 +100,9 @@ Shader "Ooda/ToonLandModel"
                 float n = LandNoise2(p.xz / _Patch);
                 if (_VertexColour > 0.5)
                 {
-                    // the east lands: the painted colour (its patches are painted in, fading out at the Alps' edge); dressed stone in courses
-                    half3 vc = i.color.rgb;
+                    // the east lands: the painted colour, a shade lighter or darker by patch (none at the Alps' edge, fading in
+                    // past _PatchFrom); dressed stone in courses
+                    half3 vc = i.color.rgb * (1 + (step(0.5, n) - 0.5) * 0.07 * saturate((p.x - _PatchFrom) / 1200));
                     float course = frac(p.y / _Course);
                     vc *= lerp(1, 0.86, step(0.5, i.color.a) * step(course, 0.1));
                     half3 vlit = ToonLandLight(vc, p, N);

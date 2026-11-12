@@ -120,6 +120,7 @@ namespace Ooda.Fx
             var m = new Material(shader) { name = "East lands" };
             m.SetFloat("_VertexColour", 1f);
             m.SetFloat("_Course", 4f);
+            m.SetFloat("_PatchFrom", Eastland.X0);
             m.SetColor("_LitTint", new Color(1f, 0.97f, 0.92f));
             m.SetColor("_ShadeColor", new Color(0.74f, 0.62f, 0.66f));   // a warm rose shade on the sand and stone, not the Alps' cool blue
             m.enableInstancing = true;
