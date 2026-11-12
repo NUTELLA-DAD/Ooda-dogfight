@@ -200,6 +200,10 @@ Pull too hard for too long and the pilot blacks out. Past 6 G he builds up G str
 
 **The replay** flies the whole fight again, turn after turn, with the tracers, the hits, the smoke and the pilots' gestures. Every turn is kept as it is flown, by aircraft in their starting order (`TurnBattle.Replay.cs`), so it follows each plane even after you Tab between yours. Any camera on any aircraft: **V** (or the View button) steps through chase, target, both and cockpit, **C** jumps in and out of the cockpit, **Tab** follows the next plane (Shift+Tab back, the pad's bumpers). **Space** pauses, the left and right arrows step a turn, up and down change the speed (a quarter to four times), the bar along the bottom jumps anywhere in the fight, and **Backspace** (pad B) leaves the replay. Drag or right-drag to look round, the wheel zooms.
 
+### Sound
+
+The game makes its own sounds when it starts: there are no sound files. `Audio/Synth.cs` is the arithmetic (a piston engine and a jet as loops, the wind, a gun burst, a hit, an explosion, a missile leaving, a button's tick, Fly turn's two pips, a warning horn, and a fanfare for winning and one for losing), and `Audio/GameAudio.cs` plays them: your engine runs faster and louder with the throttle and comes up when the turn flies, guns and hits and explosions come from where they happen (quieter with distance, to their side), and every button ticks. The pause menu has the volume, kept between runs. The self-tests are silent (`-nosound` silences any run). `Tools~/SoundPreview` (`dotnet run`) writes every sound as a WAV file to listen to without the game, and checks each one for clipping, silence and a clean loop join.
+
 ### The briefing look
 
 Every screen's text, the title, the planning panels, the buttons, the HUD and the end screens, is green monospaced type (Share Tech Mono) on dark olive panels with a thin green rim, and the big headings are stencil (Stardos Stencil). It all comes from one skin, `UI/BriefingStyle.cs`: each OnGUI calls `BriefingStyle.Use()` first, and any GUIStyle made from `GUI.skin` after that takes the look. The fonts are under `Resources/Fonts` with their SIL Open Font Licenses.

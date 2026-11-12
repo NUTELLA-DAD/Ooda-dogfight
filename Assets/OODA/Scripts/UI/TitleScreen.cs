@@ -132,6 +132,7 @@ namespace Ooda.UI
         void Update()
         {
             if (along.Count == 0) return;   // skipped straight to the battle (-dogfight): no route was laid out
+            Ooda.Audio.GameAudio.Engine(setup.open ? 0.12f : 0.4f, 0.55f, false, setup.open ? 0.2f : 0.6f);   // the formation's engines and the wind, quieter on the airfield
             float speed = kias * 0.5144f * 1.04f;   // true airspeed at the valley's height, m/s
             distance += speed * Time.deltaTime;
             if (distance > along[along.Count - 1] - 200f) distance = 0;   // round again from the start

@@ -630,6 +630,7 @@ namespace Ooda.Turn
         {
             if (view != null) view.sightPose = false;   // set again below while the gunsight view is up
             NetUpdate();
+            SoundUpdate();
             if (MenuUpdate()) return;   // Esc: the menu is open and the battle waits
             if (replaying) { ReplayUpdate(); return; }
             if (briefing) { UpdateBriefing(); return; }
@@ -1645,6 +1646,7 @@ namespace Ooda.Turn
             for (int ti = 0; ti < last.traces.Count; ti++)
             {
                 var tr = last.traces[ti];
+                SoundForTrace(tr, now);
                 if (tr.missile) { DrawMissile(tr, ti, now, (float)last.dt); continue; }
                 GlowTracer(tr, ti, now, MagnetTint(tr, AfterBounce(tr, now, TracerColor(tr.owner))));
             }
@@ -1724,6 +1726,7 @@ namespace Ooda.Turn
             var fx = Ooda.Fx.ToonFx.Get();
             if (kill) fx.Blast(at, 2.5f);
             else fx.Hit(at);
+            Ooda.Audio.GameAudio.PlayAt(kill ? Ooda.Audio.Sfx.Blast : Ooda.Audio.Sfx.Hit, at, 1f, kill ? 1f : 0.92f + 0.16f * Mathf.PerlinNoise(at.x * 0.37f, at.z * 0.37f));
         }
 
         // ---------- screen ----------
