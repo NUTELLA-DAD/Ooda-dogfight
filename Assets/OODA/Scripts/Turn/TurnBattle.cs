@@ -1790,7 +1790,7 @@ namespace Ooda.Turn
             double ata = Envelope.Angle(me.Forward, los) * 180 / Math.PI;
             double aa = Envelope.Angle(them.Forward, los) * 180 / Math.PI;
             GUI.Label(new Rect(20, 108 - u, 290, 22), $"{themName} {range:F0} ft, {ata:F0}° off your nose", label);
-            GUI.Label(new Rect(20, 128 - u, 290, 22), $"You are {aa:F0}° off its tail ({(aa < 45 ? "behind it" : aa > 135 ? "in front of it" : "beside it")})", label);
+            GUI.Label(new Rect(20, 128 - u, 290, 22), $"You are {aa:F0}° off its tail ({(aa < 45 ? "behind" : aa > 135 ? "in front" : "beside")})", label);
             SystemsRow(new Rect(20, 152 - u, 270, 14), Shown(focus), battle.Out(focus), themName);
             if (Bombing)
             {
@@ -1873,7 +1873,10 @@ namespace Ooda.Turn
                 // under it the debrief (a dogfight's), or failing that what the buttons do
                 string under = Dogfighting && debrief != null ? debrief : tape.Count > 0 ? "Watch the whole fight again from any camera, fly it again, or go back to the main menu." : "Fly it again, or go back to the main menu.";
                 float underH = under.Contains("\n") ? 52 : 30;
-                GUI.Label(new Rect(0, sh * 0.3f + 50, sw, underH), under, new GUIStyle(label) { alignment = TextAnchor.MiddleCenter, fontSize = 17 });
+                var underStyle = new GUIStyle(label) { alignment = TextAnchor.MiddleCenter, fontSize = 17 };
+                float underW = Mathf.Min(sw - 40, underStyle.CalcSize(new GUIContent(under)).x + 48);
+                GUI.Box(new Rect((sw - underW) / 2, sh * 0.3f + 46, underW, underH + 8), GUIContent.none);   // dark glass: the text sits over smoke and sky
+                GUI.Label(new Rect(0, sh * 0.3f + 50, sw, underH), under, underStyle);
                 bool was = GUI.enabled;
                 EndButtons(sw, sh * 0.3f + 62 + underH);
                 GUI.enabled = was;
@@ -1883,7 +1886,11 @@ namespace Ooda.Turn
             NetGUI(sw, label);
             // the first two turns of a fight, with the help closed: the one thing to do, and where the rest is
             if (!showHelp && !tutorial && !bot && planning && battle.turn < 2 && warning == null)
-                GUI.Label(new Rect(0, sh * 0.16f, sw, 26), "Drag the stick to aim where your nose points, then Fly turn (Enter).  H shows every control.", new GUIStyle(label) { alignment = TextAnchor.MiddleCenter, fontSize = 17 });
+            {
+                Rect hint = new Rect((sw - 860) / 2, sh * 0.16f, 860, 34);
+                GUI.Box(hint, GUIContent.none);   // a dark glass behind it, to read over sky and snow
+                GUI.Label(hint, "Drag the stick to aim where your nose points, then Fly turn (Enter).  H shows every control.", new GUIStyle(label) { alignment = TextAnchor.MiddleCenter, fontSize = 17 });
+            }
 
             if (showHelp)
             {

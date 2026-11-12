@@ -392,8 +392,8 @@ namespace Ooda.UI
             Shadowed(new Rect(0, sh * 0.08f + 168, sw, 34), "Dogfights over the Alps", note);
 
             if (lobbyOpen) { LobbyGUI(sw, sh); return; }
-            if (GUI.Button(new Rect(24, sh - 72, 212, 48), "Online (O)", button)) OpenLobby();
             if (offerOpen) { OfferGUI(sw, sh); return; }
+            if (GUI.Button(new Rect(24, sh - 72, 212, 48), "Online (O)", button)) OpenLobby();
             int lessons = Ooda.App.Progress.LessonsDone;
             string training = lessons == 0 ? "Training (T)" : lessons < Tutorial.Count ? $"Training {lessons + 1}/{Tutorial.Count} (T)" : "Training ✓ (T)";
             if (GUI.Button(new Rect(24, sh - 128, 212, 48), training, lessons < Tutorial.Count ? picked : button)) PlayTutorial();   // new players start here
