@@ -213,6 +213,7 @@ namespace Ooda.Turn
             var fx = Ooda.Fx.ToonFx.Get();
             float now = Ooda.Fx.ToonFx.Now;
             var rnd = new System.Random(seed * 31 + 7);
+            Ooda.Audio.GameAudio.PlayAt(Ooda.Audio.Sfx.Blast, at, 1f, 0.75f);   // the stick of bombs as one long rumble
             for (int k = 0; k < 8; k++)
             {
                 Vector3 p = at + new Vector3((float)rnd.NextDouble() * 160 - 80, 4, -90 + k * 24 + (float)rnd.NextDouble() * 10);
