@@ -36,8 +36,26 @@ namespace Ooda.Turn
         public Color stealthColor = new Color(0.55f, 0.95f, 1f, 0.7f);
         public Color jamColor = new Color(0.85f, 0.5f, 1f, 1f);
 
-        /// <summary>An enemy you can't see now: stealthy, on the other side.</summary>
-        bool HiddenFromMe(int i) => battle != null && i >= 0 && i < battle.Count && battle.side[i] != battle.side[0] && battle.Cloaked(i);
+        /// <summary>An enemy you can't see now: stealthy, or hidden from your plane by cloud (the Cloud Sea's), on the other
+        /// side. No path, no ghost, no marks for it; your radar still has it on the MFD.</summary>
+        bool HiddenFromMe(int i)
+        {
+            if (battle == null || i < 0 || i >= battle.Count || battle.side[i] == battle.side[0]) return false;
+            if (battle.Cloaked(i)) return true;
+            // (a line of sight through the clouds costs a little: asked once a frame for each plane)
+            if (hiddenFrame != Time.frameCount || hiddenBattle != battle || hiddenAt == null || hiddenAt.Length != battle.Count)
+            {
+                hiddenFrame = Time.frameCount; hiddenBattle = battle;
+                if (hiddenAt == null || hiddenAt.Length != battle.Count) hiddenAt = new sbyte[battle.Count];
+                Array.Clear(hiddenAt, 0, hiddenAt.Length);
+            }
+            if (hiddenAt[i] == 0) hiddenAt[i] = (sbyte)(Battle.CloudBetween(battle.planes[0].state.pos, battle.planes[i].state.pos) ? 1 : -1);
+            return hiddenAt[i] > 0;
+        }
+
+        int hiddenFrame = -1;
+        Battle hiddenBattle;
+        sbyte[] hiddenAt;
 
         // ---------- planning ----------
 

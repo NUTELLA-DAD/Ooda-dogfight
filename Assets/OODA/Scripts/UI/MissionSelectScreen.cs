@@ -9,10 +9,10 @@ namespace Ooda.UI
     /// <summary>
     /// The mission briefing, after the squadron briefing's Ready: your flight gathered round a map table on the apron
     /// (BriefingStage.ShowTable), the island drawn on it as a painted map from the terrain itself with the city out at sea
-    /// to the east, a numbered pin at each of the Alpine Campaign's missions (Campaign.All) and a dotted route joining them.
+    /// to the east and the cloud sea to the south-east, a numbered pin at each of the Alpine Campaign's missions (Campaign.All) and a dotted route joining them.
     /// The missions are listed top left, the picked one's name, objective, wingmen, bandits and difficulty on the right.
     /// Launch Mission flies the dogfight over the picked mission's arena with the flight and the start picked before;
-    /// Back returns to the squadron briefing. ↑ ↓ (or 1 to 5, or a click on a pin) pick, Enter launches, Esc goes back.
+    /// Back returns to the squadron briefing. ↑ ↓ (or 1 to 6, or a click on a pin) pick, Enter launches, Esc goes back.
     /// </summary>
     public class MissionSelectScreen
     {
@@ -29,6 +29,9 @@ namespace Ooda.UI
         const float MapW0 = -10600f, MapW1 = 28600f, MapS0 = -10000f;   // the world from the west edge to past the east coast, m
         const float Scale = (TexW - 48f) / (MapW1 - MapW0);             // pixels a metre
         const float MapPy0 = (TexH - 20000f * Scale) / 2;               // the island's 20 km north to south, centred
+        // the cloud sea is out to the south-east, off this map: its pin stands in the sea off the south-east coast, among
+        // a few painted clouds
+        static readonly Vector2 CloudPx = WorldPx(25500f, -9300f);
         static Texture2D map;
 
         /// <summary>Open on the stage the squadron briefing stands on: the table goes up, the pick starts on the setup's arena.</summary>
@@ -302,8 +305,9 @@ namespace Ooda.UI
         /// <summary>Where mission i's pin stands on the map texture, 0 to 1 (v north).</summary>
         static Vector2 MissionUv(int i)
         {
-            var a = Arenas.Get(Campaign.Get(i).arena);
-            var p = WorldPx((float)a.x, (float)a.z);
+            int ar = Campaign.Get(i).arena;
+            var a = Arenas.Get(ar);
+            var p = Arenas.IsCloud(ar) ? CloudPx : WorldPx((float)a.x, (float)a.z);
             return new Vector2(p.x / TexW, p.y / TexH);
         }
 
@@ -459,6 +463,7 @@ namespace Ooda.UI
                     }
             }
             foreach (var o in Eastland.Obelisks) Dot(px, WorldPx(o.x, o.z), 1.1f, ink);
+            PaintClouds(px, CloudPx, ink);
             // the route from pin to pin
             for (int m = 0; m + 1 < Campaign.Count; m++)
             {
@@ -494,6 +499,21 @@ namespace Ooda.UI
             return t;
         }
 
+        /// <summary>The cloud sea on the map: a mass of round puffs, inked round the outside, heaped about c.</summary>
+        static void PaintClouds(Color32[] px, Vector2 c, Color ink)
+        {
+            var puffs = new (Vector2 at, float r)[16];
+            for (int k = 0; k < puffs.Length; k++)
+            {
+                float a = Hash(k, 11) * 6.2832f, d = Mathf.Sqrt(Hash(k, 12));
+                puffs[k] = (c + new Vector2(Mathf.Cos(a) * 64f, Mathf.Sin(a) * 36f) * d, 9f + 9f * Hash(k, 13) * (1.2f - d));
+            }
+            var shade = new Color(0.78f, 0.80f, 0.93f);
+            foreach (var p in puffs) Dot(px, p.at, p.r + 1.8f, ink);
+            foreach (var p in puffs) Dot(px, p.at, p.r, shade);
+            foreach (var p in puffs) Dot(px, p.at + new Vector2(-0.25f, 0.3f) * p.r, p.r * 0.72f, new Color(0.98f, 0.98f, 1f));
+        }
+
         static void Dot(Color32[] px, Vector2 c, float r, Color col)
         {
             for (int y = (int)(c.y - r - 1); y <= (int)(c.y + r + 1); y++)
@@ -516,7 +536,7 @@ namespace Ooda.UI
 
         // ---------- the self-test: -missionshots <folder> ----------
 
-        /// <summary>Save the open briefing as a BMP for each of the first two missions picked, then the last (the city).</summary>
+        /// <summary>Save the open briefing as a BMP for the first and third missions picked, then the last (the cloud sea).</summary>
         public IEnumerator Shots(string folder)
         {
             foreach (int i in new[] { 0, 2, Campaign.Count - 1 })

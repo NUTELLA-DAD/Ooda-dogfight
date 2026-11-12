@@ -29,10 +29,12 @@ namespace Ooda.Turn.Core
     public static class Arenas
     {
         /// <summary>
-        /// The six: among the snowy peaks in the north, over the high rail pass, over the chalet lake and its village in
+        /// The seven: among the snowy peaks in the north, over the high rail pass, over the chalet lake and its village in
         /// the middle, over the farmland and the strike town in the south, the skyscraper city on the east lands' north
-        /// coast past the Alps (City: its towers are the ground there, so they are as solid as the rock), and the desert
-        /// valley south of it, up the river between the pyramids and the obelisks (Eastland: the stone is ground too).
+        /// coast past the Alps (City: its towers are the ground there, so they are as solid as the rock), the cloud sea
+        /// out over the open water to the south-east (Skyscape: towering cloud all round, a cloud deck under the fight),
+        /// and the desert valley south of the city, up the river between the pyramids and the obelisks (Eastland: the
+        /// stone is ground too).
         /// </summary>
         public static readonly Arena[] All =
         {
@@ -46,6 +48,8 @@ namespace Ooda.Turn.Core
                         x = 1400, z = -5900, altFt = 2600, axisDeg = 90, halfLengthM = 3200, halfWidthM = 1400 },
             new Arena { name = "Skyline City", blurb = "Down the river through a city of towers. Weave the street canyons or climb over the roofs: hit one and you are done.",
                         x = City.CentreX, z = City.CentreZ, altFt = 1100, axisDeg = 0, halfLengthM = 3000, halfWidthM = City.RiverHalfM },
+            new Arena { name = "Cloud Sea", blurb = "Out over the open sea in a sky of towering cloud. Weave between the towers, punch through them, or dive into the deck below.",
+                        x = Skyscape.CentreX, z = Skyscape.CentreZ, altFt = Skyscape.StartAltFt, axisDeg = Skyscape.AxisDeg, halfLengthM = 3000, halfWidthM = 900 },
             new Arena { name = "Pyramid Valley", blurb = "Up the river through the desert, pyramids on the plateaus either side and obelisks down the banks.",
                         x = City.CentreX, z = -4700, altFt = 2000, axisDeg = 0, halfLengthM = 2900, halfWidthM = 900 },
         };
@@ -53,8 +57,13 @@ namespace Ooda.Turn.Core
         /// <summary>The city's arena's number in All.</summary>
         public const int CityIndex = 4;
         public static bool IsCity(int i) => i == CityIndex;
+
+        /// <summary>The cloud sea's arena's number in All.</summary>
+        public const int CloudIndex = 5;
+        public static bool IsCloud(int i) => i == CloudIndex;
+
         /// <summary>The desert's arena's number in All.</summary>
-        public const int DesertIndex = 5;
+        public const int DesertIndex = 6;
 
         public static int Count => All.Length;
 

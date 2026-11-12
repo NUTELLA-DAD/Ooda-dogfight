@@ -372,6 +372,7 @@ namespace Ooda.Turn
                 };
             }
             CityPilots();       // in the city: braver about the roofs, and looking ahead finely enough not to skip a tower
+            CloudStart();       // over the cloud sea: its clouds up, and the white as you fly into one (TurnBattle.Clouds)
             TutorialPilots();   // training: the lesson's foe (no pilot for the drone) and its first step
             NetSitDown();   // online: into your own first plane
             systemsBefore = battle.AllSystems();

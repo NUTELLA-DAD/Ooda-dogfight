@@ -45,6 +45,12 @@ namespace Ooda.Turn.Core
         public Lcg rng = new Lcg(77);
         /// <summary>Leave bridges and buildings out of its tries (set when planning off the main thread, where they can't be asked about).</summary>
         public bool ignoreObstacles;
+        /// <summary>How long it keeps hunting an enemy that has gone into cloud (s): it flies at where that one would be had it
+        /// flown straight on since it was last seen, then gives it up.</summary>
+        public double cloudMemorySec = 7.5;
+
+        // what it last saw of each enemy (by number in the battle), for one that ducks into cloud
+        readonly Dictionary<int, (PointMass.State st, double time)> lastSeen = new Dictionary<int, (PointMass.State, double)>();
 
         public TurnPlan Plan(Battle battle, double turnSec)
         {
@@ -112,7 +118,31 @@ namespace Ooda.Turn.Core
         struct Try { public TurnPlan plan; public double score; public MoveKind kind; }
 
         /// <summary>Drop the tries kept from the last look (after the battle's aircraft have been renumbered, as by Battle.Swap).</summary>
-        public void Forget() { lock (this) { cachedTries = null; cachedFor = cachedSub = null; } }
+        public void Forget() { lock (this) { cachedTries = null; cachedFor = cachedSub = null; lastSeen.Clear(); } }
+
+        /// <summary>Note where every enemy it can see is now (by eye or radar).</summary>
+        void Look(Battle battle)
+        {
+            int mySide = battle.side[me];
+            for (int j = 0; j < battle.Count; j++)
+                if (battle.side[j] != mySide && !battle.Out(j) && battle.Sees(me, j)) lastSeen[j] = (battle.planes[j].state, battle.time);
+        }
+
+        /// <summary>
+        /// An enemy it can't see now, hidden in cloud (not stealthy: that one isn't there at all), that it saw lately: where
+        /// it would be had it flown straight on since.
+        /// </summary>
+        bool Guess(Battle battle, int j, out PointMass.State guess)
+        {
+            guess = default;
+            if (j < 0 || j >= battle.Count || battle.Out(j) || battle.Cloaked(j)) return false;
+            if (!lastSeen.TryGetValue(j, out var seen)) return false;
+            double dt = battle.time - seen.time;
+            if (dt < 0 || dt > cloudMemorySec) return false;
+            guess = seen.st;
+            guess.pos = seen.st.pos + seen.st.vel * dt;
+            return true;
+        }
 
         // the last tries, kept so Plan and Predict on the same battle at the same moment score them only once
         List<Try> cachedTries; Battle cachedFor, cachedSub; double cachedTime = double.NaN, cachedTurnSec; int cachedThem;
@@ -125,11 +155,14 @@ namespace Ooda.Turn.Core
                 if (cachedTries != null && ReferenceEquals(cachedFor, battle) && cachedTime == battle.time && cachedTurnSec == turnSec)
                 { sub = cachedSub; them = cachedThem; return cachedTries; }
                 var m = battle.planes[me];
+                Look(battle);
                 them = Target(battle);
                 sub = null;
                 if (them < 0) return null;
                 var keep = Nearby(battle, them);
                 sub = battle.Subset(keep);   // me is 0 in it, the target 1
+                // a target gone into cloud: it plans against where it guesses that one is, not where it really is
+                if (!battle.Sees(me, them) && Guess(battle, them, out var guess)) sub.planes[1].state = guess;
                 if (battle.Jammed(me)) Jam.Scramble(sub, 0, battle.turn, keep);   // jammed: it plans against where the others aren't
                 if (ignoreObstacles) sub.obstacleHit = sub.wires == null ? null : (Func<Vec3d, Vec3d, bool>)sub.wires.Hit;   // the air hazards' plain shapes, not the colliders
                 // only the flak that could reach it this turn
@@ -182,7 +215,7 @@ namespace Ooda.Turn.Core
             // a missile at the target whenever it might come into the seeker's cone this turn (it launches only once locked)
             if (battle.missiles[me] > 0 && battle.routes[me] == null)
             {
-                Vec3d r = battle.planes[them].state.pos - m.state.pos;
+                Vec3d r = sub.planes[1].state.pos - m.state.pos;   // (where it thinks the target is: in cloud, a guess)
                 if (!best.cloak && !battle.Iced(them) && r.Length < Heat.LockRangeFt(battle.HeatOf(them, m.state.pos)) * 1.2 && Vec3d.Dot(r.Normalized, m.Forward) > Math.Cos(60 * Math.PI / 180))
                 { best.missile = true; best.missileTarget = them; }
             }
@@ -202,7 +235,7 @@ namespace Ooda.Turn.Core
             var others = new List<(double r, int i)>();
             Vec3d at = battle.planes[me].state.pos;
             for (int j = 0; j < battle.Count; j++)
-                if (j != me && j != them && !battle.Out(j) && !(battle.side[j] != battle.side[me] && battle.Cloaked(j))) others.Add(((battle.planes[j].state.pos - at).Length, j));
+                if (j != me && j != them && !battle.Out(j) && !(battle.side[j] != battle.side[me] && !battle.Sees(me, j))) others.Add(((battle.planes[j].state.pos - at).Length, j));
             others.Sort((a, b) => a.r.CompareTo(b.r));
             for (int k = 0; k < others.Count && k < awareOf; k++) if (others[k].r < 9000) keep.Add(others[k].i);
             return keep.ToArray();
@@ -210,7 +243,7 @@ namespace Ooda.Turn.Core
 
         public int Target(Battle battle)
         {
-            if (target >= 0 && !battle.Out(target) && !battle.Cloaked(target)) return target;
+            if (target >= 0 && !battle.Out(target) && battle.Sees(me, target)) return target;
             int mySide = battle.side[me];
             Vec3d at = battle.planes[me].state.pos;
             // where my own side's bombers are, for an escort
@@ -222,7 +255,7 @@ namespace Ooda.Turn.Core
             int best = -1; double bestCost = double.PositiveInfinity;
             for (int j = 0; j < battle.Count; j++)
             {
-                if (battle.side[j] == mySide || battle.Out(j) || battle.Cloaked(j)) continue;   // a stealthy one isn't there, as far as it knows
+                if (battle.side[j] == mySide || battle.Out(j) || !battle.Sees(me, j)) continue;   // a stealthy one (or one in cloud) isn't there, as far as it knows
                 bool bomber = battle.routes[j] != null;
                 double cost = (battle.planes[j].state.pos - at).Length;
                 switch (role)
@@ -233,6 +266,12 @@ namespace Ooda.Turn.Core
                 }
                 if (cost < bestCost) { bestCost = cost; best = j; }
             }
+            if (best >= 0) return best;
+            // no one in sight: hunt the one that went into cloud, while it still has an idea where (its own target first)
+            if (target >= 0 && Guess(battle, target, out _)) return target;
+            double nearest = double.PositiveInfinity;
+            for (int j = 0; j < battle.Count; j++)
+                if (battle.side[j] != mySide && Guess(battle, j, out var g) && (g.pos - at).Length < nearest) { nearest = (g.pos - at).Length; best = j; }
             return best;
         }
 
@@ -483,7 +522,7 @@ namespace Ooda.Turn.Core
                 if (sub.slowBombs[0] > 0 && plan.burstEnd > plan.burstStart)
                     for (int j = 0; j < sub.Count; j++)
                     {
-                        if (sub.side[j] == sub.side[0] || sub.Out(j) || sub.Cloaked(j)) continue;
+                        if (sub.side[j] == sub.side[0] || sub.Out(j) || !sub.Sees(0, j)) continue;
                         Vec3d l = sub.planes[j].state.pos - me0.state.pos;
                         if (l.Length < 3000 && Envelope.Angle(me0.Forward, l) < 30 * Math.PI / 180) { plan.slow = true; plan.slowAt = 0; return; }
                     }
@@ -573,7 +612,7 @@ namespace Ooda.Turn.Core
             if (range < 5000 || range > Specials.PortalReachFt - 2000) return;
             double closing = -Vec3d.Dot(sub.planes[1].state.vel - me0.state.vel, r * (1 / range));
             if (closing > 250) return;   // coming together anyway
-            if (sub.Cloaked(1)) return;
+            if (!sub.Sees(0, 1)) return;
             PortalBehind(sub, 1, ref plan);
         }
 
