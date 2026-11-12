@@ -238,7 +238,7 @@ namespace Ooda.Turn.Core
             if (at == null)
                 for (int j = 0; j < b.Count; j++)
                 {
-                    if (b.side[j] == b.side[i] || b.Out(j) || b.Cloaked(j)) continue;
+                    if (b.side[j] == b.side[i] || b.Out(j) || !b.Sees(i, j)) continue;
                     double d = (b.planes[j].state.pos - me).Length;
                     if (d < best) { best = d; at = b.planes[j].state.pos + b.planes[j].state.vel * SlowFlySec; }
                 }

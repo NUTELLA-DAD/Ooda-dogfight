@@ -117,6 +117,27 @@ namespace Ooda.Turn.Core
             return best;
         }
 
+        /// <summary>How deep in cloud counts as hidden: a plane that far in, or a line of sight that passes that deep, is out of sight.</summary>
+        public const float HideDensity = 0.5f;
+        /// <summary>The step along a line of sight, metres (smaller than the smallest puff's thick middle).</summary>
+        const float SightStepM = 60f;
+
+        /// <summary>Cloud between two points (metres, Unity's frame), thick enough to hide one from the other, either end
+        /// included: an eye can't see through it (a radar can).</summary>
+        public bool Hides(float ax, float ay, float az, float bx, float by, float bz)
+        {
+            float dx = bx - ax, dy = by - ay, dz = bz - az;
+            float len = (float)Math.Sqrt(dx * dx + dy * dy + dz * dz);
+            int n = Math.Max(1, (int)Math.Ceiling(len / SightStepM));
+            for (int k = 0; k <= n; k++)
+            {
+                float t = (float)k / n, y = ay + dy * t;
+                if (y > 8000f || y < DeckBaseM - 100f) continue;   // (over the cirrus and under the deck: no cloud)
+                if (Density(ax + dx * t, y, az + dz * t) > HideDensity) return true;
+            }
+            return false;
+        }
+
         static float Smooth(float a, float b, float x)
         {
             float t = Math.Max(0f, Math.Min(1f, (x - a) / (b - a)));

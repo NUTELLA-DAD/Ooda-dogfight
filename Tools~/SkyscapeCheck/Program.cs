@@ -77,15 +77,78 @@ static class Program
         Check(deck > 0.45, $"{deck:P0} of the deck's middle is cloud (the rest holes down to the sea)");
         Check(under < 0.01 && high < 0.01, $"clear under the deck ({under:P1}) and over the cirrus ({high:P1})");
 
+        Console.WriteLine("\nHidden in cloud: from eyes, the AI pilots and the gunners, not from radar");
+        {
+            // a tower to hide in, its middle at the usual start height
+            Skyscape.Bank tower = default; bool found = false;
+            foreach (var bk in sky.banks)
+                if (bk.kind == Skyscape.Cumulus && bk.topY > 3500 && sky.Density(bk.x, 2300f, bk.z) > 0.9f) { tower = bk; found = true; break; }
+            Check(found, "a tower thick at 2,300 m to hide in");
+            double ft = Atmosphere.FtPerM;
+            Vec3d inTower = new Vec3d(tower.x * ft, tower.z * ft, 2300 * ft);
+            // the F-4 (radar) 4 km off, nose on it, and a P-51 hiding inside
+            var s0 = new DogfightSetup { ours = new[] { Craft.Phantom }, theirs = new[] { Craft.Mustang }, randomStart = false, start = Scenarios.Start.HeadOn, randomArena = false, arena = Arenas.CloudIndex };
+            var b = Scenarios.Dogfight(s0, a.CentreFt, a.altFt, 300, 3000, true, a.axisDeg);
+            Vec3d away = new Vec3d(-1, 0, 0);
+            for (int k = 0; k < 36; k++)   // a side of the tower in clear air 4 km out
+            {
+                double an = k * Math.PI / 18;
+                var d = new Vec3d(Math.Cos(an), Math.Sin(an), 0);
+                var p0 = inTower + d * (4000 * ft);
+                if (sky.Density((float)(p0.x / ft), 2300f, (float)(p0.y / ft)) == 0 && !Battle.CloudBetween(p0, inTower + d * (1500 * ft))) { away = d; break; }
+            }
+            Place(b, 0, inTower + away * (4000 * ft), away * -1);
+            Place(b, 1, inTower, away);
+            Check(Battle.CloudBetween(b.planes[0].state.pos, b.planes[1].state.pos) && !b.SeesByEye(0, 1) && !b.SeesByEye(1, 0), "a P-51 inside a tower: the F-4 can't see it by eye, nor it the F-4");
+            Check(b.InRadarCone(0, 1) && b.Sees(0, 1), "but the F-4's radar has it");
+            Place(b, 1, inTower + away * (2000 * ft), away);
+            Check(b.SeesByEye(0, 1), "out of the cloud, in clear air between them: seen again");
+            Check(!Battle.CloudBetween(a.CentreFt + new Vec3d(0, 0, a.altFt), a.CentreFt + new Vec3d(3000, 0, a.altFt)), "the start corridor is clear to see down");
+            Check(!Battle.CloudBetween(new Vec3d(0, 0, 3000), new Vec3d(5000, 3000, 3000)), "over the island, cloud never hides anyone");
+
+            // an AI pilot (a P-51, no radar) loses a P-51 that goes into the tower: it hunts where it went for a while, then gives up
+            var s1 = new DogfightSetup { ours = new[] { Craft.Mustang }, theirs = new[] { Craft.Mustang }, randomStart = false, start = Scenarios.Start.HeadOn, randomArena = false, arena = Arenas.CloudIndex };
+            var c = Scenarios.Dogfight(s1, a.CentreFt, a.altFt, 300, 3000, true, a.axisDeg);
+            Place(c, 1, inTower + away * (4000 * ft), away * -1);
+            Place(c, 0, inTower + away * (2000 * ft), away * -1);
+            var ai = new EnemyAi { me = 1, rng = new Lcg(5), ignoreObstacles = true };
+            ai.Plan(c, 3);
+            Check(ai.Target(c) == 0, "the AI pilot sees you in clear air and goes for you");
+            c.time += 3; c.turn++;
+            Place(c, 0, inTower, away * -1);
+            Check(!c.Sees(1, 0) && ai.Target(c) == 0, "you fly into the tower: it can't see you, and goes on hunting where you went in");
+            c.time += ai.cloudMemorySec + 0.1; c.turn += 3;
+            ai.Plan(c, 3);
+            Check(ai.Target(c) < 0, $"{ai.cloudMemorySec:F1} s on, still unseen: it has lost you");
+        }
+
         Console.WriteLine("\nDensity, every frame");
         var sw = Stopwatch.StartNew();
         float acc = 0;
         for (int i = 0; i < 200000; i++) acc += sky.Density(Skyscape.CentreX - 6000 + (i * 37) % 12000, 800 + (i * 13) % 3000, Skyscape.CentreZ - 6000 + (i * 53) % 12000);
         double us = sw.Elapsed.TotalMilliseconds * 1000 / 200000;
         Check(us < 20, $"{us:F2} us a call");
+        var a0 = a.CentreFt + new Vec3d(0, 0, a.altFt);
+        sw.Restart();
+        int hid = 0;
+        for (int i = 0; i < 2000; i++)
+        {
+            double an = i * 0.0031;
+            if (Battle.CloudBetween(a0, a0 + new Vec3d(Math.Cos(an) * 30000, Math.Sin(an) * 30000, (i % 7 - 3) * 1000))) hid++;
+        }
+        double lineUs = sw.Elapsed.TotalMilliseconds * 1000 / 2000;
+        Check(lineUs < 150, $"{lineUs:F0} us a 9 km line of sight ({hid} of 2000 hidden)");
 
         Console.WriteLine(fails == 0 ? "\nAll good." : $"\n{fails} failed.");
         return fails;
+    }
+
+    static void Place(Battle b, int i, Vec3d pos, Vec3d dir)
+    {
+        var st = b.planes[i].state;
+        double sp = st.vel.Length;
+        st.pos = pos; st.vel = dir.Normalized * sp; st.up = new Vec3d(0, 0, 1);
+        b.planes[i].state = st;
     }
 
     static void Check1(bool ok, string what) { if (!ok) Check(false, what); }

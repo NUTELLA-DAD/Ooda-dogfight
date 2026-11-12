@@ -279,7 +279,7 @@ namespace Ooda.Turn
             // the enemies in the cone
             for (int j = 0; j < battle.Count; j++)
             {
-                if (battle.side[j] == battle.side[0] || battle.Out(j) || HiddenFromMe(j) || !battle.InRadarCone(0, j)) continue;
+                if (battle.side[j] == battle.side[0] || battle.Out(j) || !battle.InRadarCone(0, j)) continue;   // (stealth is out of its cone; cloud is not)
                 if (!Place(battle.planes[j].state.pos, out var p)) continue;
                 bool tracked = battle.radarTrack[0] == j, locked = tracked && battle.Locked(0);
                 Color c = locked ? MfdRed : MfdGreen;

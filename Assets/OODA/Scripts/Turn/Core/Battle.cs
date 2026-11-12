@@ -227,9 +227,10 @@ namespace Ooda.Turn.Core
         /// <summary>Out of the fight: down, crashed, or (in the strike) still waiting on the runway.</summary>
         public bool Out(int i) => down[i] || crashed[i] || strike != null && strike.Held(i);
 
-        /// <summary>Stealthy now (see Specials): the other side's pilots, flak and gunners don't see it; heat-seekers still do.</summary>
+        /// <summary>Jammed now (see Specials).</summary>
         public bool Jammed(int i) => i >= 0 && i < Count && !Out(i) && time < jammedUntil[i] - 1e-9;
 
+        /// <summary>Stealthy now (see Specials): the other side's pilots, flak and gunners don't see it; heat-seekers still do.</summary>
         public bool Cloaked(int i) => i >= 0 && i < Count && !Out(i) && time < cloakUntil[i] - 1e-9;
 
         /// <summary>The ricochet shield is up now (see Specials): rounds bounce off it.</summary>
@@ -970,7 +971,7 @@ namespace Ooda.Turn.Core
 
         /// <summary>
         /// Who aircraft i's grapple can hook now: the wanted one if in reach, else the enemy nearest its nose inside
-        /// GrappleConeDeg and GrappleReachFt (not one it can't see: stealthy); -1 none.
+        /// GrappleConeDeg and GrappleReachFt (not one it can't see: stealthy, or in cloud); -1 none.
         /// </summary>
         public int GrappleTarget(int i, int wanted = -1)
         {
@@ -979,7 +980,7 @@ namespace Ooda.Turn.Core
             int best = -1; double bestCos = cos;
             for (int j = 0; j < Count; j++)
             {
-                if (side[j] == side[i] || Out(j) || Cloaked(j)) continue;
+                if (side[j] == side[i] || Out(j) || !SeesByEye(i, j)) continue;
                 Vec3d r = planes[j].state.pos - m.state.pos;
                 double range = r.Length;
                 if (range > Specials.GrappleReachFt || range < 1) continue;
@@ -1312,7 +1313,7 @@ namespace Ooda.Turn.Core
             double cycle = g.burstSec + g.pauseSec;
             g.phase += StepSec;
             if (g.phase >= cycle) { g.phase -= cycle; g.target = PickFlakTarget(g); g.fireClock = 0; g.errA = rng.Gauss() * g.aimErrorMil / 1000; g.errB = rng.Gauss() * g.aimErrorMil / 1000; }
-            if (g.phase >= g.burstSec || g.target < 0 || Out(g.target) || Cloaked(g.target)) return;
+            if (g.phase >= g.burstSec || g.target < 0 || Out(g.target) || Cloaked(g.target) || CloudBetween(g.pos, planes[g.target].state.pos)) return;
             g.fireClock -= StepSec;
             while (g.fireClock <= 0)
             {
@@ -1345,7 +1346,7 @@ namespace Ooda.Turn.Core
                 double r = (planes[i].state.pos - g.pos).Length;
                 if (r > g.rangeFt) continue;
                 double cost = r + (routes[i] != null ? g.rangeFt * g.bomberReluctance : 0);
-                if (cost < bestR && CanSee(g.pos + new Vec3d(0, 0, 8), planes[i].state.pos)) { bestR = cost; best = i; }
+                if (cost < bestR && CanSee(g.pos + new Vec3d(0, 0, 8), planes[i].state.pos) && !CloudBetween(g.pos, planes[i].state.pos)) { bestR = cost; best = i; }
             }
             return best;
         }
@@ -1372,6 +1373,23 @@ namespace Ooda.Turn.Core
             }
             return wanted >= 0 ? (best >= 0 ? best : -1) : best;
         }
+
+        /// <summary>
+        /// Cloud between two points (ft), thick enough to hide one from the other (the Cloud Sea's, Skyscape): eyes, the AI
+        /// pilots and the gunners can't see through it; radar can. Anywhere else, never.
+        /// </summary>
+        public static bool CloudBetween(Vec3d a, Vec3d b)
+        {
+            double m = Atmosphere.MPerFt;
+            if (!Skyscape.Over(a.x * m, a.y * m) && !Skyscape.Over(b.x * m, b.y * m)) return false;
+            return Skyscape.Sky.Hides((float)(a.x * m), (float)(a.z * m), (float)(a.y * m), (float)(b.x * m), (float)(b.z * m), (float)(b.y * m));
+        }
+
+        /// <summary>Aircraft i can see aircraft j by eye: j isn't stealthy, and no cloud hides it.</summary>
+        public bool SeesByEye(int i, int j) => !Cloaked(j) && !CloudBetween(planes[i].state.pos, planes[j].state.pos);
+
+        /// <summary>Aircraft i knows where enemy j is: it sees it, or its radar has it in its cone (radar sees through cloud).</summary>
+        public bool Sees(int i, int j) => SeesByEye(i, j) || InRadarCone(i, j);
 
         /// <summary>A clear line between two points: over the ground all the way and through no obstacle.</summary>
         public bool CanSee(Vec3d a, Vec3d b)
