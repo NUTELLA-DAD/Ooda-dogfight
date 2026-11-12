@@ -200,6 +200,10 @@ Pull too hard for too long and the pilot blacks out. Past 6 G he builds up G str
 
 The first time someone presses **Play** without having flown a lesson, the title offers training (**Start training**, or **Skip, just fly**, which is not asked again). Finished lessons are remembered (`App/Progress.cs`, in PlayerPrefs): the Training button shows the next one (Training 3/7) and opens there. In a fight the help panel starts closed, with one line for the first two turns saying what to do and that **H** opens the controls; once opened or closed it stays as the player left it. The title's own text and buttons scale up on screens bigger than 1600 x 900, as the battle's do, and it has a **Quit** button.
 
+### Settings
+
+**Settings** on the title screen, and the same three rows in the pause menu (`UI/SettingsPanel.cs`): the **volume**; the **display** (full screen at the monitor's own resolution, or a 1600 x 900 or 1280 x 720 window; a click steps through them); and the **enemy pilots**, Rookie, Regular (the default) or Ace. The skill is the noise in the AI's choice of move (`EnemyAi.sloppiness`: 0.6, 0.3 and 0.15; Ace is the pilot the game always flew against). It takes hold at the next fight or restart, applies to the enemy side only, and leaves training's own softened foes and the self-tests alone. Online, the host's setting flies the AI.
+
 ### The menu and the replay
 
 **Esc** (or the **Menu** button under Help) pauses the battle and opens the menu: Resume, Restart mission, Main menu (back to the title screen) and Quit game. When the fight is over the end screen has **Watch replay** (W), **Fly again** and **Main menu**. After a dogfight it also gives a debrief of your own plane (turns, bursts and hits, how often you were hit, kills by your guns) and your record over every fight flown, kept between runs.
