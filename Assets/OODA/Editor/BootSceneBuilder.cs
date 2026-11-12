@@ -20,7 +20,9 @@ namespace Ooda.EditorTools
         public static void Build()
         {
             var open = SceneManager.GetActiveScene();
-            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
+            // Unity can't add a scene beside an untitled unsaved one (a batch run starts with one), so then it replaces it
+            bool untitled = string.IsNullOrEmpty(open.path) && SceneManager.sceneCount == 1;
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, untitled ? NewSceneMode.Single : NewSceneMode.Additive);
             var cam = new GameObject("Camera").AddComponent<Camera>();
             cam.clearFlags = CameraClearFlags.SolidColor;
             cam.backgroundColor = new Color32(5, 19, 64, 255);
@@ -30,8 +32,11 @@ namespace Ooda.EditorTools
             SceneManager.MoveGameObjectToScene(cam.gameObject, scene);
             SceneManager.MoveGameObjectToScene(ls.gameObject, scene);
             EditorSceneManager.SaveScene(scene, ScenePath);
-            if (open.IsValid()) SceneManager.SetActiveScene(open);
-            EditorSceneManager.CloseScene(scene, true);
+            if (!untitled)
+            {
+                if (open.IsValid()) SceneManager.SetActiveScene(open);
+                EditorSceneManager.CloseScene(scene, true);
+            }
 
             var list = EditorBuildSettings.scenes.Where(s => s.path != ScenePath).ToList();
             list.Insert(0, new EditorBuildSettingsScene(ScenePath, true));
