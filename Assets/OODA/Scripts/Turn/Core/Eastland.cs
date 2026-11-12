@@ -93,7 +93,7 @@ namespace Ooda.Turn.Core
         /// <summary>How much of the river's green valley a point is in, 0 to 1 (its fields, its flat floor).</summary>
         public static double ValleyWeight(double x, double z)
         {
-            return (1 - Smooth(800, 1500, Math.Abs(x - RiverX(z)))) * Smooth(LakeZ - LakeRz - 700, LakeZ - LakeRz, z);
+            return (1 - Smooth(950, 1150, Math.Abs(x - RiverX(z)))) * Smooth(LakeZ - LakeRz - 700, LakeZ - LakeRz, z);
         }
 
         public static readonly Pyramid[] Pyramids = MakePyramids();
@@ -128,7 +128,7 @@ namespace Ooda.Turn.Core
             var rng = new Lcg(1922);
             void Add(double x, double z, double rise, bool granite) => list.Add(new Obelisk { x = (float)x, z = (float)z, half = 6f, rise = (float)rise, granite = granite });
             // the river's banks south of the city, in pairs across the water
-            for (double z = -2000; z >= -7000; z -= 700)
+            for (double z = -2000; z >= -6300; z -= 700)
             {
                 double off = RiverHalf(z) + 70;
                 double rise = 52 + 12 * rng.Next();
@@ -174,7 +174,7 @@ namespace Ooda.Turn.Core
             double plateau = 34 + 30 * n1 + 6 * n2;
             double h = green + (plateau - green) * dw;
             // the dunes: transverse ridges across a north-west wind, their crests broken up, none round the monuments
-            h += 26 * Dunes(x, z) * dw * (0.5 + 0.7 * n1) * Calm(x, z);
+            h += 42 * Dunes(x, z) * dw * (0.55 + 0.6 * n1) * Calm(x, z);
 
             // the river's valley: a flat floor of fields, the plateaus stepping down to it
             double v = ValleyWeight(x, z);
@@ -251,7 +251,7 @@ namespace Ooda.Turn.Core
         {
             // the river avenue and the step pyramid's, the valley temple, the ring and the lone pyramid's pair, as MakeObelisks lays them
             var l = new List<Spot>();
-            for (double z = -2000; z >= -7000; z -= 700) { double off = RiverHalf(z) + 70; l.Add(S(RiverX(z) - off, z, 6)); l.Add(S(RiverX(z) + off, z, 6)); }
+            for (double z = -2000; z >= -6300; z -= 700) { double off = RiverHalf(z) + 70; l.Add(S(RiverX(z) - off, z, 6)); l.Add(S(RiverX(z) + off, z, 6)); }
             foreach (double x in new[] { 16300.0, 16650.0, 17000.0 }) l.Add(S(x, -3000, 6));
             l.Add(S(14250, -3800, 6));
             l.Add(S(22300, 2600, 6));
@@ -263,9 +263,9 @@ namespace Ooda.Turn.Core
         /// <summary>Transverse dunes, 0 to 1: a gentle windward slope up to the crest, a steep slip face down the lee.</summary>
         static double Dunes(double x, double z)
         {
-            double u = (x * 0.8 + z * 0.6) / 420 + 1.2 * Noise(x / 1800 + 4.4, z / 1800 + 0.7) + 0.4 * Noise(x / 600 + 5.1, z / 600 + 1.3);
+            double u = (x * 0.8 + z * 0.6) / 330 + 1.2 * Noise(x / 1800 + 4.4, z / 1800 + 0.7) + 0.4 * Noise(x / 600 + 5.1, z / 600 + 1.3);
             double s = u - Math.Floor(u);
-            double p = s < 0.72 ? s / 0.72 : (1 - s) / 0.28;
+            double p = s < 0.75 ? s / 0.75 : (1 - s) / 0.25;
             p = p * p * (3 - 2 * p);
             return p * (0.55 + 0.45 * Noise(x / 900 + 9.2, z / 900 + 4.6));
         }

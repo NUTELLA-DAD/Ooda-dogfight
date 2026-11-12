@@ -74,7 +74,7 @@ namespace Ooda.Fx
         static readonly Color SandA = Hex(0xcfae74), SandB = Hex(0xd8b97f), SandLee = Hex(0xc4a06a);
         static readonly Color Sandstone = Hex(0xb88d60), SeaBed = Hex(0xc9b88c), Shore = Hex(0xd9c79a);
         static readonly Color CityGround = Hex(0x8f8f8c), Palms = Hex(0x3e6a34);
-        static readonly Color[] Crops = { Hex(0x6d9b3b), Hex(0x84a84a), Hex(0xbfa055), Hex(0x5a8a3a), Hex(0x9fae58) };
+        static readonly Color[] Crops = { Hex(0x6d9b3b), Hex(0x78a243), Hex(0x8ea84c), Hex(0x659640), Hex(0x9aa652) };   // close greens: a quiet patchwork, not a checkerboard
         static readonly Color Limestone = Hex(0xd5c194), StepStone = Hex(0xc9ad7c), Gold = Hex(0xe0aa3c);
         static readonly Color Granite = Hex(0xa5685a), PaleObelisk = Hex(0xcdb98e);
 
@@ -86,7 +86,8 @@ namespace Ooda.Fx
         /// dunes' lee faces), sandstone on the steep, fields and palms in the river's valley, the beach and the sea bed.</summary>
         static Color32 GroundColour(double x, double z, float h, Vector3 n)
         {
-            float patch = (float)Eastland.Noise(x / 140 + 0.5, z / 140 + 9.1);
+            // the two-tone patches fade out toward the Alps' edge, whose ground has its own texture
+            float patch = Mathf.Lerp(0.5f, (float)Eastland.Noise(x / 140 + 0.5, z / 140 + 9.1), Mathf.InverseLerp(Eastland.X0, Eastland.X0 + 1200, (float)x));
             float dw = (float)Eastland.DesertWeight(x, z), v = (float)Eastland.ValleyWeight(x, z);
             Color meadow = Color.Lerp(MeadowA, MeadowB, patch);
             // the lee faces of the dunes look away from the wind (north-west): a little darker
@@ -96,7 +97,7 @@ namespace Ooda.Fx
             if (v > 0.05f && h > 0.8f && h < 16f)
             {
                 // the valley's fields: a patchwork of plots, and palm groves along the banks
-                int fx = Mathf.FloorToInt((float)(x / 230)), fz = Mathf.FloorToInt((float)(z / 160));
+                int fx = Mathf.FloorToInt((float)(x / 150)), fz = Mathf.FloorToInt((float)(z / 100));
                 Color field = Crops[(int)(Eastland.Hash(fx, fz) * Crops.Length) % Crops.Length];
                 double bank = System.Math.Abs(x - Eastland.RiverX(z)) - Eastland.RiverHalf(z);
                 if (bank < 170 && Eastland.Hash(fx + 77, fz - 31) < 0.6) field = Palms;
@@ -120,6 +121,7 @@ namespace Ooda.Fx
             m.SetFloat("_VertexColour", 1f);
             m.SetFloat("_Course", 4f);
             m.SetColor("_LitTint", new Color(1f, 0.97f, 0.92f));
+            m.SetColor("_ShadeColor", new Color(0.74f, 0.62f, 0.66f));   // a warm rose shade on the sand and stone, not the Alps' cool blue
             m.enableInstancing = true;
             return m;
         }
@@ -131,13 +133,15 @@ namespace Ooda.Fx
             // every sample's colour once, from its own full-step slope (shared by the four steps of every square)
             const int N = Eastland.N;
             var cols = new Color32[N * N];
+            var nrm = new Vector3[N * N];
             System.Threading.Tasks.Parallel.For(0, N, j =>
             {
                 for (int i = 0; i < N; i++)
                 {
                     float dx = (land.Sample(i + 1, j) - land.Sample(i - 1, j)) / (2 * Eastland.CellM);
                     float dz = (land.Sample(i, j + 1) - land.Sample(i, j - 1)) / (2 * Eastland.CellM);
-                    cols[j * N + i] = GroundColour(Eastland.X0 + i * Eastland.CellM, Eastland.Z0 + j * Eastland.CellM, land.Sample(i, j), new Vector3(-dx, 1, -dz).normalized);
+                    nrm[j * N + i] = new Vector3(-dx, 1, -dz).normalized;
+                    cols[j * N + i] = GroundColour(Eastland.X0 + i * Eastland.CellM, Eastland.Z0 + j * Eastland.CellM, land.Sample(i, j), nrm[j * N + i]);
                 }
             });
             int cells = Mathf.RoundToInt(ChunkM / Eastland.CellM), per = Mathf.RoundToInt((Eastland.X1 - Eastland.X0) / ChunkM);
@@ -158,7 +162,7 @@ namespace Ooda.Fx
                     for (int l = 0; l < lods.Length; l++)
                     {
                         var part = new Part();
-                        Ground(part, land, cols, i0, j0, cells, 1 << l);
+                        Ground(part, land, cols, nrm, i0, j0, cells, 1 << l, cx == 0);
                         foreach (var p in Eastland.Pyramids)
                             if (p.x >= x0 && p.x < x0 + ChunkM && p.z >= z0 && p.z < z0 + ChunkM) PyramidMesh(part, p);
                         if (l <= 1)
@@ -188,7 +192,7 @@ namespace Ooda.Fx
         }
 
         /// <summary>A square of the ground every step samples of the grid, with a skirt hanging under each edge.</summary>
-        static void Ground(Part p, Eastland land, Color32[] cols, int i0, int j0, int cells, int step)
+        static void Ground(Part p, Eastland land, Color32[] cols, Vector3[] nrm, int i0, int j0, int cells, int step, bool atAlps)
         {
             int n = cells / step + 1;
             int start = p.verts.Count;
@@ -197,9 +201,7 @@ namespace Ooda.Fx
                 {
                     int i = i0 + a * step, j = j0 + b * step;
                     float h = land.Sample(i, j);
-                    float dx = (land.Sample(i + step, j) - land.Sample(i - step, j)) / (2 * step * Eastland.CellM);
-                    float dz = (land.Sample(i, j + step) - land.Sample(i, j - step)) / (2 * step * Eastland.CellM);
-                    var normal = new Vector3(-dx, 1, -dz).normalized;
+                    var normal = nrm[j * Eastland.N + i];   // the full step's at every step, so two squares drawn at different steps shade alike where they meet
                     double x = Eastland.X0 + i * Eastland.CellM, z = Eastland.Z0 + j * Eastland.CellM;
                     p.verts.Add(new Vector3((float)x, h, (float)z));
                     p.normals.Add(normal);
@@ -232,7 +234,7 @@ namespace Ooda.Fx
             }
             Skirt(k => start + k);
             Skirt(k => start + (n - 1) * n + k);
-            Skirt(k => start + k * n);
+            if (!atAlps) Skirt(k => start + k * n);   // none along the Alps' edge: the two meet without a step, and a skirt there was inked
             Skirt(k => start + k * n + n - 1);
         }
 
