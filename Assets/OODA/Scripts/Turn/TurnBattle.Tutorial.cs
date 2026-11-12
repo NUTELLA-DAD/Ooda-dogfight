@@ -30,13 +30,16 @@ namespace Ooda.Turn
 
         Tutorial.Lesson CurrentLesson => Tutorial.Get(lessonNo);
 
+        static bool tutorialArgRead;
+
         /// <summary>In Start, before the first Restart: training if the title screen asked for it.</summary>
         void TutorialSetUp()
         {
             var args = Environment.GetCommandLineArgs();
-            int at = Array.IndexOf(args, "-tutorial");
+            int at = tutorialArgRead ? -1 : Array.IndexOf(args, "-tutorial");
             if (at >= 0)
             {
+                tutorialArgRead = true;   // the command line's lesson once; a later fight from the menu is a fight
                 TutorialRequested = true;
                 if (at + 1 < args.Length && int.TryParse(args[at + 1], out int n)) TutorialStartLesson = n - 1;   // -tutorial 5: the fifth lesson
             }

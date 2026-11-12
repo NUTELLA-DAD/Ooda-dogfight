@@ -54,12 +54,15 @@ namespace Ooda.UI
         int shot;
         Vector3 flybyAt;
 
+        static bool tutorialFromArgs;
+
         void Start()
         {
             if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-strikeshots") >= 0) { pick = 4; Play(); return; }   // the Town Strike self-test (see TurnBattle.StrikeShots)
             var args = System.Environment.GetCommandLineArgs();
             if (System.Array.IndexOf(args, "-squadshots") >= 0) { pick = 0; Play(); return; }   // the squad controls' self-test (see TurnBattle.SquadShots)
             if (System.Array.IndexOf(args, "-dogfight") >= 0 || System.Array.IndexOf(args, "-dogfightbot") >= 0 || System.Array.IndexOf(args, "-damageshots") >= 0 || System.Array.IndexOf(args, "-grappleshots") >= 0 || System.Array.IndexOf(args, "-portalshots") >= 0) { pick = 2; LoadBattle(); return; }   // straight into the one on one (the bot flies it, see TurnBattle.Bot)
+            if (!tutorialFromArgs && System.Array.IndexOf(args, "-tutorial") >= 0) { tutorialFromArgs = true; ChosenMission = (int)TurnBattle.Mission.Dogfight; SceneManager.LoadScene(battleScene); return; }   // -tutorial N: straight into lesson N (TurnBattle.TutorialSetUp reads N), once
             if (cam == null) cam = Camera.main;
             setup.stage.craftPrefabs = craftPrefabs != null && craftPrefabs.Length > 0 ? craftPrefabs : new[] { fighterPrefab };
             if (terrain == null) terrain = Terrain.activeTerrain;
