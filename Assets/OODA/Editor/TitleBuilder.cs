@@ -53,6 +53,7 @@ namespace Ooda.EditorTools
             var list = EditorBuildSettings.scenes.Where(s => s.path != ScenePath).ToList();
             list.Insert(0, new EditorBuildSettingsScene(ScenePath, true));
             EditorBuildSettings.scenes = list.ToArray();
+            BootSceneBuilder.Build();   // the spinning planes load the title, so they go first
             Debug.Log("OODA: title screen built; the build opens on it: " + string.Join(", ", EditorBuildSettings.scenes.Select(s => Path.GetFileNameWithoutExtension(s.path))) + ".");
         }
     }

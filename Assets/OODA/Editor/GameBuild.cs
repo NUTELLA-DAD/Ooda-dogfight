@@ -18,6 +18,7 @@ namespace Ooda.EditorTools
         public static void Windows()
         {
             ApplyIcon();
+            BootSceneBuilder.Build();   // the game opens on the two planes spinning while the title loads
             MissileRacks.Fit();   // the wing hardpoints from the airframes as they are now (a game build can't read the meshes)
             var args = System.Environment.GetCommandLineArgs();
             int at = System.Array.IndexOf(args, "-buildPath");
