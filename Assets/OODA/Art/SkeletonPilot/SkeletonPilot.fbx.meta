@@ -74,8 +74,104 @@ ModelImporter:
       bodyMask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000
       curves: []
       events: []
-      transformMask: []
-      maskType: 3
+      transformMask:
+      - path: 
+        weight: 1
+      - path: Skeleton_Body
+        weight: 1
+      - path: SkeletonRig
+        weight: 1
+      - path: SkeletonRig/Hips
+        weight: 1
+      - path: SkeletonRig/Hips/LeftUpperLeg
+        weight: 1
+      - path: SkeletonRig/Hips/LeftUpperLeg/LeftLowerLeg
+        weight: 1
+      - path: SkeletonRig/Hips/LeftUpperLeg/LeftLowerLeg/LeftFoot
+        weight: 1
+      - path: SkeletonRig/Hips/LeftUpperLeg/LeftLowerLeg/LeftFoot/LeftToes
+        weight: 1
+      - path: SkeletonRig/Hips/RightUpperLeg
+        weight: 1
+      - path: SkeletonRig/Hips/RightUpperLeg/RightLowerLeg
+        weight: 1
+      - path: SkeletonRig/Hips/RightUpperLeg/RightLowerLeg/RightFoot
+        weight: 1
+      - path: SkeletonRig/Hips/RightUpperLeg/RightLowerLeg/RightFoot/RightToes
+        weight: 1
+      - path: SkeletonRig/Hips/Spine
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal/LeftIndexIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal/LeftIndexIntermediate/LeftIndexDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal/LeftMiddleIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal/LeftMiddleIntermediate/LeftMiddleDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftRingProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftRingProximal/LeftRingIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftRingProximal/LeftRingIntermediate/LeftRingDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal/LeftThumbIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal/LeftThumbIntermediate/LeftThumbDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/Neck
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/Neck/Head
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal/RightIndexIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal/RightIndexIntermediate/RightIndexDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal/RightMiddleIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal/RightMiddleIntermediate/RightMiddleDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightRingProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightRingProximal/RightRingIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightRingProximal/RightRingIntermediate/RightRingDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal/RightThumbIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal/RightThumbIntermediate/RightThumbDistal
+        weight: 1
+      maskType: 0
       maskSource: {instanceID: 0}
       additiveReferencePoseFrame: 0
     - serializedVersion: 16
@@ -103,8 +199,104 @@ ModelImporter:
       bodyMask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000
       curves: []
       events: []
-      transformMask: []
-      maskType: 3
+      transformMask:
+      - path: 
+        weight: 1
+      - path: Skeleton_Body
+        weight: 1
+      - path: SkeletonRig
+        weight: 1
+      - path: SkeletonRig/Hips
+        weight: 1
+      - path: SkeletonRig/Hips/LeftUpperLeg
+        weight: 1
+      - path: SkeletonRig/Hips/LeftUpperLeg/LeftLowerLeg
+        weight: 1
+      - path: SkeletonRig/Hips/LeftUpperLeg/LeftLowerLeg/LeftFoot
+        weight: 1
+      - path: SkeletonRig/Hips/LeftUpperLeg/LeftLowerLeg/LeftFoot/LeftToes
+        weight: 1
+      - path: SkeletonRig/Hips/RightUpperLeg
+        weight: 1
+      - path: SkeletonRig/Hips/RightUpperLeg/RightLowerLeg
+        weight: 1
+      - path: SkeletonRig/Hips/RightUpperLeg/RightLowerLeg/RightFoot
+        weight: 1
+      - path: SkeletonRig/Hips/RightUpperLeg/RightLowerLeg/RightFoot/RightToes
+        weight: 1
+      - path: SkeletonRig/Hips/Spine
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal/LeftIndexIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal/LeftIndexIntermediate/LeftIndexDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal/LeftMiddleIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal/LeftMiddleIntermediate/LeftMiddleDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftRingProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftRingProximal/LeftRingIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftRingProximal/LeftRingIntermediate/LeftRingDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal/LeftThumbIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal/LeftThumbIntermediate/LeftThumbDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/Neck
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/Neck/Head
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal/RightIndexIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal/RightIndexIntermediate/RightIndexDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal/RightMiddleIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal/RightMiddleIntermediate/RightMiddleDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightRingProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightRingProximal/RightRingIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightRingProximal/RightRingIntermediate/RightRingDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal/RightThumbIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal/RightThumbIntermediate/RightThumbDistal
+        weight: 1
+      maskType: 0
       maskSource: {instanceID: 0}
       additiveReferencePoseFrame: 0
     - serializedVersion: 16
@@ -132,8 +324,104 @@ ModelImporter:
       bodyMask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000
       curves: []
       events: []
-      transformMask: []
-      maskType: 3
+      transformMask:
+      - path: 
+        weight: 1
+      - path: Skeleton_Body
+        weight: 1
+      - path: SkeletonRig
+        weight: 1
+      - path: SkeletonRig/Hips
+        weight: 1
+      - path: SkeletonRig/Hips/LeftUpperLeg
+        weight: 1
+      - path: SkeletonRig/Hips/LeftUpperLeg/LeftLowerLeg
+        weight: 1
+      - path: SkeletonRig/Hips/LeftUpperLeg/LeftLowerLeg/LeftFoot
+        weight: 1
+      - path: SkeletonRig/Hips/LeftUpperLeg/LeftLowerLeg/LeftFoot/LeftToes
+        weight: 1
+      - path: SkeletonRig/Hips/RightUpperLeg
+        weight: 1
+      - path: SkeletonRig/Hips/RightUpperLeg/RightLowerLeg
+        weight: 1
+      - path: SkeletonRig/Hips/RightUpperLeg/RightLowerLeg/RightFoot
+        weight: 1
+      - path: SkeletonRig/Hips/RightUpperLeg/RightLowerLeg/RightFoot/RightToes
+        weight: 1
+      - path: SkeletonRig/Hips/Spine
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal/LeftIndexIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal/LeftIndexIntermediate/LeftIndexDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal/LeftMiddleIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal/LeftMiddleIntermediate/LeftMiddleDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftRingProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftRingProximal/LeftRingIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftRingProximal/LeftRingIntermediate/LeftRingDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal/LeftThumbIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal/LeftThumbIntermediate/LeftThumbDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/Neck
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/Neck/Head
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal/RightIndexIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal/RightIndexIntermediate/RightIndexDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal/RightMiddleIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal/RightMiddleIntermediate/RightMiddleDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightRingProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightRingProximal/RightRingIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightRingProximal/RightRingIntermediate/RightRingDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal/RightThumbIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal/RightThumbIntermediate/RightThumbDistal
+        weight: 1
+      maskType: 0
       maskSource: {instanceID: 0}
       additiveReferencePoseFrame: 0
     - serializedVersion: 16
@@ -141,7 +429,7 @@ ModelImporter:
       takeName: SkeletonRig|Fly
       internalID: -8000461213074624089
       firstFrame: 0
-      lastFrame: 120
+      lastFrame: 240
       wrapMode: 0
       orientationOffsetY: 0
       level: 0
@@ -161,8 +449,104 @@ ModelImporter:
       bodyMask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000
       curves: []
       events: []
-      transformMask: []
-      maskType: 3
+      transformMask:
+      - path: 
+        weight: 1
+      - path: Skeleton_Body
+        weight: 1
+      - path: SkeletonRig
+        weight: 1
+      - path: SkeletonRig/Hips
+        weight: 1
+      - path: SkeletonRig/Hips/LeftUpperLeg
+        weight: 1
+      - path: SkeletonRig/Hips/LeftUpperLeg/LeftLowerLeg
+        weight: 1
+      - path: SkeletonRig/Hips/LeftUpperLeg/LeftLowerLeg/LeftFoot
+        weight: 1
+      - path: SkeletonRig/Hips/LeftUpperLeg/LeftLowerLeg/LeftFoot/LeftToes
+        weight: 1
+      - path: SkeletonRig/Hips/RightUpperLeg
+        weight: 1
+      - path: SkeletonRig/Hips/RightUpperLeg/RightLowerLeg
+        weight: 1
+      - path: SkeletonRig/Hips/RightUpperLeg/RightLowerLeg/RightFoot
+        weight: 1
+      - path: SkeletonRig/Hips/RightUpperLeg/RightLowerLeg/RightFoot/RightToes
+        weight: 1
+      - path: SkeletonRig/Hips/Spine
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal/LeftIndexIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal/LeftIndexIntermediate/LeftIndexDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal/LeftMiddleIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal/LeftMiddleIntermediate/LeftMiddleDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftRingProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftRingProximal/LeftRingIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftRingProximal/LeftRingIntermediate/LeftRingDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal/LeftThumbIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal/LeftThumbIntermediate/LeftThumbDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/Neck
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/Neck/Head
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal/RightIndexIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal/RightIndexIntermediate/RightIndexDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal/RightMiddleIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal/RightMiddleIntermediate/RightMiddleDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightRingProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightRingProximal/RightRingIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightRingProximal/RightRingIntermediate/RightRingDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal/RightThumbIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal/RightThumbIntermediate/RightThumbDistal
+        weight: 1
+      maskType: 0
       maskSource: {instanceID: 0}
       additiveReferencePoseFrame: 0
     - serializedVersion: 16
@@ -190,8 +574,104 @@ ModelImporter:
       bodyMask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000
       curves: []
       events: []
-      transformMask: []
-      maskType: 3
+      transformMask:
+      - path: 
+        weight: 1
+      - path: Skeleton_Body
+        weight: 1
+      - path: SkeletonRig
+        weight: 1
+      - path: SkeletonRig/Hips
+        weight: 1
+      - path: SkeletonRig/Hips/LeftUpperLeg
+        weight: 1
+      - path: SkeletonRig/Hips/LeftUpperLeg/LeftLowerLeg
+        weight: 1
+      - path: SkeletonRig/Hips/LeftUpperLeg/LeftLowerLeg/LeftFoot
+        weight: 1
+      - path: SkeletonRig/Hips/LeftUpperLeg/LeftLowerLeg/LeftFoot/LeftToes
+        weight: 1
+      - path: SkeletonRig/Hips/RightUpperLeg
+        weight: 1
+      - path: SkeletonRig/Hips/RightUpperLeg/RightLowerLeg
+        weight: 1
+      - path: SkeletonRig/Hips/RightUpperLeg/RightLowerLeg/RightFoot
+        weight: 1
+      - path: SkeletonRig/Hips/RightUpperLeg/RightLowerLeg/RightFoot/RightToes
+        weight: 1
+      - path: SkeletonRig/Hips/Spine
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal/LeftIndexIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal/LeftIndexIntermediate/LeftIndexDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal/LeftMiddleIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal/LeftMiddleIntermediate/LeftMiddleDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftRingProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftRingProximal/LeftRingIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftRingProximal/LeftRingIntermediate/LeftRingDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal/LeftThumbIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal/LeftThumbIntermediate/LeftThumbDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/Neck
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/Neck/Head
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal/RightIndexIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal/RightIndexIntermediate/RightIndexDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal/RightMiddleIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal/RightMiddleIntermediate/RightMiddleDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightRingProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightRingProximal/RightRingIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightRingProximal/RightRingIntermediate/RightRingDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal/RightThumbIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal/RightThumbIntermediate/RightThumbDistal
+        weight: 1
+      maskType: 0
       maskSource: {instanceID: 0}
       additiveReferencePoseFrame: 0
     - serializedVersion: 16
@@ -219,8 +699,104 @@ ModelImporter:
       bodyMask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000
       curves: []
       events: []
-      transformMask: []
-      maskType: 3
+      transformMask:
+      - path: 
+        weight: 1
+      - path: Skeleton_Body
+        weight: 1
+      - path: SkeletonRig
+        weight: 1
+      - path: SkeletonRig/Hips
+        weight: 1
+      - path: SkeletonRig/Hips/LeftUpperLeg
+        weight: 1
+      - path: SkeletonRig/Hips/LeftUpperLeg/LeftLowerLeg
+        weight: 1
+      - path: SkeletonRig/Hips/LeftUpperLeg/LeftLowerLeg/LeftFoot
+        weight: 1
+      - path: SkeletonRig/Hips/LeftUpperLeg/LeftLowerLeg/LeftFoot/LeftToes
+        weight: 1
+      - path: SkeletonRig/Hips/RightUpperLeg
+        weight: 1
+      - path: SkeletonRig/Hips/RightUpperLeg/RightLowerLeg
+        weight: 1
+      - path: SkeletonRig/Hips/RightUpperLeg/RightLowerLeg/RightFoot
+        weight: 1
+      - path: SkeletonRig/Hips/RightUpperLeg/RightLowerLeg/RightFoot/RightToes
+        weight: 1
+      - path: SkeletonRig/Hips/Spine
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal/LeftIndexIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal/LeftIndexIntermediate/LeftIndexDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal/LeftMiddleIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal/LeftMiddleIntermediate/LeftMiddleDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftRingProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftRingProximal/LeftRingIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftRingProximal/LeftRingIntermediate/LeftRingDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal/LeftThumbIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal/LeftThumbIntermediate/LeftThumbDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/Neck
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/Neck/Head
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal/RightIndexIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal/RightIndexIntermediate/RightIndexDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal/RightMiddleIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal/RightMiddleIntermediate/RightMiddleDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightRingProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightRingProximal/RightRingIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightRingProximal/RightRingIntermediate/RightRingDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal/RightThumbIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal/RightThumbIntermediate/RightThumbDistal
+        weight: 1
+      maskType: 0
       maskSource: {instanceID: 0}
       additiveReferencePoseFrame: 0
     - serializedVersion: 16
@@ -248,8 +824,104 @@ ModelImporter:
       bodyMask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000
       curves: []
       events: []
-      transformMask: []
-      maskType: 3
+      transformMask:
+      - path: 
+        weight: 1
+      - path: Skeleton_Body
+        weight: 1
+      - path: SkeletonRig
+        weight: 1
+      - path: SkeletonRig/Hips
+        weight: 1
+      - path: SkeletonRig/Hips/LeftUpperLeg
+        weight: 1
+      - path: SkeletonRig/Hips/LeftUpperLeg/LeftLowerLeg
+        weight: 1
+      - path: SkeletonRig/Hips/LeftUpperLeg/LeftLowerLeg/LeftFoot
+        weight: 1
+      - path: SkeletonRig/Hips/LeftUpperLeg/LeftLowerLeg/LeftFoot/LeftToes
+        weight: 1
+      - path: SkeletonRig/Hips/RightUpperLeg
+        weight: 1
+      - path: SkeletonRig/Hips/RightUpperLeg/RightLowerLeg
+        weight: 1
+      - path: SkeletonRig/Hips/RightUpperLeg/RightLowerLeg/RightFoot
+        weight: 1
+      - path: SkeletonRig/Hips/RightUpperLeg/RightLowerLeg/RightFoot/RightToes
+        weight: 1
+      - path: SkeletonRig/Hips/Spine
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal/LeftIndexIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal/LeftIndexIntermediate/LeftIndexDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal/LeftMiddleIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal/LeftMiddleIntermediate/LeftMiddleDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftRingProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftRingProximal/LeftRingIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftRingProximal/LeftRingIntermediate/LeftRingDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal/LeftThumbIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal/LeftThumbIntermediate/LeftThumbDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/Neck
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/Neck/Head
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal/RightIndexIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal/RightIndexIntermediate/RightIndexDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal/RightMiddleIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal/RightMiddleIntermediate/RightMiddleDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightRingProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightRingProximal/RightRingIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightRingProximal/RightRingIntermediate/RightRingDistal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal/RightThumbIntermediate
+        weight: 1
+      - path: SkeletonRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal/RightThumbIntermediate/RightThumbDistal
+        weight: 1
+      maskType: 0
       maskSource: {instanceID: 0}
       additiveReferencePoseFrame: 0
     isReadable: 0
