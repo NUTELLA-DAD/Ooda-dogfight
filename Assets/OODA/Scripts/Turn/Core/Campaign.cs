@@ -3,8 +3,8 @@ namespace Ooda.Turn.Core
     /// <summary>
     /// The Alpine Campaign: the missions the mission briefing offers after the squadron briefing, numbered in the order
     /// the route on its map joins them (up the island from the farmland in the south to the peaks in the north, then out
-    /// to sea to the city). Each one is a dogfight over one of the arenas (Arenas.All), flown with the flight and the start
-    /// picked in the squadron briefing. New missions join the end of All. Pure C#, no Unity.
+    /// to sea to the city, and on over the open sea into the cloud). Each one is a dogfight over one of the arenas
+    /// (Arenas.All), flown with the flight and the start picked in the squadron briefing. New missions join the end of All. Pure C#, no Unity.
     /// </summary>
     public struct CampaignMission
     {
@@ -29,6 +29,7 @@ namespace Ooda.Turn.Core
             new CampaignMission { title = "HIGH PASS", objective = "Hold the saddle where the railway crosses the mountains", arena = 1, difficulty = 2 },
             new CampaignMission { title = "PEAK MAZE", objective = "Hunt them through the canyons among the snowy peaks", arena = 0, difficulty = 3 },
             new CampaignMission { title = "SKYLINE CITY", objective = "Chase them down the river through the city of towers", arena = Arenas.CityIndex, difficulty = 3 },
+            new CampaignMission { title = "CLOUD SEA", objective = "Hunt them through the towering clouds out over the open sea", arena = Arenas.CloudIndex, difficulty = 2 },
         };
 
         public static int Count => All.Length;

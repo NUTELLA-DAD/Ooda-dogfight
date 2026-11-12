@@ -699,6 +699,8 @@ namespace Ooda.UI
             Vector2 At(Vec3d p) => new Vector2(inner.center.x + (float)(p.x - cx) * ppf, inner.center.y - (float)(p.y - cy) * ppf);
             // over the city, its towers under the planes (CityMap)
             if (!show.randomArena && Arenas.IsCity(show.arena)) CityMap.Draw(inner, cx, cy, ppf);
+            // over the cloud sea, its clouds (SkyMap)
+            if (!show.randomArena && Arenas.IsCloud(show.arena)) SkyMap.Draw(inner, cx, cy, ppf);
 
             // a 1 km scale bar and N
             float km = 3280.84f * ppf;

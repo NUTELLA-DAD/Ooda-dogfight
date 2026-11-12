@@ -9,10 +9,10 @@ namespace Ooda.UI
     /// <summary>
     /// The mission briefing, after the squadron briefing's Ready: your flight gathered round a map table on the apron
     /// (BriefingStage.ShowTable), the island drawn on it as a painted map from the terrain itself with the city out at sea
-    /// to the east, a numbered pin at each of the Alpine Campaign's missions (Campaign.All) and a dotted route joining them.
+    /// to the east and the cloud sea to the south-east, a numbered pin at each of the Alpine Campaign's missions (Campaign.All) and a dotted route joining them.
     /// The missions are listed top left, the picked one's name, objective, wingmen, bandits and difficulty on the right.
     /// Launch Mission flies the dogfight over the picked mission's arena with the flight and the start picked before;
-    /// Back returns to the squadron briefing. ↑ ↓ (or 1 to 5, or a click on a pin) pick, Enter launches, Esc goes back.
+    /// Back returns to the squadron briefing. ↑ ↓ (or 1 to 6, or a click on a pin) pick, Enter launches, Esc goes back.
     /// </summary>
     public class MissionSelectScreen
     {
@@ -31,6 +31,9 @@ namespace Ooda.UI
         const float Scale = IslandSizePx / (2 * IslandHalfM);              // pixels a metre, the same for both
         const float CityCx = 838, CityCy = 320;                         // where the city's middle is drawn
         const float BreakPx = 690;                                      // the cut in the sea between them
+        // the cloud sea is far out to the south-east, off this map: its pin stands in the sea by the cut, low down, among
+        // a few painted clouds (the sea between is shortened anyway)
+        static readonly Vector2 CloudPx = new Vector2(728, 118);
         static Texture2D map;
 
         /// <summary>Open on the stage the squadron briefing stands on: the table goes up, the pick starts on the setup's arena.</summary>
@@ -304,8 +307,9 @@ namespace Ooda.UI
         /// <summary>Where mission i's pin stands on the map texture, 0 to 1 (v north).</summary>
         static Vector2 MissionUv(int i)
         {
-            var a = Arenas.Get(Campaign.Get(i).arena);
-            var p = Arenas.IsCity(Campaign.Get(i).arena) ? CityPx((float)a.x, (float)a.z) : IslandPx((float)a.x, (float)a.z);
+            int ar = Campaign.Get(i).arena;
+            var a = Arenas.Get(ar);
+            var p = Arenas.IsCloud(ar) ? CloudPx : Arenas.IsCity(ar) ? CityPx((float)a.x, (float)a.z) : IslandPx((float)a.x, (float)a.z);
             return new Vector2(p.x / TexW, p.y / TexH);
         }
 
@@ -432,6 +436,7 @@ namespace Ooda.UI
                 Line(px, IslandPx(rs.transform.position.x, rs.transform.position.z), IslandPx(re.transform.position.x, re.transform.position.z), 2.2f, new Color(0.35f, 0.33f, 0.30f));
             // the cut in the sea between the island and the city, and the route from pin to pin
             for (int y = 30; y < TexH - 30; y += 22) Line(px, new Vector2(BreakPx - 8, y), new Vector2(BreakPx + 8, y + 11), 1.2f, Color.Lerp(sea, ink, 0.5f));
+            PaintClouds(px, CloudPx, ink);
             for (int m = 0; m + 1 < Campaign.Count; m++)
             {
                 Vector2 a = Vector2.Scale(MissionUv(m), new Vector2(TexW, TexH)), b = Vector2.Scale(MissionUv(m + 1), new Vector2(TexW, TexH));
@@ -466,6 +471,21 @@ namespace Ooda.UI
             return t;
         }
 
+        /// <summary>The cloud sea on the map: a mass of round puffs, inked round the outside, heaped about c.</summary>
+        static void PaintClouds(Color32[] px, Vector2 c, Color ink)
+        {
+            var puffs = new (Vector2 at, float r)[16];
+            for (int k = 0; k < puffs.Length; k++)
+            {
+                float a = Hash(k, 11) * 6.2832f, d = Mathf.Sqrt(Hash(k, 12));
+                puffs[k] = (c + new Vector2(Mathf.Cos(a) * 64f, Mathf.Sin(a) * 36f) * d, 9f + 9f * Hash(k, 13) * (1.2f - d));
+            }
+            var shade = new Color(0.78f, 0.80f, 0.93f);
+            foreach (var p in puffs) Dot(px, p.at, p.r + 1.8f, ink);
+            foreach (var p in puffs) Dot(px, p.at, p.r, shade);
+            foreach (var p in puffs) Dot(px, p.at + new Vector2(-0.25f, 0.3f) * p.r, p.r * 0.72f, new Color(0.98f, 0.98f, 1f));
+        }
+
         static void Dot(Color32[] px, Vector2 c, float r, Color col)
         {
             for (int y = (int)(c.y - r - 1); y <= (int)(c.y + r + 1); y++)
@@ -488,7 +508,7 @@ namespace Ooda.UI
 
         // ---------- the self-test: -missionshots <folder> ----------
 
-        /// <summary>Save the open briefing as a BMP for each of the first two missions picked, then the last (the city).</summary>
+        /// <summary>Save the open briefing as a BMP for the first and third missions picked, then the last (the cloud sea).</summary>
         public IEnumerator Shots(string folder)
         {
             foreach (int i in new[] { 0, 2, Campaign.Count - 1 })

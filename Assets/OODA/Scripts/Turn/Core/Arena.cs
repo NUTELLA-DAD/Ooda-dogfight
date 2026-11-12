@@ -29,9 +29,10 @@ namespace Ooda.Turn.Core
     public static class Arenas
     {
         /// <summary>
-        /// The five: among the snowy peaks in the north, over the high rail pass, over the chalet lake and its village in
-        /// the middle, over the farmland and the strike town in the south, and the skyscraper city on its own island out
-        /// at sea to the east (City: its towers are the ground there, so they are as solid as the rock).
+        /// The six: among the snowy peaks in the north, over the high rail pass, over the chalet lake and its village in
+        /// the middle, over the farmland and the strike town in the south, the skyscraper city on its own island out
+        /// at sea to the east (City: its towers are the ground there, so they are as solid as the rock), and the cloud sea
+        /// out over the open water to the south-east (Skyscape: towering cloud all round, a cloud deck under the fight).
         /// </summary>
         public static readonly Arena[] All =
         {
@@ -45,11 +46,17 @@ namespace Ooda.Turn.Core
                         x = 1400, z = -5900, altFt = 2600, axisDeg = 90, halfLengthM = 3200, halfWidthM = 1400 },
             new Arena { name = "Skyline City", blurb = "Down the river through a city of towers. Weave the street canyons or climb over the roofs: hit one and you are done.",
                         x = City.CentreX, z = City.CentreZ, altFt = 1100, axisDeg = 0, halfLengthM = 3000, halfWidthM = City.RiverHalfM },
+            new Arena { name = "Cloud Sea", blurb = "Out over the open sea in a sky of towering cloud. Weave between the towers, punch through them, or dive into the deck below.",
+                        x = Skyscape.CentreX, z = Skyscape.CentreZ, altFt = Skyscape.StartAltFt, axisDeg = Skyscape.AxisDeg, halfLengthM = 3000, halfWidthM = 900 },
         };
 
         /// <summary>The city's arena's number in All.</summary>
         public const int CityIndex = 4;
         public static bool IsCity(int i) => i == CityIndex;
+
+        /// <summary>The cloud sea's arena's number in All.</summary>
+        public const int CloudIndex = 5;
+        public static bool IsCloud(int i) => i == CloudIndex;
 
         public static int Count => All.Length;
 
