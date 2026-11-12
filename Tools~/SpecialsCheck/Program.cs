@@ -813,7 +813,8 @@ static class Program
                 return (b.planes[0].state.pos - b.planes[1].state.pos).Length;
             }
             double g0 = Gap(false), g1 = Gap(true);
-            Check(g1 > g0 + 800, $"thrown at a 109 900 ft behind, the gap is {g1:F0} ft two turns on ({g0:F0} ft without)");
+            // (this close the bubble bursts past him, clear of the thrower, so he is near its edge and soon out: about 550 ft, not the 800 a bubble centred on him gave)
+            Check(g1 > g0 + 400, $"thrown at a 109 900 ft behind, the gap is {g1:F0} ft two turns on ({g0:F0} ft without)");
 
             // and its stream crawls: fewer of its rounds land
             int Hits(bool slow)

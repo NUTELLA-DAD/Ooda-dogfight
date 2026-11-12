@@ -312,6 +312,7 @@ namespace Ooda.Turn
             for (int ti = 0; ti < r.traces.Count; ti++)
             {
                 var tr = r.traces[ti];
+                SoundForTrace(tr, now);
                 if (tr.missile) { DrawMissile(tr, ti, now, (float)r.dt); continue; }
                 GlowTracer(tr, ti, now, MagnetTint(tr, AfterBounce(tr, now, TapeTracerColor(tr.owner))));
             }
@@ -365,15 +366,17 @@ namespace Ooda.Turn
             if (Pressed(Key.Tab) || Pressed(Key.N)) FollowNext(shift ? -1 : 1);
             if (pad != null && pad.rightShoulder.wasPressedThisFrame) FollowNext(1);
             if (pad != null && pad.leftShoulder.wasPressedThisFrame) FollowNext(-1);
-            if ((Pressed(Key.V) || (pad != null && pad.rightStickButton.wasPressedThisFrame)) && view != null) view.NextFocus();
+            if ((Pressed(Key.V) && !AltHeld(kb) || (pad != null && pad.rightStickButton.wasPressedThisFrame)) && view != null) view.NextFocus();
             if (Pressed(Key.C) && view != null) ToggleCockpit();
+            CameraKeys(kb, pad);
             if (pad != null && pad.dpad.up.wasPressedThisFrame) rSpeed = Mathf.Min(ReplaySpeeds.Length - 1, rSpeed + 1);
             if (pad != null && pad.dpad.down.wasPressedThisFrame) rSpeed = Mathf.Max(0, rSpeed - 1);
 
             if (view == null) return;
             if (mouse != null)
             {
-                if (mouse.rightButton.isPressed) view.Orbit(mouse.delta.ReadValue() * 0.25f);
+                if (mouse.rightButton.isPressed) OrbitOrPan(kb, mouse.delta.ReadValue());
+                if (mouse.middleButton.isPressed) view.Pan(mouse.delta.ReadValue());
                 float sc = mouse.scroll.ReadValue().y;
                 if (Mathf.Abs(sc) > 0.01f) view.Zoom(Mathf.Sign(sc));
             }
@@ -382,8 +385,8 @@ namespace Ooda.Turn
             {
                 Vector2 pos = pointer.position.ReadValue();
                 Vector2 gui = new Vector2(pos.x, Screen.height - pos.y) / guiScale;
-                if (pointer.press.wasPressedThisFrame) rDragLook = !replayRects.Any(rc => rc.Contains(gui));
-                else if (pointer.press.isPressed && rDragLook && (mouse == null || !mouse.rightButton.isPressed)) view.Orbit((pos - lastPointer) * 0.25f);
+                if (pointer.press.wasPressedThisFrame) { rDragLook = !replayRects.Any(rc => rc.Contains(gui)); if (rDragLook && DoubleTap(pos)) RecenterView(); }
+                else if (pointer.press.isPressed && rDragLook && (mouse == null || !mouse.rightButton.isPressed)) OrbitOrPan(kb, pos - lastPointer);
                 if (pointer.press.wasReleasedThisFrame) rDragLook = false;
                 lastPointer = pos;
             }
@@ -526,7 +529,7 @@ namespace Ooda.Turn
             GUI.color = new Color(0, 0, 0, 0.55f);
             GUI.DrawTexture(new Rect(0, 0, sw, sh), Texture2D.whiteTexture);
             GUI.color = Color.white;
-            float w = 320, h = replaying ? 372 : 316;
+            float w = 320, h = replaying ? 408 : 352;
             Rect panel = new Rect((sw - w) / 2, (sh - h) / 2, w, h);
             GUI.Box(panel, GUIContent.none);
             var heading = Ooda.UI.BriefingStyle.Heading(GUI.skin.label, 40);
@@ -535,6 +538,10 @@ namespace Ooda.Turn
             float x = panel.x + 30, y = panel.y + 80, bw = w - 60;
             if (GUI.Button(new Rect(x, y, bw, 44), "Resume  (Esc)")) OpenMenu(false);
             y += 56;
+            GUI.Label(new Rect(x, y, 96, 24), $"Volume {Ooda.Audio.GameAudio.Volume * 100:F0}", label);
+            float vol = GUI.HorizontalSlider(new Rect(x + 100, y + 8, bw - 100, 20), Ooda.Audio.GameAudio.Volume, 0f, 1f);
+            if (Mathf.Abs(vol - Ooda.Audio.GameAudio.Volume) > 0.004f) Ooda.Audio.GameAudio.Volume = vol;
+            y += 36;
             if (replaying)
             {
                 if (GUI.Button(new Rect(x, y, bw, 44), "Leave replay")) { OpenMenu(false); StopReplay(); }

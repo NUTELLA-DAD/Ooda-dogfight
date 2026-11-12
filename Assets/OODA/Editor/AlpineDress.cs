@@ -31,6 +31,7 @@ namespace Ooda.EditorTools
             // the farmland's patchwork: fields of wheat and pasture on the gentle low ground of the south
             float farmW = Step(0.35f, 0.7f, s) * (1 - Step(8, 13, slope)) * (1 - Step(420, 500, y)) * (1 - forestW) * (1 - rockW) * (1 - snowW);
             if (RiverNear(x, z)) farmW = 0;
+            farmW *= 1 - Step(7600f, 8400f, x);   // no fields cut off by the east lands' edge: meadow where the Alps meet them
             int patch = FieldPatch(x, z, out _);
             float meadowW = Mathf.Max(0, 1 - snowW - rockW - forestW - farmW);
             for (int k = 0; k < CoverLayers; k++) w[k] = 0;

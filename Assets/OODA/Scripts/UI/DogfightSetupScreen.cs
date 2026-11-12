@@ -317,16 +317,18 @@ namespace Ooda.UI
             float w = sw / k, h = sh / k;
             const float TopH = 64, BotH = 86;
 
-            // the bar along the top: OODA, then SQUADRON BRIEFING
+            // the bar along the top: the game's name between two sets of wings, then SQUADRON BRIEFING
             GUI.DrawTexture(new Rect(-4, -4, w + 8, TopH + 4), bar);
+            string gameName = TitleScreen.GameName.ToUpperInvariant();
+            float nameW = Mathf.Max(100, logo.CalcSize(new GUIContent(gameName)).x + 8);
             for (int i = 0; i < 3; i++)
             {
                 float len = 34 - i * 8, y = 22 + i * 8;
                 Fill(new Rect(54 - len, y, len, 4), Cream);
-                Fill(new Rect(162, y, len, 4), Cream);
+                Fill(new Rect(62 + nameW, y, len, 4), Cream);
             }
-            GUI.Label(new Rect(58, 4, 100, TopH - 8), "OODA", logo);
-            Fill(new Rect(212, 14, 3, TopH - 28), new Color(0.85f, 0.80f, 0.62f, 0.6f));
+            GUI.Label(new Rect(58, 4, nameW, TopH - 8), gameName, logo);
+            Fill(new Rect(112 + nameW, 14, 3, TopH - 28), new Color(0.85f, 0.80f, 0.62f, 0.6f));
             GUI.Label(new Rect(0, 2, w, TopH - 4), "SQUADRON BRIEFING", barTitle);
 
             if (!stage.Built)
@@ -699,6 +701,8 @@ namespace Ooda.UI
             Vector2 At(Vec3d p) => new Vector2(inner.center.x + (float)(p.x - cx) * ppf, inner.center.y - (float)(p.y - cy) * ppf);
             // over the city, its towers under the planes (CityMap)
             if (!show.randomArena && Arenas.IsCity(show.arena)) CityMap.Draw(inner, cx, cy, ppf);
+            // over the cloud sea, its clouds (SkyMap)
+            if (!show.randomArena && Arenas.IsCloud(show.arena)) SkyMap.Draw(inner, cx, cy, ppf);
 
             // a 1 km scale bar and N
             float km = 3280.84f * ppf;

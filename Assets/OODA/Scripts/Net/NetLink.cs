@@ -11,12 +11,35 @@ namespace Ooda.Net
     public enum Msg : byte { Hello = 1, Setup = 2, Plans = 3, Turn = 4, Resync = 5, Snapshot = 6, Draft = 7, Ping = 8, Bye = 9 }
 
     /// <summary>
+    /// A link to the one other machine in the game, carrying whole messages in order. NetLink is the direct one (TCP, by
+    /// address); the game's room codes go through a relay (Online/RelayLink.cs), so nobody's address is ever typed or shown.
+    /// </summary>
+    public interface INetLink : IDisposable
+    {
+        bool IsHost { get; }
+        /// <summary>Connected to the other machine, and not lost since.</summary>
+        bool Connected { get; }
+        /// <summary>The connection failed, dropped, went silent, or the other side left.</summary>
+        bool Lost { get; }
+        /// <summary>Why it was lost or never made, for the screen.</summary>
+        string Error { get; }
+        /// <summary>The port a direct host listens on; 0 through the relay.</summary>
+        int Port { get; }
+        /// <summary>Who is at the other end, for the screen (an address, or the room).</summary>
+        string PeerAddress { get; }
+        /// <summary>Send one message. Does nothing once lost.</summary>
+        void Send(Msg type, byte[] data);
+        /// <summary>The next message that arrived, oldest first.</summary>
+        bool TryReceive(out Msg type, out byte[] data);
+    }
+
+    /// <summary>
     /// One TCP connection between the host and a friend, carrying whole messages: a length, a type byte, then the bytes.
     /// Reading happens on a thread of its own and lands in an inbox the game empties each frame; a second thread sends a
     /// ping every couple of seconds and calls the link lost when nothing has been heard for a while. Sending is from the
     /// main thread. Pure C#, no Unity, so it can be checked on localhost without the game.
     /// </summary>
-    public sealed class NetLink : IDisposable
+    public sealed class NetLink : INetLink
     {
         public const int DefaultPort = 7777;
         /// <summary>Nothing heard for this long (pings included) and the link counts as lost.</summary>

@@ -40,11 +40,11 @@ namespace Ooda.Turn
             plan.portal = true; plan.portalAt = 1.0; PortalOn();
             placingExit = false;
             dirty = true;
-            if (view != null) { view.distance = 220f; view.pitch = 14f; view.BehindPlayer(); }
+            if (view != null) { view.distance = 220f; view.pitch = 14f; view.BehindPlayer(); view.Snap(); }
             yield return Shot("1_planned", 2.5f);
 
             // 2: closer behind, looking down the path at the entry: the bandit through it
-            if (view != null) { view.distance = 60f; view.pitch = 4f; view.BehindPlayer(); }
+            if (view != null) { view.distance = 60f; view.pitch = 4f; view.BehindPlayer(); view.Snap(); }
             yield return Shot("2_window", 1.5f);
 
             // 3 and 4: fly it, slowed: just before it goes in, and just out of the exit

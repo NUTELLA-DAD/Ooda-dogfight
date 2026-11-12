@@ -64,7 +64,7 @@ namespace Ooda.Net
         /// <summary>The game being played over the network, or null playing alone.</summary>
         public static NetSession Current;
 
-        public readonly NetLink link;
+        public readonly INetLink link;
         public readonly string version, myName;
         public bool IsHost => link.IsHost;
         /// <summary>This machine's player: 0 the host, 1 the friend.</summary>
@@ -80,7 +80,7 @@ namespace Ooda.Net
 
         readonly Queue<(Msg, byte[])> held = new Queue<(Msg, byte[])>();
 
-        public NetSession(NetLink link, string version, string myName)
+        public NetSession(INetLink link, string version, string myName)
         {
             this.link = link; this.version = version; this.myName = myName;
         }

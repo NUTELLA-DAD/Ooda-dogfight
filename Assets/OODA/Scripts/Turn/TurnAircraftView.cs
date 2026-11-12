@@ -389,6 +389,7 @@ namespace Ooda.Turn
             var fx = Fx.ToonFx.Get();
             fx.Blast(at, 3f, ground: true);
             fx.SmokeColumn(at, 4f, 25f);
+            Ooda.Audio.GameAudio.PlayAt(Ooda.Audio.Sfx.Blast, at, 1f, 0.85f);
         }
     }
 }

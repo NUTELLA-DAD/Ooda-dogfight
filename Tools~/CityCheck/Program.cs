@@ -17,7 +17,9 @@ static class Program
     static double Ground(double x, double y)
     {
         double c = City.Skyline.GroundFt(x, y);
-        return double.IsNegativeInfinity(c) ? 0 : c;
+        if (!double.IsNegativeInfinity(c)) return c;
+        double e = Eastland.Land.GroundFt(x, y);   // the east lands round the city (the Alps are past their west edge)
+        return double.IsNegativeInfinity(e) ? 0 : e;
     }
 
     static int Main(string[] args)

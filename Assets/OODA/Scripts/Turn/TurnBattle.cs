@@ -23,6 +23,7 @@ namespace Ooda.Turn
     /// OODA (O) switches to short 1 s turns, to line up a shot one small step at a time.
     ///
     /// Mouse or touch: drag the yellow tip; drag anywhere else (or right-drag) to look around; wheel zooms;
+    /// Alt+drag or middle-drag pans; Home or a double-click recenters; Alt+V the view follows your heading or not;
     /// drag on the timeline to set the burst. Keyboard: WASD or arrows move the arrow, Shift/Ctrl throttle,
     /// Space WEP, F fire at predicted hits, B burst presets, Enter fly, R replay, P projection, V camera,
     /// X straight ahead, Backspace restart, H help. Gamepad: left stick arrow, triggers throttle, A fly,
@@ -192,7 +193,7 @@ namespace Ooda.Turn
             tip.SetParent(transform, false);
             if (terrain == null) terrain = Terrain.activeTerrain;
             grid = MakeGrid(terrain);
-            CityStart();   // the skyscraper city's towers, out at sea (TurnBattle.City)
+            CityStart();   // the skyscraper city's towers and the east lands round it (TurnBattle.City)
             gauge = Ooda.UI.StickThrottleGauge.Create();
             if (gauge != null && view != null && view.Cam != null) view.Cam.cullingMask &= ~(1 << Ooda.UI.StickThrottleGauge.Layer);
             if (view != null) { view.player = player.transform; view.enemy = enemy.transform; }
@@ -372,6 +373,7 @@ namespace Ooda.Turn
                 };
             }
             CityPilots();       // in the city: braver about the roofs, and looking ahead finely enough not to skip a tower
+            CloudStart();       // over the cloud sea: its clouds up, and the white as you fly into one (TurnBattle.Clouds)
             TutorialPilots();   // training: the lesson's foe (no pilot for the drone) and its first step
             NetSitDown();   // online: into your own first plane
             systemsBefore = battle.AllSystems();
@@ -630,6 +632,7 @@ namespace Ooda.Turn
         {
             if (view != null) view.sightPose = false;   // set again below while the gunsight view is up
             NetUpdate();
+            SoundUpdate();
             if (MenuUpdate()) return;   // Esc: the menu is open and the battle waits
             if (replaying) { ReplayUpdate(); return; }
             if (briefing) { UpdateBriefing(); return; }
@@ -913,7 +916,7 @@ namespace Ooda.Turn
             float dt = Time.unscaledDeltaTime;
 
             bool Pressed(Key k) => kb != null && kb[k].wasPressedThisFrame;
-            if (Pressed(Key.H)) showHelp = !showHelp;
+            if (Pressed(Key.H)) { showHelp = !showHelp; if (!tutorial) Ooda.App.Progress.HelpOpen = showHelp; }
             if (Pressed(Key.W) && CanWatchReplay) { StartReplay(); return; }
             if (Pressed(Key.M)) SwitchMission();
             if (Pressed(Key.O)) SwitchOoda();
@@ -923,14 +926,16 @@ namespace Ooda.Turn
             if (Pressed(Key.Backspace) || (pad != null && pad.startButton.wasPressedThisFrame)) Restart();
             if (Pressed(Key.R) || (pad != null && pad.buttonEast.wasPressedThisFrame)) { if (phase == Phase.Over && Dogfighting) Restart(); else Replay(); }   // a new one on one once it is over
             if (Pressed(Key.P) || (pad != null && pad.buttonNorth.wasPressedThisFrame)) showProjection = !showProjection;
-            if ((Pressed(Key.V) || (pad != null && pad.rightStickButton.wasPressedThisFrame)) && view != null) view.NextFocus();
+            if ((Pressed(Key.V) && !AltHeld(kb) || (pad != null && pad.rightStickButton.wasPressedThisFrame)) && view != null) view.NextFocus();
+            CameraKeys(kb, pad);
 
-            // Looking around: right-drag, a drag off the arrow, the right stick; the wheel zooms
+            // Looking around: right-drag, a drag off the arrow, the right stick; the wheel zooms; Alt+drag or the middle button pans
             if (view != null)
             {
                 if (mouse != null)
                 {
-                    if (mouse.rightButton.isPressed) view.Orbit(mouse.delta.ReadValue() * 0.25f);
+                    if (mouse.rightButton.isPressed) OrbitOrPan(kb, mouse.delta.ReadValue());
+                    if (mouse.middleButton.isPressed) view.Pan(mouse.delta.ReadValue());
                     float sc = mouse.scroll.ReadValue().y;
                     Vector2 mp = mouse.position.ReadValue();
                     bool overPanel = guiRects.Any(r => r.Contains(new Vector2(mp.x, Screen.height - mp.y) / guiScale));   // the wheel scrolls the help there
@@ -976,7 +981,7 @@ namespace Ooda.Turn
                     else if (guiRects.Any(r => r.Contains(gui))) { }
                     else if (phase == Phase.Planning && !plan.HasMarks && ArrowShown && NearTip(pos)) dragArrow = true;
                     else if (phase == Phase.Planning && plan.portal && placingExit && view != null) { dragExit = true; ExitPress(pos); }
-                    else dragLook = true;
+                    else { dragLook = true; if (DoubleTap(pos)) RecenterView(); }
                 }
                 else if (pointer.press.isPressed)
                 {
@@ -995,7 +1000,7 @@ namespace Ooda.Turn
                     else if (dragExit) ExitDrag(pos);
                     else if (dragBurst) SetBurstFromBar(gui.x, false);
                     else if (dragMoves) SetMarkTime(gui.x);
-                    else if (dragLook && view != null && (mouse == null || !mouse.rightButton.isPressed)) view.Orbit((pos - lastPointer) * 0.25f);
+                    else if (dragLook && view != null && (mouse == null || !mouse.rightButton.isPressed)) OrbitOrPan(kb, pos - lastPointer);
                 }
                 if (pointer.press.wasReleasedThisFrame && dragExit) { placingExit = false; Notice("Portal exit placed. Shift+9 or EXIT places it again."); }
                 if (pointer.press.wasReleasedThisFrame) { dragArrow = dragLook = dragMoves = dragStick = dragPedals = dragThrottle = dragMine = dragWell = dragSlow = dragBlink = dragGrapple = dragSnow = dragLane = dragPortalBar = dragExit = false; if (dragBurst) { dragBurst = false; TidyBurst(); } }
@@ -1259,7 +1264,7 @@ namespace Ooda.Turn
             bool stalls = preview.frames[0].Any(f => f.stalled);
             // flown into the ground or an obstacle (not shot down first and falling)
             previewCrashes = !battle.Out(0) && sim.crashed[0] && !sim.SystemsOf(0).Lost;
-            if (previewCrashes) warning = sim.hitObstacle[0] ? "OBSTACLE: this turn hits a cable or structure" : CrashedIntoTower(sim, 0) ? "BUILDING: this turn flies into a tower" : "TERRAIN: this turn flies into the ground";
+            if (previewCrashes) warning = sim.hitObstacle[0] ? "OBSTACLE: this turn hits a cable or structure" : CrashedIntoTower(sim, 0) ? "BUILDING: this turn flies into a tower" : CrashedIntoMonument(sim, 0) ? "MONUMENT: this turn flies into the stone" : "TERRAIN: this turn flies into the ground";
             else if (battle.planes[0].BlackedOut) warning = $"G-LOC: you are blacked out, you come round in {battle.planes[0].glocLeftSec:F0} s";
             else if (preview.frames[0].Any(f => f.greyOut >= 1)) warning = "G-LOC: this many G for this long blacks you out";
             else if (battle.planes[0].Departed)
@@ -1645,6 +1650,7 @@ namespace Ooda.Turn
             for (int ti = 0; ti < last.traces.Count; ti++)
             {
                 var tr = last.traces[ti];
+                SoundForTrace(tr, now);
                 if (tr.missile) { DrawMissile(tr, ti, now, (float)last.dt); continue; }
                 GlowTracer(tr, ti, now, MagnetTint(tr, AfterBounce(tr, now, TracerColor(tr.owner))));
             }
@@ -1724,6 +1730,7 @@ namespace Ooda.Turn
             var fx = Ooda.Fx.ToonFx.Get();
             if (kill) fx.Blast(at, 2.5f);
             else fx.Hit(at);
+            Ooda.Audio.GameAudio.PlayAt(kill ? Ooda.Audio.Sfx.Blast : Ooda.Audio.Sfx.Hit, at, 1f, kill ? 1f : 0.92f + 0.16f * Mathf.PerlinNoise(at.x * 0.37f, at.z * 0.37f));
         }
 
         // ---------- screen ----------
@@ -1787,7 +1794,7 @@ namespace Ooda.Turn
             double ata = Envelope.Angle(me.Forward, los) * 180 / Math.PI;
             double aa = Envelope.Angle(them.Forward, los) * 180 / Math.PI;
             GUI.Label(new Rect(20, 108 - u, 290, 22), $"{themName} {range:F0} ft, {ata:F0}° off your nose", label);
-            GUI.Label(new Rect(20, 128 - u, 290, 22), $"You are {aa:F0}° off its tail ({(aa < 45 ? "behind it" : aa > 135 ? "in front of it" : "beside it")})", label);
+            GUI.Label(new Rect(20, 128 - u, 290, 22), $"You are {aa:F0}° off its tail ({(aa < 45 ? "behind" : aa > 135 ? "in front" : "beside")})", label);
             SystemsRow(new Rect(20, 152 - u, 270, 14), Shown(focus), battle.Out(focus), themName);
             if (Bombing)
             {
@@ -1815,7 +1822,7 @@ namespace Ooda.Turn
 
             // Right: buttons
             float bx = sw - 190, by = 10;
-            Rect buttons = new Rect(bx - 10, 0, 200, 416);
+            Rect buttons = new Rect(bx - 10, 0, 200, 452);
             guiRects.Add(buttons);
             bool planning = phase == Phase.Planning;
             GUI.enabled = planning;
@@ -1830,6 +1837,8 @@ namespace Ooda.Turn
             by += 36;
             if (GUI.Button(new Rect(bx, by, 180, 30), $"View: {(view != null ? view.focus.ToString() : "-")}  (V)") && view != null) view.NextFocus();
             by += 36;
+            CameraButtons(bx, by);
+            by += 36;
             GUI.enabled = net == null || net.IsHost;
             if (GUI.Button(new Rect(bx, by, 180, 30), "Restart  (Backspace)")) Restart();
             GUI.enabled = true;
@@ -1840,7 +1849,7 @@ namespace Ooda.Turn
             if (ooda) oodaStyle.normal.textColor = oodaStyle.hover.textColor = new Color(1f, 0.85f, 0.2f);
             if (GUI.Button(new Rect(bx, by, 180, 30), ooda ? $"OODA: {turnSec:0.#} s turns  (O)" : "OODA  (O)", oodaStyle)) SwitchOoda();
             by += 36;
-            if (GUI.Button(new Rect(bx, by, 180, 30), showHelp ? "Hide help  (H)" : "Help  (H)")) showHelp = !showHelp;
+            if (GUI.Button(new Rect(bx, by, 180, 30), showHelp ? "Hide help  (H)" : "Help  (H)")) { showHelp = !showHelp; if (!tutorial) Ooda.App.Progress.HelpOpen = showHelp; }
             by += 36;
             if (GUI.Button(new Rect(bx, by, 180, 30), "Menu  (Esc)")) OpenMenu(true);
 
@@ -1867,14 +1876,27 @@ namespace Ooda.Turn
             if (phase == Phase.Over && outcome != null)
             {
                 GUI.Label(new Rect(0, sh * 0.3f, sw, 50), outcome, big);
-                GUI.Label(new Rect(0, sh * 0.3f + 50, sw, 30), tape.Count > 0 ? "Watch the whole fight again from any camera, fly it again, or go back to the main menu." : "Fly it again, or go back to the main menu.", new GUIStyle(label) { alignment = TextAnchor.MiddleCenter });
+                // under it the debrief (a dogfight's), or failing that what the buttons do
+                string under = Dogfighting && debrief != null ? debrief : tape.Count > 0 ? "Watch the whole fight again from any camera, fly it again, or go back to the main menu." : "Fly it again, or go back to the main menu.";
+                float underH = under.Contains("\n") ? 52 : 30;
+                var underStyle = new GUIStyle(label) { alignment = TextAnchor.MiddleCenter, fontSize = 17 };
+                float underW = Mathf.Min(sw - 40, underStyle.CalcSize(new GUIContent(under)).x + 48);
+                GUI.Box(new Rect((sw - underW) / 2, sh * 0.3f + 46, underW, underH + 8), GUIContent.none);   // dark glass: the text sits over smoke and sky
+                GUI.Label(new Rect(0, sh * 0.3f + 50, sw, underH), under, underStyle);
                 bool was = GUI.enabled;
-                EndButtons(sw, sh * 0.3f + 92);
+                EndButtons(sw, sh * 0.3f + 62 + underH);
                 GUI.enabled = was;
             }
             if (notice != null && Time.time < noticeUntil)
                 GUI.Label(new Rect(0, sh * 0.22f, sw, 30), notice, new GUIStyle(label) { alignment = TextAnchor.MiddleCenter, fontSize = 18 });
             NetGUI(sw, label);
+            // the first two turns of a fight, with the help closed: the one thing to do, and where the rest is
+            if (!showHelp && !tutorial && !bot && planning && battle.turn < 2 && warning == null)
+            {
+                Rect hint = new Rect((sw - 860) / 2, sh * 0.16f, 860, 34);
+                GUI.Box(hint, GUIContent.none);   // a dark glass behind it, to read over sky and snow
+                GUI.Label(hint, "Drag the stick to aim where your nose points, then Fly turn (Enter).  H shows every control.", new GUIStyle(label) { alignment = TextAnchor.MiddleCenter, fontSize = 17 });
+            }
 
             if (showHelp)
             {
@@ -1896,7 +1918,8 @@ namespace Ooda.Turn
                     "A jet: J radar missile, U the radar page; notch a radar missile (fly square across it).\n" +
                     "Z/C rudder pedals (slow and nose-high, the rudder swings the nose: hammerhead).\n" +
                     "Enter fly, R replay, P projection, V view, X straight, M mission, H help.\n" +
-                    "Drag the view or right-drag to look; wheel zooms. F2: the old arrow.\n" +
+                    "Drag the view or right-drag to look; wheel or +/- zooms; Alt+drag or middle-drag pans;\n" +
+                    "Home or double-click recenters behind you; Alt+V the view follows your heading or not. F2: the old arrow.\n" +
                     "Pad: left stick arrow, triggers throttle, A fly, X bursts,\n" +
                     "RB fire at predicted hits, Y projection, B replay, right stick look,\n" +
                     "d-pad right rocket, left speed brake, View button your next plane.";

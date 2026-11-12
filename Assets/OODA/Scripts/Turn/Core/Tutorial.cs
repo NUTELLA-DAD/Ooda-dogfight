@@ -102,7 +102,7 @@ namespace Ooda.Turn.Core
                 steps = new[]
                 {
                     S(Goal.Steer, "Steer with the stick",
-                      "Drag the stick in the bottom-right corner, or use WASD. Pull it down to lift the nose, push it sideways to roll and turn. The blue path is where you will fly; the blue ghost plane is where you end up."),
+                      "Drag the stick at the bottom of the screen, or use WASD. Pull it down to lift the nose, push it sideways to roll and turn. The blue path is where you will fly; the blue ghost plane is where you end up."),
                     S(Goal.FlyTurns, "Fly the turn",
                       "Happy with the blue path? Press Fly turn (Enter). The turn plays back, then you plan the next one."),
                 },

@@ -30,17 +30,20 @@ namespace Ooda.Turn
 
         Tutorial.Lesson CurrentLesson => Tutorial.Get(lessonNo);
 
+        static bool tutorialArgRead;
+
         /// <summary>In Start, before the first Restart: training if the title screen asked for it.</summary>
         void TutorialSetUp()
         {
             var args = Environment.GetCommandLineArgs();
-            int at = Array.IndexOf(args, "-tutorial");
+            int at = tutorialArgRead ? -1 : Array.IndexOf(args, "-tutorial");
             if (at >= 0)
             {
+                tutorialArgRead = true;   // the command line's lesson once; a later fight from the menu is a fight
                 TutorialRequested = true;
                 if (at + 1 < args.Length && int.TryParse(args[at + 1], out int n)) TutorialStartLesson = n - 1;   // -tutorial 5: the fifth lesson
             }
-            if (!TutorialRequested || bot) return;
+            if (!TutorialRequested || bot) { if (!bot) showHelp = Ooda.App.Progress.HelpOpen; return; }   // a fight: the help as the player left it (closed at first)
             TutorialRequested = false;
             tutorial = true;
             mission = Mission.Dogfight;
@@ -97,6 +100,7 @@ namespace Ooda.Turn
             if (!battle.Out(0) && battle.Count > 1 && battle.Out(1))
             {
                 lessonDone = true;
+                Ooda.App.Progress.LessonDone(lessonNo);
                 stepNo = CurrentLesson.steps.Length;
                 outcome = lessonNo == Tutorial.Count - 1 ? "Training complete!" : "Lesson complete!";
             }
@@ -126,6 +130,7 @@ namespace Ooda.Turn
             if (stepNo >= lesson.steps.Length)
             {
                 lessonDone = true;
+                Ooda.App.Progress.LessonDone(lessonNo);
                 Notice(lessonNo == Tutorial.Count - 1 ? "Training complete!" : "Lesson complete!  Next lesson: Page Down, or the button.");
             }
             else { Notice($"Done: {step.todo}."); StepBegins(); }
