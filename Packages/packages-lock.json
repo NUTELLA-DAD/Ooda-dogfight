@@ -210,7 +210,7 @@
     },
     "com.unity.transport": {
       "version": "2.7.4",
-      "depth": 1,
+      "depth": 0,
       "source": "registry",
       "dependencies": {
         "com.unity.burst": "1.8.24",
