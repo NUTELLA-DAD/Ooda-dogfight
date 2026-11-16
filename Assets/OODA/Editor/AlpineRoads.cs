@@ -264,6 +264,7 @@ namespace Ooda.EditorTools
                         Vector2 q = a + (b - a) * t;
                         if ((q - end).sqrMagnitude < bd) { bd = (q - end).sqrMagnitude; best = q; }
                     }
+                if (path.Count > 3) path.RemoveAt(path.Count - 1);      // (so it comes in at a slant, not with a dog-leg)
                 path[path.Count - 1] = best;
                 return path;
             }
@@ -494,7 +495,8 @@ namespace Ooda.EditorTools
                 for (int j = 0; j < ah; j++)
                     for (int i = 0; i < aw; i++)
                     {
-                        float t = 1f - Mathf.SmoothStep(42f, 78f, near[j, i]);
+                        float t = 1f - Mathf.Clamp01((near[j, i] - 42f) / 36f);
+                        t = t * t * (3f - 2f * t);
                         if (t <= 0) continue;
                         float crops = a[j, i, 4] + a[j, i, 5] + a[j, i, 6] + a[j, i, 7];
                         a[j, i, 0] += crops * t;
