@@ -137,6 +137,11 @@ namespace Ooda.EditorTools
             var data = list != null && list.arraySize > 0 ? list.GetArrayElementAtIndex(0).objectReferenceValue as UniversalRendererData : null;
             if (data == null) { Debug.LogWarning("OODA: the URP asset has no Universal renderer; no ink on the land."); return; }
 
+            // the renderer was made in code, without URP's post-processing resources: with none, no camera can grade,
+            // bloom or tone-map whatever its settings say (Scripts/Fx/ToonLook.cs needs them)
+            if (data.postProcessData == null)
+                data.postProcessData = AssetDatabase.LoadAssetAtPath<PostProcessData>("Packages/com.unity.render-pipelines.universal/Runtime/Data/PostProcessData.asset");
+
             var feat = data.rendererFeatures.OfType<FullScreenPassRendererFeature>().FirstOrDefault(f => f != null && f.name == "Ink");
             var so = new SerializedObject(data);
             if (feat == null)

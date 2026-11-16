@@ -173,17 +173,17 @@ namespace Ooda.Fx
 
             // a soft glow on what is brighter than white, no more: a glint, a flame, a tracer, a snowfield in the sun
             bloom = p.Add<Bloom>(true);
-            bloom.threshold.Override(1.0f);
-            bloom.intensity.Override(0.5f);
+            bloom.threshold.Override(1.05f);
+            bloom.intensity.Override(0.4f);
             bloom.scatter.Override(0.65f);
             bloom.clamp.Override(6f);
             bloom.tint.Override(new Color(1f, 0.97f, 0.92f));
             bloom.highQualityFiltering.Override(true);
 
             adjust = p.Add<ColorAdjustments>(true);
-            adjust.postExposure.Override(0.18f);    // the curve takes a little off the upper tones: give it back
-            adjust.contrast.Override(12f);
-            adjust.saturation.Override(8f);
+            adjust.postExposure.Override(0.12f);    // the curve takes a little off the upper tones: give it back
+            adjust.contrast.Override(10f);
+            adjust.saturation.Override(6f);
 
             // warm light, cool shade: the painter's rule the toon shaders follow, carried through the whole frame
             smh = p.Add<ShadowsMidtonesHighlights>(true);
