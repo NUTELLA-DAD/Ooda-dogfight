@@ -28,6 +28,11 @@ Shader "Ooda/ToonLit"
         _RimStrength ("Rim strength", Range(0, 2)) = 0.45
         _GlintSize ("Sun glint size", Range(0, 1)) = 0.5
         _GlintStrength ("Sun glint strength", Range(0, 4)) = 1.0
+        _MidBand ("Half tone where the surface turns away", Range(0, 0.5)) = 0.10
+        _ShadeRich ("Shade colour richness (1 = as lit)", Range(0.5, 1.6)) = 1.25
+        _BackRimColor ("Sky rim on the shaded edge", Color) = (0.62, 0.80, 1.0, 1)
+        _BackRimStrength ("Sky rim strength", Range(0, 2)) = 0.35
+        _Atmo ("Aerial haze (1 = as the land)", Range(0, 1)) = 1
 
         [Header(Polished metal)]
         _ChromeToon ("Drawn horizon in the metal", Range(0, 1)) = 0.7
@@ -41,6 +46,8 @@ Shader "Ooda/ToonLit"
         _OutlineNear ("Full width within, metres", Range(1, 400)) = 40
         _OutlineMinDepth ("No outline nearer than, metres", Range(0, 3)) = 0.8
 
+        // 64: inks itself, so the full-screen ink on the land skips it. 0: takes the land's ink (the city's boxes)
+        [HideInInspector] _InkStencil ("__inkstencil", Float) = 64
         [HideInInspector] _Surface ("__surface", Float) = 0
         [HideInInspector] _Blend ("__blend", Float) = 0
         [HideInInspector] _Cull ("__cull", Float) = 2
@@ -60,10 +67,12 @@ Shader "Ooda/ToonLit"
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
         CBUFFER_START(UnityPerMaterial)
             float4 _BaseMap_ST;
-            half4 _BaseColor, _EmissionColor, _ShadeColor, _RimColor, _ChromeSky, _ChromeHorizon, _ChromeGround, _OutlineColor;
+            half4 _BaseColor, _EmissionColor, _ShadeColor, _RimColor, _ChromeSky, _ChromeHorizon, _ChromeGround, _OutlineColor, _BackRimColor;
             half _Metallic, _Smoothness, _Cutoff, _BandEdge, _BandSoft, _Ambient, _RimEdge, _RimStrength, _GlintSize, _GlintStrength, _ChromeToon;
             half _OutlineWidth, _OutlineNear, _OutlineMinDepth;
+            half _MidBand, _ShadeRich, _BackRimStrength, _Atmo, _InkStencil;
         CBUFFER_END
+        #include "ToonAtmosphere.hlsl"
         ENDHLSL
 
         Pass
@@ -72,7 +81,7 @@ Shader "Ooda/ToonLit"
             Tags { "LightMode" = "UniversalForward" }
             Cull [_Cull]
             // (marks itself in the stencil, so the full-screen ink on the land (Ink.shader) leaves it alone)
-            Stencil { Ref 64 WriteMask 64 Comp Always Pass Replace }
+            Stencil { Ref [_InkStencil] WriteMask 64 Comp Always Pass Replace }
             ZWrite On
             HLSLPROGRAM
             #pragma vertex vert
@@ -132,8 +141,14 @@ Shader "Ooda/ToonLit"
                 // two tones: lit, and a cool shade
                 half lit = smoothstep(_BandEdge - _BandSoft, _BandEdge + _BandSoft, ndl) * smoothstep(0.35, 0.65, shadow);
                 half3 sky = clamp(SampleSH(N), 0, 8) * _Ambient;
-                half3 light = lerp(_ShadeColor.rgb * (sun.color * 0.55 + sky), sun.color + sky * 0.35, lit);
-                half3 col = base.rgb * (1 - metal) * light;
+                // inside the lit side a half tone where the surface turns away from the sun, so a round fuselage or a cheek
+                // reads as lit, turning and shaded (the land's three tones, gentler)
+                half full = smoothstep(_BandEdge + 0.42 - _BandSoft * 2, _BandEdge + 0.42 + _BandSoft * 2, ndl);
+                half3 litCol = (sun.color + sky * 0.35) * lerp(1 - _MidBand, 1, full);
+                half3 shadeCol = _ShadeColor.rgb * (sun.color * 0.55 + sky);
+                // the shade keeps its colour (a painter's shadow is richer, not greyer)
+                half3 shadeBase = saturate(lerp(dot(base.rgb, half3(0.2126, 0.7152, 0.0722)).xxx, base.rgb, _ShadeRich));
+                half3 col = (1 - metal) * lerp(shadeBase * shadeCol, base.rgb * litCol, lit);
 
                 // polished metal: the scene's reflection, and a drawn horizon over it
                 half3 R = reflect(-V, N);
@@ -161,8 +176,13 @@ Shader "Ooda/ToonLit"
                 half rim = smoothstep(_RimEdge, _RimEdge + 0.06, 1 - ndv) * saturate(ndl * 0.5 + 0.5) * lit;
                 col += rim * _RimStrength * _RimColor.rgb * sun.color * lerp(base.rgb + 0.15, half3(1, 1, 1), metal * 0.5);
 
+                // and a thin rim of sky light round the shaded edge, so a dark flank stands off the ground behind it
+                half backRim = smoothstep(_RimEdge + 0.10, _RimEdge + 0.20, 1 - ndv) * (1 - lit) * saturate(N.y * 0.5 + 0.8);
+                col += backRim * _BackRimStrength * _BackRimColor.rgb * (sky + 0.25) * lerp(base.rgb + 0.2, half3(1, 1, 1), 0.5);
+
                 if (AnyIsNaN(col) || AnyIsInf(col)) col = base.rgb * 0.6;
                 col += _EmissionColor.rgb * SAMPLE_TEXTURE2D(_EmissionMap, sampler_EmissionMap, i.uv).rgb;   // white when unset: as before
+                col = ToonAtmosphere(col, i.positionWS, _Atmo);
                 col = MixFog(col, i.fog);
                 return half4(col, 1);
             }
@@ -175,7 +195,7 @@ Shader "Ooda/ToonLit"
             Tags { "LightMode" = "SRPDefaultUnlit" }
             Cull Front
             // (marks itself in the stencil, so the full-screen ink on the land (Ink.shader) leaves it alone)
-            Stencil { Ref 64 WriteMask 64 Comp Always Pass Replace }
+            Stencil { Ref [_InkStencil] WriteMask 64 Comp Always Pass Replace }
             ZWrite On
             HLSLPROGRAM
             #pragma vertex vert
@@ -186,7 +206,7 @@ Shader "Ooda/ToonLit"
 
 
             struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; UNITY_VERTEX_INPUT_INSTANCE_ID };
-            struct Varyings { float4 positionCS : SV_POSITION; half fog : TEXCOORD0; float depth : TEXCOORD1; UNITY_VERTEX_OUTPUT_STEREO };
+            struct Varyings { float4 positionCS : SV_POSITION; half fog : TEXCOORD0; float depth : TEXCOORD1; float3 positionWS : TEXCOORD2; UNITY_VERTEX_OUTPUT_STEREO };
 
             Varyings vert(Attributes a)
             {
@@ -206,6 +226,7 @@ Shader "Ooda/ToonLit"
                 o.positionCS.xy += dir * px * 2.0 / _ScreenParams.xy * o.positionCS.w;
                 o.fog = ComputeFogFactor(o.positionCS.z);
                 o.depth = o.positionCS.w;
+                o.positionWS = ws;
                 return o;
             }
 
@@ -215,7 +236,7 @@ Shader "Ooda/ToonLit"
                 // no ink within arm's reach of the lens: from the pilot's seat the shell of his own head and shoulders
                 // would be seen from inside, as a black wall
                 clip(i.depth - _OutlineMinDepth);
-                return half4(MixFog(_OutlineColor.rgb, i.fog), 1);
+                return half4(MixFog(ToonAtmosphere(_OutlineColor.rgb, i.positionWS, _Atmo), i.fog), 1);
             }
             ENDHLSL
         }

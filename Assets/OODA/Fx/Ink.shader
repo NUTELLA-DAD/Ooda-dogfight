@@ -35,6 +35,7 @@ Shader "Ooda/Ink"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
             #include "Packages/com.unity.render-pipelines.core/Runtime/Utilities/Blit.hlsl"
+            #include "ToonAtmosphere.hlsl"
 
             half4 _InkColor;
             float _InkWidth, _InkJump, _InkNear, _InkNearFull, _InkFar;
@@ -61,8 +62,14 @@ Shader "Ooda/Ink"
                 ink *= smoothstep(_InkNear, _InkNearFull, eye) * (1 - smoothstep(_InkFar * 0.4, _InkFar, eye));
                 if (ink <= 0.002) return 0;
                 half fog = ComputeFogIntensity(ComputeFogFactorZ0ToFar(eye));
-                half3 col = lerp(unity_FogColor.rgb, _InkColor.rgb, fog);
-                return half4(col, ink * _InkColor.a);
+                // the line sits in the same air as the hill it is drawn on: it pales with the haze instead of staying black
+                float raw = SampleSceneDepth(uv);
+            #if !UNITY_REVERSED_Z
+                raw = lerp(UNITY_NEAR_CLIP_VALUE, 1, raw);
+            #endif
+                float3 ws = ComputeWorldSpacePosition(uv, raw, UNITY_MATRIX_I_VP);
+                half3 col = lerp(unity_FogColor.rgb, ToonAtmosphere(_InkColor.rgb, ws, 1), fog);
+                return half4(col, ink * _InkColor.a * (1 - 0.6 * ToonAtmoAmount(ws)));
             }
             ENDHLSL
         }

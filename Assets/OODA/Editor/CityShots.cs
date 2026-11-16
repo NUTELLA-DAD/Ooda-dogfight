@@ -44,6 +44,7 @@ namespace Ooda.EditorTools
         {
             var scene = EditorSceneManager.OpenScene("Assets/OODA/Scenes/TurnBattle.unity");
             if (Ooda.Fx.ToonSky.Enabled) Ooda.Fx.ToonSky.Apply(scene);
+            Ooda.Fx.ToonLook.Apply();
             var behaviours = Object.FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None);
             foreach (var name in new[] { "Awake", "OnEnable", "Start" })
                 foreach (var b in behaviours) Call(b, name);
@@ -82,6 +83,7 @@ namespace Ooda.EditorTools
             free.farClipPlane = 40000f; free.nearClipPlane = 0.5f; free.fieldOfView = 60f;
             free.clearFlags = CameraClearFlags.Skybox;
             free.targetTexture = rt;
+            Ooda.Fx.ToonLook.Dress(free);
             float cx = City.CentreX, cz = City.CentreZ;
             Shot(free, rt, dir, "city_river_low", new Vector3(cx - 20, 155, cz - 1300), new Vector3(cx, 120, cz + 1500));
             Shot(free, rt, dir, "city_river_medium", new Vector3(cx - 60, 335, cz - 3300), new Vector3(cx + 200, 180, cz + 800));

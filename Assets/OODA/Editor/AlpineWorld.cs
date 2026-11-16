@@ -101,6 +101,7 @@ namespace Ooda.EditorTools
             MakeVillage(h, m, rail);
             MakeFarms(h, rail);
             MakeTown(h, m, rail);
+            MakeRoads(h, rail, data);
             MakeFlakSites(h);
             MakeAirHazards(h, rail, m);
 

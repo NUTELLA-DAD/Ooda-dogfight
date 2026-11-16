@@ -90,6 +90,8 @@ Shader "Ooda/ToonTerrain"
             #pragma multi_compile_instancing
             #pragma instancing_options assumeuniformscaling nomatrices nolightprobe nolightmap
             #include "ToonLand.hlsl"
+            #include "ToonAtmosphere.hlsl"
+            #include "ToonPaint.hlsl"
 
             TEXTURE2D(_Ctrl0); TEXTURE2D(_Ctrl1); SAMPLER(sampler_Ctrl0);
             TEXTURE2D(_Lay0); TEXTURE2D(_Lay1); TEXTURE2D(_Lay2); TEXTURE2D(_Lay3);
@@ -147,9 +149,15 @@ Shader "Ooda/ToonTerrain"
                 float macro = LandNoise2(p / _Macro);
                 base *= lerp(half3(0.88, 0.91, 0.98), half3(1.07, 1.05, 0.95), smoothstep(0.25, 0.75, macro));
 
+                // the painter's hand: dabs, tufts, flowers, rock chips (ToonPaint.hlsl), and a hedge along each field's edge
+                half crops = w1.x + w1.z + w1.w;
+                base = PaintGround(base, i.positionWS, w0.x + w1.y, w0.y, w0.z, w0.w, crops);
+                half hedge = max(PaintEdge(crops, i.positionWS, 2.6), 0.6 * max(PaintEdge(w1.x, i.positionWS, 1.3), max(PaintEdge(w1.z, i.positionWS, 1.3), PaintEdge(w1.w, i.positionWS, 1.3))));
+                base = lerp(base, half3(0.13, 0.27, 0.17), hedge * 0.9 * (1 - _ToonPaintOff));
+
                 half3 col = ToonLandLight(base, i.positionWS, normalize(i.normalWS));
                 if (AnyIsNaN(col) || AnyIsInf(col)) col = base * 0.6;
-                return half4(MixFog(col, i.fog), 1);
+                return half4(MixFog(ToonAtmosphere(col, i.positionWS, 1), i.fog), 1);
             }
             ENDHLSL
         }

@@ -17,6 +17,7 @@ namespace Ooda.EditorTools
         {
             var scene = EditorSceneManager.OpenScene(TestWorldBuilder.ScenePath);
             if (Ooda.Fx.ToonSky.Enabled) Ooda.Fx.ToonSky.Apply(scene);   // (the game puts it on as each scene loads; the shots must too)
+            Ooda.Fx.ToonLook.Apply();
             string dir = Path.GetFullPath("Shots~");
             Directory.CreateDirectory(dir);
             var camGo = new GameObject("ShotCam");
@@ -27,6 +28,7 @@ namespace Ooda.EditorTools
             cam.clearFlags = CameraClearFlags.Skybox;
             var rt = new RenderTexture(1600, 1000, 24) { antiAliasing = 4 };
             cam.targetTexture = rt;
+            Ooda.Fx.ToonLook.Dress(cam);
             var terrain = Object.FindFirstObjectByType<Terrain>();
             float Ground(float x, float z) => terrain.SampleHeight(new Vector3(x, 0, z)) + terrain.transform.position.y;
 
@@ -143,6 +145,25 @@ namespace Ooda.EditorTools
                 foreach (var r in parts) all.Encapsulate(r.bounds);
                 Vector3 c = all.center;
                 Shot(cam, rt, dir, "world_village", c + new Vector3(-420, 160, -520), c);
+            }
+
+            // the roads (Editor/AlpineRoads): the town's streets, the airfield, a farm's track, a country bridge, the road between
+            {
+                Vector3 G(float x, float z, float up = 0) => new Vector3(x, Ground(x, z) + up, z);
+                Shot(cam, rt, dir, "roads_town", G(3350, -5450, 170), G(3900, -4950));
+                Shot(cam, rt, dir, "roads_town_low", G(3420, -4840, 55), G(3505, -4636));
+                Shot(cam, rt, dir, "roads_town_square", G(3250, -4950, 190), G(3520, -4650));
+                Shot(cam, rt, dir, "roads_town_plan", new Vector3(3500, 1900, -4960), new Vector3(3500, 90, -4950));
+                Shot(cam, rt, dir, "roads_airfield", G(2400, -5950, 200), G(2650, -5250));
+                Shot(cam, rt, dir, "roads_bridge", G(-170, 2540, 170), G(-20, 2700));
+                Shot(cam, rt, dir, "roads_map", new Vector3(1700, 5600, -2800), new Vector3(1700, 0, -2750));
+                var farmRoot = GameObject.Find("Farmhouses");
+                if (farmRoot != null && farmRoot.transform.childCount > 3)
+                {
+                    Vector3 f = farmRoot.transform.GetChild(3).position;
+                    Shot(cam, rt, dir, "roads_farm", f + new Vector3(-110, 60, -150), f);
+                    Shot(cam, rt, dir, "roads_farm_wide", f + new Vector3(250, 260, -500), f);
+                }
             }
 
             var eye = TestWorldBuilder.FindDeep(Object.FindFirstObjectByType<Flight.AircraftController>().transform, "CockpitCamera");

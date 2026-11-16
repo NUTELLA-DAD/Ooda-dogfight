@@ -49,6 +49,7 @@ namespace Ooda.EditorTools
         {
             var scene = EditorSceneManager.OpenScene("Assets/OODA/Scenes/TurnBattle.unity");
             if (Ooda.Fx.ToonSky.Enabled) Ooda.Fx.ToonSky.Apply(scene);
+            Ooda.Fx.ToonLook.Apply();
             var behaviours = Object.FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None);
             foreach (var name in new[] { "Awake", "OnEnable", "Start" })
                 foreach (var b in behaviours) Call(b, name);
@@ -80,6 +81,7 @@ namespace Ooda.EditorTools
             free.farClipPlane = 30000f; free.nearClipPlane = 0.5f; free.fieldOfView = 60f;
             free.clearFlags = CameraClearFlags.Skybox;
             free.targetTexture = rt;
+            Ooda.Fx.ToonLook.Dress(free);
             clouds.Show(true, free);
             var sky = Skyscape.Sky;
             float ax = (float)(Skyscape.AxisDeg * Mathf.Deg2Rad);

@@ -17,7 +17,6 @@ namespace Ooda.EditorTools
         static void MakeTown(float[,] h, WMats m, List<Vector3> rail)
         {
             var root = new GameObject("Town").transform;
-            float floor = TownFloor;
             Vector3 At(Vector2 p, float up = 0) => new Vector3(p.x, SampleArr(h, p.x, p.y) + up, p.y);
             void Mark(string name, Vector3 p) { var t = new GameObject(name).transform; t.SetParent(root, false); t.position = p; }
 
@@ -75,39 +74,35 @@ namespace Ooda.EditorTools
                 Mark("FactoryTarget", c);
             }
 
-            // the houses: plaster and wood with red roofs, in rough streets east and south of the factory
-            {
-                var mb = new MeshBuilder(3);          // 0 plaster, 1 wood, 2 roof
-                var rnd = new System.Random(11);
-                var placed = new List<Vector2>();
-                for (int tries = 0; tries < 8000 && placed.Count < 170; tries++)
-                {
-                    var p = V(TownCentre.x - 250 + (float)rnd.NextDouble() * 1150, TownCentre.y - 900 + (float)rnd.NextDouble() * 1600);
-                    p = V(Mathf.Round(p.x / 34f) * 34f + Rand(rnd, -4, 4), Mathf.Round(p.y / 30f) * 30f + Rand(rnd, -4, 4));   // on a rough grid: streets
-                    if (TownR(p.x, p.y) > 0.92f) continue;
-                    if (Vector2.Distance(p, FactoryAt) < 150 || Mathf.Abs(p.x - RunwayStart.x) < 150 || NearRail(rail, p.x, p.y, 30f)) continue;
-                    if (placed.Any(q => Vector2.Distance(p, q) < 24)) continue;
-                    if (Mathf.Abs(Mathf.Round((p.x - TownCentre.x) / 34f)) % 4 == 0) continue;   // every fourth row is a street
-                    placed.Add(p);
-                    float w = 9 + (float)rnd.NextDouble() * 5, d = 8 + (float)rnd.NextDouble() * 4, tall = rnd.NextDouble() < 0.3 ? 9f : 6f;
-                    var rot = Quaternion.Euler(0, rnd.Next(2) * 90 + Rand(rnd, -4, 4), 0);
-                    Vector3 c = At(p);
-                    mb.Box(c + Vector3.up * (tall / 2 - 0.5f), rot, new Vector3(w, tall + 1f, d), rnd.NextDouble() < 0.7 ? 0 : 1);
-                    float pitch = 32f, run = (w / 2 + 1f) / Mathf.Cos(pitch * Mathf.Deg2Rad);
-                    foreach (float side in new[] { -1f, 1f })
-                        mb.Box(c + rot * new Vector3(side * (w / 4 + 0.3f), tall + Mathf.Tan(pitch * Mathf.Deg2Rad) * w / 4, 0), rot * Quaternion.Euler(0, 0, -side * pitch),   // a positive z turn lifts +x: -side puts the eaves down
-                               new Vector3(run, 0.5f, d + 1.6f), 2);
-                }
-                // a church with a tall spire on the square
-                Vector3 ch = At(V(TownCentre.x + 120, TownCentre.y + 420));
-                mb.Box(ch + Vector3.up * 7, Quaternion.identity, new Vector3(13, 14, 26), 0);
-                mb.Box(ch + new Vector3(0, 16, -18), Quaternion.identity, new Vector3(7, 32, 7), 0);
-                mb.Cone(ch + new Vector3(0, 32, -18), 5f, 16f, 4, 2);
-                MeshObject("Houses", SaveMesh(mb, "TownHouses"), new[] { m.plaster, m.wood, m.roof }, root, true);
-                Debug.Log($"OODA: a town of {placed.Count} houses round the factory, floor {floor:F0} m.");
-            }
+            // the houses: plaster and wood with red roofs, lining the streets of the town's plan (TownPlan, AlpineRoads.cs)
+            MeshObject("Houses", TownHousesMesh(h), new[] { m.plaster, m.wood, m.roof }, root, true);
 
             MakeRadars(h, root, m);
+        }
+
+        /// <summary>The town's houses and its church, one mesh (0 plaster, 1 wood, 2 roof), saved as TownHouses.</summary>
+        static Mesh TownHousesMesh(float[,] h)
+        {
+            Vector3 At(Vector2 p) => new Vector3(p.x, SampleArr(h, p.x, p.y), p.y);
+            var mb = new MeshBuilder(3);
+            var plan = TownPlan();
+            foreach (var s in plan.houses)
+            {
+                var rot = Quaternion.Euler(0, s.yaw, 0);
+                Vector3 c = At(s.at);
+                mb.Box(c + Vector3.up * (s.tall / 2 - 0.5f), rot, new Vector3(s.w, s.tall + 1f, s.d), s.wood ? 1 : 0);
+                float pitch = 32f, run = (s.w / 2 + 1f) / Mathf.Cos(pitch * Mathf.Deg2Rad);
+                foreach (float side in new[] { -1f, 1f })
+                    mb.Box(c + rot * new Vector3(side * (s.w / 4 + 0.3f), s.tall + Mathf.Tan(pitch * Mathf.Deg2Rad) * s.w / 4, 0), rot * Quaternion.Euler(0, 0, -side * pitch),   // a positive z turn lifts +x: -side puts the eaves down
+                           new Vector3(run, 0.5f, s.d + 1.6f), 2);
+            }
+            // a church with a tall spire on the square
+            Vector3 ch = At(TownChurchAt);
+            mb.Box(ch + Vector3.up * 7, Quaternion.identity, new Vector3(13, 14, 26), 0);
+            mb.Box(ch + new Vector3(0, 16, -18), Quaternion.identity, new Vector3(7, 32, 7), 0);
+            mb.Cone(ch + new Vector3(0, 32, -18), 5f, 16f, 4, 2);
+            Debug.Log($"OODA: a town of {plan.houses.Count} houses along {plan.streets.Count} streets.");
+            return SaveMesh(mb, "TownHouses");
         }
 
         /// <summary>A radar site on high ground near each of RadarNear: a lattice tower with a wide dish on top, and a hut.</summary>
