@@ -1,9 +1,9 @@
 // The painter's hand on the ground (ToonPaint): what turns a flat sheet of one green into a painted meadow, with no
 // texture to author or repeat. All of it is drawn in the pixel shader from the world position, so it never tiles:
-// - dabs: flat patches a tone lighter and warmer or a tone darker and cooler, with brushy, wobbling edges, at two
-//   sizes (a field's width, and a garden's), like blocked-in colour under a painting;
-// - tufts: scattered three-blade brush ticks, dark or sun-bleached, at three sizes, each shown only while it is a few
-//   pixels to a few dozen pixels big, so there are marks to see from the grass tops up to 2,000 ft;
+// - dabs: flat patches a tone lighter and warmer or a tone darker and cooler, with brushy, wobbling edges, at three
+//   sizes (a field's width, a garden's, a few steps), like blocked-in colour under a painting;
+// - tufts: scattered three-blade brush ticks, dark or sun-bleached, at two sizes, each shown only while it is a few
+//   pixels to a few dozen pixels big;
 // - flowers: dots of white, yellow and pink in the meadows, close to;
 // - rock: angular facets a tone apart with an inked crack between them;
 // - snow: blue drift shadows;
@@ -45,11 +45,11 @@ float PaintTufts(float2 p, float cell, float px, out float rnd)
     float2 id = floor(g), f = frac(g) - 0.5;
     float2 h = PaintHash2(id);
     rnd = frac(h.x * 7.13 + h.y * 3.71);
-    float2 d = f - (h - 0.5) * 0.45;
+    float2 d = (f - (h - 0.5) * 0.45) / lerp(0.55, 1.0, frac(h.x * 13.7));   // (no two the same size)
     float a = (rnd - 0.5) * 1.1 + 0.5;                // all lean roughly one way, as grass in a wind
     float s = sin(a), c = cos(a);
     d = float2(c * d.x + s * d.y, -s * d.x + c * d.y);
-    float dist = min(PaintSegment(d, float2(0.0, 0.26)), min(PaintSegment(d, float2(-0.13, 0.19)), PaintSegment(d, float2(0.13, 0.19))));
+    float dist = min(PaintSegment(d, float2(0.0, 0.26)), min(PaintSegment(d, float2(-0.05 - 0.10 * h.x, 0.20)), PaintSegment(d, float2(0.05 + 0.10 * h.y, 0.17))));
     float thick = 0.03 * (1.0 - saturate(d.y / 0.27)) + 0.006;   // a blade tapers to its tip
     float cover = 1.0 - smoothstep(thick - w, thick + w, dist);
     // shown while a tuft is from a few pixels to a few dozen across
@@ -108,7 +108,11 @@ half3 PaintGround(half3 base, float3 ws, half grass, half forest, half rock, hal
     // the dabs: two sizes, the big one always, the small one near and middling
     float big = PaintDabs(p, 150.0, px), small = PaintDabs(p + 91.3, 24.0, px);
     small *= 1.0 - smoothstep(4.0, 12.0, px);
-    float tone = clamp(big * 0.75 + small * 0.6, -1.0, 1.0);
+    // and close to, small clumps a few steps across
+    float tiny = PaintDabs(p + 37.9, 5.0, px) * (1.0 - smoothstep(0.8, 2.5, px));
+    float tone = clamp(big * 0.75 + small * 0.6 + tiny * 0.45, -1.0, 1.0);
+    // (the meadow's green a little deeper and less lime under it all)
+    base *= lerp(half3(1, 1, 1), half3(0.90, 0.95, 0.84), grass);
     half amount = saturate(green + rock * 0.7 + snow * 0.8 + crops * 0.3);
     half3 light = lerp(half3(1.06, 1.05, 1.02), half3(1.13, 1.09, 0.84), green);      // grass bleaches yellow in the sun
     half3 dark = lerp(half3(0.84, 0.86, 0.94), half3(0.76, 0.90, 0.88), green);       // and goes blue-green in the lush hollows
@@ -116,17 +120,17 @@ half3 PaintGround(half3 base, float3 ws, half grass, half forest, half rock, hal
     light = lerp(light, half3(1, 1, 1), snow);
     base *= lerp(half3(1, 1, 1), tone > 0 ? light : dark, abs(tone) * amount);
 
-    // the tufts on the grass, at three sizes
+    // the tufts on the grass
     if (grass > 0.05)
     {
-        float r1, r2, r3;
+        // (two sizes only: bigger ones, tried, read as footprints stamped on the meadow from the air)
+        float r1, r2;
         float t = PaintTufts(p, 1.7, px, r1);
-        float t2 = PaintTuftsFar(p + 13.7, 9.0, px, r2);
-        float t3 = PaintTuftsFar(p + 57.1, 44.0, px, r3);
-        float r = t > t2 ? (t > t3 ? r1 : r3) : (t2 > t3 ? r2 : r3);
-        float cover = max(t, max(t2, t3)) * grass;
-        half3 blade = r < 0.62 ? base * half3(0.66, 0.80, 0.78) : base * half3(1.22, 1.16, 0.80);
-        base = lerp(base, blade, cover * 0.85);
+        float t2 = PaintTuftsFar(p + 13.7, 6.5, px, r2);
+        float r = t > t2 ? r1 : r2;
+        float cover = max(t, t2 * 0.7) * grass;
+        half3 blade = r < 0.62 ? base * half3(0.70, 0.83, 0.80) : base * half3(1.18, 1.13, 0.82);
+        base = lerp(base, blade, cover * 0.7);
 
         // flowers, close to: a dot in one cell in five where the big dabs are light
         float2 g = p / 3.1;
