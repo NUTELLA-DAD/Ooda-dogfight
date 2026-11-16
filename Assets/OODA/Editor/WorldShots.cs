@@ -151,7 +151,9 @@ namespace Ooda.EditorTools
             {
                 Vector3 G(float x, float z, float up = 0) => new Vector3(x, Ground(x, z) + up, z);
                 Shot(cam, rt, dir, "roads_town", G(3350, -5450, 170), G(3900, -4950));
-                Shot(cam, rt, dir, "roads_town_low", G(3700, -5300, 60), G(3950, -5050));
+                Shot(cam, rt, dir, "roads_town_low", G(3420, -4840, 55), G(3505, -4636));
+                Shot(cam, rt, dir, "roads_town_square", G(3250, -4950, 190), G(3520, -4650));
+                Shot(cam, rt, dir, "roads_town_plan", new Vector3(3500, 1900, -4960), new Vector3(3500, 90, -4950));
                 Shot(cam, rt, dir, "roads_airfield", G(2400, -5950, 200), G(2650, -5250));
                 Shot(cam, rt, dir, "roads_bridge", G(-170, 2540, 170), G(-20, 2700));
                 Shot(cam, rt, dir, "roads_map", new Vector3(1700, 5600, -2800), new Vector3(1700, 0, -2750));
