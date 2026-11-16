@@ -360,7 +360,7 @@ namespace Ooda.UI
                 {
                     float dir = side == 0 ? -1 : 1;
                     float x = w / 2 + dir * (w * 0.06f + 70 + i * 140);
-                    float y = h - BotH - 92;
+                    float y = h - BotH - 120;   // clear of the key strip (26 high) that lies along the top of the foot bar
                     bool on = (side == 0 ? i : s.Ours + i) == sel;
                     string who = side == 0 ? (i == 0 ? "LEAD" : $"WINGMAN {i}") : (i == 0 ? "BANDIT LEAD" : $"BANDIT {i + 1}");
                     var st = side == 0 ? (on ? tagPicked : tag) : (on ? tagRedPicked : tagRed);

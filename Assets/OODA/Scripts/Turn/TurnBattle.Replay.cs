@@ -529,7 +529,7 @@ namespace Ooda.Turn
             GUI.color = new Color(0, 0, 0, 0.55f);
             GUI.DrawTexture(new Rect(0, 0, sw, sh), Texture2D.whiteTexture);
             GUI.color = Color.white;
-            float w = 320, h = replaying ? 408 : 352;
+            float w = 380, h = (replaying ? 372 : 316) + Ooda.UI.SettingsPanel.Height + 8;
             Rect panel = new Rect((sw - w) / 2, (sh - h) / 2, w, h);
             GUI.Box(panel, GUIContent.none);
             var heading = Ooda.UI.BriefingStyle.Heading(GUI.skin.label, 40);
@@ -538,10 +538,8 @@ namespace Ooda.Turn
             float x = panel.x + 30, y = panel.y + 80, bw = w - 60;
             if (GUI.Button(new Rect(x, y, bw, 44), "Resume  (Esc)")) OpenMenu(false);
             y += 56;
-            GUI.Label(new Rect(x, y, 96, 24), $"Volume {Ooda.Audio.GameAudio.Volume * 100:F0}", label);
-            float vol = GUI.HorizontalSlider(new Rect(x + 100, y + 8, bw - 100, 20), Ooda.Audio.GameAudio.Volume, 0f, 1f);
-            if (Mathf.Abs(vol - Ooda.Audio.GameAudio.Volume) > 0.004f) Ooda.Audio.GameAudio.Volume = vol;
-            y += 36;
+            Ooda.UI.SettingsPanel.Draw(x, y, bw, label);   // (the pilots' skill takes hold at the next fight or restart)
+            y += Ooda.UI.SettingsPanel.Height + 8;
             if (replaying)
             {
                 if (GUI.Button(new Rect(x, y, bw, 44), "Leave replay")) { OpenMenu(false); StopReplay(); }

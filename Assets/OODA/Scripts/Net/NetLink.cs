@@ -68,7 +68,7 @@ namespace Ooda.Net
 
         NetLink() { }
 
-        /// <summary>Listen for one friend on this port (on every network: the LAN, Tailscale, a forwarded port).</summary>
+        /// <summary>Listen for one friend on this port (the self-tests and a typed address; friends meet through Relay room codes).</summary>
         public static NetLink Host(int port = DefaultPort)
         {
             var l = new NetLink { IsHost = true };
@@ -222,33 +222,5 @@ namespace Ooda.Net
             closing = true;
             Fail(Error ?? "You left.");
         }
-
-        /// <summary>This machine's IPv4 addresses to give a friend, Tailscale's (100.64.0.0/10) first, then the local network's.</summary>
-        public static string[] MyAddresses()
-        {
-            try
-            {
-                var list = new System.Collections.Generic.List<string>();
-                foreach (var ni in System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces())
-                {
-                    if (ni.OperationalStatus != System.Net.NetworkInformation.OperationalStatus.Up) continue;
-                    foreach (var ua in ni.GetIPProperties().UnicastAddresses)
-                    {
-                        var a = ua.Address;
-                        if (a.AddressFamily != AddressFamily.InterNetwork || IPAddress.IsLoopback(a)) continue;
-                        var b = a.GetAddressBytes();
-                        if (b[0] == 169 && b[1] == 254) continue;   // no address handed out
-                        list.Add(a.ToString());
-                    }
-                }
-                bool Tailscale(string s) { var b = IPAddress.Parse(s).GetAddressBytes(); return b[0] == 100 && b[1] >= 64 && b[1] < 128; }
-                list.Sort((x, y) => (Tailscale(x) ? 0 : 1).CompareTo(Tailscale(y) ? 0 : 1));
-                return list.ToArray();
-            }
-            catch { return new string[0]; }
-        }
-
-        public static bool IsTailscale(string address)
-            => IPAddress.TryParse(address, out var a) && a.GetAddressBytes() is byte[] b && b.Length == 4 && b[0] == 100 && b[1] >= 64 && b[1] < 128;
     }
 }
