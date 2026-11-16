@@ -153,8 +153,8 @@ namespace Ooda.EditorTools
                 Shot(cam, rt, dir, "roads_town", G(3350, -5450, 170), G(3900, -4950));
                 Shot(cam, rt, dir, "roads_town_low", G(3700, -5300, 60), G(3950, -5050));
                 Shot(cam, rt, dir, "roads_airfield", G(2400, -5950, 200), G(2650, -5250));
-                Shot(cam, rt, dir, "roads_bridge", G(-260, 2480, 90), G(-20, 2700));
-                Shot(cam, rt, dir, "roads_country", G(1200, -2500, 500), G(2600, -4200));
+                Shot(cam, rt, dir, "roads_bridge", G(-170, 2540, 170), G(-20, 2700));
+                Shot(cam, rt, dir, "roads_map", new Vector3(1700, 5600, -2800), new Vector3(1700, 0, -2750));
                 var farmRoot = GameObject.Find("Farmhouses");
                 if (farmRoot != null && farmRoot.transform.childCount > 3)
                 {

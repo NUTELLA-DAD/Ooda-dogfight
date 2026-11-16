@@ -28,7 +28,7 @@ namespace Ooda.EditorTools
         const string RoadMatPath = "Assets/OODA/Generated/Alpine_Road.mat";
 
         // (as the shader reads them: linear, like the east lands' painted ground)
-        static readonly Color RoadGravel = new Color(0.66f, 0.61f, 0.50f), RoadDirt = new Color(0.60f, 0.49f, 0.33f),
+        static readonly Color RoadGravel = new Color(0.66f, 0.61f, 0.50f), RoadDirt = new Color(0.60f, 0.52f, 0.38f),
             RoadCobble = new Color(0.60f, 0.58f, 0.54f), RoadVerge = new Color(0.36f, 0.40f, 0.20f);
 
         sealed class RoadLine { public List<Vector2> pts; public float width, lift; public Color col; public bool strip; }
@@ -119,7 +119,7 @@ namespace Ooda.EditorTools
                         slow[j, i] = cover[cj, ci, 1] * 5f + cover[cj, ci, 2] * 3f;      // woods, rock
                     }
                     // (and some ground is simply better going than other: on a flat a road wanders a little, it is not ruled)
-                    slow[j, i] += 1.6f * Mathf.PerlinNoise(x * 0.0031f + 40f, z * 0.0031f + 90f) + 0.8f * Mathf.PerlinNoise(x * 0.011f + 7f, z * 0.011f + 3f);
+                    slow[j, i] += 1.0f * Mathf.PerlinNoise(x * 0.0031f + 40f, z * 0.0031f + 90f) + 0.5f * Mathf.PerlinNoise(x * 0.011f + 7f, z * 0.011f + 3f);
                 }
             foreach (var rp in River())
             {
@@ -202,7 +202,13 @@ namespace Ooda.EditorTools
                 bool Dry(Vector2 a, Vector2 b)
                 {
                     int n = Mathf.Max(2, Mathf.CeilToInt(Vector2.Distance(a, b) / 4f));
-                    for (int k = 1; k < n; k++) if (Wet(Vector2.Lerp(a, b, k / (float)n))) return false;
+                    for (int k = 1; k < n; k++)
+                    {
+                        Vector2 p = Vector2.Lerp(a, b, k / (float)n);
+                        if (Wet(p)) return false;
+                        if (Mathf.Abs(p.x - ChurchAt.x) < 10f && p.y > ChurchAt.y - 24f && p.y < ChurchAt.y + 18f) return false;   // not through the church
+                        foreach (var o in village) if ((V(o.pos.x, o.pos.z) - p).sqrMagnitude < 49f * o.size * o.size) return false;   // nor a neighbour's house
+                    }
                     return true;
                 }
                 float Hub(Vector2 q) => Mathf.Min(Mathf.Max(0, Vector2.Distance(q, SquareAt) - 38f), Vector2.Distance(q, door));
@@ -230,54 +236,107 @@ namespace Ooda.EditorTools
             // ---- the town: streets between the rows of houses
             {
                 float x0 = TownCentre.x - TownRadii.x, x1 = TownCentre.x + TownRadii.x, z0 = TownCentre.y - TownRadii.y, z1 = TownCentre.y + TownRadii.y;
-                // where the houses are (their one mesh, read back): a street is laid only past houses, not across the fields
-                var housed = new HashSet<(int, int)>();
-                var townRoot = GameObject.Find("Town");
-                var houses = townRoot != null ? townRoot.transform.Find("Houses") : null;
-                if (houses != null && houses.GetComponent<MeshFilter>() != null && houses.GetComponent<MeshFilter>().sharedMesh != null)
-                    foreach (var vert in houses.GetComponent<MeshFilter>().sharedMesh.vertices)
-                    {
-                        Vector3 w = houses.TransformPoint(vert);
-                        housed.Add((Mathf.FloorToInt(w.x / 20f), Mathf.FloorToInt(w.z / 20f)));
-                    }
-                bool Housed(Vector2 p, float within)
-                {
-                    int r = Mathf.CeilToInt(within / 20f), ci = Mathf.FloorToInt(p.x / 20f), cj = Mathf.FloorToInt(p.y / 20f);
-                    for (int dj = -r; dj <= r; dj++)
-                        for (int di = -r; di <= r; di++)
-                            if (housed.Contains((ci + di, cj + dj)) && V((ci + di + 0.5f) * 20f - p.x, (cj + dj + 0.5f) * 20f - p.y).magnitude < within) return true;
-                    return false;
-                }
-                float reach = 85f;
+                // a street is laid only as far as it has houses to serve, and ends at a corner with another, never in a field;
+                // every house has a short drive to the nearest street
                 bool Open(Vector2 p) =>
-                    TownR(p.x, p.y) < 0.95f && (housed.Count == 0 || Housed(p, reach))
+                    TownR(p.x, p.y) < 0.95f
                     && !(Mathf.Abs(p.x - RunwayStart.x) < 125f && p.y > RunwayStart.y - 120f && p.y < RunwayEnd.y + 120f)
                     && !(Mathf.Abs(p.x - FactoryAt.x) < 102f && Mathf.Abs(p.y - FactoryAt.y) < 102f);
                 void Street(Vector2 a, Vector2 b)
                 {
                     // cut into the runs that are open ground
                     float len = Vector2.Distance(a, b);
+                    if (len < 1f) return;
                     List<Vector2> run = null;
                     for (float d = 0; d <= len + 0.1f; d += 10f)
                     {
                         Vector2 p = Vector2.Lerp(a, b, Mathf.Clamp01(d / len));
                         if (Open(p)) (run ??= new List<Vector2>()).Add(p);
-                        else { if (run != null && run.Count > 5) Add(run, 7f, RoadCobble, 0.46f); run = null; }
+                        else { if (run != null && run.Count > 3) Add(run, 7f, RoadCobble, 0.46f); run = null; }
                     }
-                    if (run != null && run.Count > 5) Add(run, 7f, RoadCobble, 0.46f);
+                    if (run != null && run.Count > 3) Add(run, 7f, RoadCobble, 0.46f);
                 }
+                var xs = new List<float>(); var zs = new List<float>();
                 for (int k = -12; k <= 12; k++)
                 {
                     float x = TownCentre.x + k * 136f;          // (the rows AlpineTown keeps clear: every fourth, 34 m apart)
-                    reach = 85f;
-                    if (x > x0 && x < x1) Street(V(x, z0), V(x, z1));
+                    if (x > x0 && x < x1) xs.Add(x);
                 }
                 for (int k = -14; k <= 14; k++)
                 {
                     float z = Mathf.Round((TownCentre.y + k * 120f) / 30f) * 30f + 15f;   // between two rows, 30 m apart
-                    reach = 52f;
-                    if (z > z0 && z < z1) Street(V(x0, z), V(x1, z));
+                    if (z > z0 && z < z1 && !zs.Contains(z)) zs.Add(z);
                 }
+                // how far along each street its houses are (lo..hi), then each end carried on to the next corner
+                var xLo = xs.Select(_ => float.MaxValue).ToArray(); var xHi = xs.Select(_ => float.MinValue).ToArray();
+                var zLo = zs.Select(_ => float.MaxValue).ToArray(); var zHi = zs.Select(_ => float.MinValue).ToArray();
+                int Nearest(List<float> list, float val) { int best = 0; for (int k = 1; k < list.Count; k++) if (Mathf.Abs(list[k] - val) < Mathf.Abs(list[best] - val)) best = k; return best; }
+                var townHouses = TownHouseSpots(rail);
+                var drives = new List<(Vector2 house, Vector2 street)>();
+                bool Through(Vector2 a, Vector2 b)      // would a drive from a to b run through another house?
+                {
+                    foreach (var o in townHouses)
+                    {
+                        if ((o - a).sqrMagnitude < 1f) continue;
+                        float t = Mathf.Clamp01(Vector2.Dot(o - a, b - a) / Mathf.Max((b - a).sqrMagnitude, 0.01f));
+                        if ((a + (b - a) * t - o).sqrMagnitude < 11f * 11f) return true;
+                    }
+                    return false;
+                }
+                if (xs.Count > 0 && zs.Count > 0)
+                    foreach (var hp in townHouses)
+                    {
+                        int xi = Nearest(xs, hp.x), zi = Nearest(zs, hp.y);
+                        bool toZ = Mathf.Abs(zs[zi] - hp.y) <= Mathf.Abs(xs[xi] - hp.x) + 6f;
+                        if (Through(hp, toZ ? V(hp.x, zs[zi]) : V(xs[xi], hp.y)) && !Through(hp, toZ ? V(xs[xi], hp.y) : V(hp.x, zs[zi]))) toZ = !toZ;
+                        if (toZ)
+                        {
+                            zLo[zi] = Mathf.Min(zLo[zi], hp.x); zHi[zi] = Mathf.Max(zHi[zi], hp.x);
+                            drives.Add((hp, V(hp.x, zs[zi])));
+                        }
+                        else
+                        {
+                            xLo[xi] = Mathf.Min(xLo[xi], hp.y); xHi[xi] = Mathf.Max(xHi[xi], hp.y);
+                            drives.Add((hp, V(xs[xi], hp.y)));
+                        }
+                    }
+                for (int pass = 0; pass < 6; pass++)
+                {
+                    for (int k = 0; k < xs.Count; k++)
+                    {
+                        if (xLo[k] > xHi[k]) continue;
+                        // on to the corner beyond each end, and that cross street reaches this one
+                        int lo = -1, hi = -1;
+                        for (int q = 0; q < zs.Count; q++)
+                        {
+                            if (zs[q] <= xLo[k] + 1f && (lo < 0 || zs[q] > zs[lo])) lo = q;
+                            if (zs[q] >= xHi[k] - 1f && (hi < 0 || zs[q] < zs[hi])) hi = q;
+                        }
+                        if (lo >= 0) { xLo[k] = zs[lo]; zLo[lo] = Mathf.Min(zLo[lo], xs[k]); zHi[lo] = Mathf.Max(zHi[lo], xs[k]); }
+                        if (hi >= 0) { xHi[k] = zs[hi]; zLo[hi] = Mathf.Min(zLo[hi], xs[k]); zHi[hi] = Mathf.Max(zHi[hi], xs[k]); }
+                    }
+                    for (int k = 0; k < zs.Count; k++)
+                    {
+                        if (zLo[k] > zHi[k]) continue;
+                        int lo = -1, hi = -1;
+                        for (int q = 0; q < xs.Count; q++)
+                        {
+                            if (xs[q] <= zLo[k] + 1f && (lo < 0 || xs[q] > xs[lo])) lo = q;
+                            if (xs[q] >= zHi[k] - 1f && (hi < 0 || xs[q] < xs[hi])) hi = q;
+                        }
+                        if (lo >= 0) { zLo[k] = xs[lo]; xLo[lo] = Mathf.Min(xLo[lo], zs[k]); xHi[lo] = Mathf.Max(xHi[lo], zs[k]); }
+                        if (hi >= 0) { zHi[k] = xs[hi]; xLo[hi] = Mathf.Min(xLo[hi], zs[k]); xHi[hi] = Mathf.Max(xHi[hi], zs[k]); }
+                    }
+                }
+                for (int k = 0; k < xs.Count; k++) if (xLo[k] < xHi[k]) Street(V(xs[k], xLo[k]), V(xs[k], xHi[k]));
+                for (int k = 0; k < zs.Count; k++) if (zLo[k] < zHi[k]) Street(V(zLo[k], zs[k]), V(zHi[k], zs[k]));
+                foreach (var d in drives)
+                {
+                    Vector2 dir = d.street - d.house;
+                    if (dir.magnitude < 12f || !Open(d.street) || Through(d.house, d.street)) continue;
+                    Add(new List<Vector2> { d.house + dir.normalized * 7.5f, d.street }, 2.8f, RoadGravel, 0.44f);
+                }
+                Debug.Log($"OODA roads: the town has {townHouses.Count} houses on {xs.Count + zs.Count} streets.");
                 // round the factory's yard
                 Vector2 fa = FactoryAt;
                 Add(new List<Vector2> { fa + V(-106, -106), fa + V(106, -106), fa + V(106, 106), fa + V(-106, 106), fa + V(-106, -106) }, 7f, RoadCobble, 0.46f);
@@ -294,7 +353,7 @@ namespace Ooda.EditorTools
                 // from the town's streets out to the village's (the search stops at the first road it meets that is not its own)
                 var townCells = new HashSet<int>();
                 for (int j = 0; j < Res; j++) for (int i = 0; i < Res; i++) if (isRoad[j, i] && TownR(X(i), X(j)) < 1.0f) townCells.Add(j * Res + i);
-                var path = search.Find(SquareAt + V(-42f, 0), 22000f, c => townCells.Contains(c));
+                var path = search.Find(SquareAt + V(-42f, 0), 400000f, c => townCells.Contains(c));
                 if (path != null) Add(Smooth(path), 6f, RoadGravel, 0.48f);
                 else Debug.LogWarning("OODA roads: no way found from the village to the town.");
             }
@@ -307,7 +366,7 @@ namespace Ooda.EditorTools
                 {
                     if (lines.Any(l => l.pts.Any(q => Vector2.Distance(q, end) < 12f))) continue;
                     Vector2 centre = (e.a + e.b) / 2, bank = (end - centre).normalized;
-                    var path = search.Find(end, 14000f, null, c => Vector2.Dot(V(X(c % Res), X(c / Res)) - centre, bank) > 0f);
+                    var path = search.Find(end, 90000f, null, c => Vector2.Dot(V(X(c % Res), X(c / Res)) - centre, bank) > 0f);
                     if (path != null) { Add(Smooth(path), 4.2f, RoadGravel, 0.45f); lanes++; }
                     else Debug.LogWarning($"OODA roads: no lane found from the bridge end at ({end.x:F0}, {end.y:F0}).");
                 }
@@ -318,7 +377,7 @@ namespace Ooda.EditorTools
             {
                 Vector2 at = V(s.pos.x, s.pos.z), fwd = V(Mathf.Sin(s.yaw * Mathf.Deg2Rad), Mathf.Cos(s.yaw * Mathf.Deg2Rad));
                 Vector2 start = at + fwd * 12f * s.size;
-                var path = search.Find(start, 14000f, null);
+                var path = search.Find(start, 60000f, null);
                 if (path == null) continue;
                 Add(Smooth(path), 3.4f, RoadDirt, 0.42f, true);
                 discs.Add((start, 6.5f, RoadDirt));
@@ -401,6 +460,28 @@ namespace Ooda.EditorTools
             AssetDatabase.CreateAsset(mesh, RoadMeshPath);
             Debug.Log($"OODA roads: {km:F1} km in {lines.Count} stretches ({village.Count} village houses, {tracks} of {farms.Count} farm tracks, {bridges.Count} bridges), {v.Count} vertices.");
             return mesh;
+        }
+
+        /// <summary>Where the town's houses stand. They are one mesh in the scene, so this draws the same numbers in the
+        /// same order as AlpineTown.MakeTown does (keep the two in step).</summary>
+        static List<Vector2> TownHouseSpots(List<Vector3> rail)
+        {
+            var rnd = new System.Random(11);
+            var placed = new List<Vector2>();
+            for (int tries = 0; tries < 8000 && placed.Count < 170; tries++)
+            {
+                var p = V(TownCentre.x - 250 + (float)rnd.NextDouble() * 1150, TownCentre.y - 900 + (float)rnd.NextDouble() * 1600);
+                p = V(Mathf.Round(p.x / 34f) * 34f + Rand(rnd, -4, 4), Mathf.Round(p.y / 30f) * 30f + Rand(rnd, -4, 4));
+                if (TownR(p.x, p.y) > 0.92f) continue;
+                if (Vector2.Distance(p, FactoryAt) < 150 || Mathf.Abs(p.x - RunwayStart.x) < 150 || NearRail(rail, p.x, p.y, 30f)) continue;
+                if (placed.Any(q => Vector2.Distance(p, q) < 24)) continue;
+                if (Mathf.Abs(Mathf.Round((p.x - TownCentre.x) / 34f)) % 4 == 0) continue;
+                placed.Add(p);
+                rnd.NextDouble(); rnd.NextDouble(); rnd.NextDouble();      // its width, depth and height
+                rnd.Next(2); Rand(rnd, -4, 4);                              // which way it faces
+                rnd.NextDouble();                                           // plaster or wood
+            }
+            return placed;
         }
 
         /// <summary>Near the river's line at all (so a blocked square by a house is not taken for water).</summary>
