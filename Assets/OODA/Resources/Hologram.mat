@@ -25,7 +25,7 @@ Material:
     m_TexEnvs: []
     m_Ints: []
     m_Floats:
-    - _Fill: 0.3
+    - _Fill: 0.55
     - _GlowPower: 2.2
     - _RimEdge: 0.78
     - _SweepSpeed: 0.45

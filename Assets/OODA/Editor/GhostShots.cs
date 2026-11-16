@@ -39,6 +39,7 @@ namespace Ooda.EditorTools
             foreach (var a in Object.FindObjectsByType<Animator>(FindObjectsSortMode.None)) { a.Rebind(); for (int i = 0; i < 4; i++) a.Update(0.1f); }
             foreach (var tc in cam.GetComponents<MonoBehaviour>()) tc.enabled = false;
             Save(cam, rt, dir, $"{tag}_planning");
+            cam.transform.SetParent(null, true);   // off its rig, so the close-ups sit where they are put
 
             var ghosts = Object.FindObjectsByType<Transform>(FindObjectsSortMode.None)
                 .Where(t => t.parent == null && t.gameObject.activeInHierarchy && t.name.StartsWith("Ghost"))

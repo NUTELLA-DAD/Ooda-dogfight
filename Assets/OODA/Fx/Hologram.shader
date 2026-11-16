@@ -11,7 +11,7 @@ Shader "Ooda/Hologram"
     Properties
     {
         _BaseColor ("Colour (alpha: strength)", Color) = (0.25, 0.85, 1, 0.35)
-        _Fill ("Fill", Range(0, 1)) = 0.3
+        _Fill ("Fill", Range(0, 1)) = 0.55
         _GlowPower ("Glow falloff", Range(0.5, 8)) = 2.2
         _RimEdge ("Rim line at", Range(0.3, 0.98)) = 0.78
         _SweepSpeed ("Sweep speed", Float) = 0.45
@@ -95,11 +95,16 @@ Shader "Ooda/Hologram"
                 float s = frac(i.along * 0.06 - _Time.y * _SweepSpeed);
                 half sweep = exp(-pow((s - 0.5) * 9, 2)) * 0.35;
 
+                // the strength: a fill solid enough to read over fields and water, brighter toward the silhouette
                 half a = _BaseColor.a;
-                half strength = a * (_Fill + 1.35 * glow + sweep) + line_ * saturate(a * 2.2);
-                strength = saturate(strength);
-                half3 col = lerp(_BaseColor.rgb, 1, saturate(line_ * 0.55 + glow * 0.2));
-                return half4(col * strength, saturate(strength * 0.55));
+                half body = saturate(a * 1.7 * (_Fill + 1.1 * glow + sweep));
+                // the rim line fades where the surface turns edge-on faster than a pixel (thin wing and tail edges),
+                // so it never breaks into bright slivers
+                line_ *= saturate(1.5 - fwidth(rim) * 6);
+                half edge = line_ * saturate(a * 2.5);
+                half strength = saturate(body + edge * 0.8);
+                half3 col = _BaseColor.rgb * (1 + 0.35 * glow) + edge * 0.35;   // a lighter tint at the rim, never pure white
+                return half4(col * strength, saturate(body * 0.75 + edge * 0.6));
             }
             ENDHLSL
         }
