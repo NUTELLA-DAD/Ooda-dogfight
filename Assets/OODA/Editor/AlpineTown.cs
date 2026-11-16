@@ -17,7 +17,6 @@ namespace Ooda.EditorTools
         static void MakeTown(float[,] h, WMats m, List<Vector3> rail)
         {
             var root = new GameObject("Town").transform;
-            float floor = TownFloor;
             Vector3 At(Vector2 p, float up = 0) => new Vector3(p.x, SampleArr(h, p.x, p.y) + up, p.y);
             void Mark(string name, Vector3 p) { var t = new GameObject(name).transform; t.SetParent(root, false); t.position = p; }
 
