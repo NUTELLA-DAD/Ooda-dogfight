@@ -30,12 +30,13 @@ namespace Ooda.Fx
 
         const string PrefKey = "ooda.gfx.quality";
 
-        // ---- the light from the sky (before the shaders' own _Ambient)
-        public static readonly Color AmbientSky = Hex("#86b8ff"), AmbientHorizon = Hex("#a9c8e4"), AmbientGround = Hex("#a3a866");
+        // ---- the light from the sky (before the shaders' own _Ambient). Kept low: the scenes had next to none, and the toon
+        // shade wants to stay deep; this only gives it colour (blue on what looks up, olive on what looks down)
+        public static readonly Color AmbientSky = Hex("#4f7fd0"), AmbientHorizon = Hex("#5c7c9c"), AmbientGround = Hex("#6f7038");
 
         // ---- the air
-        /// <summary>How much of the view the air hides per metre in the valleys (0.00009: about half at 8 km on the valley floor, a third from 1,500 m up).</summary>
-        public const float AirDensity = 0.000090f;
+        /// <summary>How much of the view the air hides per metre in the valleys (0.00007: about 40% at 8 km on the valley floor, a quarter from 1,500 m up).</summary>
+        public const float AirDensity = 0.000070f;
         /// <summary>The height (m) over which the air thins to a third.</summary>
         public const float AirScaleHeight = 2600f;
         /// <summary>The most the air ever hides, so the far range is pale, never gone (the fog takes the last of it).</summary>
