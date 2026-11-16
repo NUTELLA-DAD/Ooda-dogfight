@@ -147,6 +147,23 @@ namespace Ooda.EditorTools
                 Shot(cam, rt, dir, "world_village", c + new Vector3(-420, 160, -520), c);
             }
 
+            // the roads (Editor/AlpineRoads): the town's streets, the airfield, a farm's track, a country bridge, the road between
+            {
+                Vector3 G(float x, float z, float up = 0) => new Vector3(x, Ground(x, z) + up, z);
+                Shot(cam, rt, dir, "roads_town", G(3350, -5450, 170), G(3900, -4950));
+                Shot(cam, rt, dir, "roads_town_low", G(3700, -5300, 60), G(3950, -5050));
+                Shot(cam, rt, dir, "roads_airfield", G(2400, -5950, 200), G(2650, -5250));
+                Shot(cam, rt, dir, "roads_bridge", G(-260, 2480, 90), G(-20, 2700));
+                Shot(cam, rt, dir, "roads_country", G(1200, -2500, 500), G(2600, -4200));
+                var farmRoot = GameObject.Find("Farmhouses");
+                if (farmRoot != null && farmRoot.transform.childCount > 3)
+                {
+                    Vector3 f = farmRoot.transform.GetChild(3).position;
+                    Shot(cam, rt, dir, "roads_farm", f + new Vector3(-110, 60, -150), f);
+                    Shot(cam, rt, dir, "roads_farm_wide", f + new Vector3(250, 260, -500), f);
+                }
+            }
+
             var eye = TestWorldBuilder.FindDeep(Object.FindFirstObjectByType<Flight.AircraftController>().transform, "CockpitCamera");
             var look = Object.FindFirstObjectByType<Pilot.PilotHeadLook>();
             if (look != null)

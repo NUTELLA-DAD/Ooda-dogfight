@@ -118,6 +118,8 @@ namespace Ooda.EditorTools
                         int cj = Mathf.Clamp(j * cover.GetLength(0) / Res, 0, cover.GetLength(0) - 1), ci = Mathf.Clamp(i * cover.GetLength(1) / Res, 0, cover.GetLength(1) - 1);
                         slow[j, i] = cover[cj, ci, 1] * 5f + cover[cj, ci, 2] * 3f;      // woods, rock
                     }
+                    // (and some ground is simply better going than other: on a flat a road wanders a little, it is not ruled)
+                    slow[j, i] += 1.6f * Mathf.PerlinNoise(x * 0.0031f + 40f, z * 0.0031f + 90f) + 0.8f * Mathf.PerlinNoise(x * 0.011f + 7f, z * 0.011f + 3f);
                 }
             foreach (var rp in River())
             {
@@ -184,12 +186,12 @@ namespace Ooda.EditorTools
             {
                 var vb = bridgeEnds.OrderBy(e => Vector2.Distance((e.a + e.b) / 2, SquareAt)).First();
                 Vector2 west = Vector2.Distance(vb.a, SquareAt) < Vector2.Distance(vb.b, SquareAt) ? vb.a : vb.b, east = west == vb.a ? vb.b : vb.a;
-                Vector2 door = ChurchAt + V(0, 19f);
+                Vector2 door = ChurchAt + V(0, 23f);
                 Vector2 sqEdge = SquareAt + (west - SquareAt).normalized * 38f;
                 Add(Curve(new List<Vector2> { sqEdge, Vector2.Lerp(sqEdge, west, 0.5f) + V(0, 7f), west }), 6.5f, RoadCobble, 0.5f);
                 Add(new List<Vector2> { west, east }, 6.5f, RoadCobble, 0.5f);
                 Add(Curve(new List<Vector2> { east, Vector2.Lerp(east, door, 0.55f) + V(0, -8f), door }), 6.5f, RoadCobble, 0.5f);
-                discs.Add((door, 9f, RoadCobble));
+                discs.Add((door, 6f, RoadCobble));
 
                 // the paths: each door makes for the nearest lane already there (weighing how far that still is from the
                 // square or the church), so the lanes branch from house to house instead of fanning out from one point
@@ -299,25 +301,16 @@ namespace Ooda.EditorTools
             int lanes = 0;
             foreach (var e in bridgeEnds)
             {
-                // (each end finds its own way on its own bank: the bridge is shut while it looks, or the second end's
-                // nearest road would be the first end's, three steps away over the deck)
-                var shut = new List<(int j, int i)>();
-                for (float t = 0.2f; t <= 0.81f; t += 0.1f)
-                    for (int dj = -1; dj <= 1; dj++)
-                        for (int di = -1; di <= 1; di++)
-                        {
-                            Vector2 m = Vector2.Lerp(e.a, e.b, t);
-                            int j = Mathf.Clamp(Idx(m.y) + dj, 0, Res - 1), i = Mathf.Clamp(Idx(m.x) + di, 0, Res - 1);
-                            if (riverCore[j, i] && !blocked[j, i]) { blocked[j, i] = true; shut.Add((j, i)); }
-                        }
+                // (each end finds its own way on its own bank, or the second end's nearest road would be the first end's,
+                // three steps away over the deck)
                 foreach (var end in new[] { e.a, e.b })
                 {
                     if (lines.Any(l => l.pts.Any(q => Vector2.Distance(q, end) < 12f))) continue;
-                    var path = search.Find(end, 14000f, null);
+                    Vector2 centre = (e.a + e.b) / 2, bank = (end - centre).normalized;
+                    var path = search.Find(end, 14000f, null, c => Vector2.Dot(V(X(c % Res), X(c / Res)) - centre, bank) > 0f);
                     if (path != null) { Add(Smooth(path), 4.2f, RoadGravel, 0.45f); lanes++; }
                     else Debug.LogWarning($"OODA roads: no lane found from the bridge end at ({end.x:F0}, {end.y:F0}).");
                 }
-                foreach (var c in shut) blocked[c.j, c.i] = false;
             }
             Debug.Log($"OODA roads: {lanes} lanes to the bridges.");
             int tracks = 0;
@@ -490,7 +483,7 @@ namespace Ooda.EditorTools
 
             /// <summary>From 'start' until a road is reached (or a square 'goal' accepts), spending no more than 'budget'
             /// metres of cost. The way runs from the start to the road; null if there is none.</summary>
-            public List<Vector2> Find(Vector2 start, float budget, System.Func<int, bool> goal)
+            public List<Vector2> Find(Vector2 start, float budget, System.Func<int, bool> goal, System.Func<int, bool> allow = null)
             {
                 int sj = Idx(start.y), si = Idx(start.x), s = sj * Res + si;
                 foreach (int t in touched) cost[t] = float.MaxValue;
@@ -514,10 +507,12 @@ namespace Ooda.EditorTools
                             int nj = j + dj, ni = i + di;
                             if (nj < 1 || ni < 1 || nj >= Res - 1 || ni >= Res - 1) continue;
                             bool target = goal != null ? goal(nj * Res + ni) : isRoad[nj, ni];
+                            bool atStart = Mathf.Abs(nj - sj) <= 3 && Mathf.Abs(ni - si) <= 3;   // (a door's or a bridge's own bank: the ribbon ramps there)
                             if (blocked[nj, ni] && !target) continue;
+                            if (allow != null && !allow(nj * Res + ni)) continue;
                             float d = Cell * (dj != 0 && di != 0 ? 1.4142f : 1f);
                             float grade = Mathf.Abs(h[nj, ni] - h[j, i]) / d;
-                            if (grade > 0.25f) continue;
+                            if (grade > 0.25f && !atStart) continue;
                             float g = grade / 0.07f;
                             float c = top.c + d * (1f + g * g + slow[nj, ni]);
                             int nid = nj * Res + ni;
