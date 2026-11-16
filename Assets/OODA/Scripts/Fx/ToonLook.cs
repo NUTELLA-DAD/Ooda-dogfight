@@ -34,12 +34,12 @@ namespace Ooda.Fx
         public static readonly Color AmbientSky = Hex("#4f7fd0"), AmbientHorizon = Hex("#5c7c9c"), AmbientGround = Hex("#6f7038");
 
         // ---- the air
-        /// <summary>How much of the view the air hides per metre in the valleys (0.00007: about 40% at 8 km on the valley floor, a quarter from 1,500 m up).</summary>
-        public const float AirDensity = 0.000070f;
+        /// <summary>How much of the view the air hides per metre in the valleys (0.000042: about 30% at 8 km on the valley floor, under 20% from 1,500 m up).</summary>
+        public const float AirDensity = 0.000042f;
         /// <summary>The height (m) over which the air thins to a third.</summary>
         public const float AirScaleHeight = 2600f;
         /// <summary>The most the air ever hides, so the far range is pale, never gone (the fog takes the last of it).</summary>
-        public const float AirMost = 0.9f;
+        public const float AirMost = 0.72f;
         public const float AirBaseHeight = 0f;
         /// <summary>The scene's distance fog with the air on: from here to there (m).</summary>
         public const float FogStart = 9000f, FogEnd = 34000f;
@@ -135,8 +135,8 @@ namespace Ooda.Fx
             if (sun != null) toSun = -sun.transform.forward;
             Shader.SetGlobalVector("_ToonAtmoSunDir", toSun);
             Shader.SetGlobalVector("_ToonAtmoParams", new Vector4(AirDensity, 1f / AirScaleHeight, AirMost, AirBaseHeight));
-            Shader.SetGlobalColor("_ToonAtmoColor", Color.Lerp(ToonSky.Horizon, Color.white, 0.12f));
-            var warm = Color.Lerp(ToonSky.Horizon, ToonSky.Glow, 0.55f); warm.a = 5f;   // (a: how tight the glow is round the sun)
+            Shader.SetGlobalColor("_ToonAtmoColor", Color.Lerp(ToonSky.Horizon, ToonSky.High, 0.38f)   /* (deeper than the horizon itself: the sea keeps its blue far out, and a plane stands off it) */);
+            var warm = Color.Lerp(ToonSky.Horizon, ToonSky.Glow, 0.45f); warm.a = 5f;   // (a: how tight the glow is round the sun)
             Shader.SetGlobalColor("_ToonAtmoSunColor", warm);
             if (RenderSettings.fog && RenderSettings.fogMode == FogMode.Linear && RenderSettings.fogEndDistance < FogEnd)
             {
@@ -173,21 +173,21 @@ namespace Ooda.Fx
             bloom.intensity.Override(0.45f);
             bloom.scatter.Override(0.65f);
             bloom.clamp.Override(6f);
-            bloom.tint.Override(new Color(1f, 0.97f, 0.92f));
+            bloom.tint.Override(Color.white);
             bloom.highQualityFiltering.Override(true);
 
             adjust = p.Add<ColorAdjustments>(false);
             adjust.contrast.Override(8f);
-            adjust.saturation.Override(8f);
+            adjust.saturation.Override(4f);
 
             // warm light, cool shade: the painter's rule the toon shaders follow, carried through the whole frame
             smh = p.Add<ShadowsMidtonesHighlights>(false);
             smh.shadows.Override(new Vector4(0.93f, 0.97f, 1.10f, 0f));
             smh.midtones.Override(new Vector4(1f, 1f, 1f, 0f));
-            smh.highlights.Override(new Vector4(1.06f, 1.01f, 0.93f, 0f));
+            smh.highlights.Override(new Vector4(1.02f, 1.0f, 0.975f, 0f));
 
             balance = p.Add<WhiteBalance>(false);
-            balance.temperature.Override(3f);
+            balance.temperature.Override(0f);
 
             // a light frame round the picture, in the sky's own navy rather than black
             vignette = p.Add<Vignette>(false);
