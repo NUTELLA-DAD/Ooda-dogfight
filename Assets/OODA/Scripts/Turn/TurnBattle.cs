@@ -1595,8 +1595,22 @@ namespace Ooda.Turn
             return g;
         }
 
+        static Material holoTemplate;
+
+        /// <summary>
+        /// The ghost's material: Ooda/Hologram (a faint fill, a glow toward the silhouette and a clean rim line, lit on the
+        /// nearest surface only). Loaded from Resources so the build keeps the shader; plain additive URP Unlit if it is missing.
+        /// </summary>
         static Material HoloMaterial(Color color)
         {
+            if (holoTemplate == null) holoTemplate = Resources.Load<Material>("Hologram");
+            if (holoTemplate == null) { var sh = Shader.Find("Ooda/Hologram"); if (sh != null) holoTemplate = new Material(sh); }
+            if (holoTemplate != null)
+            {
+                var h = new Material(holoTemplate);
+                h.SetColor("_BaseColor", color);
+                return h;
+            }
             var shader = Shader.Find("Universal Render Pipeline/Unlit");
             if (shader == null) return new Material(Shader.Find("Sprites/Default")) { color = color };
             var m = new Material(shader);
@@ -1619,8 +1633,8 @@ namespace Ooda.Turn
             holo.SetActive(show);
             if (!show) return;
             TurnAircraftView.Pose(holo.transform, f.pos, f.Nose, f.up, f.alphaDeg);
-            // a slow shimmer, like a projection
-            float k = 0.8f + 0.2f * Mathf.Sin(Time.time * 6f) + 0.05f * Mathf.Sin(Time.time * 37f);
+            // a slow, even breath, like a projection (the light sweeping along it is the shader's)
+            float k = 0.9f + 0.1f * Mathf.Sin(Time.time * 2.5f);
             var r = holo.GetComponentInChildren<Renderer>();
             if (r != null) r.sharedMaterial.SetColor("_BaseColor", new Color(color.r, color.g, color.b, color.a * k));
         }
