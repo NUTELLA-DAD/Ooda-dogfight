@@ -70,7 +70,10 @@ namespace Ooda.Fx
 
         Material[] MakeMaterials()
         {
-            var lit = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+            // the aircraft's toon shader, so the towers take the same two-tone light, cool shade and haze as everything
+            // else (on Lit they were the one photo-lit thing in a painted world). No shell outline (a box's hard corners
+            // would split it): they leave the stencil clear instead and take the land's full-screen ink.
+            var lit = Shader.Find("Ooda/ToonLit") ?? Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
             var list = new Material[Facades.Length + 1];
             for (int s = 0; s < Facades.Length; s++)
             {
@@ -96,6 +99,15 @@ namespace Ooda.Fx
             if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", Color.white);
             if (m.HasProperty("_Smoothness")) m.SetFloat("_Smoothness", smooth);
             if (m.HasProperty("_Metallic")) m.SetFloat("_Metallic", 0f);
+            if (m.HasProperty("_InkStencil"))
+            {
+                m.SetFloat("_InkStencil", 0f);
+                m.SetFloat("_OutlineWidth", 0f);
+                m.SetShaderPassEnabled("SRPDefaultUnlit", false);   // (the outline shell: nothing to draw)
+                m.SetFloat("_RimStrength", 0.2f);
+                m.SetFloat("_GlintStrength", 0.5f);
+                m.SetFloat("_BackRimStrength", 0.12f);
+            }
             m.enableInstancing = true;
         }
 

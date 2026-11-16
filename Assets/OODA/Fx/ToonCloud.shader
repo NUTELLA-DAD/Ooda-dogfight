@@ -41,6 +41,7 @@ Shader "Ooda/ToonCloud"
         CBUFFER_END
 
         float4 _ToonSunDir;
+        #include "ToonAtmosphere.hlsl"
         float4 _ToonWind;       // xz: the wind's direction (unit); w: a time scale (1)
         float4 _KindLit[4], _KindShade[4], _KindBelly[4], _KindLine[4];
         float4 _KindDrift[4];   // per kind: speed (m/s), span (m), billow rate, billow size
@@ -149,7 +150,8 @@ Shader "Ooda/ToonCloud"
             if (fade * 16 <= bayer[p.y * 4 + p.x] + 0.5) discard;
         }
 
-        half3 Fogged(half3 c, float fog) { return lerp(c, MixFog(c, fog), _FogAmount); }
+        // (the air takes a far bank too, a little less than the land under it, so the banks step back into the distance)
+        half3 Fogged(half3 c, float4 w) { c = ToonAtmosphere(c, w.xyz, _FogAmount); return lerp(c, MixFog(c, w.w), _FogAmount); }
 
         // a rain shaft: slanting dashes falling, ragged at its sides, thinning out toward the ground; and when the storm
         // flashes, a zigzag bolt down the middle
@@ -163,7 +165,7 @@ Shader "Ooda/ToonCloud"
                 float y8 = (1 - uv.y) * 5.0, seg = floor(y8);
                 float x0 = Hash(seg + i.k.w * 91.0) - 0.5, x1 = Hash(seg + 1 + i.k.w * 91.0) - 0.5;
                 float xb = lerp(x0, x1, frac(y8)) * 0.7 * W;
-                if (abs(wx - xb) < max(4.0, 2.2 * px) && uv.y > -0.4) return half4(Fogged(_FlashCol.rgb, i.w.w), 1);
+                if (abs(wx - xb) < max(4.0, 2.2 * px) && uv.y > -0.4) return half4(Fogged(_FlashCol.rgb, i.w), 1);
             }
             float spacing = max(12.0, 5.0 * px), slant = wx + wy * 0.28;
             float col = floor(slant / spacing), f = frac(slant / spacing);
@@ -171,7 +173,7 @@ Shader "Ooda/ToonCloud"
             if (f > 0.3 || dash > 0.72) discard;
             if (abs(uv.x) > 0.9 - 0.35 * Hash(col * 3.1)) discard;
             Dither(i.positionCS, i.d.w * saturate((uv.y + 1.0) / 0.9));
-            return half4(Fogged(_RainCol.rgb, i.w.w), 1);
+            return half4(Fogged(_RainCol.rgb, i.w), 1);
         }
         ENDHLSL
 
@@ -197,7 +199,7 @@ Shader "Ooda/ToonCloud"
                 if (i.w.y < i.d.x - i.c.z * i.e.z) discard;   // (a line along the flat bottom too)
                 Dither(i.positionCS, i.d.w);
                 int k = (int)round(i.k.x);
-                return half4(Fogged(_KindLine[k].rgb, i.w.w), 1);
+                return half4(Fogged(_KindLine[k].rgb, i.w), 1);
             }
             ENDHLSL
         }
@@ -229,7 +231,7 @@ Shader "Ooda/ToonCloud"
                 float2 q = (uv - i.e.xy) / 0.8;
                 half3 col = length(q) < Lobe(q, i.c.w, i.d.z) ? lit : shade;
                 if (k != 2 && i.w.y < i.d.x + (i.d.y - i.d.x) * 0.14) col = belly;
-                return half4(Fogged(col, i.w.w), 1);
+                return half4(Fogged(col, i.w), 1);
             }
             ENDHLSL
         }

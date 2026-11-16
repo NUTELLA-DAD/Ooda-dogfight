@@ -70,6 +70,7 @@ Shader "Ooda/ToonLandModel"
             #pragma multi_compile_fog
             #pragma multi_compile_instancing
             #include "ToonLand.hlsl"
+            #include "ToonAtmosphere.hlsl"
             TEXTURE2D(_BaseMap); SAMPLER(sampler_BaseMap);
 
             struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float2 uv : TEXCOORD0; half4 color : COLOR; UNITY_VERTEX_INPUT_INSTANCE_ID };
@@ -107,7 +108,7 @@ Shader "Ooda/ToonLandModel"
                     vc *= lerp(1, 0.86, step(0.5, i.color.a) * step(course, 0.1));
                     half3 vlit = ToonLandLight(vc, p, N);
                     if (AnyIsNaN(vlit) || AnyIsInf(vlit)) vlit = vc * 0.6;
-                    return half4(MixFog(vlit, i.fog), 1);
+                    return half4(MixFog(ToonAtmosphere(vlit, p, 1), i.fog), 1);
                 }
                 float up = N.y + (n - 0.5) * 0.18;
 
@@ -131,7 +132,7 @@ Shader "Ooda/ToonLandModel"
 
                 half3 lit = ToonLandLight(col, p, N);
                 if (AnyIsNaN(lit) || AnyIsInf(lit)) lit = col * 0.6;
-                return half4(MixFog(lit, i.fog), 1);
+                return half4(MixFog(ToonAtmosphere(lit, p, 1), i.fog), 1);
             }
             ENDHLSL
         }

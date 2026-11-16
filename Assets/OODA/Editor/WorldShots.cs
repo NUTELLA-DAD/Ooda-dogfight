@@ -17,6 +17,7 @@ namespace Ooda.EditorTools
         {
             var scene = EditorSceneManager.OpenScene(TestWorldBuilder.ScenePath);
             if (Ooda.Fx.ToonSky.Enabled) Ooda.Fx.ToonSky.Apply(scene);   // (the game puts it on as each scene loads; the shots must too)
+            Ooda.Fx.ToonLook.Apply();
             string dir = Path.GetFullPath("Shots~");
             Directory.CreateDirectory(dir);
             var camGo = new GameObject("ShotCam");
@@ -27,6 +28,7 @@ namespace Ooda.EditorTools
             cam.clearFlags = CameraClearFlags.Skybox;
             var rt = new RenderTexture(1600, 1000, 24) { antiAliasing = 4 };
             cam.targetTexture = rt;
+            Ooda.Fx.ToonLook.Dress(cam);
             var terrain = Object.FindFirstObjectByType<Terrain>();
             float Ground(float x, float z) => terrain.SampleHeight(new Vector3(x, 0, z)) + terrain.transform.position.y;
 

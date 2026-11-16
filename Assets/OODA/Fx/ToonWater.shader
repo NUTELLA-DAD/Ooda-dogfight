@@ -47,6 +47,7 @@ Shader "Ooda/ToonWater"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
             #include "LandNoise.hlsl"
+            #include "ToonAtmosphere.hlsl"
 
             CBUFFER_START(UnityPerMaterial)
                 float4 _BaseMap_ST;
@@ -140,7 +141,7 @@ Shader "Ooda/ToonWater"
                 alpha = saturate(max(alpha, max(foam, streak)) + glint);
 
                 if (AnyIsNaN(col) || AnyIsInf(col)) col = _Mid.rgb;
-                return half4(MixFog(col, i.fog), alpha);
+                return half4(MixFog(ToonAtmosphere(col, i.positionWS, 1), i.fog), alpha);
             }
             ENDHLSL
         }

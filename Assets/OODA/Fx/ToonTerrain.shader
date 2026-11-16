@@ -90,6 +90,7 @@ Shader "Ooda/ToonTerrain"
             #pragma multi_compile_instancing
             #pragma instancing_options assumeuniformscaling nomatrices nolightprobe nolightmap
             #include "ToonLand.hlsl"
+            #include "ToonAtmosphere.hlsl"
 
             TEXTURE2D(_Ctrl0); TEXTURE2D(_Ctrl1); SAMPLER(sampler_Ctrl0);
             TEXTURE2D(_Lay0); TEXTURE2D(_Lay1); TEXTURE2D(_Lay2); TEXTURE2D(_Lay3);
@@ -149,7 +150,7 @@ Shader "Ooda/ToonTerrain"
 
                 half3 col = ToonLandLight(base, i.positionWS, normalize(i.normalWS));
                 if (AnyIsNaN(col) || AnyIsInf(col)) col = base * 0.6;
-                return half4(MixFog(col, i.fog), 1);
+                return half4(MixFog(ToonAtmosphere(col, i.positionWS, 1), i.fog), 1);
             }
             ENDHLSL
         }
