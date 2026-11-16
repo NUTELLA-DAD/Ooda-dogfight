@@ -114,7 +114,7 @@ namespace Ooda.EditorTools
                 for (int i = 0; i < Res; i++)
                 {
                     float x = X(i), z = X(j), y = h[j, i];
-                    if (y < 2f || y > 1500f || InLake(x, z) || Mathf.Abs(x) > 9300f || Mathf.Abs(z) > 9300f) blocked[j, i] = true;
+                    if (y < 0.6f || y > 1500f || InLake(x, z) || Mathf.Abs(x) > 9300f || Mathf.Abs(z) > 9300f) blocked[j, i] = true;
                     if ((Mathf.Abs(x - RunwayStart.x) < 60f && z > RunwayStart.y - 40f && z < RunwayEnd.y + 40f)
                         || (Mathf.Abs(x - FactoryAt.x) < 110f && Mathf.Abs(z - FactoryAt.y) < 110f)) blocked[j, i] = true;
                     if (cover != null)
@@ -512,7 +512,7 @@ namespace Ooda.EditorTools
         // ---------- finding a way ----------
 
         /// <summary>The cheapest way over the heightmap's grid from a point to the nearest road (or to a goal): distance,
-        /// made dearer by the grade (none steeper than 1 in 4), by woods and rock, and by a railway to cross.</summary>
+        /// made dearer by the grade (few steeper than 1 in 4, none than 1 in 2), by woods and rock, and by a railway to cross.</summary>
         sealed class RoadSearch
         {
             readonly float[,] h; readonly bool[,] blocked; readonly float[,] slow; readonly bool[,] isRoad;
@@ -557,7 +557,7 @@ namespace Ooda.EditorTools
                             if (allow != null && !allow(nj * Res + ni)) continue;
                             float d = Cell * (dj != 0 && di != 0 ? 1.4142f : 1f);
                             float grade = Mathf.Abs(h[nj, ni] - h[j, i]) / d;
-                            if (grade > 0.25f && !atStart) continue;
+                            if (grade > 0.45f && !atStart) continue;
                             float g = grade / 0.07f;
                             float c = top.c + d * (1f + g * g + slow[nj, ni]);
                             int nid = nj * Res + ni;
