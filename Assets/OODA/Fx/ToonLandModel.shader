@@ -29,6 +29,7 @@ Shader "Ooda/ToonLandModel"
         [ToggleUI] _VertexColour ("Colour from the vertices", Float) = 0
         _Course ("Stone course height, m", Float) = 4
         _PatchFrom ("Two-tone patches from x, m (fading in over 1.2 km)", Float) = -1000000
+        _FarLift ("Lift by distance (roads: m up per m away, so the ground's coarser far mesh never cuts through)", Float) = 0
 
         [Header(Light)]
         _BandEdge ("Terminator (0 = at the horizon of the light)", Range(-1, 1)) = 0.05
@@ -52,9 +53,15 @@ Shader "Ooda/ToonLandModel"
         CBUFFER_START(UnityPerMaterial)
             float4 _BaseMap_ST;
             half4 _BaseColor, _GrassA, _GrassB, _RockA, _RockB, _Snow, _ShadeColor, _LitTint;
-            float _SnowLow, _SnowHigh, _GrassSlope, _GrassHigh, _Strata, _Patch, _VertexColour, _Course, _PatchFrom;
+            float _SnowLow, _SnowHigh, _GrassSlope, _GrassHigh, _Strata, _Patch, _VertexColour, _Course, _PatchFrom, _FarLift;
             half _BandEdge, _BandSoft, _MidBand, _Ambient, _TexSnow;
         CBUFFER_END
+        // A ribbon laid on the ground (a road) is raised a little for every metre it is from the eye: never more than a
+        // few pixels on the screen, which is all the terrain's far mesh is allowed to be out by.
+        float3 LiftFar(float3 ws)
+        {
+            return ws + float3(0, _FarLift * distance(ws, _WorldSpaceCameraPos), 0);
+        }
         ENDHLSL
 
         Pass
@@ -87,7 +94,7 @@ Shader "Ooda/ToonLandModel"
                 Varyings o = (Varyings)0;
                 UNITY_SETUP_INSTANCE_ID(a); UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
                 o.positionWS = TransformObjectToWorld(a.positionOS.xyz);
-                o.positionCS = TransformWorldToHClip(o.positionWS);
+                o.positionCS = TransformWorldToHClip(LiftFar(o.positionWS));
                 o.normalWS = TransformObjectToWorldNormal(a.normalOS);
                 o.fog = ComputeFogFactor(o.positionCS.z);
                 o.uv = TRANSFORM_TEX(a.uv, _BaseMap);
@@ -188,7 +195,7 @@ Shader "Ooda/ToonLandModel"
             #pragma fragment frag
             #pragma multi_compile_instancing
             struct Attributes { float4 positionOS : POSITION; UNITY_VERTEX_INPUT_INSTANCE_ID };
-            float4 vert(Attributes a) : SV_POSITION { UNITY_SETUP_INSTANCE_ID(a); return TransformObjectToHClip(a.positionOS.xyz); }
+            float4 vert(Attributes a) : SV_POSITION { UNITY_SETUP_INSTANCE_ID(a); return TransformWorldToHClip(LiftFar(TransformObjectToWorld(a.positionOS.xyz))); }
             half4 frag(float4 positionCS : SV_POSITION) : SV_Target { return positionCS.z; }
             ENDHLSL
         }
@@ -208,7 +215,7 @@ Shader "Ooda/ToonLandModel"
             {
                 Varyings o;
                 UNITY_SETUP_INSTANCE_ID(a);
-                o.positionCS = TransformObjectToHClip(a.positionOS.xyz);
+                o.positionCS = TransformWorldToHClip(LiftFar(TransformObjectToWorld(a.positionOS.xyz)));
                 o.normalWS = TransformObjectToWorldNormal(a.normalOS);
                 return o;
             }
