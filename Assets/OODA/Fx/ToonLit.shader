@@ -28,10 +28,10 @@ Shader "Ooda/ToonLit"
         _RimStrength ("Rim strength", Range(0, 2)) = 0.45
         _GlintSize ("Sun glint size", Range(0, 1)) = 0.5
         _GlintStrength ("Sun glint strength", Range(0, 4)) = 1.0
-        _MidBand ("Half tone where the surface turns away", Range(0, 0.5)) = 0.07
-        _ShadeRich ("Shade colour richness (1 = as lit)", Range(0.5, 1.6)) = 1.18
+        _MidBand ("Half tone where the surface turns away", Range(0, 0.5)) = 0.10
+        _ShadeRich ("Shade colour richness (1 = as lit)", Range(0.5, 1.6)) = 1.25
         _BackRimColor ("Sky rim on the shaded edge", Color) = (0.62, 0.80, 1.0, 1)
-        _BackRimStrength ("Sky rim strength", Range(0, 2)) = 0.22
+        _BackRimStrength ("Sky rim strength", Range(0, 2)) = 0.35
         _Atmo ("Aerial haze (1 = as the land)", Range(0, 1)) = 1
 
         [Header(Polished metal)]

@@ -31,15 +31,15 @@ namespace Ooda.Fx
         const string PrefKey = "ooda.gfx.quality";
 
         // ---- the light from the sky (before the shaders' own _Ambient)
-        public static readonly Color AmbientSky = Hex("#8fbcf5"), AmbientHorizon = Hex("#a9c4dc"), AmbientGround = Hex("#8f9a63");
+        public static readonly Color AmbientSky = Hex("#86b8ff"), AmbientHorizon = Hex("#a9c8e4"), AmbientGround = Hex("#a3a866");
 
         // ---- the air
-        /// <summary>How much of the view the air hides per metre in the valleys (0.00005: about a third at 8 km).</summary>
-        public const float AirDensity = 0.000050f;
+        /// <summary>How much of the view the air hides per metre in the valleys (0.00009: about half at 8 km on the valley floor, a third from 1,500 m up).</summary>
+        public const float AirDensity = 0.000090f;
         /// <summary>The height (m) over which the air thins to a third.</summary>
-        public const float AirScaleHeight = 1700f;
+        public const float AirScaleHeight = 2600f;
         /// <summary>The most the air ever hides, so the far range is pale, never gone (the fog takes the last of it).</summary>
-        public const float AirMost = 0.86f;
+        public const float AirMost = 0.9f;
         public const float AirBaseHeight = 0f;
         /// <summary>The scene's distance fog with the air on: from here to there (m).</summary>
         public const float FogStart = 9000f, FogEnd = 34000f;
@@ -172,23 +172,23 @@ namespace Ooda.Fx
 
             // a soft glow on what is brighter than white, no more: a glint, a flame, a tracer, a snowfield in the sun
             bloom = p.Add<Bloom>(true);
-            bloom.threshold.Override(1.12f);
-            bloom.intensity.Override(0.32f);
-            bloom.scatter.Override(0.58f);
+            bloom.threshold.Override(1.0f);
+            bloom.intensity.Override(0.5f);
+            bloom.scatter.Override(0.65f);
             bloom.clamp.Override(6f);
             bloom.tint.Override(new Color(1f, 0.97f, 0.92f));
             bloom.highQualityFiltering.Override(true);
 
             adjust = p.Add<ColorAdjustments>(true);
-            adjust.postExposure.Override(0.14f);    // the curve takes a little off the upper tones: give it back
-            adjust.contrast.Override(7f);
-            adjust.saturation.Override(4f);
+            adjust.postExposure.Override(0.18f);    // the curve takes a little off the upper tones: give it back
+            adjust.contrast.Override(12f);
+            adjust.saturation.Override(8f);
 
             // warm light, cool shade: the painter's rule the toon shaders follow, carried through the whole frame
             smh = p.Add<ShadowsMidtonesHighlights>(true);
-            smh.shadows.Override(new Vector4(0.96f, 0.985f, 1.07f, 0f));
+            smh.shadows.Override(new Vector4(0.93f, 0.97f, 1.10f, 0f));
             smh.midtones.Override(new Vector4(1f, 1f, 1f, 0f));
-            smh.highlights.Override(new Vector4(1.04f, 1.01f, 0.95f, 0f));
+            smh.highlights.Override(new Vector4(1.06f, 1.01f, 0.93f, 0f));
 
             balance = p.Add<WhiteBalance>(true);
             balance.temperature.Override(3f);
@@ -196,7 +196,7 @@ namespace Ooda.Fx
             // a light frame round the picture, in the sky's own navy rather than black
             vignette = p.Add<Vignette>(true);
             vignette.color.Override(new Color(0.05f, 0.09f, 0.22f));
-            vignette.intensity.Override(0.2f);
+            vignette.intensity.Override(0.26f);
             vignette.smoothness.Override(0.5f);
 
             if (Application.isPlaying) go.AddComponent<Keeper>();
