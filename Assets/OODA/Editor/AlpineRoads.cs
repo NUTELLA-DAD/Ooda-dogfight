@@ -145,6 +145,9 @@ namespace Ooda.EditorTools
                         int j = Mathf.Clamp(Idx(s.pos.z) + dj, 0, Res - 1), i = Mathf.Clamp(Idx(s.pos.x) + di, 0, Res - 1);
                         if (Vector2.Distance(V(X(i), X(j)), V(s.pos.x, s.pos.z)) < 16f) blocked[j, i] = true;
                     }
+            for (int j = 0; j < Res; j++)
+                for (int i = 0; i < Res; i++)
+                    if (Mathf.Abs(X(i) - ChurchAt.x) < 17f && X(j) > ChurchAt.y - 32f && X(j) < ChurchAt.y + 20f) blocked[j, i] = true;   // the village church
             // the bridges: open across the river, and the height a road climbs to at each end
             var ramps = new List<(Vector2 end, float top)>();
             var bridgeEnds = new List<(Vector2 a, Vector2 b)>();
@@ -241,12 +244,28 @@ namespace Ooda.EditorTools
             {
                 var plan = TownPlan();
                 foreach (var st in plan.streets) Add(st.pts, st.width, RoadCobble, 0.46f);
-                discs.Add((TownSquareAt, 27f, RoadCobble));
+                discs.Add((TownSquareAt, 31f, RoadCobble));
                 foreach (var hs in plan.houses) blocked[Idx(hs.at.y), Idx(hs.at.x)] = true;
                 foreach (var st in plan.streets) Mark(st.pts);
                 // a road up the runway's east side and round its south end to the hangars
                 Vector2 rs = RunwayStart, re = RunwayEnd;
                 Add(Curve(new List<Vector2> { re + V(52, 30), rs + V(52, -20), rs + V(40, -62), rs + V(-50, -62), rs + V(-70, -20), rs + V(-70, 300) }), 6f, RoadGravel, 0.46f);
+            }
+
+            // a way found ends at the middle of a grid square the road runs through: carry it on to the road itself
+            List<Vector2> Join(List<Vector2> path)
+            {
+                Vector2 end = path[path.Count - 1], best = end; float bd = 45f * 45f;
+                foreach (var l in lines)
+                    for (int k = 0; k + 1 < l.pts.Count; k++)
+                    {
+                        Vector2 a = l.pts[k], b = l.pts[k + 1];
+                        float t = Mathf.Clamp01(Vector2.Dot(end - a, b - a) / Mathf.Max((b - a).sqrMagnitude, 0.01f));
+                        Vector2 q = a + (b - a) * t;
+                        if ((q - end).sqrMagnitude < bd) { bd = (q - end).sqrMagnitude; best = q; }
+                    }
+                path[path.Count - 1] = best;
+                return path;
             }
 
             // ---- the country: the road to the town, the lanes to the bridges, the farm tracks
@@ -257,7 +276,7 @@ namespace Ooda.EditorTools
                 var townCells = new HashSet<int>();
                 for (int j = 0; j < Res; j++) for (int i = 0; i < Res; i++) if (isRoad[j, i] && TownR(X(i), X(j)) < 1.0f) townCells.Add(j * Res + i);
                 var path = search.Find(SquareAt + V(-42f, 0), 400000f, c => townCells.Contains(c));
-                if (path != null) Add(Smooth(path), 6f, RoadGravel, 0.48f);
+                if (path != null) Add(Join(Smooth(path)), 6f, RoadGravel, 0.48f);
                 else Debug.LogWarning("OODA roads: no way found from the village to the town.");
             }
             int lanes = 0;
@@ -270,7 +289,7 @@ namespace Ooda.EditorTools
                     if (lines.Any(l => l.pts.Any(q => Vector2.Distance(q, end) < 12f))) continue;
                     Vector2 centre = (e.a + e.b) / 2, bank = (end - centre).normalized;
                     var path = search.Find(end, 90000f, null, c => Vector2.Dot(V(X(c % Res), X(c / Res)) - centre, bank) > 0f);
-                    if (path != null) { Add(Smooth(path), 4.2f, RoadGravel, 0.45f); lanes++; }
+                    if (path != null) { Add(Join(Smooth(path)), 4.2f, RoadGravel, 0.45f); lanes++; }
                     else Debug.LogWarning($"OODA roads: no lane found from the bridge end at ({end.x:F0}, {end.y:F0}).");
                 }
             }
@@ -282,10 +301,12 @@ namespace Ooda.EditorTools
                 Vector2 start = at + fwd * 12f * s.size;
                 var path = search.Find(start, 60000f, null);
                 if (path == null) continue;
-                Add(Smooth(path), 3.4f, RoadDirt, 0.42f, true);
+                Add(Join(Smooth(path)), 3.4f, RoadDirt, 0.42f, true);
                 discs.Add((start, 6.5f, RoadDirt));
                 tracks++;
             }
+
+            if (data != null) GroundUnderRoads(data, lines);
 
             // ---- the ribbons
             var v = new List<Vector3>(); var cols = new List<Color>(); var tris = new List<int>();
@@ -334,20 +355,23 @@ namespace Ooda.EditorTools
             }
             foreach (var d in discs)
             {
+                // the middle, a ring of the same colour most of the way out, and the darker rim
                 int c = v.Count;
                 Color cc = d.col, ce = Color.Lerp(d.col, RoadVerge, 0.6f); cc.a = 0; ce.a = 0;
                 v.Add(new Vector3(d.at.x, Ground(d.at, 0.44f), d.at.y)); cols.Add(cc);
-                const int n = 10;
-                for (int k = 0; k < n; k++)
-                {
-                    float a = k * Mathf.PI * 2 / n, r = d.r * (0.85f + 0.3f * Mathf.PerlinNoise(d.at.x * 0.3f + k * 1.7f, d.at.y * 0.3f));
-                    Vector2 q = d.at + V(Mathf.Cos(a), Mathf.Sin(a)) * r;
-                    v.Add(new Vector3(q.x, Ground(q, 0.44f), q.y)); cols.Add(ce);
-                }
+                const int n = 14;
+                for (int ring = 0; ring < 2; ring++)
+                    for (int k = 0; k < n; k++)
+                    {
+                        float a = k * Mathf.PI * 2 / n, r = d.r * (0.88f + 0.24f * Mathf.PerlinNoise(d.at.x * 0.3f + k * 1.7f, d.at.y * 0.3f)) * (ring == 0 ? 0.86f : 1f);
+                        Vector2 q = d.at + V(Mathf.Cos(a), Mathf.Sin(a)) * r;
+                        v.Add(new Vector3(q.x, Ground(q, 0.44f), q.y)); cols.Add(ring == 0 ? cc : ce);
+                    }
                 for (int k = 0; k < n; k++)
                 {
                     int a = c + 1 + k, b = c + 1 + (k + 1) % n;
                     if (Vector3.Cross(v[b] - v[c], v[a] - v[c]).y > 0) tris.AddRange(new[] { c, b, a }); else tris.AddRange(new[] { c, a, b });
+                    Quad(a, b, b + n, a + n);
                 }
             }
             if (v.Count == 0) { Debug.LogWarning("OODA roads: nothing to lay (no village, farms or town found in the scene)."); return null; }
@@ -404,6 +428,15 @@ namespace Ooda.EditorTools
             var rail = RailPath();
             var centre = new List<Vector2>();       // every street's line, to keep houses off the carriageways
             foreach (var st in plan.streets) centre.AddRange(st.pts);
+            // round the square: tall houses shoulder to shoulder, facing it, leaving the streets' mouths and the church's front
+            for (int k = 0; k < 14; k++)
+            {
+                float a = (k + 0.5f) * Mathf.PI * 2 / 14;
+                Vector2 dir = V(Mathf.Sin(a), Mathf.Cos(a)), at = sq + dir * 45f;
+                if (centre.Any(c => (c - at).sqrMagnitude < 11f * 11f)) continue;
+                if (Mathf.Abs(at.x - TownChurchAt.x) < 19f && at.y > TownChurchAt.y - 40f) continue;
+                plan.houses.Add(new TownHouse { at = at, yaw = a * Mathf.Rad2Deg + 90f, w = 12.5f + Rand(rnd, 0, 2), d = 9.5f, tall = 9f, wood = rnd.NextDouble() > 0.75 });
+            }
             foreach (var st in plan.streets)
             {
                 float carry = 0;
@@ -434,6 +467,74 @@ namespace Ooda.EditorTools
                     }
             }
             return townPlan = plan;
+        }
+
+        /// <summary>The ground made ready for the roads: the town's own ground is meadow, not the crops the fields round it
+        /// are sown with (it stood in the wheat), and no tree is left standing in a road or a town house.</summary>
+        static void GroundUnderRoads(TerrainData data, List<RoadLine> lines)
+        {
+            var plan = TownPlan();
+            int aw = data.alphamapWidth, ah = data.alphamapHeight;
+            if (data.alphamapLayers >= 8)
+            {
+                float texel = Size / aw;
+                var near = new float[ah, aw];
+                for (int j = 0; j < ah; j++) for (int i = 0; i < aw; i++) near[j, i] = 1e9f;
+                void Stamp(Vector2 p)
+                {
+                    int ci = Mathf.FloorToInt((p.x + Size / 2) / texel), cj = Mathf.FloorToInt((p.y + Size / 2) / texel), r = Mathf.CeilToInt(90f / texel);
+                    for (int j = Mathf.Max(cj - r, 0); j <= Mathf.Min(cj + r, ah - 1); j++)
+                        for (int i = Mathf.Max(ci - r, 0); i <= Mathf.Min(ci + r, aw - 1); i++)
+                            near[j, i] = Mathf.Min(near[j, i], Vector2.Distance(p, V((i + 0.5f) * texel - Size / 2, (j + 0.5f) * texel - Size / 2)));
+                }
+                foreach (var st in plan.streets) for (int k = 0; k < st.pts.Count; k += 2) Stamp(st.pts[k]);
+                foreach (var hs in plan.houses) Stamp(hs.at);
+                Stamp(TownSquareAt); Stamp(TownChurchAt);
+                var a = data.GetAlphamaps(0, 0, aw, ah);
+                for (int j = 0; j < ah; j++)
+                    for (int i = 0; i < aw; i++)
+                    {
+                        float t = 1f - Mathf.SmoothStep(42f, 78f, near[j, i]);
+                        if (t <= 0) continue;
+                        float crops = a[j, i, 4] + a[j, i, 5] + a[j, i, 6] + a[j, i, 7];
+                        a[j, i, 0] += crops * t;
+                        for (int l = 4; l < 8; l++) a[j, i, l] *= 1f - t;
+                    }
+                data.SetAlphamaps(0, 0, a);
+            }
+
+            // the trees
+            var taken = new HashSet<(int, int)>();
+            void Take(Vector2 p, float r)
+            {
+                int n = Mathf.CeilToInt(r / 3f), ci = Mathf.FloorToInt(p.x / 3f), cj = Mathf.FloorToInt(p.y / 3f);
+                for (int dj = -n; dj <= n; dj++) for (int di = -n; di <= n; di++) if ((di * di + dj * dj) * 9f <= (r + 1.5f) * (r + 1.5f)) taken.Add((ci + di, cj + dj));
+            }
+            foreach (var l in lines) foreach (var p in Resample(l.pts, 3f)) Take(p, l.width / 2 + 3.5f);
+            foreach (var hs in plan.houses) Take(hs.at, 11f);
+            Take(TownSquareAt, 34f);
+            // (the trees are a file of seven numbers each: x, y, z, yaw, scale, height, kind; see Plant and Fx/Forest)
+            string forest = $"{Dir}/Forest.bytes";
+            int felled = 0, stood = 0;
+            if (System.IO.File.Exists(forest))
+            {
+                var bytes = System.IO.File.ReadAllBytes(forest);
+                var keep = new System.IO.MemoryStream(bytes.Length);
+                for (int o = 0; o + 28 <= bytes.Length; o += 28)
+                {
+                    float x = System.BitConverter.ToSingle(bytes, o), z = System.BitConverter.ToSingle(bytes, o + 8);
+                    stood++;
+                    if (taken.Contains((Mathf.FloorToInt(x / 3f), Mathf.FloorToInt(z / 3f)))) { felled++; continue; }
+                    keep.Write(bytes, o, 28);
+                }
+                if (felled > 0)
+                {
+                    System.IO.File.WriteAllBytes(forest, keep.ToArray());
+                    AssetDatabase.ImportAsset(forest, ImportAssetOptions.ForceUpdate);
+                }
+            }
+            EditorUtility.SetDirty(data);
+            Debug.Log($"OODA roads: the town's ground cleared of crops, and {felled} of {stood} trees felled where a road or a house is.");
         }
 
         /// <summary>The town's houses moved onto its plan, in a scene built before there was one.</summary>
