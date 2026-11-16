@@ -144,6 +144,8 @@ namespace Ooda.Fx
                 RenderSettings.fogEndDistance = FogEnd;
             }
 
+            // (the ground's painted dabs and tufts, Fx/ToonPaint.hlsl: -nopaint leaves the ground flat, for comparing)
+            Shader.SetGlobalFloat("_ToonPaintOff", System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-nopaint") >= 0 ? 1f : 0f);
             EnsureVolume();
             ApplyQuality();
             Cameras();

@@ -71,6 +71,7 @@ Shader "Ooda/ToonLandModel"
             #pragma multi_compile_instancing
             #include "ToonLand.hlsl"
             #include "ToonAtmosphere.hlsl"
+            #include "ToonPaint.hlsl"
             TEXTURE2D(_BaseMap); SAMPLER(sampler_BaseMap);
 
             struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float2 uv : TEXCOORD0; half4 color : COLOR; UNITY_VERTEX_INPUT_INSTANCE_ID };
@@ -129,6 +130,8 @@ Shader "Ooda/ToonLandModel"
                 half3 tex = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, i.uv).rgb;
                 snow = max(snow, _TexSnow * smoothstep(0.58, 0.70, min(tex.r, min(tex.g, tex.b))));
                 col = lerp(col, _Snow.rgb, snow);
+                // the same painted dabs and tufts as the ground (ToonPaint.hlsl), so a grass hill is not a flat green cone
+                col = PaintGround(col, p, grass * (1 - snow), 0, 0, snow, 0);
 
                 half3 lit = ToonLandLight(col, p, N);
                 if (AnyIsNaN(lit) || AnyIsInf(lit)) lit = col * 0.6;
