@@ -9,8 +9,7 @@ namespace Ooda.Fx
     /// <summary>
     /// The finish on the picture, the same on every scene (put on as each loads, like ToonSky, so the builders and the
     /// saved scenes stay as they are):
-    /// - the grade: a global post-processing volume made here (a neutral tone curve so snow, cloud and white paint keep
-    ///   their shape instead of clipping, a soft bloom on what is brighter than white: sun glints, flames, tracers,
+    /// - the grade: a global post-processing volume made here (no tone curve, the toon colours stay as painted; a soft bloom on what is brighter than white: sun glints, flames, tracers,
     ///   sunlit snow; warm highlights over cool shadows, a touch of contrast and a light vignette), and post-processing
     ///   switched on for the cameras that draw the game;
     /// - the light from the sky: a three-colour ambient (sky blue from above, the horizon's pale blue from the sides, a
@@ -49,7 +48,6 @@ namespace Ooda.Fx
         static bool loaded;
         static Volume volume;
         static Bloom bloom;
-        static Tonemapping tone;
         static ColorAdjustments adjust;
         static ShadowsMidtonesHighlights smh;
         static WhiteBalance balance;
@@ -78,7 +76,7 @@ namespace Ooda.Fx
         static void Reset()
         {
             // (statics outlive a play session when the editor does not reload the domain)
-            loaded = false; volume = null; bloom = null; tone = null; adjust = null; smh = null; balance = null; vignette = null; tuned = null;
+            loaded = false; volume = null; bloom = null; adjust = null; smh = null; balance = null; vignette = null; tuned = null;
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
@@ -167,38 +165,35 @@ namespace Ooda.Fx
             p.name = "ToonLook (made at run time)";
             volume.sharedProfile = p;
 
-            // a neutral curve: only rolls the brights off (sunlit snow and white paint are past white before it), no film look
-            tone = p.Add<Tonemapping>(true);
-            tone.mode.Override(TonemappingMode.Neutral);
-
+            // no tone curve: the toon colours are painted for the screen as they are, and a film curve (even the neutral
+            // one, tried in the editor's shots) greys the bright sky, the clouds and the fields and dims the whole picture
             // a soft glow on what is brighter than white, no more: a glint, a flame, a tracer, a snowfield in the sun
-            bloom = p.Add<Bloom>(true);
-            bloom.threshold.Override(1.05f);
-            bloom.intensity.Override(0.4f);
+            bloom = p.Add<Bloom>(false);
+            bloom.threshold.Override(1.0f);
+            bloom.intensity.Override(0.45f);
             bloom.scatter.Override(0.65f);
             bloom.clamp.Override(6f);
             bloom.tint.Override(new Color(1f, 0.97f, 0.92f));
             bloom.highQualityFiltering.Override(true);
 
-            adjust = p.Add<ColorAdjustments>(true);
-            adjust.postExposure.Override(0.12f);    // the curve takes a little off the upper tones: give it back
-            adjust.contrast.Override(10f);
-            adjust.saturation.Override(6f);
+            adjust = p.Add<ColorAdjustments>(false);
+            adjust.contrast.Override(8f);
+            adjust.saturation.Override(8f);
 
             // warm light, cool shade: the painter's rule the toon shaders follow, carried through the whole frame
-            smh = p.Add<ShadowsMidtonesHighlights>(true);
+            smh = p.Add<ShadowsMidtonesHighlights>(false);
             smh.shadows.Override(new Vector4(0.93f, 0.97f, 1.10f, 0f));
             smh.midtones.Override(new Vector4(1f, 1f, 1f, 0f));
             smh.highlights.Override(new Vector4(1.06f, 1.01f, 0.93f, 0f));
 
-            balance = p.Add<WhiteBalance>(true);
+            balance = p.Add<WhiteBalance>(false);
             balance.temperature.Override(3f);
 
             // a light frame round the picture, in the sky's own navy rather than black
-            vignette = p.Add<Vignette>(true);
+            vignette = p.Add<Vignette>(false);
             vignette.color.Override(new Color(0.05f, 0.09f, 0.22f));
-            vignette.intensity.Override(0.26f);
-            vignette.smoothness.Override(0.5f);
+            vignette.intensity.Override(0.14f);
+            vignette.smoothness.Override(0.4f);
 
             if (Application.isPlaying) go.AddComponent<Keeper>();
         }
