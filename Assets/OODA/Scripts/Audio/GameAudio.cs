@@ -41,7 +41,7 @@ namespace Ooda.Audio
         {
             if (instance != null || quitting) return instance;
             var go = new GameObject("Game audio");
-            DontDestroyOnLoad(go);
+            if (Application.isPlaying) DontDestroyOnLoad(go);   // editor shot tools call it outside play mode
             instance = go.AddComponent<GameAudio>();
             return instance;
         }
