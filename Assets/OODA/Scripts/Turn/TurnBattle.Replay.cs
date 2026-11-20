@@ -418,8 +418,8 @@ namespace Ooda.Turn
         {
             replayRects.Clear();
             var t = tape[rTurn];
-            var center = new GUIStyle(label) { alignment = TextAnchor.MiddleCenter };
-            var head = new GUIStyle(title) { alignment = TextAnchor.MiddleCenter };
+            var center = Kept(label, "TurnBattle.Replay:421", gs_ => { gs_.alignment = TextAnchor.MiddleCenter; });
+            var head = Kept(title, "TurnBattle.Replay:422", gs_ => { gs_.alignment = TextAnchor.MiddleCenter; });
 
             // top: what is playing and who the camera is on
             Rect top = new Rect(sw / 2 - 300, 10, 600, 84);
@@ -430,7 +430,7 @@ namespace Ooda.Turn
             var m = tapeViews[rFollow] != null ? tapeViews[rFollow].Model : null;
             string flying = m == null ? "" : ReplayDown(rFollow) ? "   down" : $"   {m.Kias:F0} KIAS   {m.AltFt:F0} ft   {m.g:F1} G";
             GUI.Label(new Rect(top.x, top.y + 32, top.width, 24), $"{(view != null ? ViewNames[(int)view.focus] : "")} view on {TapeName(rFollow)}{flying}", center);
-            GUI.Label(new Rect(top.x, top.y + 56, top.width, 22), "Tab next plane   V camera   C cockpit   Space pause   ← → turn   ↑ ↓ speed   Backspace leave", new GUIStyle(small) { alignment = TextAnchor.MiddleCenter });
+            GUI.Label(new Rect(top.x, top.y + 56, top.width, 22), "Tab next plane   V camera   C cockpit   Space pause   ← → turn   ↑ ↓ speed   Backspace leave", Kept(small, "TurnBattle.Replay:433", gs_ => { gs_.alignment = TextAnchor.MiddleCenter; }));
 
             // bottom: the scrub bar over the whole fight, and the buttons
             float bw = Mathf.Min(sw - 40, 980), bx = (sw - bw) / 2, by = sh - 110;
@@ -469,7 +469,7 @@ namespace Ooda.Turn
                 }
             }
             if (notice != null && Time.time < noticeUntil)
-                GUI.Label(new Rect(0, sh * 0.22f, sw, 30), notice, new GUIStyle(label) { alignment = TextAnchor.MiddleCenter, fontSize = 18 });
+                GUI.Label(new Rect(0, sh * 0.22f, sw, 30), notice, Kept(label, "TurnBattle.Replay:472", gs_ => { gs_.alignment = TextAnchor.MiddleCenter; gs_.fontSize = 18; }));
         }
 
         // ---------- the end screen's buttons ----------

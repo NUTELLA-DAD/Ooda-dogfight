@@ -61,7 +61,7 @@ namespace Ooda.Turn
             Fill(new Rect(x - 1, bar.y - 2, 2, bar.height + 4), c);
             Fill(new Rect(x - 4, bar.y - 9, 8, 2), c); Fill(new Rect(x - 4, bar.y - 3, 8, 2), c);
             Fill(new Rect(x - 4, bar.y - 9, 2, 8), c); Fill(new Rect(x + 2, bar.y - 9, 2, 8), c);
-            var st = new GUIStyle(lbl) { alignment = TextAnchor.MiddleCenter };
+            var st = Kept(lbl, "TurnBattle.Well:64", gs_ => { gs_.alignment = TextAnchor.MiddleCenter; });
             st.normal.textColor = c;
             GUI.Label(new Rect(bar.x, bar.y - 14, bar.width, 12), $"WELL {plan.wellAt:0.00} S", st);
         }

@@ -171,7 +171,7 @@ namespace Ooda.Turn
             reading = null; readingFor = null; read = null;
             net.seating.Restore(battle, s.data);
             NetLog($"took the host's battle at turn {s.turn}: hash now {net.seating.Hash(battle):x16}");
-            preview = gunPreview = null;
+            preview = gunPreview = null; previewEpoch++;
             if (phase == Phase.Planning) BeginPlanning();
             NetNotice($"Caught up with {Friend}'s game after a turn came out differently here.");
         }
@@ -324,7 +324,7 @@ namespace Ooda.Turn
             string what = net.setup.versus ? $"Online against {Friend}" : $"Online with {Friend} (co-op)";
             string state = netWaiting ? (net.IsHost ? $"waiting for {Friend}'s turn" : $"waiting for {Friend}'s game")
                 : net.IsHost && netFriend != null ? $"{Friend} is ready" : phase == Phase.Planning ? $"{Friend} is planning" : "";
-            GUI.Label(new Rect(sw / 2 - 300, 6, 600, 24), state.Length > 0 ? $"{what}  ·  {state}" : what, new GUIStyle(label) { alignment = TextAnchor.MiddleCenter });
+            GUI.Label(new Rect(sw / 2 - 300, 6, 600, 24), state.Length > 0 ? $"{what}  ·  {state}" : what, Kept(label, "TurnBattle.Net:327", gs_ => { gs_.alignment = TextAnchor.MiddleCenter; }));
         }
         // ---------- the online self-test: -netbot N flies N turns by itself on each machine, logs and quits ----------
 

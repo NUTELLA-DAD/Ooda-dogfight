@@ -102,7 +102,7 @@ namespace Ooda.Turn
             }
             Fill(new Rect(r.center.x + rud * half - 3, r.y + 1, 6, r.height - 2), steer ? Color.white : new Color(1f, 1f, 1f, 0.5f));
             // in the bar (the stick sits right over it): the name at the left end, the setting at the right, clear of the middle
-            var st = new GUIStyle(cap) { alignment = TextAnchor.MiddleLeft };
+            var st = Kept(cap, "TurnBattle.Controls:105", gs_ => { gs_.alignment = TextAnchor.MiddleLeft; });
             st.normal.textColor = Color.white;
             Rect inner = new Rect(r.x + 8, r.y, r.width - 16, r.height);
             GUI.Label(inner, "Rudder", st);
@@ -121,7 +121,7 @@ namespace Ooda.Turn
             guiRects.Add(r);
             bool steer = phase == Phase.Planning && !plan.HasMarks;
             float rud = (float)plan.rudder;
-            var st = new GUIStyle(cap) { alignment = TextAnchor.LowerLeft };
+            var st = Kept(cap, "TurnBattle.Controls:124", gs_ => { gs_.alignment = TextAnchor.LowerLeft; });
             Rect inner = new Rect(r.x + 4, r.y, r.width - 8, r.height - 2);
             Shadow(inner, "Rudder", st);
             st.alignment = TextAnchor.LowerRight;
@@ -291,7 +291,7 @@ namespace Ooda.Turn
             Fill(new Rect(plate.x + 1, plate.y + 1, plate.width - 2, plate.height - 2), SwPlate);
             string thrText = plan.HasMarks ? $"Start {plan.throttle * 100:F0}%" : $"Throttle {plan.throttle * 100:F0}%";
             if (!Jet && plan.throttle >= 0.995) thrText += "  WEP";
-            Shadow(new Rect(x, y, w, 22), thrText, new GUIStyle(label) { fontStyle = FontStyle.Bold });
+            Shadow(new Rect(x, y, w, 22), thrText, Kept(label, "TurnBattle.Controls:294", gs_ => { gs_.fontStyle = FontStyle.Bold; }));
             y += QuadRow;
             float thr = GUI.HorizontalSlider(new Rect(x, y + 6, w, 20), (float)plan.throttle, 0f, 1f);
             if (!controlsLocked && Math.Abs(thr - plan.throttle) > 1e-4) { plan.throttle = thr; dirty = true; }

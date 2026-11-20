@@ -23,6 +23,8 @@ namespace Ooda.Turn
                               MfdOsb = new Color(0.62f, 0.64f, 0.64f, 1f), MfdOsbDark = new Color(0.08f, 0.08f, 0.08f, 1f);
         const double MfdFunnelFt = 4500;   // the MFD's funnel runs out this far: a gunsight looks a little past the guns' best range
         GUIStyle mfdText, mfdSmall;
+        static readonly string[] SecondLabels = { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" };
+        GUIStyle LeftOf(GUIStyle dim) { var s = Derive(dim, "left"); s.normal.textColor = dim.normal.textColor; s.alignment = TextAnchor.MiddleLeft; return s; }
 
         /// <summary>The whole MFD in r: the bezel, its buttons, the glass with the funnel and the trigger bar.</summary>
         void GunMfd(Rect r)
@@ -68,7 +70,7 @@ namespace Ooda.Turn
             // the label on the glass by a button; boxed when that thing is on
             void Legend(Rect at, string text, bool boxed, TextAnchor anchor, Color c)
             {
-                var st = new GUIStyle(mfdText) { alignment = anchor };
+                var st = Derive(mfdText, "legend"); st.alignment = anchor;
                 st.normal.textColor = c;
                 if (boxed)
                 {
@@ -125,7 +127,7 @@ namespace Ooda.Turn
         {
             int predicted = 0, theirs = 0;
             if (preview != null) foreach (var h in preview.hits) { if (h.shooter == 0) predicted++; if (h.target == 0) theirs++; }
-            var st = new GUIStyle(mfdText);
+            var st = Derive(mfdText, "gun");
             st.normal.textColor = MfdGreen;
             GUI.Label(r, "GUN", st);
             string sure = confidencePct >= 0 ? $" {confidencePct}%" : confidenceHits >= 0 ? $" {confidenceHits}/{confidenceOf}" : "";
@@ -150,7 +152,7 @@ namespace Ooda.Turn
         {
             burstRect = bar;
             float w = bar.width;
-            var lbl = new GUIStyle(mfdSmall);
+            var lbl = Derive(mfdSmall, "bar");
             lbl.normal.textColor = MfdGreen;
             lbl.wordWrap = false; lbl.clipping = TextClipping.Clip;
             GUI.Label(new Rect(bar.x, bar.y - 14, w, 12), plan.burstEnd > plan.burstStart ? $"TRIG {plan.burstStart:F2}-{plan.burstEnd:F2} S" : plan.mine || plan.well || plan.slow || plan.grapple || plan.snow || plan.lane || plan.portal ? "TRIG SAFE" : w >= 230 ? "TRIG SAFE  (DRAG TO SET A BURST)" : "TRIG SAFE  (DRAG A BURST)", lbl);   // the mine's time takes the right of the line
@@ -183,7 +185,7 @@ namespace Ooda.Turn
             PortalOnBar(bar, lbl);
             lbl.normal.textColor = MfdDim;
             for (int s = 0; s <= (int)turnSec; s++)
-                GUI.Label(new Rect(bar.x + s / (float)turnSec * w - 10, bar.yMax + 3, 20, 11), $"{s}", new GUIStyle(lbl) { alignment = TextAnchor.MiddleCenter });
+                GUI.Label(new Rect(bar.x + s / (float)turnSec * w - 10, bar.yMax + 3, 20, 11), s < SecondLabels.Length ? SecondLabels[s] : s.ToString(), Centred(lbl, "barsec", 0));
         }
 
         /// <summary>
@@ -199,7 +201,7 @@ namespace Ooda.Turn
             // the gun cross
             Fill(new Rect(c.x - 9, c.y, 6, 1), MfdGreen); Fill(new Rect(c.x + 4, c.y, 6, 1), MfdGreen);
             Fill(new Rect(c.x, c.y - 9, 1, 6), MfdGreen); Fill(new Rect(c.x, c.y + 4, 1, 6), MfdGreen);
-            var dim = new GUIStyle(mfdSmall) { alignment = TextAnchor.MiddleCenter };
+            var dim = Centred(mfdSmall, "dim", 0);
             dim.normal.textColor = MfdDim;
             var gp = gunPreview;
             if (gp == null || battle.Out(0)) { GUI.Label(new Rect(v.x, v.yMax - 14, v.width, 12), "NO GUN SOLUTION", dim); return; }
@@ -294,12 +296,12 @@ namespace Ooda.Turn
                     }
                     double range = (them.pos - me.pos).Length;
                     bool inside = mid != null && v.Contains(mid.Value);
-                    var rs = new GUIStyle(mfdSmall) { alignment = TextAnchor.MiddleRight };
+                    var rs = Derive(mfdSmall, "range"); rs.alignment = TextAnchor.MiddleRight;
                     rs.normal.textColor = hitNow ? MfdRed : inside ? MfdGreen : MfdDim;
                     GUI.Label(new Rect(v.x, v.yMax - 12, v.width, 12), hitNow ? $"ON TGT {range:F0} FT" : inside ? $"TGT {range:F0} FT" : $"OFF SCOPE {range:F0} FT", rs);
                 }
             }
-            GUI.Label(new Rect(v.x, v.yMax - 12, v.width, 12), $"AT {ArriveT:F1} S", new GUIStyle(dim) { alignment = TextAnchor.MiddleLeft });
+            GUI.Label(new Rect(v.x, v.yMax - 12, v.width, 12), $"AT {ArriveT:F1} S", LeftOf(dim));
         }
 
         /// <summary>A line on the glass, cut to the rect v.</summary>

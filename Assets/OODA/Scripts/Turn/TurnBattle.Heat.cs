@@ -333,7 +333,7 @@ namespace Ooda.Turn
             if (battle == null || briefing) return;
             if (irView)
             {
-                var s = new GUIStyle(GUI.skin.label) { fontSize = 18, fontStyle = FontStyle.Bold, alignment = TextAnchor.UpperCenter };
+                var s = Kept(GUI.skin.label, "TurnBattle.Heat:336", gs_ => { gs_.fontSize = 18; gs_.fontStyle = FontStyle.Bold; gs_.alignment = TextAnchor.UpperCenter; });
                 s.normal.textColor = new Color(0.92f, 1f, 0.94f, 0.95f);
                 GUI.Label(new Rect(sw / 2 - 160, 8, 320, 26), "IR  WHITE HOT   (I to leave)", s);
             }
@@ -343,7 +343,7 @@ namespace Ooda.Turn
             foreach (var b in battle.bullets)
                 if (b is Missile ms && !ms.radar && ms.target == 0) nearest = Math.Min(nearest, (ms.pos - battle.planes[0].state.pos).Length);
             if (double.IsInfinity(nearest)) return;
-            var w = new GUIStyle(GUI.skin.label) { fontSize = 20, fontStyle = FontStyle.Bold, alignment = TextAnchor.UpperCenter };
+            var w = Kept(GUI.skin.label, "TurnBattle.Heat:346", gs_ => { gs_.fontSize = 20; gs_.fontStyle = FontStyle.Bold; gs_.alignment = TextAnchor.UpperCenter; });
             w.normal.textColor = Mathf.Repeat(Time.unscaledTime, 0.8f) < 0.5f ? missileWarnColor : new Color(1f, 0.85f, 0.3f);
             string what = battle.flares[0] <= 0 ? "no flares left: break hard across it, or throttle back"
                         : plan.holdFlares ? "flares HELD (3 to let them go)"

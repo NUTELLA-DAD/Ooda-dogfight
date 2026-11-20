@@ -10,7 +10,8 @@ namespace Ooda.EditorTools
     /// <summary>
     /// OODA > Build Windows Game: the scenes in the build settings into a Windows game. From the command line:
     /// Unity -batchmode -quit -projectPath . -executeMethod Ooda.EditorTools.GameBuild.Windows -buildPath C:\OODA\OODA.exe
-    /// (without -buildPath it goes to Builds/Windows/OODA.exe in the project). Exits with 1 if the build fails.
+    /// (without -buildPath it goes to Builds/Windows/OODA.exe in the project; add -development for a development build).
+    /// Exits with 1 if the build fails.
     /// </summary>
     public static class GameBuild
     {
@@ -25,7 +26,9 @@ namespace Ooda.EditorTools
             string path = at >= 0 && at + 1 < args.Length ? args[at + 1] : Path.Combine("Builds", "Windows", "OODA.exe");
             Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path)));
             var scenes = EditorBuildSettings.scenes.Where(s => s.enabled).Select(s => s.path).ToArray();
-            var report = BuildPipeline.BuildPlayer(scenes, path, BuildTarget.StandaloneWindows64, BuildOptions.None);
+            // -development: a development build, so the frame-time probe (-perfprobe, see Ooda.App.PerfProbe) can time every marker
+            var options = System.Array.IndexOf(args, "-development") >= 0 ? BuildOptions.Development : BuildOptions.None;
+            var report = BuildPipeline.BuildPlayer(scenes, path, BuildTarget.StandaloneWindows64, options);
             Debug.Log($"OODA: build {report.summary.result} to {path}: {report.summary.totalErrors} errors, {report.summary.totalSize / 1048576} MB");
             if (Application.isBatchMode && report.summary.result != BuildResult.Succeeded) EditorApplication.Exit(1);
         }

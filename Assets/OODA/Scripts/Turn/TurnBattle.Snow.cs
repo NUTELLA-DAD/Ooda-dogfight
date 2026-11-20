@@ -67,7 +67,7 @@ namespace Ooda.Turn
             Fill(new Rect(x - 5, bar.y - 6, 10, 2), c);   // a flake: a cross with a dot in the middle
             Fill(new Rect(x - 1, bar.y - 10, 2, 10), c);
             Fill(new Rect(x - 2, bar.y - 7, 4, 4), Color.white);
-            var st = new GUIStyle(lbl) { alignment = TextAnchor.MiddleRight };
+            var st = Kept(lbl, "TurnBattle.Snow:70", gs_ => { gs_.alignment = TextAnchor.MiddleRight; });
             st.normal.textColor = c;
             GUI.Label(new Rect(bar.x, bar.y - 14, bar.width, 12), $"SNOW {plan.snowAt:0.00} S", st);
         }
@@ -83,7 +83,7 @@ namespace Ooda.Turn
             double planned = plan.snow && preview != null && preview.frames != null && preview.frames.Length > 0 && preview.frames[0] != null
                 ? preview.frames[0][preview.frames[0].Length - 1].rime : 0;
             if (rime <= 0.005 && planned <= 0.005) return;
-            var st = new GUIStyle(GUI.skin.label) { fontSize = 14, fontStyle = FontStyle.Bold };
+            var st = Kept(GUI.skin.label, "TurnBattle.Snow:86", gs_ => { gs_.fontSize = 14; gs_.fontStyle = FontStyle.Bold; });
             st.normal.textColor = snowColor;
             string text;
             if (rime > 0.005)

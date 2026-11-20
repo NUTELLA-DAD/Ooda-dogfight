@@ -101,7 +101,7 @@ namespace Ooda.Turn
             focus = Map(focus);
             if (pinnedFocus >= 0) pinnedFocus = Map(pinnedFocus);
             if (last != null) SwapResult(last, a, b, Map);
-            preview = gunPreview = null;
+            preview = gunPreview = null; previewEpoch++;
             burstHits = new bool[battle.Count];
             AdoptPlayer();
         }
@@ -339,6 +339,8 @@ namespace Ooda.Turn
             return true;
         }
 
+        GUIStyle NoPlanStyle() { var s = Derive(label, "noplan"); s.wordWrap = true; s.alignment = TextAnchor.UpperCenter; return s; }
+
         void UnplannedGUI(float sw, float sh)
         {
             if (unplannedAsk == null || phase != Phase.Planning) return;
@@ -347,7 +349,7 @@ namespace Ooda.Turn
             guiRects.Add(r);
             GUI.Box(r, GUIContent.none);
             GUI.Box(r, GUIContent.none);   // twice: darker, over the busy sky
-            GUI.Label(new Rect(r.x + 14, r.y + 10, r.width - 28, 50), $"No plan this turn for {names}.", new GUIStyle(label) { wordWrap = true, alignment = TextAnchor.UpperCenter });
+            GUI.Label(new Rect(r.x + 14, r.y + 10, r.width - 28, 50), $"No plan this turn for {names}.", NoPlanStyle());
             if (GUI.Button(new Rect(r.x + 20, r.y + 70, 200, 36), "Auto Fly Them  (Space)")) Commit();
             if (GUI.Button(new Rect(r.x + 240, r.y + 70, 200, 36), "Plan Them"))
             {
@@ -378,7 +380,7 @@ namespace Ooda.Turn
             var amber = new Color(1f, 0.85f, 0.2f);
 
             // the folded bar
-            var bs = new GUIStyle(small) { alignment = TextAnchor.MiddleLeft, fontStyle = FontStyle.Bold };
+            var bs = Kept(small, "TurnBattle.Flight:383", gs_ => { gs_.alignment = TextAnchor.MiddleLeft; gs_.fontStyle = FontStyle.Bold; });
             bs.normal.textColor = Color.white;
             string name = hasFlight ? $"{battle.flights[f].name} flight" : CallSign(0);
             string what = Formations.Name(battle.orders[0]) + (hasFlight ? $"  \u00B7  {Formations.Name(battle.flights[f].shape)}" : "");
@@ -406,9 +408,9 @@ namespace Ooda.Turn
             float total = orders.Length * bw + (orders.Length - 1) * gap;
             float x = (sw - total) / 2;
             guiRects.Add(new Rect(x - 6, y - 4, total + 12, 38));
-            var on = new GUIStyle(GUI.skin.button) { fontSize = 12, fontStyle = FontStyle.Bold };
+            var on = Kept(GUI.skin.button, "TurnBattle.Flight:411", gs_ => { gs_.fontSize = 12; gs_.fontStyle = FontStyle.Bold; });
             on.normal.textColor = on.hover.textColor = amber;
-            var off = new GUIStyle(GUI.skin.button) { fontSize = 12 };
+            var off = Kept(GUI.skin.button, "TurnBattle.Flight:413", gs_ => { gs_.fontSize = 12; });
             foreach (var o in orders)
             {
                 if (GUI.Button(new Rect(x, y, bw, 30), Formations.Name(o), battle.orders[0] == o ? on : off) && battle.orders[0] != o)
@@ -428,7 +430,7 @@ namespace Ooda.Turn
             x = (sw - total) / 2;
             guiRects.Add(new Rect(x - 6, y - 4, total + 12, th + 8));
             ordersBottom = y + th;
-            var ns = new GUIStyle(small) { fontSize = 10, alignment = TextAnchor.MiddleCenter, clipping = TextClipping.Clip };
+            var ns = Kept(small, "TurnBattle.Flight:433", gs_ => { gs_.fontSize = 10; gs_.alignment = TextAnchor.MiddleCenter; gs_.clipping = TextClipping.Clip; });
             foreach (var shape in Formations.All)
             {
                 bool now = battle.flights[f].shape == shape;
@@ -530,8 +532,8 @@ namespace Ooda.Turn
                     bool yours = g.f == mine;
                     int up = g.planes.Count(i => i >= 0 && !battle.Out(i));
                     string fname = g.f >= 0 && g.f < battle.flights.Count ? battle.flights[g.f].name : "Planes";
-                    var hs = new GUIStyle(GUI.skin.button) { fontSize = 12, fontStyle = FontStyle.Bold };
-                    if (yours) hs.normal.textColor = hs.hover.textColor = amber;
+                    var hs = Kept(GUI.skin.button, "TurnBattle.Flight:535", gs_ => { gs_.fontSize = 12; gs_.fontStyle = FontStyle.Bold; });
+                    hs.normal.textColor = yours ? amber : GUI.skin.button.normal.textColor; hs.hover.textColor = yours ? amber : GUI.skin.button.hover.textColor;   // (a kept style: set both ways)
                     if (GUI.Button(new Rect(x, y, hw, 40), $"{fname} {(isOpen ? "\u25BE" : "\u25B8")}\n{up} of {g.planes.Count} up", hs))
                         rosterOpen = isOpen && !yours ? mine : g.f;   // click again to fold it back to yours
                     x += hw + gap;
@@ -540,8 +542,8 @@ namespace Ooda.Turn
                 foreach (int i in g.planes)
                 {
                     bool down = i < 0 || battle.Out(i);
-                    var st = new GUIStyle(GUI.skin.button) { fontSize = bw < 90 ? 11 : 12, fontStyle = i == 0 ? FontStyle.Bold : FontStyle.Normal };
-                    if (i == 0) st.normal.textColor = st.hover.textColor = amber;
+                    var st = Kept(GUI.skin.button, "TurnBattle.Flight:545", gs_ => { gs_.fontSize = bw < 90 ? 11 : 12; gs_.fontStyle = i == 0 ? FontStyle.Bold : FontStyle.Normal; });
+                    st.normal.textColor = i == 0 ? amber : GUI.skin.button.normal.textColor; st.hover.textColor = i == 0 ? amber : GUI.skin.button.hover.textColor;
                     GUI.enabled = !down && i != 0 && phase == Phase.Planning;
                     if (GUI.Button(new Rect(x, y, bw, 40), $"{(i >= 0 ? CallSign(i) : "")}\n{RosterState(i)}", st))
                     {

@@ -176,7 +176,7 @@ namespace Ooda.Turn
             Rect r = new Rect(sw / 2 - 230, 10, 460, 50);
             guiRects.Add(r);
             GUI.Box(r, GUIContent.none);
-            var st = new GUIStyle(label) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold };
+            var st = Kept(label, "TurnBattle.Strike:179", gs_ => { gs_.alignment = TextAnchor.MiddleCenter; gs_.fontStyle = FontStyle.Bold; });
             st.normal.textColor = s.alerted ? new Color(1f, 0.4f, 0.3f) : new Color(0.5f, 1f, 0.6f);
             string by = s.alertBy == "radar" ? "Seen by radar" : s.alertBy == "patrol" ? "Seen by the patrol" : "Seen over the town";
             GUI.Label(new Rect(r.x, r.y + 2, r.width, 24), s.alerted ? $"{by}: {s.launched} of {s.scramble.Length} fighters off the runway" : "Not seen yet: the fighters are still on the runway", st);
@@ -188,7 +188,7 @@ namespace Ooda.Turn
                     d = Math.Min(d, Math.Sqrt(v.x * v.x + v.y * v.y));
                 }
             string togo = s.Struck > 0 ? $"Factory hit by {s.Struck} B-17{(s.Struck > 1 ? "s" : "")}" : double.IsInfinity(d) ? "" : $"Factory {d * Atmosphere.MPerFt / 1000:F1} km ahead";
-            GUI.Label(new Rect(r.x, r.y + 24, r.width, 22), togo, new GUIStyle(label) { alignment = TextAnchor.MiddleCenter });
+            GUI.Label(new Rect(r.x, r.y + 24, r.width, 22), togo, Kept(label, "TurnBattle.Strike:191", gs_ => { gs_.alignment = TextAnchor.MiddleCenter; }));
         }
 
         /// <summary>During playback: the alarm the moment it goes off, and the bombs bursting on the factory as each bomber passes over.</summary>
@@ -404,10 +404,10 @@ namespace Ooda.Turn
             int level = planHeights[Mathf.Clamp(planSel, 0, planHeights.Count - 1)];
             if (cover != null) GUI.DrawTexture(mapRect, cover[level]);
 
-            var small2 = new GUIStyle(small) { fontStyle = FontStyle.Bold };
+            var small2 = Kept(small, "TurnBattle.Strike:407", gs_ => { gs_.fontStyle = FontStyle.Bold; });
             void Tag(Vector2 at, string text, Color c)
             {
-                var st = new GUIStyle(small2); st.normal.textColor = new Color(0, 0, 0, 0.85f);
+                var st = Derive(small2, "TurnBattle.Strike:410"); st.normal.textColor = new Color(0, 0, 0, 0.85f);
                 GUI.Label(new Rect(at.x + 9, at.y - 8, 220, 20), text, st);   // a shadow, to read on the shading
                 st.normal.textColor = c;
                 GUI.Label(new Rect(at.x + 8, at.y - 9, 220, 20), text, st);
@@ -452,7 +452,7 @@ namespace Ooda.Turn
             // the panel on the right
             float px = mapRect.xMax + 20, pw = sw - px - 20, y = 24;
             var head = Ooda.UI.BriefingStyle.Heading(title, 24); head.wordWrap = true;
-            var text = new GUIStyle(label) { wordWrap = true, fontSize = 15 };
+            var text = Kept(label, "TurnBattle.Strike:455", gs_ => { gs_.wordWrap = true; gs_.fontSize = 15; });
             GUI.Label(new Rect(px, y, pw, 30), "Town Strike: plan the raid", head); y += 36;
             GUI.Label(new Rect(px, y, pw, 120),
                 "Get the B-17s to the factory before the fighters are up. Click the coast to choose where they come in, " +
@@ -464,15 +464,15 @@ namespace Ooda.Turn
             GUI.Label(new Rect(px, y, pw, 24), planSel == 0 ? "Selected: the start" : $"Selected: turn point {planSel}", title); y += 30;
             for (int lv = 0; lv < 3; lv++)
             {
-                var st = new GUIStyle(GUI.skin.button) { fontStyle = level == lv ? FontStyle.Bold : FontStyle.Normal };
-                if (level == lv) st.normal.textColor = st.hover.textColor = new Color(1f, 0.85f, 0.2f);
+                var st = Kept(GUI.skin.button, "TurnBattle.Strike:467", gs_ => { gs_.fontStyle = level == lv ? FontStyle.Bold : FontStyle.Normal; });
+                st.normal.textColor = level == lv ? new Color(1f, 0.85f, 0.2f) : GUI.skin.button.normal.textColor; st.hover.textColor = level == lv ? new Color(1f, 0.85f, 0.2f) : GUI.skin.button.hover.textColor;
                 if (GUI.Button(new Rect(px + lv * (pw / 3), y, pw / 3 - 6, 34), $"{HeightNames[lv]}  ({lv + 1})", st)) SetLevel(lv);
             }
             y += 40;
             GUI.Label(new Rect(px, y, pw, 40), level == 0 ? $"Low: {strikeLowM:F0} m over the ground there. Hides best, but mind the hills." :
                                              level == 1 ? $"Medium: {strikeMediumM:F0} m. Clear of most ridges." : $"High: {strikeHighM:F0} m. Over nearly everything, and seen from far off.", small); y += 40;
 
-            var verdict = new GUIStyle(label) { wordWrap = true, fontStyle = FontStyle.Bold };
+            var verdict = Kept(label, "TurnBattle.Strike:475", gs_ => { gs_.wordWrap = true; gs_.fontStyle = FontStyle.Bold; });
             verdict.normal.textColor = crashes ? new Color(1f, 0.3f, 0.25f) : seenKm > 0 ? new Color(1f, 0.6f, 0.3f) : new Color(0.4f, 1f, 0.5f);
             string v = crashes ? "This path flies into the ground (black). Raise those points or go round."
                      : seenKm > 0 ? $"The radar sees this path for {seenKm:F1} km, first {firstSeenKm:F1} km in."
