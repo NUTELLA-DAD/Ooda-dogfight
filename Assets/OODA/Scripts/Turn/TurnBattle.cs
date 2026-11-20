@@ -181,6 +181,7 @@ namespace Ooda.Turn
 
         void Start()
         {
+            derivedStyles.Clear();   // the last battle's kept styles
             useGUILayout = false;   // no GUILayout anywhere in the battle: skip IMGUI's Layout pass (one fewer OnGUI call per event)
             if (Ooda.UI.TitleScreen.ChosenMission is int chosen) mission = (Mission)chosen;   // picked on the title screen
             dogSetup = Ooda.UI.DogfightSetupScreen.Chosen.Copy();   // picked on the setup screen
@@ -1907,15 +1908,15 @@ namespace Ooda.Turn
 
         // Styles derived from the base ones, made once and kept: a new GUIStyle each frame (several per OnGUI event) was a
         // native object and garbage every time. Call sites set what varies (colour, alignment) on the kept copy.
-        readonly Dictionary<(GUIStyle, string), GUIStyle> derivedStyles = new Dictionary<(GUIStyle, string), GUIStyle>();
-        GUIStyle Derive(GUIStyle from, string tag)
+        static readonly Dictionary<(GUIStyle, string), GUIStyle> derivedStyles = new Dictionary<(GUIStyle, string), GUIStyle>();
+        static GUIStyle Derive(GUIStyle from, string tag)
         {
             if (!derivedStyles.TryGetValue((from, tag), out var s)) derivedStyles[(from, tag)] = s = new GUIStyle(from);
             return s;
         }
 
         /// <summary>A kept copy of from with init applied (every call, so what varies is set each time).</summary>
-        GUIStyle Kept(GUIStyle from, string tag, Action<GUIStyle> init)
+        static GUIStyle Kept(GUIStyle from, string tag, Action<GUIStyle> init)
         {
             var s = Derive(from, tag);
             init(s);
@@ -1923,7 +1924,7 @@ namespace Ooda.Turn
         }
 
         /// <summary>A kept copy of from, centred, at a font size (0 keeps from's).</summary>
-        GUIStyle Centred(GUIStyle from, string tag, int fontSize)
+        static GUIStyle Centred(GUIStyle from, string tag, int fontSize)
         {
             var s = Derive(from, tag);
             s.alignment = TextAnchor.MiddleCenter;
