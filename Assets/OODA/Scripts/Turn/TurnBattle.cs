@@ -181,6 +181,7 @@ namespace Ooda.Turn
 
         void Start()
         {
+            useGUILayout = false;   // no GUILayout anywhere in the battle: skip IMGUI's Layout pass (one fewer OnGUI call per event)
             if (Ooda.UI.TitleScreen.ChosenMission is int chosen) mission = (Mission)chosen;   // picked on the title screen
             dogSetup = Ooda.UI.DogfightSetupScreen.Chosen.Copy();   // picked on the setup screen
             BotSetUp();
@@ -832,7 +833,7 @@ namespace Ooda.Turn
             GUI.DrawTexture(left, gauge.ThrottleTexture, ScaleMode.ScaleToFit, true);
             if (gauge.PedalsTexture != null) GUI.DrawTexture(ctl.pedals, gauge.PedalsTexture, ScaleMode.ScaleToFit, true);   // behind the stick
             GUI.DrawTexture(shook, gauge.StickTexture, ScaleMode.ScaleToFit, true);
-            var cap = new GUIStyle(small) { alignment = TextAnchor.UpperCenter };
+            var cap = Derive(small, "cap"); cap.alignment = TextAnchor.UpperCenter;
             bool planning = phase == Phase.Planning;
             if (!planning && phase != Phase.Playing)   // planning and playing, the quadrant beside it says the throttle
                 Shadow(new Rect(left.x, left.y - 18, left.width, 20), gaugeWep ? $"Throttle {gaugeThrottle * 100:F0}%  {WepName}" : $"Throttle {gaugeThrottle * 100:F0}%", cap);
@@ -1103,9 +1104,10 @@ namespace Ooda.Turn
             ExtrasInput(kb, pad);
             FunnelInput(kb, dt);
 
-            if (dirty) RunPreview();
+            PreviewUpdate();
+            ConfidenceUpdate();
             // the what-if-it-breaks check, once the plan has settled (not while dragging or every frame)
-            if (confidencePending && !dirty && !dragArrow && !dragStick && !dragBurst && Time.unscaledTime >= confidenceAt) RunConfidence();
+            if (confidencePending && !dirty && previewTask == null && !dragArrow && !dragStick && !dragBurst && Time.unscaledTime >= confidenceAt) RunConfidence();
         }
 
         // ---------- planning ----------
@@ -1260,15 +1262,93 @@ namespace Ooda.Turn
             RunPreview();
         }
 
+        /// <summary>One run of the planning preview: the clones and plans made on the main thread, flown on either.</summary>
+        sealed class PreviewJob
+        {
+            public Battle of, sim, gsim;
+            public int turn, epoch;
+            public double turnSec;
+            public TurnPlan?[] plans, gplans;
+            public Action<Battle, int> notch;
+            public TurnResult preview, gun;
+
+            public void Fly()
+            {
+                preview = sim.Resolve(plans, turnSec, true, notch);
+                gun = gsim.Resolve(gplans, turnSec, true);
+            }
+        }
+
+        // The preview flies on a worker thread while the stick moves, so dragging doesn't hold the frame (it cost ~9 ms a
+        // frame on the main thread, and its garbage set off collections). The newest finished one is shown; a run started
+        // for a battle, turn or plane that has since changed (previewEpoch) is dropped.
+        Task previewTask;
+        PreviewJob previewJob;
+        int previewEpoch;
+        bool previewOnMainThread;   // after a worker run fails: back to the old way for the rest of the session
+        Battle shownFor; int shownTurn = -1;   // the battle and turn the preview on show was flown for
+
+        PreviewJob PreparePreview()
+        {
+            plan.radarTarget = focus;
+            var j = new PreviewJob { of = battle, turn = battle.turn, epoch = previewEpoch, turnSec = turnSec };
+            j.sim = battle.Clone();
+            j.sim.dispersion = false;
+            j.plans = WithLikeliest(plan);
+            j.notch = NotchWatch(j.sim, turnSec);
+            // The gun line: the same turn with the trigger held all the way and the enemy unbreakable, so every chance shows
+            var full = plan; full.burstStart = 0; full.burstEnd = turnSec; full.missile = false; full.radarMissile = false;
+            j.gsim = battle.Clone();
+            j.gsim.dispersion = false;
+            for (int k = 0; k < j.gsim.Count; k++) if (j.gsim.side[k] != j.gsim.side[0]) j.gsim.Spare(k);
+            j.gsim.bullets.RemoveAll(b => !(b is Tether));   // a grapple's line still swings the gun line
+            j.gplans = WithLikeliest(full);
+            dirty = false;
+            return j;
+        }
+
+        /// <summary>The preview now, on the main thread (when something needs its answer straight away).</summary>
         void RunPreview()
         {
             using var previewScope = mkPreview.Auto();
-            plan.radarTarget = focus;
-            var sim = battle.Clone();
-            sim.dispersion = false;
-            preview = sim.Resolve(WithLikeliest(plan), turnSec, true, NotchWatch(sim, turnSec));
+            previewEpoch++;   // anything still flying on the worker is out of date
+            var j = PreparePreview();
+            j.Fly();
+            ApplyPreview(j);
+        }
+
+        /// <summary>Each frame while planning: take a finished worker preview, and start another if the plan has changed.</summary>
+        void PreviewUpdate()
+        {
+            if (previewTask != null)
+            {
+                if (!previewTask.IsCompleted) return;   // one at a time: the newest plan goes next
+                var t = previewTask; var done = previewJob;
+                previewTask = null; previewJob = null;
+                if (t.IsFaulted)
+                {
+                    Debug.LogWarning($"OODA: the preview failed on a worker thread; running it on the main thread from now on. {t.Exception?.GetBaseException()}");
+                    previewOnMainThread = true; dirty = true;
+                }
+                else if (done.epoch == previewEpoch && done.of == battle && done.turn == battle.turn && (phase == Phase.Planning || phase == Phase.Thinking))
+                    ApplyPreview(done);
+            }
+            if (!dirty) return;
+            // the first preview of a turn (or after a swap) at once, so the last turn's paths never show from the new place
+            if (previewOnMainThread || preview == null || shownFor != battle || shownTurn != battle.turn) { RunPreview(); return; }
+            using var previewScope = mkPreview.Auto();
+            var j = PreparePreview();
+            if (j.notch != null) { j.Fly(); ApplyPreview(j); return; }   // a radar missile's notch watch writes the battle's own fields: keep it here
+            previewJob = j;
+            previewTask = Task.Run(j.Fly);
+        }
+
+        void ApplyPreview(PreviewJob j)
+        {
+            var sim = j.sim;
+            preview = j.preview;
+            shownFor = j.of; shownTurn = j.turn;
             RadarPreviewDone(sim);
-            dirty = false;
             previewDeparts = preview.frames[0].Any(f => f.departed);
             bool stalls = preview.frames[0].Any(f => f.stalled);
             // flown into the ground or an obstacle (not shot down first and falling)
@@ -1291,17 +1371,11 @@ namespace Ooda.Turn
             confidenceTarget = -1;
             for (int i = 0; i < battle.Count; i++)
                 if (byTarget[i] > 0 && battle.side[i] != battle.side[0] && (confidenceTarget < 0 || byTarget[i] > byTarget[confidenceTarget])) confidenceTarget = i;
-            confidenceHits = -1; confidenceOf = 0; confidencePct = -1;
+            confidenceHits = -1; confidenceOf = 0; confidencePct = -1; confidenceGen++;
             confidencePending = confidenceTarget >= 0 && battle.routes[confidenceTarget] == null && !battle.InFormation(confidenceTarget);
             confidenceAt = Time.unscaledTime + 0.25f;
 
-            // The gun line: the same turn with the trigger held all the way and the enemy unbreakable, so every chance shows
-            var full = plan; full.burstStart = 0; full.burstEnd = turnSec; full.missile = false; full.radarMissile = false;
-            var gsim = battle.Clone();
-            gsim.dispersion = false;
-            for (int j = 0; j < gsim.Count; j++) if (gsim.side[j] != gsim.side[0]) gsim.Spare(j);
-            gsim.bullets.RemoveAll(b => !(b is Tether));   // a grapple's line still swings the gun line
-            gunPreview = gsim.Resolve(WithLikeliest(full), turnSec, true);
+            gunPreview = j.gun;
             // the hit window: when a round fired connects, short gaps merged
             hitWindows.Clear();
             var times = gunPreview.hits.Where(h => h.shooter == 0).Select(h => h.fireTime - gunPreview.startTime).OrderBy(x => x).ToList();
@@ -1324,8 +1398,21 @@ namespace Ooda.Turn
             confidencePending = false;
             int j = confidenceTarget;
             if (preview == null || j < 0 || j >= battle.Count || battle.Out(j)) return;
-            confidencePct = SpreadChance(j);
-            if (confidencePct >= 0) return;   // the spread says it better than the three breaks
+            // The runs are set up here and flown on a worker thread (four to eight turns flown at once made a hitch
+            // each time the stick was let go); the answer lands a frame or two later, unless the plan has moved on.
+            var spread = new List<(Battle sim, TurnPlan?[] plans, double chance)>();
+            if (read != null && j < read.pred.Length && read.pred[j] != null)
+            {
+                var pr = read.pred[j];
+                for (int k = 0; k < pr.plans.Length; k++)
+                {
+                    var plans = WithLikeliest(plan);
+                    plans[j] = pr.plans[k];
+                    var sim = battle.Clone();
+                    sim.dispersion = false;
+                    spread.Add((sim, plans, pr.chance[k]));
+                }
+            }
             var m = battle.planes[j];
             Vec3d fwd = m.Forward;
             Vec3d right = new Vec3d(fwd.y, -fwd.x, 0);   // the horizontal right of its heading: a break is a level turn
@@ -1337,18 +1424,56 @@ namespace Ooda.Turn
                 (fwd * Math.Cos(theta) + right * Math.Sin(theta)).Normalized,   // break right
                 (fwd * Math.Cos(theta) + m.Up * Math.Sin(theta)).Normalized,    // pull up
             };
-            int hits = 1;   // on the bright ghost it is hit: that is why we are checking
-            foreach (var aim in aims)
+            var breaks = new List<(Battle sim, TurnPlan?[] plans)>();
+            if (spread.Count == 0 || spread.Sum(x => x.chance) <= 0)
+                foreach (var aim in aims)
+                {
+                    var plans = WithLikeliest(plan);
+                    plans[j] = new TurnPlan { aim = aim, throttle = 1, wep = m.Kias < 220 };
+                    var sim = battle.Clone();
+                    sim.dispersion = false;
+                    breaks.Add((sim, plans));
+                }
+            double ts = turnSec;
+            int gen = confidenceGen;
+            Func<(int pct, int hits, int of)> fly = () =>
             {
-                var plans = WithLikeliest(plan);
-                plans[j] = new TurnPlan { aim = aim, throttle = 1, wep = m.Kias < 220 };
-                var sim = battle.Clone();
-                sim.dispersion = false;
-                var r = sim.Resolve(plans, turnSec, false);
-                if (r.hits.Any(h => h.shooter == 0 && h.target == j)) hits++;
-            }
-            confidenceHits = hits;
-            confidenceOf = aims.Length + 1;
+                // the hit chance on the spread: the planned turn flown against each of the target's likely plans, weighted by its chance
+                double hit = 0, all = 0;
+                foreach (var (sim, plans, chance) in spread)
+                {
+                    var r = sim.Resolve(plans, ts, false);
+                    all += chance;
+                    if (r.hits.Any(h => h.shooter == 0 && h.target == j)) hit += chance;
+                }
+                if (all > 0) return ((int)Math.Round(100 * hit / all), -1, 0);   // the spread says it better than the three breaks
+                int hits = 1;   // on the bright ghost it is hit: that is why we are checking
+                foreach (var (sim, plans) in breaks)
+                    if (sim.Resolve(plans, ts, false).hits.Any(h => h.shooter == 0 && h.target == j)) hits++;
+                return (-1, hits, aims.Length + 1);
+            };
+            if (previewOnMainThread) { ApplyConfidence(fly()); return; }
+            var task = Task.Run(fly);
+            confidenceTask = task;
+            confidenceTaskGen = gen;
+        }
+
+        Task<(int pct, int hits, int of)> confidenceTask;
+        int confidenceGen, confidenceTaskGen;   // a new preview moves confidenceGen on: an older answer is dropped
+
+        void ApplyConfidence((int pct, int hits, int of) c)
+        {
+            confidencePct = c.pct;
+            if (c.pct < 0) { confidenceHits = c.hits; confidenceOf = c.of; }
+        }
+
+        /// <summary>Each frame: take the confidence check's answer once it is in, if it is still for the plan on show.</summary>
+        void ConfidenceUpdate()
+        {
+            if (confidenceTask == null || !confidenceTask.IsCompleted) return;
+            var t = confidenceTask; confidenceTask = null;
+            if (t.IsFaulted) { Debug.LogWarning($"OODA: the confidence check failed on a worker thread. {t.Exception?.GetBaseException()}"); return; }
+            if (confidenceTaskGen == confidenceGen) ApplyConfidence(t.Result);
         }
 
         void DrawPlanning()
@@ -1780,6 +1905,32 @@ namespace Ooda.Turn
             if (menuOpen) MenuGUI(sw, sh);
         }
 
+        // Styles derived from the base ones, made once and kept: a new GUIStyle each frame (several per OnGUI event) was a
+        // native object and garbage every time. Call sites set what varies (colour, alignment) on the kept copy.
+        readonly Dictionary<(GUIStyle, string), GUIStyle> derivedStyles = new Dictionary<(GUIStyle, string), GUIStyle>();
+        GUIStyle Derive(GUIStyle from, string tag)
+        {
+            if (!derivedStyles.TryGetValue((from, tag), out var s)) derivedStyles[(from, tag)] = s = new GUIStyle(from);
+            return s;
+        }
+
+        /// <summary>A kept copy of from with init applied (every call, so what varies is set each time).</summary>
+        GUIStyle Kept(GUIStyle from, string tag, Action<GUIStyle> init)
+        {
+            var s = Derive(from, tag);
+            init(s);
+            return s;
+        }
+
+        /// <summary>A kept copy of from, centred, at a font size (0 keeps from's).</summary>
+        GUIStyle Centred(GUIStyle from, string tag, int fontSize)
+        {
+            var s = Derive(from, tag);
+            s.alignment = TextAnchor.MiddleCenter;
+            if (fontSize > 0) s.fontSize = fontSize;
+            return s;
+        }
+
         void BattleGUI(float sw, float sh)
         {
             if (label == null)
@@ -1869,8 +2020,8 @@ namespace Ooda.Turn
             by += 36;
             if (GUI.Button(new Rect(bx, by, 180, 30), $"Mission: {Playing}  (M)")) SwitchMission();
             by += 36;
-            var oodaStyle = new GUIStyle(GUI.skin.button) { fontStyle = ooda ? FontStyle.Bold : FontStyle.Normal };
-            if (ooda) oodaStyle.normal.textColor = oodaStyle.hover.textColor = new Color(1f, 0.85f, 0.2f);
+            var oodaStyle = ooda ? Derive(GUI.skin.button, "ooda") : GUI.skin.button;
+            if (ooda) { oodaStyle.fontStyle = FontStyle.Bold; oodaStyle.normal.textColor = oodaStyle.hover.textColor = new Color(1f, 0.85f, 0.2f); }
             if (GUI.Button(new Rect(bx, by, 180, 30), ooda ? $"OODA: {turnSec:0.#} s turns  (O)" : "OODA  (O)", oodaStyle)) SwitchOoda();
             by += 36;
             if (GUI.Button(new Rect(bx, by, 180, 30), showHelp ? "Hide help  (H)" : "Help  (H)")) { showHelp = !showHelp; if (!tutorial) Ooda.App.Progress.HelpOpen = showHelp; }
@@ -1885,8 +2036,8 @@ namespace Ooda.Turn
             else if (phase == Phase.Playing && ctl.pictures) PlaybackPanel();
             DogfightGUI(sw, sh);
             TutorialGUI(sw, sh);
-            if (phase == Phase.Playing) GUI.Label(new Rect(0, ctl.stickTop - 30, sw, 30), $"Turn playing  {playT:F1} / {turnSec:F0} s   (hold Tab to speed up)", new GUIStyle(label) { alignment = TextAnchor.MiddleCenter });
-            var warn = new GUIStyle(big) { fontSize = 26 };
+            if (phase == Phase.Playing) GUI.Label(new Rect(0, ctl.stickTop - 30, sw, 30), $"Turn playing  {playT:F1} / {turnSec:F0} s   (hold Tab to speed up)", Centred(label, "playing", 0));
+            var warn = Derive(big, "warn"); warn.fontSize = 26;
             warn.normal.textColor = overpullColor;
             bool wingWarning = warning != null && (warning.StartsWith("OVERPULL") || warning.StartsWith("SPINNING"));
             if (planning && warning != null && (!wingWarning || showStallWarnings)) GUI.Label(new Rect(0, sh - 460, sw, 40), warning, warn);
@@ -1903,7 +2054,7 @@ namespace Ooda.Turn
                 // under it the debrief (a dogfight's), or failing that what the buttons do
                 string under = Dogfighting && debrief != null ? debrief : tape.Count > 0 ? "Watch the whole fight again from any camera, fly it again, or go back to the main menu." : "Fly it again, or go back to the main menu.";
                 float underH = under.Contains("\n") ? 52 : 30;
-                var underStyle = new GUIStyle(label) { alignment = TextAnchor.MiddleCenter, fontSize = 17 };
+                var underStyle = Centred(label, "under", 17);
                 float underW = Mathf.Min(sw - 40, underStyle.CalcSize(new GUIContent(under)).x + 48);
                 GUI.Box(new Rect((sw - underW) / 2, sh * 0.3f + 46, underW, underH + 8), GUIContent.none);   // dark glass: the text sits over smoke and sky
                 GUI.Label(new Rect(0, sh * 0.3f + 50, sw, underH), under, underStyle);
@@ -1912,14 +2063,14 @@ namespace Ooda.Turn
                 GUI.enabled = was;
             }
             if (notice != null && Time.time < noticeUntil)
-                GUI.Label(new Rect(0, sh * 0.22f, sw, 30), notice, new GUIStyle(label) { alignment = TextAnchor.MiddleCenter, fontSize = 18 });
+                GUI.Label(new Rect(0, sh * 0.22f, sw, 30), notice, Centred(label, "notice", 18));
             NetGUI(sw, label);
             // the first two turns of a fight, with the help closed: the one thing to do, and where the rest is
             if (!showHelp && !tutorial && !bot && planning && battle.turn < 2 && warning == null)
             {
                 Rect hint = new Rect((sw - 860) / 2, sh * 0.16f, 860, 34);
                 GUI.Box(hint, GUIContent.none);   // a dark glass behind it, to read over sky and snow
-                GUI.Label(hint, "Drag the stick to aim where your nose points, then Fly turn (Enter).  H shows every control.", new GUIStyle(label) { alignment = TextAnchor.MiddleCenter, fontSize = 17 });
+                GUI.Label(hint, "Drag the stick to aim where your nose points, then Fly turn (Enter).  H shows every control.", Centred(label, "hint", 17));
             }
 
             if (showHelp)
@@ -1949,7 +2100,7 @@ namespace Ooda.Turn
                     "d-pad right rocket, left speed brake, View button your next plane.";
                 // as tall as its text needs (wrapped), but never down over the throttle quadrant: when it would be, the
                 // panel stops above it and the rest scrolls (the wheel over the panel, or drag its bar)
-                var helpStyle = new GUIStyle(small) { wordWrap = true };
+                var helpStyle = Derive(small, "help"); helpStyle.wordWrap = true;
                 float leftTop = (ctl.pictures ? ctl.panelTop : ctl.quadrant.y) - 6;
                 float th = helpStyle.CalcHeight(new GUIContent(helpText), 425);
                 float ph = Mathf.Clamp(leftTop - hy, 80f, th + 12);
@@ -2046,9 +2197,9 @@ namespace Ooda.Turn
             for (int sec = 0; sec <= (int)turnSec; sec++)
                 GUI.Label(new Rect(movesRect.x + sec / turnSec * bw0 - 6, movesRect.yMax - 2, 30, 18), $"{sec}s", small);
 
-            var on = new GUIStyle(label);
-            var dim = new GUIStyle(label); dim.normal.textColor = new Color(0.6f, 0.7f, 0.6f, 0.8f);
-            var red = new GUIStyle(label); red.normal.textColor = overpullColor;
+            var on = label;
+            var dim = Derive(label, "dim"); dim.normal.textColor = new Color(0.6f, 0.7f, 0.6f, 0.8f);
+            var red = Derive(label, "red"); red.normal.textColor = overpullColor;
             float col = pw / 2, lw = 150, y = py + 62;
             bool marks = plan.HasMarks;
 

@@ -241,25 +241,6 @@ namespace Ooda.Turn
             return p;
         }
 
-        /// <summary>The hit chance on the spread: the planned turn flown against each of the target's likely plans, weighted by its chance. -1 not known.</summary>
-        int SpreadChance(int j)
-        {
-            if (read == null || j < 0 || j >= read.pred.Length || read.pred[j] == null) return -1;
-            var pr = read.pred[j];
-            double hit = 0, all = 0;
-            for (int k = 0; k < pr.plans.Length; k++)
-            {
-                var plans = WithLikeliest(plan);
-                plans[j] = pr.plans[k];
-                var sim = battle.Clone();
-                sim.dispersion = false;
-                var r = sim.Resolve(plans, turnSec, false);
-                all += pr.chance[k];
-                if (r.hits.Any(h => h.shooter == 0 && h.target == j)) hit += pr.chance[k];
-            }
-            return all > 0 ? Mathf.RoundToInt((float)(100 * hit / all)) : -1;
-        }
-
         /// <summary>The reticle shows only when some arrow can hit the bright ghost this turn.</summary>
         bool LeadShown => read != null && read.leadHits > 0 && read.target >= 0 && read.target < battle.Count && !battle.Out(read.target);
         /// <summary>The guns line up: firing all turn on the planned path, rounds hit the bright ghost.</summary>
@@ -325,8 +306,8 @@ namespace Ooda.Turn
         void DogfightGUI(float sw, float sh)
         {
             if (phase != Phase.Planning && phase != Phase.Thinking) return;
-            var tag = new GUIStyle(small) { fontStyle = FontStyle.Bold };
-            if (reading != null && read == null) Shadow(new Rect(sw / 2 - 120, Mathf.Max(sh * 0.16f, ordersBottom + 30), 240, 22), "Reading the enemy...", new GUIStyle(label) { alignment = TextAnchor.MiddleCenter });
+            var tag = Kept(small, "TurnBattle.Dogfight:328", gs_ => { gs_.fontStyle = FontStyle.Bold; });
+            if (reading != null && read == null) Shadow(new Rect(sw / 2 - 120, Mathf.Max(sh * 0.16f, ordersBottom + 30), 240, 22), "Reading the enemy...", Kept(label, "TurnBattle.Dogfight:329", gs_ => { gs_.alignment = TextAnchor.MiddleCenter; }));
             if (read != null)
             {
                 int j = read.target;
@@ -351,13 +332,13 @@ namespace Ooda.Turn
             }
             // last turn's ghost miss, just above the stick (and the timeline, when it is open)
             if (ghostReport != null && phase == Phase.Planning)
-                Shadow(new Rect(0, ctl.stickTop - (showMoves || plan.HasMarks ? 214 : 0) - 26, sw, 22), ghostReport, new GUIStyle(label) { alignment = TextAnchor.MiddleCenter });
+                Shadow(new Rect(0, ctl.stickTop - (showMoves || plan.HasMarks ? 214 : 0) - 26, sw, 22), ghostReport, Kept(label, "TurnBattle.Dogfight:354", gs_ => { gs_.alignment = TextAnchor.MiddleCenter; }));
         }
 
         /// <summary>A label with a dark shadow under it, so it reads over snow and grass alike.</summary>
         static void Shadow(Rect r, string text, GUIStyle style)
         {
-            var dark = new GUIStyle(style);
+            var dark = Derive(style, "TurnBattle.Dogfight:360");
             dark.normal.textColor = new Color(0, 0, 0, 0.85f);
             GUI.Label(new Rect(r.x + 1.5f, r.y + 1.5f, r.width, r.height), text, dark);
             GUI.Label(r, text, style);

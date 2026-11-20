@@ -164,6 +164,7 @@ namespace Ooda.Turn
 
         float shownPitch, shownBank;
         static Texture2D attTex;
+        static Color[] attPx;
         static float attPitch = 999, attBank = 999;
         static readonly Color AttSky = new Color(0.22f, 0.55f, 0.92f), AttGround = new Color(0.55f, 0.34f, 0.14f);
 
@@ -194,7 +195,7 @@ namespace Ooda.Turn
         {
             const int S = 96;
             if (attTex == null) attTex = new Texture2D(S, S, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
-            var px = new Color[S * S];
+            var px = attPx ??= new Color[S * S];   // kept: the ball is redrawn most frames while the plane manoeuvres
             float h = (S - 1) / 2f, sb = Mathf.Sin(bank * Mathf.Deg2Rad), cb = Mathf.Cos(bank * Mathf.Deg2Rad);
             float per10 = 0.25f;                       // the ball's radius is 40 degrees of pitch
             float horizon = -pitch / 40f, line = 1.3f / h;

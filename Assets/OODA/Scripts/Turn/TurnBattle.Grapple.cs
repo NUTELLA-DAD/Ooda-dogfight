@@ -97,7 +97,7 @@ namespace Ooda.Turn
             Fill(new Rect(x - 1, bar.y - 10, 2, 8), c);
             Fill(new Rect(x - 4, bar.y - 4, 6, 2), c);
             Fill(new Rect(x - 4, bar.y - 7, 2, 4), c);
-            var st = new GUIStyle(lbl) { alignment = plan.mine ? TextAnchor.MiddleCenter : TextAnchor.MiddleRight };   // the mine has the right, the well the middle
+            var st = Kept(lbl, "TurnBattle.Grapple:100", gs_ => { gs_.alignment = plan.mine ? TextAnchor.MiddleCenter : TextAnchor.MiddleRight; });   // the mine has the right, the well the middle
             st.normal.textColor = c;
             string what = LineOut ? $"CUT {plan.grappleAt:0.00} S" : $"HOOK {plan.grappleAt:0.00} S";
             string outcome = GrappleOutcome();

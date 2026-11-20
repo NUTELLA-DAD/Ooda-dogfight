@@ -63,7 +63,7 @@ namespace Ooda.Turn
             // an hourglass: two bars and a pinched middle
             Fill(new Rect(x - 4, bar.y - 10, 8, 2), c); Fill(new Rect(x - 4, bar.y - 2, 8, 2), c);
             Fill(new Rect(x - 3, bar.y - 8, 6, 2), c); Fill(new Rect(x - 1, bar.y - 6, 2, 2), c); Fill(new Rect(x - 3, bar.y - 4, 6, 2), c);
-            var st = new GUIStyle(lbl) { alignment = TextAnchor.MiddleLeft };
+            var st = Kept(lbl, "TurnBattle.Slow:66", gs_ => { gs_.alignment = TextAnchor.MiddleLeft; });
             st.normal.textColor = c;
             float lx = Mathf.Min(x + 6, bar.xMax - 70);
             GUI.Label(new Rect(lx, bar.y + 1, 70, Mathf.Max(10, bar.height - 2)), $"SLOW {plan.slowAt:0.00}", st);

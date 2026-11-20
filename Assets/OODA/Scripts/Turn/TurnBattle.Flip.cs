@@ -36,7 +36,7 @@ namespace Ooda.Turn
         void FlipWarning(float x, float y, float w)
         {
             if (!FlippedNow) return;
-            var st = new GUIStyle(GUI.skin.label) { fontSize = 15, fontStyle = FontStyle.Bold };
+            var st = Kept(GUI.skin.label, "TurnBattle.Flip:39", gs_ => { gs_.fontSize = 15; gs_.fontStyle = FontStyle.Bold; });
             st.normal.textColor = Mathf.Repeat(Time.unscaledTime, 0.8f) < 0.5f ? flipColor : Color.white;
             Shadow(new Rect(x, y - (JammedNow ? 46 : 24), w, 22), "GRAVITY FLIPPED: you fall up here. Push to hold your height, or fly out.", st);
         }

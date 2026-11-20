@@ -179,7 +179,7 @@ namespace Ooda.Turn
         {
             if (battle == null || briefing || replaying || phase != Phase.Planning || battle.Out(0)) return;
             float y = irView ? 62 : 36;
-            var w = new GUIStyle(GUI.skin.label) { fontSize = 20, fontStyle = FontStyle.Bold, alignment = TextAnchor.UpperCenter, wordWrap = false };
+            var w = Kept(GUI.skin.label, "TurnBattle.Radar:182", gs_ => { gs_.fontSize = 20; gs_.fontStyle = FontStyle.Bold; gs_.alignment = TextAnchor.UpperCenter; gs_.wordWrap = false; });
             bool blink = Mathf.Repeat(Time.unscaledTime, 0.8f) < 0.5f;
             double nearest = double.PositiveInfinity;
             foreach (var b in battle.bullets)
@@ -221,7 +221,7 @@ namespace Ooda.Turn
         /// <summary>The radar page's top line: RDR, the lock, the radar missile's state.</summary>
         void RadarHeader(Rect r)
         {
-            var st = new GUIStyle(mfdText);
+            var st = Derive(mfdText, "TurnBattle.Radar:224");
             st.normal.textColor = MfdGreen;
             GUI.Label(r, "RDR", st);
             int t = battle.radarTrack[0];
@@ -256,7 +256,7 @@ namespace Ooda.Turn
             Rect plot = new Rect(v.x, v.y, v.width, v.height - 16);
             float X(double az) => plot.x + (float)((az + cone) / (2 * cone)) * plot.width;
             float Y(double ft) => plot.yMax - (float)(ft / reach) * plot.height;
-            var dim = new GUIStyle(mfdSmall) { alignment = TextAnchor.MiddleLeft };
+            var dim = Kept(mfdSmall, "TurnBattle.Radar:259", gs_ => { gs_.alignment = TextAnchor.MiddleLeft; });
             dim.normal.textColor = MfdDim;
             Color grid = new Color(MfdGreen.r, MfdGreen.g, MfdGreen.b, 0.25f);
             foreach (double az in new[] { -cone, -cone / 2, 0, cone / 2, cone }) Fill(new Rect(X(az), plot.y, 1, plot.height), grid);
@@ -307,7 +307,7 @@ namespace Ooda.Turn
             float fill = battle.radarTrack[0] >= 0 ? Mathf.Clamp01((float)(battle.trackSec[0] / Radar.LockSec)) : 0;
             if (fill > 0) Fill(new Rect(bar.x + 1, bar.y + 1, (bar.width - 2) * fill, bar.height - 2), fill >= 1 ? MfdRed : MfdGreen);
             GUI.Label(new Rect(v.x, v.yMax - 13, 44, 12), "LOCK", dim);
-            var rs = new GUIStyle(dim) { alignment = TextAnchor.MiddleRight };
+            var rs = Kept(dim, "TurnBattle.Radar:310", gs_ => { gs_.alignment = TextAnchor.MiddleRight; });
             GUI.Label(new Rect(v.x, v.yMax - 13, v.width, 12), $"{reach / 1000:0}K FT", rs);
         }
     }

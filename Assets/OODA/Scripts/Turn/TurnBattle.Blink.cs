@@ -60,7 +60,7 @@ namespace Ooda.Turn
             Fill(new Rect(x - 1, bar.y - 2, 2, bar.height + 4), c);
             for (int k = 0; k < 4; k++) Fill(new Rect(x - k - 1, bar.y - 9 + k, 2 * k + 2, 1), c);
             for (int k = 0; k < 4; k++) Fill(new Rect(x - k - 1, bar.y - 2 - k, 2 * k + 2, 1), c);
-            var st = new GUIStyle(lbl) { alignment = TextAnchor.MiddleLeft };
+            var st = Kept(lbl, "TurnBattle.Blink:63", gs_ => { gs_.alignment = TextAnchor.MiddleLeft; });
             st.normal.textColor = c;
             GUI.Label(new Rect(bar.x, bar.y - 14, bar.width, 12), $"BLINK {plan.blinkAt:0.00} S", st);
         }

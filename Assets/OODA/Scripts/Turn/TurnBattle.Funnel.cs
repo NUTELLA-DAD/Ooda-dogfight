@@ -306,7 +306,7 @@ namespace Ooda.Turn
                 float cx = sw / 2, cy = sh / 2;
                 Fill(new Rect(cx - 14, cy - 1, 10, 2), sightColor); Fill(new Rect(cx + 4, cy - 1, 10, 2), sightColor);
                 Fill(new Rect(cx - 1, cy - 14, 2, 10), sightColor); Fill(new Rect(cx - 1, cy + 4, 2, 10), sightColor);
-                var hud = new GUIStyle(label) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold };
+                var hud = Kept(label, "TurnBattle.Funnel:309", gs_ => { gs_.alignment = TextAnchor.MiddleCenter; gs_.fontStyle = FontStyle.Bold; });
                 hud.normal.textColor = sightColor;
                 Shadow(new Rect(0, sh * 0.12f, sw, 24), $"FIRE {sightT:F2} s  >  THERE {ArriveT:F2} s   fit their wings across the funnel", hud);
             }
@@ -315,7 +315,7 @@ namespace Ooda.Turn
             int f = FunnelFrame();
             int j = FunnelTarget();
             var me = gunPreview.frames[0][f];
-            var tag = new GUIStyle(small) { fontStyle = FontStyle.Bold };
+            var tag = Kept(small, "TurnBattle.Funnel:318", gs_ => { gs_.fontStyle = FontStyle.Bold; });
             tag.normal.textColor = sightColor;
             bool hitNow = FunnelHit(j, out double fired);
             string text = $"fired {sightT:F2} s";
@@ -340,7 +340,7 @@ namespace Ooda.Turn
             {
                 var alt = SpreadAt(k, f);
                 bool on = RoundsAt(alt.pos, f, j);
-                var st = new GUIStyle(tag);
+                var st = Derive(tag, "TurnBattle.Funnel:343");
                 st.normal.textColor = on ? hitTracer : new Color(1f, 0.55f, 0.45f, 0.9f);
                 var ga = GuiPoint(UnityFrame.Pos(alt.pos) + shift);
                 if (ga != null) Shadow(new Rect(ga.Value.x + 16, ga.Value.y + 8, 240, 20), on ? $"ON TARGET  {Prediction.Percent(pr.chance[k])}" : Prediction.Percent(pr.chance[k]), st);

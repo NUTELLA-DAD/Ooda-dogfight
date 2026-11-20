@@ -122,7 +122,7 @@ namespace Ooda.Turn
             Fill(new Rect(x - 1, bar.y - 2, 2, bar.height + 4), c);
             Fill(new Rect(x - 5, bar.y - 10, 10, 2), c); Fill(new Rect(x - 5, bar.y - 2, 10, 2), c);
             Fill(new Rect(x - 5, bar.y - 10, 2, 10), c); Fill(new Rect(x + 3, bar.y - 10, 2, 10), c);
-            var st = new GUIStyle(lbl) { alignment = TextAnchor.MiddleRight };
+            var st = Kept(lbl, "TurnBattle.Portal:125", gs_ => { gs_.alignment = TextAnchor.MiddleRight; });
             st.normal.textColor = c;
             GUI.Label(new Rect(bar.x, bar.y - 14, bar.width, 12), $"PORTAL {plan.portalAt:0.00} S", st);
         }

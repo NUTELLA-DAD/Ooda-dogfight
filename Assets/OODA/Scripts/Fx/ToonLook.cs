@@ -254,6 +254,8 @@ namespace Ooda.Fx
             float next, toastUntil;
             GUIStyle style;
 
+            void Awake() => useGUILayout = false;   // the toast uses no GUILayout: skip the Layout pass
+
             void Update()
             {
                 if (!Enabled) return;

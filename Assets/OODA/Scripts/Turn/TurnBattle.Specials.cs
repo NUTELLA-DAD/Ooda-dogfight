@@ -100,7 +100,7 @@ namespace Ooda.Turn
             Fill(new Rect(x - 1, bar.y - 2, 2, bar.height + 4), red);
             Fill(new Rect(x - 4, bar.y - 9, 8, 8), red);
             Fill(new Rect(x - 2, bar.y - 8, 2, 2), new Color(1f, 0.75f, 0.7f, 1f));
-            var st = new GUIStyle(lbl) { alignment = TextAnchor.MiddleRight };
+            var st = Kept(lbl, "TurnBattle.Specials:103", gs_ => { gs_.alignment = TextAnchor.MiddleRight; });
             st.normal.textColor = red;
             GUI.Label(new Rect(bar.x, bar.y - 14, bar.width, 12), $"MINE {plan.mineAt:0.00} S", st);
         }

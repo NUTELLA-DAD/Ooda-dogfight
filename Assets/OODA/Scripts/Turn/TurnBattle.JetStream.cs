@@ -78,7 +78,7 @@ namespace Ooda.Turn
                 Fill(new Rect(x - 1 + s * (k - 2), bar.y - 9 + k, 2, 2), c);
                 Fill(new Rect(x - 1 + s * (k - 2), bar.y - 3 - k, 2, 2), c);
             }
-            var st = new GUIStyle(lbl) { alignment = TextAnchor.MiddleCenter };
+            var st = Kept(lbl, "TurnBattle.JetStream:81", gs_ => { gs_.alignment = TextAnchor.MiddleCenter; });
             st.normal.textColor = c;
             GUI.Label(new Rect(x - 50, bar.y - 26, 100, 12), $"JET {(plan.laneBack ? "BACK" : "AHEAD")} {plan.laneAt:0.00} S", st);
         }
