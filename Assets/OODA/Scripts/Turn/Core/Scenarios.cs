@@ -250,7 +250,7 @@ namespace Ooda.Turn.Core
                 battle.flak = new FlakSite[flakSites.Length];
                 for (int k = 0; k < flakSites.Length; k++)
                 {
-                    var g = new FlakSite { pos = flakSites[k] };
+                    var g = FlakSite.SquadronGun(flakSites[k]);
                     g.phase = g.burstSec + g.pauseSec - 0.05 - 0.37 * k % (g.burstSec + g.pauseSec - 0.1);   // staggered, all ready early in the first turn
                     battle.flak[k] = g;
                 }

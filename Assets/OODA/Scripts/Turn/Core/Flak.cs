@@ -46,6 +46,16 @@ namespace Ooda.Turn.Core
             damage = 0.35, hitRadiusFt = 10, spreadMil = 4, aimErrorMil = 12, dragPerSec = 0.3, lifeSec = 2.0, bomberReluctance = 100,
         };
 
+        /// <summary>
+        /// A ground gun in the Squadron (and the Town Strike, built on it): the same quad 20 mm, but its crew aims looser,
+        /// its bursts spray wider and it pauses longer between them, so a fighter crossing its reach takes the odd hit
+        /// rather than a whole burst. About a third of the damage the plain gun does. Numbers to tune by feel.
+        /// </summary>
+        public static FlakSite SquadronGun(Vec3d pos) => new FlakSite
+        {
+            pos = pos, aimErrorMil = 28, spreadMil = 9, pauseSec = 2.5,
+        };
+
         /// <summary>The direction to fire now to meet the target's straight-line path (lead and drop), with this burst's error.</summary>
         public Vec3d Aim(FlightModel m)
         {
