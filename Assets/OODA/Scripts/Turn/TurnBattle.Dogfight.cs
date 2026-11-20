@@ -463,6 +463,7 @@ namespace Ooda.Turn
         int? botArena;               // -dogfightarena 0..3 (or its name, spaces left out): always begin over this arena
         string botShots;             // -dogfightshots <folder>: a picture of the first turns' planning there
         bool botPlanned, botShot;
+        Vec3d botAim;
         float botWaitUntil;
 
         void BotSetUp()
@@ -474,6 +475,7 @@ namespace Ooda.Turn
             if (at + 1 < args.Length && int.TryParse(args[at + 1], out int n)) botFights = Math.Max(1, n);
             mission = Mission.Dogfight;
             playbackSpeed = 30f;
+            if (Ooda.App.PerfProbe.Active) { playbackSpeed = 1f; botFights = 9999; botTurnLimit = 9999; }   // the probe plays at real speed until it has its numbers
             botPilot = new EnemyAi { me = 0, role = EnemyAi.Role.Fighter, rng = new Lcg(4242), ignoreObstacles = true };
             int s = Array.IndexOf(args, "-dogfightstart");
             if (s >= 0 && s + 1 < args.Length && Enum.TryParse(args[s + 1], true, out Scenarios.Start st)) botStart = st;
@@ -519,7 +521,15 @@ namespace Ooda.Turn
             if (phase == Phase.Planning && read != null && reading == null)
             {
                 if (battle.turn >= botTurnLimit) { outcome = "Time up: a draw."; phase = Phase.Over; return; }
-                if (!botPlanned) { BotPlan(); botPlanned = true; botWaitUntil = Time.unscaledTime + 1.2f; }
+                if (!botPlanned) { BotPlan(); botPlanned = true; botWaitUntil = Time.unscaledTime + (Ooda.App.PerfProbe.Active ? 2.5f : 1.2f); botAim = plan.aim; }
+                if (Ooda.App.PerfProbe.Active && Time.unscaledTime < botWaitUntil)
+                {
+                    // as a player does: the stick moves round the planned aim for a while, so the previews run every frame
+                    float t = Time.unscaledTime * 2.3f;
+                    var m = battle.planes[0];
+                    SetAim((botAim + m.Right * (0.12 * Math.Sin(t)) + m.Up * (0.08 * Math.Cos(t * 1.3))).Normalized);
+                    return;
+                }
                 if (botShots != null && fightNo == 1 && battle.turn < 6)
                 {
                     if (Time.unscaledTime < botWaitUntil) return;

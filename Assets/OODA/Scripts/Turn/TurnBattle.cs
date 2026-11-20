@@ -122,6 +122,11 @@ namespace Ooda.Turn
 
         enum Phase { Planning, Thinking, Playing, Over }
 
+        // the battle's own profiler markers (the Profiler window, and the frame-time probe's -perfmarkers report)
+        static readonly Unity.Profiling.ProfilerMarker mkPreview = new Unity.Profiling.ProfilerMarker("TurnBattle.RunPreview"),
+            mkGui = new Unity.Profiling.ProfilerMarker("TurnBattle.OnGUI"), mkPlayback = new Unity.Profiling.ProfilerMarker("TurnBattle.Playback"),
+            mkPlanning = new Unity.Profiling.ProfilerMarker("TurnBattle.DrawPlanning");
+
         Phase phase, phaseAfterPlayback;
         Battle battle;
         TurnAircraftView[] views = new TurnAircraftView[0];
@@ -631,6 +636,8 @@ namespace Ooda.Turn
 
         void Update()
         {
+            if (Ooda.App.PerfProbe.Active)
+                Ooda.App.PerfProbe.Section = replaying ? "replay" : phase == Phase.Playing ? "playback" : phase == Phase.Planning ? "planning" : phase == Phase.Thinking ? "thinking" : "over";
             if (view != null) view.sightPose = false;   // set again below while the gunsight view is up
             NetUpdate();
             SoundUpdate();
@@ -657,8 +664,8 @@ namespace Ooda.Turn
             NetBotUpdate();
             PortalsBegin();
             lines.Begin();
-            if (phase == Phase.Playing) Playback();
-            else if (phase == Phase.Planning || phase == Phase.Thinking) DrawPlanning();
+            if (phase == Phase.Playing) { using (mkPlayback.Auto()) Playback(); }
+            else if (phase == Phase.Planning || phase == Phase.Thinking) { using (mkPlanning.Auto()) DrawPlanning(); }
             else { DrawLastPaths(last != null ? last.FrameCount - 1 : 0); RevealAll(); }
             lines.End();
             tip.gameObject.SetActive((phase == Phase.Planning || phase == Phase.Thinking) && !plan.HasMarks && ArrowShown);
@@ -1255,6 +1262,7 @@ namespace Ooda.Turn
 
         void RunPreview()
         {
+            using var previewScope = mkPreview.Auto();
             plan.radarTarget = focus;
             var sim = battle.Clone();
             sim.dispersion = false;
@@ -1757,6 +1765,7 @@ namespace Ooda.Turn
         void OnGUI()
         {
             if (battle == null) return;
+            using var guiScope = mkGui.Auto();
             Ooda.UI.BriefingStyle.Use();
             // scale up so the GUI is at least 1600x900 points: by height alone a 16:10 screen (2560x1600) left only
             // 1440 points across, and the cockpit squeezed (small dials with no numbers, the MFD pushed to the edge)
