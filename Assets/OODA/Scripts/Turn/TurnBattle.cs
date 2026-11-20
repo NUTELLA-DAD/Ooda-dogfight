@@ -1326,7 +1326,8 @@ namespace Ooda.Turn
                 if (!previewTask.IsCompleted) return;   // one at a time: the newest plan goes next
                 var t = previewTask; var done = previewJob;
                 previewTask = null; previewJob = null;
-                if (t.IsFaulted)
+                if (t.IsFaulted && GaveUpNearObstacle(t.Exception)) { previewSyncLeft = 10; dirty = true; }   // near an obstacle: fly it here
+                else if (t.IsFaulted)
                 {
                     Debug.LogWarning($"OODA: the preview failed on a worker thread; running it on the main thread from now on. {t.Exception?.GetBaseException()}");
                     previewOnMainThread = true; dirty = true;
@@ -1337,9 +1338,11 @@ namespace Ooda.Turn
             if (!dirty) return;
             // the first preview of a turn (or after a swap) at once, so the last turn's paths never show from the new place
             if (previewOnMainThread || preview == null || shownFor != battle || shownTurn != battle.turn) { RunPreview(); return; }
+            if (previewSyncLeft > 0) { previewSyncLeft--; RunPreview(); return; }
             using var previewScope = mkPreview.Auto();
             var j = PreparePreview();
             if (j.notch != null) { j.Fly(); ApplyPreview(j); return; }   // a radar missile's notch watch writes the battle's own fields: keep it here
+            if (j.sim.obstacleHit != null) j.sim.obstacleHit = j.gsim.obstacleHit = WorkerObstacleTest(ObstacleBoxes());   // Physics is main-thread only
             previewJob = j;
             previewTask = Task.Run(j.Fly);
         }
@@ -1453,14 +1456,21 @@ namespace Ooda.Turn
                     if (sim.Resolve(plans, ts, false).hits.Any(h => h.shooter == 0 && h.target == j)) hits++;
                 return (-1, hits, aims.Length + 1);
             };
-            if (previewOnMainThread) { ApplyConfidence(fly()); return; }
+            if (previewOnMainThread || confidenceHere) { confidenceHere = false; ApplyConfidence(fly()); return; }
+            if (battle.obstacleHit != null)
+            {
+                var test = WorkerObstacleTest(ObstacleBoxes());   // Physics is main-thread only
+                foreach (var x in spread) x.sim.obstacleHit = test;
+                foreach (var x in breaks) x.sim.obstacleHit = test;
+            }
             var task = Task.Run(fly);
             confidenceTask = task;
             confidenceTaskGen = gen;
         }
 
         Task<(int pct, int hits, int of)> confidenceTask;
-        int confidenceGen, confidenceTaskGen;   // a new preview moves confidenceGen on: an older answer is dropped
+        int confidenceGen, confidenceTaskGen;
+        bool confidenceHere;   // run the next confidence check on the main thread (the worker's came near an obstacle)   // a new preview moves confidenceGen on: an older answer is dropped
 
         void ApplyConfidence((int pct, int hits, int of) c)
         {
@@ -1473,6 +1483,12 @@ namespace Ooda.Turn
         {
             if (confidenceTask == null || !confidenceTask.IsCompleted) return;
             var t = confidenceTask; confidenceTask = null;
+            if (t.IsFaulted && GaveUpNearObstacle(t.Exception))
+            {
+                // near an obstacle: run it again here (if it is still for the plan on show)
+                if (confidenceTaskGen == confidenceGen) { confidenceHere = true; confidencePending = true; }
+                return;
+            }
             if (t.IsFaulted) { Debug.LogWarning($"OODA: the confidence check failed on a worker thread. {t.Exception?.GetBaseException()}"); return; }
             if (confidenceTaskGen == confidenceGen) ApplyConfidence(t.Result);
         }
