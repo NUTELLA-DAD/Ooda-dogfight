@@ -1607,6 +1607,7 @@ namespace Ooda.Turn
                 }
             if (!sightView) DrawNotch();
             DrawHazards();
+            DrawGunMarkers();
             SpecialsPlanning();
         }
 
@@ -1812,6 +1813,7 @@ namespace Ooda.Turn
 
             DrawLastPaths(now);
             DrawExtras(now);
+            DrawGunMarkers(last, now);
             for (int ti = 0; ti < last.traces.Count; ti++)
             {
                 var tr = last.traces[ti];
