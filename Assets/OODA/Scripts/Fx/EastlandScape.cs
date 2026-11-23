@@ -24,6 +24,8 @@ namespace Ooda.Fx
         /// <summary>Where each step of a square's LOD group gives way to the next, as a share of the screen's height.</summary>
         static readonly float[] LodHeights = { 0.45f, 0.2f, 0.09f, 0.0005f };
         const float SkirtM = 30f;
+        /// <summary>The apron along the Alps' edges: how far it runs on under their terrain, and how much lower it ends.</summary>
+        const float UnderM = 40f, UnderDropM = 5f;
 
         static EastlandScape made;
         Material mat;
@@ -85,7 +87,9 @@ namespace Ooda.Fx
         static readonly Color SeaRock = Hex(0x6e6a66), SeaRockTop = Hex(0x6f9a4c), Concrete = Hex(0xb9b4a8), White = Hex(0xf2efe6), SignalRed = Hex(0xc8402c);
 
         internal static Color Hex(int rgb) => new Color(((rgb >> 16) & 255) / 255f, ((rgb >> 8) & 255) / 255f, (rgb & 255) / 255f, 0f);
-        static readonly Color AlpsGrassDark = new Color32(103, 189, 82, 255), AlpsGrassLight = new Color32(134, 220, 80, 255);
+        // (darker than the Alps' grass looks on screen: this ground's shading lights it about a third brighter than the
+        // terrain's, so these were matched by measuring both sides of the seam in a shot)
+        static readonly Color AlpsGrassDark = new Color32(76, 132, 61, 255), AlpsGrassLight = new Color32(99, 154, 59, 255);
         internal static Color32 Stone(Color c) { var k = (Color32)c; k.a = 255; return k; }   // alpha 1: cut in courses
         internal static Color32 Plain(Color c) { var k = (Color32)c; k.a = 0; return k; }
 
@@ -297,11 +301,30 @@ namespace Ooda.Fx
                     p.tris.Add(a); p.tris.Add(d); p.tris.Add(b); p.tris.Add(a); p.tris.Add(c); p.tris.Add(d);
                 }
             }
-            // (none along the Alps' edges: the two meet without a step, and a skirt there was inked)
-            if (!alpsSouth) Skirt(k => start + k);
-            if (!alpsNorth) Skirt(k => start + (n - 1) * n + k);
-            if (!alpsWest) Skirt(k => start + k * n);
-            if (!alpsEast) Skirt(k => start + k * n + n - 1);
+            // (none along the Alps' edges: the two meet without a step, and a skirt there was inked. But their grids differ, 25 m
+            // here and about 20 m in the terrain, so pinholes open along the line between the two, and the ink rings each one
+            // with a dot: there the edge runs on under the terrain instead, a shallow apron that fills them and stays hidden)
+            void Under(System.Func<int, int> at, Vector3 toward)
+            {
+                int s = p.verts.Count;
+                for (int k = 0; k < n; k++)
+                {
+                    int v = at(k);
+                    p.verts.Add(p.verts[v] + toward * UnderM - new Vector3(0, UnderDropM, 0));
+                    p.normals.Add(p.normals[v]);
+                    p.colors.Add(p.colors[v]);
+                }
+                for (int k = 0; k + 1 < n; k++)
+                {
+                    int a = at(k), b = at(k + 1), c = s + k, d = s + k + 1;
+                    p.tris.Add(a); p.tris.Add(b); p.tris.Add(d); p.tris.Add(a); p.tris.Add(d); p.tris.Add(c);
+                    p.tris.Add(a); p.tris.Add(d); p.tris.Add(b); p.tris.Add(a); p.tris.Add(c); p.tris.Add(d);
+                }
+            }
+            if (!alpsSouth) Skirt(k => start + k); else Under(k => start + k, Vector3.back);
+            if (!alpsNorth) Skirt(k => start + (n - 1) * n + k); else Under(k => start + (n - 1) * n + k, Vector3.forward);
+            if (!alpsWest) Skirt(k => start + k * n); else Under(k => start + k * n, Vector3.left);
+            if (!alpsEast) Skirt(k => start + k * n + n - 1); else Under(k => start + k * n + n - 1, Vector3.right);
         }
 
         /// <summary>A sea stack: a seven-sided column of rock from under the water, leaning in a little toward a grassy top;

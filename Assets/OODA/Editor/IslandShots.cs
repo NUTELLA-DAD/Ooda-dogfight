@@ -46,7 +46,7 @@ namespace Ooda.EditorTools
             Shot(cam, rt, dir, "c_red_canyon", new Vector3(19600, 300, -1900), new Vector3(25800, 40, -5300));
             Shot(cam, rt, dir, "d_dam_reservoir", new Vector3(10750, 380, 6200), new Vector3(10750, 46, 4000));
             Shot(cam, rt, dir, "d2_dam_close", new Vector3(10750, 160, 5500), new Vector3(10750, 40, 4580));
-            Shot(cam, rt, dir, "e_harbour_town", new Vector3(-9400, 700, -3700), new Vector3(-7600, 9, -2550));
+            Shot(cam, rt, dir, "e_harbour_town", new Vector3(-10600, 750, -2600), new Vector3(-7600, 9, -2550));
             Shot(cam, rt, dir, "f_crossroads", new Vector3(10100, 330, -3800), new Vector3(11000, 26, -2700));
             Shot(cam, rt, dir, "g_oasis_desert_strip", new Vector3(16300, 900, -9900), new Vector3(18600, 30, -6800));
             Shot(cam, rt, dir, "h_city_airport", new Vector3(20300, 450, 3300), new Vector3(21650, 14, 4800));
