@@ -221,8 +221,8 @@ namespace Ooda.Fx
                         if (l <= 1)
                             foreach (var o in Eastland.Obelisks)
                                 if (o.x >= x0 && o.x < x0 + ChunkM && o.z >= z0 && o.z < z0 + ChunkM) ObeliskMesh(part, o);
-                        foreach (var r in Eastland.Rocks)
-                            if (r.x >= x0 && r.x < x0 + ChunkM && r.z >= z0 && r.z < z0 + ChunkM) RockMesh(part, r);
+                        foreach (var rk in Eastland.Rocks)
+                            if (rk.x >= x0 && rk.x < x0 + ChunkM && rk.z >= z0 && rk.z < z0 + ChunkM) RockMesh(part, rk);
                         foreach (var b in Eastland.Blocks)
                             if (b.x >= x0 && b.x < x0 + ChunkM && b.z >= z0 && b.z < z0 + ChunkM) DamMesh(part, b);
                         var mesh = part.ToMesh($"East {cx},{cz} LOD{l}", readable: l == 1);

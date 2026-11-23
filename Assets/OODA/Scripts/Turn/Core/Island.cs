@@ -105,7 +105,8 @@ namespace Ooda.Turn.Core
         {
             double band = 1 - Math.Abs(rho - RingAt) / RingHalf;
             if (band <= 0) return SeaFloorM;
-            double v = Fbm(x / 1150 + 31.4, z / 1150 + 15.9) + 0.14 * band - 0.14;
+            // (and none at all toward the ring's edges, so an islet ends in its own shore there, not cut along the edge)
+            double v = Fbm(x / 1150 + 31.4, z / 1150 + 15.9) + 0.14 * band - 0.14 - 0.5 * (1 - Eastland.Smooth(0, 0.35, band));
             double past = (0.585 - v) * 3600;                    // metres past the islet's waterline, about
             if (past > 420) return SeaFloorM;
             double tall = Eastland.Smooth(0.62, 0.78, Eastland.Noise(x / 3100 + 50.5, z / 3100 + 7.7));

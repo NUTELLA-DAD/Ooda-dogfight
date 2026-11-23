@@ -99,6 +99,8 @@ Material:
     - _AlphaClip: 0
     - _AlphaToMask: 0
     - _Ambient: 0.55
+    - _Atmo: 1
+    - _BackRimStrength: 0.35
     - _BandEdge: 0.05
     - _BandSoft: 0.06
     - _Blend: 0
@@ -119,7 +121,9 @@ Material:
     - _GlossMapScale: 0
     - _Glossiness: 0
     - _GlossyReflections: 0
+    - _InkStencil: 64
     - _Metallic: 0
+    - _MidBand: 0.1
     - _OcclusionStrength: 1
     - _OutlineMinDepth: 0.8
     - _OutlineNear: 120
@@ -129,6 +133,7 @@ Material:
     - _ReceiveShadows: 1
     - _RimEdge: 0.62
     - _RimStrength: 0.25
+    - _ShadeRich: 1.25
     - _Smoothness: 0.15
     - _SmoothnessTextureChannel: 0
     - _SpecularHighlights: 1
@@ -139,6 +144,7 @@ Material:
     - _XRMotionVectorsPass: 1
     - _ZWrite: 1
     m_Colors:
+    - _BackRimColor: {r: 0.62, g: 0.8, b: 1, a: 1}
     - _BaseColor: {r: 0.48, g: 0.29, b: 0.15, a: 1}
     - _ChromeGround: {r: 0.22, g: 0.27, b: 0.34, a: 1}
     - _ChromeHorizon: {r: 1, g: 1, b: 1, a: 1}
