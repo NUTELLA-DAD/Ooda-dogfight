@@ -85,6 +85,7 @@ namespace Ooda.Fx
         static readonly Color SeaRock = Hex(0x6e6a66), SeaRockTop = Hex(0x6f9a4c), Concrete = Hex(0xb9b4a8), White = Hex(0xf2efe6), SignalRed = Hex(0xc8402c);
 
         internal static Color Hex(int rgb) => new Color(((rgb >> 16) & 255) / 255f, ((rgb >> 8) & 255) / 255f, (rgb & 255) / 255f, 0f);
+        static readonly Color AlpsGrassDark = new Color32(103, 189, 82, 255), AlpsGrassLight = new Color32(134, 220, 80, 255);
         internal static Color32 Stone(Color c) { var k = (Color32)c; k.a = 255; return k; }   // alpha 1: cut in courses
         internal static Color32 Plain(Color c) { var k = (Color32)c; k.a = 0; return k; }
 
@@ -95,6 +96,13 @@ namespace Ooda.Fx
             // the two-tone patches fade out toward the Alps' edge, whose ground has its own texture
             float patch = Mathf.Lerp(0.5f, (float)Eastland.Noise(x / 140 + 0.5, z / 140 + 9.1), Mathf.InverseLerp(Eastland.X0, Eastland.X0 + 1200, (float)x));
             Color meadow = Color.Lerp(MeadowA, MeadowB, patch);
+            // by the Alps' east edge the meadow takes their grass's two tones, so the two grounds meet without a line
+            float seam = 1 - Mathf.InverseLerp(Eastland.X0, Eastland.X0 + 1500, (float)x);
+            if (seam > 0)
+            {
+                float tone = Mathf.SmoothStep(0, 1, Mathf.InverseLerp(0.35f, 0.65f, (float)Eastland.Noise(x / 230 + 4.4, z / 230 + 2.9)));
+                meadow = Color.Lerp(meadow, Color.Lerp(AlpsGrassDark, AlpsGrassLight, tone), Mathf.SmoothStep(0, 1, seam));
+            }
             // off the main island: the volcano's ash and basalt over a green skirt, the islets' grass, their rock where steep
             if (Island.MainCoastM(x, z) > 500)
             {

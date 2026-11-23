@@ -124,6 +124,15 @@ namespace Ooda.EditorTools
                 for (int i = 0; i < Res; i++)
                     if (Mathf.Max(Mathf.Abs(X(i)), Mathf.Abs(X(j))) > 8000f || Island.MainCoastM(X(i), X(j)) > -900) guard[j, i] = true;
 
+            // and none over a town's or an airfield's pad or the slope down to it
+            foreach (var pad in Island.Pads)
+            {
+                float reach = (float)(pad.radiusM + pad.easeM) + 500f;
+                for (int j = 0; j < Res; j++)
+                    for (int i = 0; i < Res; i++)
+                        if (pad.Distance(X(i), X(j)) < reach) guard[j, i] = true;
+            }
+
             // the biggest first, so the smaller ones fill in round them
             var kinds = new[]
             {

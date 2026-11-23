@@ -241,7 +241,7 @@ namespace Ooda.Turn.Core
 
         /// <summary>The dam's river: its line north of the dam, and where it starts.</summary>
         public static double DamRiverX(double z) => ReservoirX + 70 * Math.Sin((z - DamZ) / 620);
-        public const float DamRiverFromZ = DamZ + 50f, DamRiverHalfM = 55f;
+        public const float DamRiverFromZ = DamZ + DamHalfThickM - 4f, DamRiverHalfM = 55f;
 
         // ---------- Red Canyon ----------
 
@@ -350,7 +350,7 @@ namespace Ooda.Turn.Core
             if (z > DamRiverFromZ && Math.Abs(x - ReservoirX) < 2600)
             {
                 double d = Math.Abs(x - DamRiverX(z));
-                double slope = 0.55 + (0.12 - 0.55) * Smooth(DamRiverFromZ, DamRiverFromZ + 1900, z);
+                double slope = 0.3 + (0.12 - 0.3) * Smooth(DamRiverFromZ, DamRiverFromZ + 1900, z);   // (wide at the dam, so its face shows)
                 h = Math.Min(h, d < DamRiverHalfM ? RiverBedM : -1.5 + (d - DamRiverHalfM) * slope);
             }
 
