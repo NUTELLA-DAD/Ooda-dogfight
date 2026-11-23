@@ -83,6 +83,15 @@ namespace Ooda.EditorTools
                     if (Math.Abs(alps - lands) > worstStep) { worstStep = Math.Abs(alps - lands); at = z; }
                 }
                 Check(worstStep < 2f, $"the Alps meet the east lands without a step (at most {worstStep:F1} m, at z {at:F0})");
+                // and along their other three edges, where the sea, the coast's ends and an islet or two lie
+                float worstEdge = 0; Vector2 edgeAt = default;
+                for (float v = -9990; v <= 9990; v += 20)
+                    foreach (var q in new[] { V(-Eastland.AlpsHalf, v), V(v, -Eastland.AlpsHalf), V(v, Eastland.AlpsHalf - 0.5f) })
+                    {
+                        float inside = Mathf.Max(SampleArr(h, q.x, q.y), Base + 20f), outside = (float)Eastland.Raw(q.x, q.y);
+                        if (Math.Max(inside, outside) > -3 && Math.Abs(inside - outside) > worstEdge) { worstEdge = Math.Abs(inside - outside); edgeAt = q; }
+                    }
+                Check(worstEdge < 2f, $"and the lands to their west, south and north (at most {worstEdge:F1} m, at {edgeAt})");
                 Check(east.GroundM(City.CentreX, City.CentreZ + City.HalfZ + 300) > -9 && east.GroundM(City.CentreX - 1500, City.CentreZ) < City.StreetM, "the ground under the city is under its streets");
                 foreach (var p in Eastland.Pyramids)
                     Check(p.baseM > 20 && p.baseM < 90, $"{p.name} at ({p.x:F0}, {p.z:F0}) stands on its pad at {p.baseM:F0} m, {p.rise:F0} m tall");
@@ -90,6 +99,90 @@ namespace Ooda.EditorTools
                 Check(wet == 0, $"{Eastland.Obelisks.Length} obelisks, none in the water");
                 double g = Eastland.Land.HeightM(Eastland.Pyramids[0].x, Eastland.Pyramids[0].z);
                 Check(Math.Abs(g - Eastland.Pyramids[0].TopM) < 1, $"the Great Pyramid's top is ground: {g:F0} m");
+            }
+
+            Console.WriteLine("\nThe island");
+            {
+                var east = Eastland.Land;
+                float G(double x, double z) => Eastland.InAlps(x, z) ? SampleArr(h, (float)x, (float)z) : (float)east.GroundM(x, z);
+                // the coast: land at the middle of each coast's stretch, sea a kilometre past it
+                foreach (var (name, x, z, land) in new[] { ("the west coast", -8300.0, 0.0, true), ("west of it", -10600.0, 0.0, false), ("the north coast", 8000.0, 8600.0, true), ("north of it", 8000.0, 10900.0, false),
+                                                          ("the south coast", 4000.0, -8300.0, true), ("south of it", 4000.0, -10500.0, false), ("the east coast", 25000.0, 0.0, true), ("east of it", 27600.0, 0.0, false),
+                                                          ("the harbour bay", -9000.0, -2600.0, false), ("the lagoon", 9600.0, -8700.0, false), ("the inlet under the peaks", -8400.0, 5520.0, false) })
+                    Check(G(x, z) > 2 == land, $"{name} at ({x:F0}, {z:F0}) is {(land ? "land" : "sea")}: {G(x, z):F0} m");
+                // the ring: islets all the way round, most of the ring still water
+                int ringLand = 0, ringAll = 0; var sectors = new bool[12];
+                for (double a = 0; a < 360; a += 0.25)
+                    for (double k = Island.RingAt - Island.RingHalf; k <= Island.RingAt + Island.RingHalf; k += 0.01)
+                    {
+                        double ca = Math.Cos(a * Math.PI / 180), sa = Math.Sin(a * Math.PI / 180);
+                        // (out along the ray until the island's own measure reaches k)
+                        double lo = 5000, hi = 30000;
+                        for (int it = 0; it < 24; it++) { double m = (lo + hi) / 2; if (Island.Rho(Island.CentreX + ca * m, Island.CentreZ + sa * m) < k) lo = m; else hi = m; }
+                        double x = Island.CentreX + ca * lo, z = Island.CentreZ + sa * lo;
+                        ringAll++;
+                        if (Eastland.Raw(x, z) > 1.5) { ringLand++; sectors[(int)(a / 30)] = true; }
+                    }
+                Check(sectors.All(b => b) && ringLand > ringAll * 0.08 && ringLand < ringAll * 0.4, $"islets all round the ring ({sectors.Count(b => b)} of 12 sectors), {100f * ringLand / ringAll:F0} % of it land");
+                double vt = east.GroundM(Island.VolcanoX + Island.CraterRadiusM * 1.05, Island.VolcanoZ), vl = east.GroundM(Island.VolcanoX, Island.VolcanoZ);
+                Check(vt > Island.VolcanoTopM - 60 && vl < vt - 40 && vl > 300, $"Volcano Isle: its rim {vt:F0} m, the lava {vl:F0} m");
+                foreach (var p in Island.Pads)
+                {
+                    float lo = float.MaxValue, hi = float.MinValue;
+                    for (int k = 0; k <= 20; k++)
+                        foreach (int sd in new[] { -1, 0, 1 })
+                        {
+                            double x = p.ax + (p.bx - p.ax) * k / 20, z = p.az + (p.bz - p.az) * k / 20;
+                            double nx = -(p.bz - p.az), nz = p.bx - p.ax, nl = Math.Sqrt(nx * nx + nz * nz);
+                            if (nl > 1) { x += nx / nl * sd * p.radiusM * 0.8; z += nz / nl * sd * p.radiusM * 0.8; } else x += sd * p.radiusM * 0.8;
+                            float g = G(x, z); lo = Math.Min(lo, g); hi = Math.Max(hi, g);
+                        }
+                    Check(Math.Abs(lo - p.levelM) < 1.2 && Math.Abs(hi - p.levelM) < 1.2, $"{p.name}'s pad is flat at {p.levelM:F0} m ({lo:F1} to {hi:F1})");
+                }
+                foreach (var r in Island.Runways)
+                    Check(Math.Abs(G(r.ax, r.az) - r.levelM) < 0.6 && Math.Abs(G(r.bx, r.bz) - r.levelM) < 0.6, $"{r.name}'s runway, {Math.Sqrt((r.bx - r.ax) * (r.bx - r.ax) + (r.bz - r.az) * (r.bz - r.az)):F0} m, lies level on its pad");
+                foreach (var r in Island.Roads)
+                {
+                    float low = float.MaxValue, steep = 0, roadLen = 0; Vector2 lowAt = default, steepAt = default;
+                    double[] rl = Island.RoadLine(r, 400);
+                    for (int k = 0; k + 2 < rl.Length; k += 2)
+                    {
+                        Vector2 a = V((float)rl[k], (float)rl[k + 1]), b = V((float)rl[k + 2], (float)rl[k + 3]);
+                        int n = Mathf.CeilToInt(Vector2.Distance(a, b) / 25f); roadLen += Vector2.Distance(a, b);
+                        for (int q = 0; q < n; q++)
+                        {
+                            Vector2 p0 = Vector2.Lerp(a, b, q / (float)n), p1 = Vector2.Lerp(a, b, (q + 1) / (float)n);
+                            float g0 = G(p0.x, p0.y), g1 = G(p1.x, p1.y);
+                            if (g0 < low) { low = g0; lowAt = p0; }
+                            float gr = Math.Abs(g1 - g0) / Vector2.Distance(p0, p1); if (gr > steep) { steep = gr; steepAt = p0; }
+                        }
+                    }
+                    Check(low > 1.2f && steep < 0.3f, $"the road {r.name}: {roadLen / 1000f:F1} km, never under {low:F1} m (at {lowAt}), steepest {steep * 100:F0} % (at {steepAt})");
+                }
+                // Red Canyon: a slot at least 120 m deep along its middle stretch, its floor near the sea's level
+                float shallow = float.MaxValue, floorHi = 0;
+                for (int k = 1; k + 2 < Eastland.CanyonX.Length; k++)
+                    for (float u = 0; u <= 1; u += 0.05f)
+                    {
+                        double x = Eastland.CanyonX[k] + (Eastland.CanyonX[k + 1] - Eastland.CanyonX[k]) * u, z = Eastland.CanyonZ[k] + (Eastland.CanyonZ[k + 1] - Eastland.CanyonZ[k]) * u;
+                        double dx = -(Eastland.CanyonZ[k + 1] - Eastland.CanyonZ[k]), dz = Eastland.CanyonX[k + 1] - Eastland.CanyonX[k], dl = Math.Sqrt(dx * dx + dz * dz);
+                        float floor = G(x, z), rim = Math.Min(G(x + dx / dl * 420, z + dz / dl * 420), G(x - dx / dl * 420, z - dz / dl * 420));
+                        shallow = Math.Min(shallow, rim - floor); floorHi = Math.Max(floorHi, floor);
+                    }
+                Check(shallow > 120 && floorHi < 30, $"Red Canyon is at least {shallow:F0} m deep, its floor at most {floorHi:F0} m up");
+                // the reservoir: water behind the dam, the dam above it, the river below at the sea's level
+                float bed = G(Eastland.ReservoirX, Eastland.ReservoirZ), below = G(Eastland.DamRiverX(Eastland.DamZ + 300), Eastland.DamZ + 300);
+                double crest = east.HeightM(Eastland.ReservoirX, Eastland.DamZ);
+                float leastShore = float.MaxValue;
+                for (int k = 0; k < 72; k++)
+                {
+                    double a = k * Math.PI / 36, x = Eastland.ReservoirX + Math.Cos(a) * Eastland.ReservoirRx * 1.3, z = Eastland.ReservoirZ + Math.Sin(a) * Eastland.ReservoirRz * 1.3;
+                    if (z < Eastland.DamZ - 40) leastShore = Math.Min(leastShore, G(x, z));
+                }
+                Check(bed < Eastland.ReservoirLevelM - 10 && crest > Eastland.ReservoirLevelM + 5 && below < 0 && leastShore > Eastland.ReservoirLevelM + 1,
+                      $"the reservoir: bed {bed:F0} m under water at {Eastland.ReservoirLevelM:F0} m, lowest shore {leastShore:F0} m, the dam's crest {crest:F0} m, the river below it at {below:F0} m");
+                int wetRocks = Eastland.Rocks.Count(r => !r.lighthouse && r.baseM < 0), tall = Eastland.Rocks.Count(r => r.TopM > 40);
+                Check(wetRocks >= 6 && tall >= 8, $"{Eastland.Rocks.Length - 1} sea stacks ({wetRocks} standing in the water) and the lighthouse, its lamp at {Eastland.Rocks[Eastland.Rocks.Length - 1].TopM:F0} m");
             }
 
             Console.WriteLine("\nThe railway");
@@ -171,7 +264,7 @@ namespace Ooda.EditorTools
               }
               Check(wet > dry * 0.85, $"the river shows water along {wet * 100 / Math.Max(1, dry)} % of its course outside the lakes ({wet * 10 / 1000f:F1} km)"); }
             Check(footbridges.Count >= 3, $"{footbridges.Count} stone bridges over the river");
-            Check(Peaks.Count(p => p.model == MountainModel) >= 70, $"{Peaks.Count(p => p.model == MountainModel)} mountains and {Peaks.Count(p => p.model == FoothillModel)} grass hills");
+            Check(Peaks.Count(p => p.model == MountainModel) >= 55, $"{Peaks.Count(p => p.model == MountainModel)} mountains and {Peaks.Count(p => p.model == FoothillModel)} grass hills");
             var cover = new double[CoverLayers]; var w = new float[CoverLayers];
             for (int j = 0; j < 256; j++) for (int i = 0; i < 256; i++) { GroundCover(h, -Size / 2 + (i + 0.5f) * Size / 256, -Size / 2 + (j + 0.5f) * Size / 256, w); for (int k = 0; k < CoverLayers; k++) cover[k] += w[k] / 65536.0; }
             Console.WriteLine($"  ground: meadow {cover[0]:P0}, forest {cover[1]:P0}, rock {cover[2]:P0}, snow {cover[3]:P0}, wheat {cover[4] + cover[6]:P0}, young grain {cover[7]:P0}, pasture {cover[5]:P0}");
@@ -242,6 +335,70 @@ namespace Ooda.EditorTools
             return c * lit;
         }
 
+        /// <summary>The whole island from above, 20 m a pixel: the Alps' ground and the lands round them, the city's block, the
+        /// pads and the runways, the arenas.</summary>
+        static void DrawWorld(string dir, float[,] h)
+        {
+            const float M = 20f;
+            int w = (int)((Eastland.X1 - Eastland.GridX0) / M), ht = (int)((Eastland.Z1 - Eastland.Z0) / M);
+            var img = new Vector3[ht, w];
+            var east = Eastland.Land;
+            float G(float x, float z) => Eastland.InAlps(x, z) ? SampleArr(h, x, z) : (float)east.HeightM(x, z);
+            for (int j = 0; j < ht; j++)
+                for (int i = 0; i < w; i++)
+                {
+                    float x = Eastland.GridX0 + (i + 0.5f) * M, z = Eastland.Z1 - (j + 0.5f) * M;
+                    float g = G(x, z);
+                    Vector3 c;
+                    if (g <= 0.3f) c = Vector3.Lerp(new Vector3(0.20f, 0.42f, 0.58f), new Vector3(0.55f, 0.80f, 0.82f), Mathf.Clamp01(1 + g / 45f));
+                    else
+                    {
+                        bool alps = Eastland.InAlps(x, z);
+                        float dw = (float)Eastland.DesertWeight(x, z), mesa = (float)Eastland.MesaWeight(x, z);
+                        c = g < 2.5f ? new Vector3(0.90f, 0.84f, 0.62f) : g > 2100 ? new Vector3(0.95f, 0.96f, 0.98f) : g > 1500 ? new Vector3(0.60f, 0.60f, 0.62f) : g > 250 ? new Vector3(0.30f, 0.48f, 0.28f) : new Vector3(0.52f, 0.70f, 0.36f);
+                        if (!alps || x > 8400)
+                        {
+                            if (g >= 2.5f) c = Vector3.Lerp(c, new Vector3(0.86f, 0.74f, 0.50f), dw);
+                            if (mesa > 0) c = Vector3.Lerp(c, new Vector3(0.72f, 0.42f, 0.28f), mesa);
+                            if (City.Skyline.Over(x, z)) c = new Vector3(0.62f, 0.60f, 0.66f);
+                            if (!alps && east.MonumentM(x, z) > east.GroundM(x, z) + 0.5) c = new Vector3(0.25f, 0.2f, 0.2f);
+                            if (Island.InCrater(x, z)) c = new Vector3(1f, 0.5f, 0.1f);
+                        }
+                        float gx = G(x + M, z) - G(x - M, z), gz = G(x, z + M) - G(x, z - M);
+                        c = c * Mathf.Clamp(1f - (gx - gz) * 0.012f, 0.5f, 1.35f);
+                    }
+                    img[j, i] = c;
+                }
+            void Dot(float x, float z, Vector3 col, int r)
+            {
+                int ci = (int)((x - Eastland.GridX0) / M), cj = (int)((Eastland.Z1 - z) / M);
+                for (int jj = cj - r; jj <= cj + r; jj++) for (int ii = ci - r; ii <= ci + r; ii++)
+                    if (ii >= 0 && jj >= 0 && ii < w && jj < ht) img[jj, ii] = col;
+            }
+            void Line(Vector2 a, Vector2 b, Vector3 col, int r, float dash = 0)
+            {
+                float L = Vector2.Distance(a, b); int n = Math.Max(1, (int)(L / (M * 0.5f)));
+                for (int k = 0; k <= n; k++) { if (dash > 0 && ((int)(k * L / n / dash)) % 2 == 1) continue; var p = Vector2.Lerp(a, b, k / (float)n); Dot(p.x, p.y, col, r); }
+            }
+            foreach (var r in Island.Runways) Line(V((float)r.ax, (float)r.az), V((float)r.bx, (float)r.bz), new Vector3(0.2f, 0.2f, 0.22f), 1);
+            Line(RunwayStart, RunwayEnd, new Vector3(0.2f, 0.2f, 0.22f), 1);
+            foreach (var p in Island.Pads) Dot((float)p.ax, (float)p.az, new Vector3(0.8f, 0.2f, 0.7f), 2);
+            foreach (var a in Arenas.All)
+            {
+                Vector2 d = ArenaDir(a), across = V(d.y, -d.x), c = V((float)a.x, (float)a.z);
+                float L = (float)a.halfLengthM, W = (float)a.halfWidthM;
+                var col = new Vector3(0.9f, 0.1f, 0.1f);
+                Line(c - d * L - across * W, c + d * L - across * W, col, 0, 200); Line(c - d * L + across * W, c + d * L + across * W, col, 0, 200);
+                Line(c - d * L - across * W, c - d * L + across * W, col, 0, 200); Line(c + d * L - across * W, c + d * L + across * W, col, 0, 200);
+            }
+            for (float v = -Eastland.AlpsHalf; v <= Eastland.AlpsHalf; v += 400)
+            {
+                Dot(-Eastland.AlpsHalf, v, new Vector3(1, 1, 1), 0); Dot(Eastland.X0, v, new Vector3(1, 1, 1), 0);
+                Dot(v, -Eastland.AlpsHalf, new Vector3(1, 1, 1), 0); Dot(v, Eastland.AlpsHalf, new Vector3(1, 1, 1), 0);
+            }
+            Save(Path.Combine(dir, "world.ppm"), img);
+        }
+
         static void Draw(string dir, float[,] h, List<Vector3> rail, State[] states, List<HouseSpot> village, List<HouseSpot> farms, List<TreeSpot> trees, List<BridgeSpot> bridges)
         {
             const int N = 1400;
@@ -289,6 +446,7 @@ namespace Ooda.EditorTools
             Line(RunwayStart, RunwayEnd, new Vector3(0.85f, 0.85f, 0.85f), 2);
             foreach (var p in Peaks.Where(p => p.model == MountainModel)) Dot(p.pos.x, p.pos.z, new Vector3(0.2f, 0.2f, 0.25f), 1);
             Save(Path.Combine(dir, "map.ppm"), img);
+            DrawWorld(dir, h);
 
             // views from the air
             View(dir, "view_lake", h, new Vector3(0, 650, -4400), new Vector3(0, 300, 0));

@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEditor.SceneManagement;
+using Ooda.Turn.Core;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -279,6 +280,16 @@ namespace Ooda.EditorTools
                 var path = search.Find(SquareAt + V(-42f, 0), 400000f, c => townCells.Contains(c));
                 if (path != null) Add(Join(Smooth(path)), 6f, RoadGravel, 0.48f);
                 else Debug.LogWarning("OODA roads: no way found from the village to the town.");
+            }
+            // the main road's two ends on this side of the island: from where the east lands' road to Crossroads begins
+            // (Island.Roads[0]: IslandDress draws it from there on) and from Harbour Town on the west bay, each to the
+            // nearest road already there
+            foreach (var (from, what) in new[] { (V((float)Island.Roads[0].xz[0], (float)Island.Roads[0].xz[1]), "the east lands' road"),
+                                                (V((float)Island.Pads[Island.HarbourTown].ax + 440f, (float)Island.Pads[Island.HarbourTown].az), "Harbour Town") })
+            {
+                var path = search.Find(from, 600000f, null);
+                if (path != null) Add(Join(Smooth(path)), 6f, RoadGravel, 0.48f);
+                else Debug.LogWarning($"OODA roads: no way found from {what} to the island's roads.");
             }
             int lanes = 0;
             foreach (var e in bridgeEnds)

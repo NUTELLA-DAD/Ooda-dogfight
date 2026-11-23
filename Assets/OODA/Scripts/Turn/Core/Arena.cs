@@ -29,12 +29,12 @@ namespace Ooda.Turn.Core
     public static class Arenas
     {
         /// <summary>
-        /// The seven: among the snowy peaks in the north, over the high rail pass, over the chalet lake and its village in
+        /// The nine: among the snowy peaks in the north, over the high rail pass, over the chalet lake and its village in
         /// the middle, over the farmland and the strike town in the south, the skyscraper city on the east lands' north
         /// coast past the Alps (City: its towers are the ground there, so they are as solid as the rock), the cloud sea
         /// out over the open water to the south-east (Skyscape: towering cloud all round, a cloud deck under the fight),
-        /// and the desert valley south of the city, up the river between the pyramids and the obelisks (Eastland: the
-        /// stone is ground too).
+        /// the desert valley south of the city, up the river between the pyramids and the obelisks (Eastland: the
+        /// stone is ground too), Red Canyon through the mesas east of it, and Volcano Isle off the north-west coast (Island).
         /// </summary>
         public static readonly Arena[] All =
         {
@@ -52,6 +52,10 @@ namespace Ooda.Turn.Core
                         x = Skyscape.CentreX, z = Skyscape.CentreZ, altFt = Skyscape.StartAltFt, axisDeg = Skyscape.AxisDeg, halfLengthM = 3000, halfWidthM = 900 },
             new Arena { name = "Pyramid Valley", blurb = "Up the river through the desert, pyramids on the plateaus either side and obelisks down the banks.",
                         x = City.CentreX, z = -4700, altFt = 2000, axisDeg = 0, halfLengthM = 2900, halfWidthM = 900 },
+            new Arena { name = "Red Canyon", blurb = "A slot canyon through red mesas, from the desert out to the sea. Fly the rim, or drop into the slot and hope it bends your way.",
+                        x = 21500, z = -3350, altFt = 2500, axisDeg = 118, halfLengthM = 2600, halfWidthM = 900 },
+            new Arena { name = "Volcano Isle", blurb = "Out past the north-west coast, with the cone between you and them. Go round it, or over the crater.",
+                        x = Island.VolcanoX, z = Island.VolcanoZ, altFt = 3600, axisDeg = 20, halfLengthM = 3000, halfWidthM = 900 },
         };
 
         /// <summary>The city's arena's number in All.</summary>
@@ -64,6 +68,9 @@ namespace Ooda.Turn.Core
 
         /// <summary>The desert's arena's number in All.</summary>
         public const int DesertIndex = 6;
+
+        /// <summary>Red Canyon's and Volcano Isle's numbers in All.</summary>
+        public const int CanyonIndex = 7, VolcanoIndex = 8;
 
         public static int Count => All.Length;
 

@@ -3,8 +3,8 @@ namespace Ooda.Turn.Core
     /// <summary>
     /// The Alpine Campaign: the missions the mission briefing offers after the squadron briefing, numbered in the order
     /// the route on its map joins them (up the island from the farmland in the south to the peaks in the north, then east
-    /// past the Alps to the city on the coast, out over the open sea into the cloud, and back to the desert south of the
-    /// city). Each one is a dogfight over one of the arenas (Arenas.All), flown with the flight and the start picked in the
+    /// past the Alps to the city on the coast, out over the open sea into the cloud, back to the desert south of the
+    /// city, through Red Canyon east of it, and last out to Volcano Isle off the north-west coast). Each one is a dogfight over one of the arenas (Arenas.All), flown with the flight and the start picked in the
     /// squadron briefing. New missions join the end of All. Pure C#, no Unity.
     /// </summary>
     public struct CampaignMission
@@ -32,6 +32,8 @@ namespace Ooda.Turn.Core
             new CampaignMission { title = "SKYLINE CITY", objective = "Chase them down the river through the city of towers", arena = Arenas.CityIndex, difficulty = 3 },
             new CampaignMission { title = "CLOUD SEA", objective = "Hunt them through the towering clouds out over the open sea", arena = Arenas.CloudIndex, difficulty = 2 },
             new CampaignMission { title = "PYRAMID VALLEY", objective = "Run them up the river past the pyramids and the obelisks", arena = Arenas.DesertIndex, difficulty = 2 },
+            new CampaignMission { title = "RED CANYON", objective = "Flush them out of the slot canyon through the red mesas", arena = Arenas.CanyonIndex, difficulty = 3 },
+            new CampaignMission { title = "VOLCANO ISLE", objective = "Fight round the volcano's cone off the north-west coast", arena = Arenas.VolcanoIndex, difficulty = 1 },
         };
 
         public static int Count => All.Length;

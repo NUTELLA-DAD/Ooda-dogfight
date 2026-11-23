@@ -122,7 +122,7 @@ namespace Ooda.EditorTools
             }
             for (int j = 0; j < Res; j++)
                 for (int i = 0; i < Res; i++)
-                    if (Mathf.Max(Mathf.Abs(X(i)), Mathf.Abs(X(j))) > 8000f) guard[j, i] = true;
+                    if (Mathf.Max(Mathf.Abs(X(i)), Mathf.Abs(X(j))) > 8000f || Island.MainCoastM(X(i), X(j)) > -900) guard[j, i] = true;
 
             // the biggest first, so the smaller ones fill in round them
             var kinds = new[]
