@@ -241,7 +241,7 @@ namespace Ooda.Turn.Core
 
         /// <summary>The dam's river: its line north of the dam, and where it starts.</summary>
         public static double DamRiverX(double z) => ReservoirX + 70 * Math.Sin((z - DamZ) / 620);
-        public const float DamRiverFromZ = DamZ + DamHalfThickM - 4f, DamRiverHalfM = 55f;
+        public const float DamRiverFromZ = DamZ - 12f, DamRiverHalfM = 55f;   // (the valley is cut from under the dam, so no bank of ground stands in front of its face)
 
         // ---------- Red Canyon ----------
 
