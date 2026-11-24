@@ -185,6 +185,44 @@ namespace Ooda.EditorTools
                 Check(wetRocks >= 6 && tall >= 8, $"{Eastland.Rocks.Length - 1} sea stacks ({wetRocks} standing in the water) and the lighthouse, its lamp at {Eastland.Rocks[Eastland.Rocks.Length - 1].TopM:F0} m");
             }
 
+            Console.WriteLine("\nThe sights");
+            {
+                var east = Eastland.Land;
+                float G(double x, double z) => Eastland.InAlps(x, z) ? SampleArr(h, (float)x, (float)z) : (float)east.GroundM(x, z);
+                // the Harbour Bridge: its ends on land, its span over water, its towers' feet in the shallows
+                float endN = G(Sights.BridgeX, Sights.BridgeZ + Sights.BridgeHalfLengthM), endS = G(Sights.BridgeX, Sights.BridgeZ - Sights.BridgeHalfLengthM);
+                Check(endN > 5 && endS > 5, $"the Harbour Bridge's ends stand on land ({endS:F0} m south, {endN:F0} m north)");
+                float highest = float.MinValue; int wet = 0, all = 0;
+                for (double d = -Sights.BridgeTowerAtM; d <= Sights.BridgeTowerAtM; d += 25) { float g = G(Sights.BridgeX, Sights.BridgeZ + d); highest = Math.Max(highest, g); all++; if (g < 0) wet++; }
+                Check(highest < Sights.BridgeClearM - 45 && wet > all * 0.8, $"between its towers {100f * wet / all:F0} % is water, and the deck is at least {Sights.BridgeClearM - Math.Max(0, highest):F0} m over what lies under it");
+                float under = float.MinValue;
+                for (double d = -Sights.BridgeHalfLengthM + 40; d <= Sights.BridgeHalfLengthM - 40; d += 20) under = Math.Max(under, G(Sights.BridgeX, Sights.BridgeZ + d));
+                Check(under < Sights.BridgeDeckM - 4, $"the ground never comes up through its deck (highest under it {under:F0} m, the deck at {Sights.BridgeDeckM:F0} m)");
+                // the Rock Arch: in the sea, clear of the stacks
+                float archGround = float.MinValue;
+                for (double dx = -220; dx <= 220; dx += 40) for (double dz = -80; dz <= 80; dz += 40) archGround = Math.Max(archGround, G(Sights.ArchX + dx, Sights.ArchZ + dz));
+                double nearRock = Eastland.Rocks.Min(r => Math.Sqrt((r.x - Sights.ArchX) * (r.x - Sights.ArchX) + (r.z - Sights.ArchZ) * (r.z - Sights.ArchZ)));
+                Check(archGround < -10 && nearRock > 450, $"the Rock Arch stands in the sea ({archGround:F0} m), {nearRock:F0} m from the nearest stack; its opening {Sights.ArchOpenWidthM:F0} m wide, {Sights.ArchOpenHeightM:F0} m high");
+                // the fleet: every ship afloat, in deep water from stem to stern, and apart from the others
+                foreach (var s in Sights.Ships)
+                {
+                    float shoal = float.MinValue;
+                    for (double dx = -300; dx <= 300; dx += 100) for (double dz = -300; dz <= 300; dz += 100) shoal = Math.Max(shoal, G(s.x + dx, s.z + dz));
+                    double apart = Sights.Ships.Where(o => o.x != s.x || o.z != s.z).Min(o => Math.Sqrt((o.x - s.x) * (o.x - s.x) + (o.z - s.z) * (o.z - s.z)));
+                    Check(shoal < -20 && apart > 300, $"{s.name} at ({s.x:F0}, {s.z:F0}), {s.lengthM:F0} m long, lies in deep water ({shoal:F0} m), {apart:F0} m from the next ship");
+                }
+                // the balloons: over land outside the city, clear of the river's corridor and the runways
+                Check(Sights.Balloons.Length >= 9, $"{Sights.Balloons.Length} barrage balloons round the city");
+                foreach (var b in Sights.Balloons)
+                {
+                    bool inCity = Math.Abs(b.x - City.CentreX) < City.HalfX + 150 && Math.Abs(b.z - City.CentreZ) < City.HalfZ + 150;
+                    double river = Math.Abs(b.x - City.CentreX);
+                    double runway = Island.Runways.Min(r => new Island.Pad { ax = r.ax, az = r.az, bx = r.bx, bz = r.bz }.Distance(b.x, b.z));
+                    Check(!inCity && river > 1500 && runway > 900 && b.y - b.groundM > 350, $"a balloon at ({b.x:F0}, {b.z:F0}) {b.y - b.groundM:F0} m over its winch: outside the city, {river:F0} m from the river's line, {runway:F0} m from a runway");
+                }
+                Check(Sights.AiWires().Count() == 6 + 2 * Sights.Balloons.Length, $"{Sights.AiWires().Count()} shapes for the AI pilots to steer round; {Sights.Boxes.Length} boxes and {Sights.Wires.Count(w => w.solid)} cables are solid");
+            }
+
             Console.WriteLine("\nThe railway");
             float len = rail.Count * RailStep, grade = 0;
             for (int k = 1; k < rail.Count; k++) grade = Math.Max(grade, Math.Abs(rail[k].y - rail[k - 1].y) / RailStep);

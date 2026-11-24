@@ -242,8 +242,11 @@ namespace Ooda.Turn
         WireSet MakeWires()
         {
             var hm = FindFirstObjectByType<HazardMarkers>();
-            if (hm == null) return null;
             var w = new WireSet();
+            // the island's sights (the bridge, the arch, the city's balloons): theirs come from the layout itself
+            foreach (var s in Sights.AiWires())
+                w.Add(UnityFrame.Pos(new Vector3((float)s.ax, (float)s.ay, (float)s.az)), UnityFrame.Pos(new Vector3((float)s.bx, (float)s.by, (float)s.bz)), s.radiusM * Atmosphere.FtPerM);
+            if (hm == null) return w;
             const double wireFt = 30;   // about 9 m: the 4 m collider and room to spare
             for (int k = 0; k < hm.WireCount; k++) w.Add(UnityFrame.Pos(hm.wireStarts[k]), UnityFrame.Pos(hm.wireEnds[k]), wireFt);
             if (hm.balloons != null)
@@ -2411,6 +2414,18 @@ namespace Ooda.Turn
                 if (hazards.balloons != null)
                     foreach (var c in hazards.balloons)
                         if ((c - me).sqrMagnitude < show2) lines.Strip(Ring(c, hazards.balloonRadius * 1.5f, 0f, 16), 0.4f, wireColor, true);
+            }
+            // the island's sights: the solid cables (the city balloons' tethers, the bridge's cables) and a ring round each balloon
+            foreach (var w in Sights.Wires)
+            {
+                if (!w.solid) continue;
+                Vector3 a = new Vector3((float)w.ax, (float)w.ay, (float)w.az), b = new Vector3((float)w.bx, (float)w.by, (float)w.bz);
+                if (SegDist2(me, a, b) < show2) lines.Line(a, b, 0.4f, wireColor);
+            }
+            foreach (var b in Sights.Balloons)
+            {
+                var c = new Vector3((float)b.x, (float)b.y, (float)b.z);
+                if ((c - me).sqrMagnitude < show2) lines.Strip(Ring(c, (float)Sights.BalloonRadiusM * 1.5f, 0f, 16), 0.4f, wireColor, true);
             }
             // the flak's reach: a ring on the ground, two higher up and two arcs over the top
             if (battle == null || battle.flak == null) return;

@@ -57,6 +57,15 @@ namespace Ooda.EditorTools
             Shot(cam, rt, dir, "n_east_road_join", new Vector3(11800, 1100, -1200), new Vector3(9400, 0, -4200));
             Shot(cam, rt, dir, "m_islets_south_west_top", new Vector3(-12000, 7000, -6600), new Vector3(-12000, 0, -6500));
             Shot(cam, rt, dir, "l_alps_east_seam", new Vector3(10000, 1800, -12500), new Vector3(10000, 0, 0));
+            // the sights: the bridge, the arch, the fleet, the city's balloons
+            Shot(cam, rt, dir, "p_harbour_bridge", new Vector3(-10500, 220, -3600), new Vector3(-9050, 70, -2610));
+            Shot(cam, rt, dir, "p2_under_the_bridge", new Vector3(-10200, 30, -2610), new Vector3(-7600, 30, -2550));
+            Shot(cam, rt, dir, "q_rock_arch", new Vector3(-12650, 60, 700), new Vector3(-12650, 55, 1650));
+            Shot(cam, rt, dir, "q2_rock_arch_high", new Vector3(-13500, 420, 900), new Vector3(-12650, 60, 1650));
+            Shot(cam, rt, dir, "r_fleet", new Vector3(1900, 260, -14100), new Vector3(3000, 10, -12900));
+            Shot(cam, rt, dir, "r2_carrier", new Vector3(2650, 70, -13150), new Vector3(3000, 18, -12900));
+            Shot(cam, rt, dir, "s_city_balloons", new Vector3(9800, 700, 1400), new Vector3(13500, 450, 3200));
+            Shot(cam, rt, dir, "s2_balloon_close", new Vector3(11250, 590, 2700), new Vector3(11350, 606, 2800));
 
             cam.targetTexture = null;
             Object.DestroyImmediate(camGo);
