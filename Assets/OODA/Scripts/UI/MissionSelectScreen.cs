@@ -26,12 +26,12 @@ namespace Ooda.UI
 
         // the map texture: the whole island, the Alps on the left, the east lands (the city, the desert) on the right
         const int TexW = 1024, TexH = 640;
-        const float MapW0 = -10600f, MapW1 = 28600f, MapS0 = -10000f;   // the world from the west edge to past the east coast, m
+        const float MapW0 = -15400f, MapW1 = 30800f, MapS0 = -12800f;   // the world from past the islets in the west to past them in the east, m
         const float Scale = (TexW - 48f) / (MapW1 - MapW0);             // pixels a metre
-        const float MapPy0 = (TexH - 20000f * Scale) / 2;               // the island's 20 km north to south, centred
+        const float MapPy0 = (TexH - 25600f * Scale) / 2;               // the island and its ring of islets, 25.6 km north to south, centred
         // the cloud sea is out to the south-east, off this map: its pin stands in the sea off the south-east coast, among
         // a few painted clouds
-        static readonly Vector2 CloudPx = WorldPx(25500f, -9300f);
+        static readonly Vector2 CloudPx = WorldPx(26800f, -11300f);
         static Texture2D map;
 
         /// <summary>Open on the stage the squadron briefing stands on: the table goes up, the pick starts on the setup's arena.</summary>
@@ -350,8 +350,10 @@ namespace Ooda.UI
                     {
                         float g = (float)east.GroundM(wx, wz);
                         hgt[i] = g;
-                        if (g < 1.5f) { if (g > -20f && g < -4f && Eastland.ValleyWeight(wx, wz) > 0.5f) kind[i] = 5; continue; }   // the river and the oasis
+                        bool damRiver = wz > Eastland.DamRiverFromZ && Mathf.Abs(wx - (float)Eastland.DamRiverX(wz)) < Eastland.DamRiverHalfM + 30f;
+                        if (g < 1.5f) { if (g > -20f && g < -4f && (Eastland.ValleyWeight(wx, wz) > 0.5f || damRiver)) kind[i] = 5; continue; }   // the rivers and the oasis
                         kind[i] = (byte)(east.MonumentM(wx, wz) > g + 0.5f ? 6 : 1);
+                        if (g <= Eastland.ReservoirLevelM + 0.5f && Eastland.ReservoirR(wx, wz) < 1.05 && wz < Eastland.DamZ) kind[i] = 2;   // the reservoir
                     }
                     else
                     {
@@ -424,11 +426,14 @@ namespace Ooda.UI
                         c = Color.Lerp(c, new Color(0.58f, 0.54f, 0.48f), Mathf.InverseLerp(1450, 1750, g));
                         c = Color.Lerp(c, new Color(0.97f, 0.97f, 0.95f), Mathf.InverseLerp(1850, 2100, g));
                         // the east lands: sand in the desert, the river's valley green with fields
-                        if (wx > Eastland.X0 - 1)
+                        if (wx > Eastland.X0 - 1 && Island.MainCoastM(wx, wz) < 500)
                         {
                             float dw = (float)Eastland.DesertWeight(wx, wz) * (1 - (float)Eastland.ValleyWeight(wx, wz));
-                            c = Color.Lerp(new Color(0.60f, 0.71f, 0.37f), new Color(0.90f, 0.79f, 0.52f), dw);
+                            var green = Color.Lerp(new Color(0.60f, 0.71f, 0.37f), woods, Mathf.Clamp01((float)Eastland.FoothillWeight(wx, wz) * Mathf.InverseLerp(45, 130, g)));
+                            c = Color.Lerp(green, new Color(0.90f, 0.79f, 0.52f), dw);
+                            c = Color.Lerp(c, new Color(0.78f, 0.47f, 0.30f), (float)Eastland.MesaWeight(wx, wz));     // Red Canyon's mesas
                         }
+                        else if (Island.InCrater(wx, wz)) c = new Color(0.93f, 0.45f, 0.16f);
                         // shaded from the north-west
                         float dx = hgt[y * TexW + Mathf.Min(TexW - 1, x + 1)] - hgt[y * TexW + Mathf.Max(0, x - 1)];
                         float dz = hgt[Mathf.Min(TexH - 1, y + 1) * TexW + x] - hgt[Mathf.Max(0, y - 1) * TexW + x];

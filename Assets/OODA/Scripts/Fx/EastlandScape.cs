@@ -7,9 +7,10 @@ using UnityEngine.SceneManagement;
 namespace Ooda.Fx
 {
     /// <summary>
-    /// Draws the east lands (Turn/Core/Eastland.cs) from the same grid and the same stone the turn engine flies over, so
-    /// what you see is what you hit: the green plain past the Alps, the desert's dunes and plateaus, the river's valley of
-    /// fields, the oasis lake's and the coast's shallows, and the pyramids and the obelisks. Made at run time (no scene or
+    /// Draws the lands round the Alps (Turn/Core/Eastland.cs) from the same grid and the same stone the turn engine flies
+    /// over, so what you see is what you hit: the green plain past the Alps, the wooded foothills and the reservoir's dam,
+    /// the desert's dunes and plateaus, Red Canyon's mesas, the river's valley of fields, the oasis lake's and the coast's
+    /// shallows, the pyramids and the obelisks; and off the coast the ring of islets, Volcano Isle and the sea stacks. Made at run time (no scene or
     /// asset to merge), a fraction of a second: the land is cut into squares of ChunkM metres, each one mesh in one material
     /// (the toon land's, Fx/ToonLandModel.shader, painted per vertex), with a LOD group of four: the full 25 m grid near, then
     /// 50, 100 and 200 m, the obelisks only in the near two, the pyramids in all; skirts under every edge hide the cracks
@@ -23,6 +24,8 @@ namespace Ooda.Fx
         /// <summary>Where each step of a square's LOD group gives way to the next, as a share of the screen's height.</summary>
         static readonly float[] LodHeights = { 0.45f, 0.2f, 0.09f, 0.0005f };
         const float SkirtM = 30f;
+        /// <summary>The apron along the Alps' edges: how far it runs on under their terrain, and how much lower it ends.</summary>
+        const float UnderM = 40f, UnderDropM = 5f;
 
         static EastlandScape made;
         Material mat;
@@ -37,6 +40,7 @@ namespace Ooda.Fx
             var go = new GameObject("East Lands");
             made = go.AddComponent<EastlandScape>();
             made.Build(Eastland.Land);
+            IslandDress.Ensure(made.transform, made.mat);
             return made;
         }
 
@@ -77,10 +81,17 @@ namespace Ooda.Fx
         static readonly Color[] Crops = { Hex(0x6d9b3b), Hex(0x78a243), Hex(0x8ea84c), Hex(0x659640), Hex(0x9aa652) };   // close greens: a quiet patchwork, not a checkerboard
         static readonly Color Limestone = Hex(0xd5c194), StepStone = Hex(0xc9ad7c), Gold = Hex(0xe0aa3c);
         static readonly Color Granite = Hex(0xa5685a), PaleObelisk = Hex(0xcdb98e);
+        static readonly Color Scrub = Hex(0x9aa05a), Woods = Hex(0x3f7a3c), WoodsDark = Hex(0x33682f);
+        static readonly Color RedRock = Hex(0xb5603c), RedRockPale = Hex(0xc98a58), RedRockDark = Hex(0x8e4a30);
+        static readonly Color Basalt = Hex(0x4c4648), Ash = Hex(0x6a6260), Lava = Hex(0xff7a1e), IsleGrass = Hex(0x74a850);
+        static readonly Color SeaRock = Hex(0x6e6a66), SeaRockTop = Hex(0x6f9a4c), Concrete = Hex(0xb9b4a8), White = Hex(0xf2efe6), SignalRed = Hex(0xc8402c);
 
-        static Color Hex(int rgb) => new Color(((rgb >> 16) & 255) / 255f, ((rgb >> 8) & 255) / 255f, (rgb & 255) / 255f, 0f);
-        static Color32 Stone(Color c) { var k = (Color32)c; k.a = 255; return k; }   // alpha 1: cut in courses
-        static Color32 Plain(Color c) { var k = (Color32)c; k.a = 0; return k; }
+        internal static Color Hex(int rgb) => new Color(((rgb >> 16) & 255) / 255f, ((rgb >> 8) & 255) / 255f, (rgb & 255) / 255f, 0f);
+        // (darker than the Alps' grass looks on screen: this ground's shading lights it about a third brighter than the
+        // terrain's, so these were matched by measuring both sides of the seam in a shot)
+        static readonly Color AlpsGrassDark = new Color32(76, 132, 61, 255), AlpsGrassLight = new Color32(99, 154, 59, 255);
+        internal static Color32 Stone(Color c) { var k = (Color32)c; k.a = 255; return k; }   // alpha 1: cut in courses
+        internal static Color32 Plain(Color c) { var k = (Color32)c; k.a = 0; return k; }
 
         /// <summary>The ground's colour at a point: meadow by the Alps and round the city, sand in the desert (darker on the
         /// dunes' lee faces), sandstone on the steep, fields and palms in the river's valley, the beach and the sea bed.</summary>
@@ -88,12 +99,43 @@ namespace Ooda.Fx
         {
             // the two-tone patches fade out toward the Alps' edge, whose ground has its own texture
             float patch = Mathf.Lerp(0.5f, (float)Eastland.Noise(x / 140 + 0.5, z / 140 + 9.1), Mathf.InverseLerp(Eastland.X0, Eastland.X0 + 1200, (float)x));
-            float dw = (float)Eastland.DesertWeight(x, z), v = (float)Eastland.ValleyWeight(x, z);
             Color meadow = Color.Lerp(MeadowA, MeadowB, patch);
+            // by the Alps' east edge the meadow takes their grass's two tones, so the two grounds meet without a line
+            float seam = 1 - Mathf.InverseLerp(Eastland.X0, Eastland.X0 + 1500, (float)x);
+            if (seam > 0)
+            {
+                float tone = Mathf.SmoothStep(0, 1, Mathf.InverseLerp(0.35f, 0.65f, (float)Eastland.Noise(x / 230 + 4.4, z / 230 + 2.9)));
+                meadow = Color.Lerp(meadow, Color.Lerp(AlpsGrassDark, AlpsGrassLight, tone), Mathf.SmoothStep(0, 1, seam));
+            }
+            // off the main island: the volcano's ash and basalt over a green skirt, the islets' grass, their rock where steep
+            if (Island.MainCoastM(x, z) > 500)
+            {
+                Color isle = Color.Lerp(IsleGrass, meadow, 0.4f);
+                double vx = x - Island.VolcanoX, vz = z - Island.VolcanoZ, vr = System.Math.Sqrt(vx * vx + vz * vz);
+                if (vr < Island.VolcanoRadiusM * 1.3)
+                {
+                    float up = Mathf.InverseLerp(40f, (float)Island.VolcanoTopM, h);
+                    isle = Color.Lerp(isle, Color.Lerp(Ash, Basalt, (float)Eastland.Noise(x / 90 + 3.1, z / 90 + 1.7)), Mathf.SmoothStep(0, 1, Mathf.InverseLerp(0.12f, 0.42f, up)));
+                    if (Island.InCrater(x, z)) isle = Lava;
+                }
+                else if (n.y < 0.9f) isle = Color.Lerp(isle, SeaRock, Mathf.InverseLerp(0.9f, 0.75f, n.y));
+                if (h < 2.5f) isle = Color.Lerp(Shore, isle, Mathf.InverseLerp(1.2f, 2.5f, h));
+                if (h < 0.3f) isle = Color.Lerp(Shore, SeaBed * 0.8f, Mathf.InverseLerp(0.3f, -30f, h));
+                return Plain(isle);
+            }
+            float dw = (float)Eastland.DesertWeight(x, z), v = (float)Eastland.ValleyWeight(x, z);
+            // the foothills: woods on the slopes and the higher ground, meadow in the hollows
+            float fw = (float)Eastland.FoothillWeight(x, z);
+            if (fw > 0.02f)
+            {
+                float wood = Mathf.Clamp01(Mathf.InverseLerp(45f, 120f, h) * (0.55f + 0.7f * (float)Eastland.Noise(x / 260 + 7.3, z / 260 + 4.1)));
+                meadow = Color.Lerp(meadow, Color.Lerp(Woods, WoodsDark, patch), wood * Mathf.Clamp01(fw * 1.6f));
+            }
             // the lee faces of the dunes look away from the wind (north-west): a little darker
             float lee = Mathf.Clamp01(-(n.x * 0.8f + n.z * 0.6f) * 5f);
             Color sand = Color.Lerp(Color.Lerp(SandA, SandB, patch), SandLee, lee);
-            Color c = Color.Lerp(meadow, sand, dw);
+            // meadow gives way to scrub, and the scrub to sand
+            Color c = dw < 0.5f ? Color.Lerp(meadow, Scrub, Mathf.SmoothStep(0, 1, dw * 2)) : Color.Lerp(Scrub, sand, Mathf.SmoothStep(0, 1, dw * 2 - 1));
             if (v > 0.05f && h > 0.8f && h < 16f)
             {
                 // the valley's fields: a patchwork of plots, and palm groves along the banks
@@ -103,7 +145,16 @@ namespace Ooda.Fx
                 if (bank < 170 && Eastland.Hash(fx + 77, fz - 31) < 0.6) field = Palms;
                 c = Color.Lerp(c, field, Mathf.SmoothStep(0, 1, Mathf.InverseLerp(0.3f, 0.75f, v)));
             }
-            if (n.y < 0.93f) c = Color.Lerp(c, Sandstone, Mathf.InverseLerp(0.93f, 0.8f, n.y) * Mathf.Max(dw, 0.4f));
+            if (n.y < 0.93f) c = Color.Lerp(c, Sandstone, Mathf.InverseLerp(0.93f, 0.8f, n.y) * Mathf.Max(dw, 0.4f) * (1 - Mathf.Clamp01(fw * 2)));
+            // Red Canyon: red sandstone, paler on the mesa tops, in courses down the cliffs
+            float mesa = (float)Eastland.MesaWeight(x, z);
+            if (mesa > 0.01f)
+            {
+                bool cliff = n.y < 0.86f;
+                Color red = cliff ? Color.Lerp(RedRock, RedRockDark, (float)Eastland.Noise(x / 60 + 2.2, h / 14.0 + 5.5)) : Color.Lerp(RedRockPale, RedRock, patch * 0.6f);
+                c = Color.Lerp(c, red, mesa);
+                if (cliff && mesa > 0.6f && h > 12f) { var k = (Color32)c; k.a = 255; return k; }
+            }
             double dcx = System.Math.Abs(x - City.CentreX) - City.HalfX, dcz = System.Math.Abs(z - City.CentreZ) - City.HalfZ;
             if (dcx < 0 && dcz < 0) c = CityGround;
             if (h < 2.5f) c = Color.Lerp(Shore, c, Mathf.InverseLerp(1.2f, 2.5f, h));
@@ -113,6 +164,7 @@ namespace Ooda.Fx
 
         // ---------- the build ----------
 
+        /// <summary>The ground's material (the toon land's, painted per vertex): the island's dressing is drawn in it too.</summary>
         Material MakeMaterial()
         {
             var shader = Shader.Find("Ooda/ToonLandModel");
@@ -132,29 +184,41 @@ namespace Ooda.Fx
             float t0 = Time.realtimeSinceStartup;
             mat = MakeMaterial();
             // every sample's colour once, from its own full-step slope (shared by the four steps of every square)
-            const int N = Eastland.N;
-            var cols = new Color32[N * N];
-            var nrm = new Vector3[N * N];
-            System.Threading.Tasks.Parallel.For(0, N, j =>
+            const int N = Eastland.NX, NZ = Eastland.NZ;
+            var cols = new Color32[N * NZ];
+            var nrm = new Vector3[N * NZ];
+            System.Threading.Tasks.Parallel.For(0, NZ, j =>
             {
+                float z = Eastland.Z0 + j * Eastland.CellM;
                 for (int i = 0; i < N; i++)
                 {
+                    float x = Eastland.GridX0 + i * Eastland.CellM;
+                    float hh = land.Sample(i, j);
+                    // nothing of the deep sea's floor is seen, nor of the grid under the Alps
+                    if (hh < -45f || (Mathf.Abs(z) < Eastland.AlpsHalf - 50f && x > -Eastland.AlpsHalf + 50f && x < Eastland.X0 - 50f)) { nrm[j * N + i] = Vector3.up; cols[j * N + i] = Plain(SeaBed * 0.8f); continue; }
                     float dx = (land.Sample(i + 1, j) - land.Sample(i - 1, j)) / (2 * Eastland.CellM);
                     float dz = (land.Sample(i, j + 1) - land.Sample(i, j - 1)) / (2 * Eastland.CellM);
                     nrm[j * N + i] = new Vector3(-dx, 1, -dz).normalized;
-                    cols[j * N + i] = GroundColour(Eastland.X0 + i * Eastland.CellM, Eastland.Z0 + j * Eastland.CellM, land.Sample(i, j), nrm[j * N + i]);
+                    cols[j * N + i] = GroundColour(x, z, hh, nrm[j * N + i]);
                 }
             });
-            int cells = Mathf.RoundToInt(ChunkM / Eastland.CellM), per = Mathf.RoundToInt((Eastland.X1 - Eastland.X0) / ChunkM);
+            int cells = Mathf.RoundToInt(ChunkM / Eastland.CellM);
+            int perX = Mathf.RoundToInt((Eastland.X1 - Eastland.GridX0) / ChunkM), perZ = Mathf.RoundToInt((Eastland.Z1 - Eastland.Z0) / ChunkM);
             int squares = 0, tris = 0;
-            for (int cz = 0; cz < per; cz++)
-                for (int cx = 0; cx < per; cx++)
+            for (int cz = 0; cz < perZ; cz++)
+                for (int cx = 0; cx < perX; cx++)
                 {
                     int i0 = cx * cells, j0 = cz * cells;
+                    float x0 = Eastland.GridX0 + cx * ChunkM, z0 = Eastland.Z0 + cz * ChunkM;
+                    // the Alps' own square is their terrain's; the squares round it have no skirt along it (the two meet
+                    // without a step, and a skirt there was inked)
+                    bool inZ = z0 >= -Eastland.AlpsHalf - 1 && z0 + ChunkM <= Eastland.AlpsHalf + 1, inX = x0 >= -Eastland.AlpsHalf - 1 && x0 + ChunkM <= Eastland.X0 + 1;
+                    if (inZ && inX) continue;
+                    bool alpsWest = inZ && Mathf.Abs(x0 - Eastland.X0) < 1, alpsEast = inZ && Mathf.Abs(x0 + ChunkM + Eastland.AlpsHalf) < 1;
+                    bool alpsSouth = inX && Mathf.Abs(z0 - Eastland.AlpsHalf) < 1, alpsNorth = inX && Mathf.Abs(z0 + ChunkM + Eastland.AlpsHalf) < 1;
                     float hi = float.MinValue;
                     for (int j = j0; j <= j0 + cells; j++) for (int i = i0; i <= i0 + cells; i++) hi = Mathf.Max(hi, land.Sample(i, j));
                     if (hi < -35f) continue;   // deep sea: its floor is never seen
-                    float x0 = Eastland.X0 + cx * ChunkM, z0 = Eastland.Z0 + cz * ChunkM;
                     var square = new GameObject($"East {cx},{cz}");
                     square.transform.SetParent(transform, false);
                     square.isStatic = true;
@@ -163,12 +227,16 @@ namespace Ooda.Fx
                     for (int l = 0; l < lods.Length; l++)
                     {
                         var part = new Part();
-                        Ground(part, land, cols, nrm, i0, j0, cells, 1 << l, cx == 0);
+                        Ground(part, land, cols, nrm, i0, j0, cells, 1 << l, alpsSouth, alpsNorth, alpsWest, alpsEast);
                         foreach (var p in Eastland.Pyramids)
                             if (p.x >= x0 && p.x < x0 + ChunkM && p.z >= z0 && p.z < z0 + ChunkM) PyramidMesh(part, p);
                         if (l <= 1)
                             foreach (var o in Eastland.Obelisks)
                                 if (o.x >= x0 && o.x < x0 + ChunkM && o.z >= z0 && o.z < z0 + ChunkM) ObeliskMesh(part, o);
+                        foreach (var rk in Eastland.Rocks)
+                            if (rk.x >= x0 && rk.x < x0 + ChunkM && rk.z >= z0 && rk.z < z0 + ChunkM) RockMesh(part, rk);
+                        foreach (var b in Eastland.Blocks)
+                            if (b.x >= x0 && b.x < x0 + ChunkM && b.z >= z0 && b.z < z0 + ChunkM) DamMesh(part, b);
                         var mesh = part.ToMesh($"East {cx},{cz} LOD{l}", readable: l == 1);
                         meshes.Add(mesh);
                         if (l == 0) tris += part.tris.Count / 3;
@@ -193,7 +261,7 @@ namespace Ooda.Fx
         }
 
         /// <summary>A square of the ground every step samples of the grid, with a skirt hanging under each edge.</summary>
-        static void Ground(Part p, Eastland land, Color32[] cols, Vector3[] nrm, int i0, int j0, int cells, int step, bool atAlps)
+        static void Ground(Part p, Eastland land, Color32[] cols, Vector3[] nrm, int i0, int j0, int cells, int step, bool alpsSouth, bool alpsNorth, bool alpsWest, bool alpsEast)
         {
             int n = cells / step + 1;
             int start = p.verts.Count;
@@ -202,11 +270,11 @@ namespace Ooda.Fx
                 {
                     int i = i0 + a * step, j = j0 + b * step;
                     float h = land.Sample(i, j);
-                    var normal = nrm[j * Eastland.N + i];   // the full step's at every step, so two squares drawn at different steps shade alike where they meet
-                    double x = Eastland.X0 + i * Eastland.CellM, z = Eastland.Z0 + j * Eastland.CellM;
+                    var normal = nrm[j * Eastland.NX + i];   // the full step's at every step, so two squares drawn at different steps shade alike where they meet
+                    double x = Eastland.GridX0 + i * Eastland.CellM, z = Eastland.Z0 + j * Eastland.CellM;
                     p.verts.Add(new Vector3((float)x, h, (float)z));
                     p.normals.Add(normal);
-                    p.colors.Add(cols[j * Eastland.N + i]);
+                    p.colors.Add(cols[j * Eastland.NX + i]);
                 }
             for (int b = 0; b + 1 < n; b++)
                 for (int a = 0; a + 1 < n; a++)
@@ -233,10 +301,102 @@ namespace Ooda.Fx
                     p.tris.Add(a); p.tris.Add(d); p.tris.Add(b); p.tris.Add(a); p.tris.Add(c); p.tris.Add(d);
                 }
             }
-            Skirt(k => start + k);
-            Skirt(k => start + (n - 1) * n + k);
-            if (!atAlps) Skirt(k => start + k * n);   // none along the Alps' edge: the two meet without a step, and a skirt there was inked
-            Skirt(k => start + k * n + n - 1);
+            // (none along the Alps' edges: the two meet without a step, and a skirt there was inked. But their grids differ, 25 m
+            // here and about 20 m in the terrain, so pinholes open along the line between the two, and the ink rings each one
+            // with a dot: there the edge runs on under the terrain instead, a shallow apron that fills them and stays hidden)
+            void Under(System.Func<int, int> at, Vector3 toward)
+            {
+                int s = p.verts.Count;
+                for (int k = 0; k < n; k++)
+                {
+                    int v = at(k);
+                    p.verts.Add(p.verts[v] + toward * UnderM - new Vector3(0, UnderDropM, 0));
+                    p.normals.Add(p.normals[v]);
+                    p.colors.Add(p.colors[v]);
+                }
+                for (int k = 0; k + 1 < n; k++)
+                {
+                    int a = at(k), b = at(k + 1), c = s + k, d = s + k + 1;
+                    p.tris.Add(a); p.tris.Add(b); p.tris.Add(d); p.tris.Add(a); p.tris.Add(d); p.tris.Add(c);
+                    p.tris.Add(a); p.tris.Add(d); p.tris.Add(b); p.tris.Add(a); p.tris.Add(c); p.tris.Add(d);
+                }
+            }
+            if (!alpsSouth) Skirt(k => start + k); else Under(k => start + k, Vector3.back);
+            if (!alpsNorth) Skirt(k => start + (n - 1) * n + k); else Under(k => start + (n - 1) * n + k, Vector3.forward);
+            if (!alpsWest) Skirt(k => start + k * n); else Under(k => start + k * n, Vector3.left);
+            if (!alpsEast) Skirt(k => start + k * n + n - 1); else Under(k => start + k * n + n - 1, Vector3.right);
+        }
+
+        /// <summary>A sea stack: a seven-sided column of rock from under the water, leaning in a little toward a grassy top;
+        /// or the lighthouse: a white tower with a red band under its lamp.</summary>
+        static void RockMesh(Part p, Eastland.Rock r)
+        {
+            const int Sides = 7;
+            float y0 = Mathf.Min(r.baseM, 0f) - 3f, y1 = r.TopM;
+            var c = new Vector3(r.x, 0, r.z);
+            if (r.lighthouse)
+            {
+                Tower(p, c, r.half, r.half * 0.72f, r.baseM - 1f, y1 - 9f, 10, Plain(White));
+                Tower(p, c, r.half * 0.74f, r.half * 0.74f, y1 - 16f, y1 - 12f, 10, Plain(SignalRed));
+                Tower(p, c, r.half * 0.95f, r.half * 0.95f, y1 - 9f, y1 - 8f, 10, Plain(SignalRed));
+                Tower(p, c, r.half * 0.55f, r.half * 0.55f, y1 - 8f, y1 - 3.5f, 10, Plain(Gold));
+                Tower(p, c, r.half * 0.7f, 0.2f, y1 - 3.5f, y1, 10, Plain(SignalRed));
+                return;
+            }
+            float turn = (float)Eastland.Hash((int)r.x, (int)r.z) * 6.28f;
+            Vector3 At(int k, float rad, float y)
+            {
+                float a = turn + k * Mathf.PI * 2 / Sides, wob = 0.82f + 0.36f * (float)Eastland.Hash((int)r.x + k * 13, (int)r.z - k * 7);
+                return c + new Vector3(Mathf.Cos(a) * rad * wob, y, Mathf.Sin(a) * rad * wob);
+            }
+            // (drawn a little inside the round the ground has, so what looks like rock is rock)
+            float foot = r.half * 0.98f, head = r.half * 0.8f;
+            for (int k = 0; k < Sides; k++)
+            {
+                Vector3 a0 = At(k, foot, y0), b0 = At(k + 1, foot, y0), a1 = At(k, head, y1), b1 = At(k + 1, head, y1);
+                Vector3 outward = ((a0 + b0) / 2 - c); outward.y = 0.15f * outward.magnitude; outward.Normalize();
+                p.Quad(a0, b0, b1, a1, outward, Stone(SeaRock));
+                p.Tri(a1, b1, c + Vector3.up * (y1 + r.half * 0.12f), Vector3.up, Plain(SeaRockTop));
+            }
+        }
+
+        /// <summary>A round tower (or a cone, its top radius next to nothing) of this many sides from y0 to y1.</summary>
+        internal static void Tower(Part p, Vector3 c, float r0, float r1, float y0, float y1, int sides, Color32 col)
+        {
+            for (int k = 0; k < sides; k++)
+            {
+                float a = k * Mathf.PI * 2 / sides, b = (k + 1) * Mathf.PI * 2 / sides;
+                Vector3 da = new Vector3(Mathf.Cos(a), 0, Mathf.Sin(a)), db = new Vector3(Mathf.Cos(b), 0, Mathf.Sin(b));
+                Vector3 outward = (da + db).normalized;
+                p.Quad(c + da * r0 + Vector3.up * y0, c + db * r0 + Vector3.up * y0, c + db * r1 + Vector3.up * y1, c + da * r1 + Vector3.up * y1, outward, col);
+            }
+            if (r1 > 0.5f)
+                for (int k = 1; k + 1 < sides; k++)
+                {
+                    float a = k * Mathf.PI * 2 / sides, b = (k + 1) * Mathf.PI * 2 / sides;
+                    p.Tri(c + new Vector3(r1, y1, 0), c + new Vector3(Mathf.Cos(a) * r1, y1, Mathf.Sin(a) * r1), c + new Vector3(Mathf.Cos(b) * r1, y1, Mathf.Sin(b) * r1), Vector3.up, col);
+                }
+        }
+
+        /// <summary>The dam: a concrete wall across the reservoir's north end, its crest a roadway between parapets, buttresses
+        /// down its downstream face and a spillway's slot in its middle.</summary>
+        static void DamMesh(Part p, Eastland.Block b)
+        {
+            var wall = Stone(Concrete);
+            Box(p, b.x, b.z, b.hx, b.hz, -12f, b.topM, wall, top: true);
+            // the parapets
+            Box(p, b.x, b.z - b.hz + 1.5f, b.hx, 1.5f, b.topM, b.topM + 2.2f, wall, top: true);
+            Box(p, b.x, b.z + b.hz - 1.5f, b.hx, 1.5f, b.topM, b.topM + 2.2f, wall, top: true);
+            // the buttresses down the north face, and two gate towers on the crest
+            for (int k = -4; k <= 4; k++)
+            {
+                if (k == 0) continue;
+                Box(p, b.x + k * b.hx / 4.6f, b.z + b.hz + 9f, 7f, 9f, -12f, b.topM - 10f, wall, top: true);
+            }
+            foreach (int sgn in new[] { -1, 1 })
+                Box(p, b.x + sgn * 34f, b.z, 9f, b.hz + 2f, b.topM, b.topM + 13f, Plain(White), top: true);
+            // the spillway: white water down the middle of the face
+            Box(p, b.x, b.z + b.hz + 2f, 22f, 2.5f, -8f, b.topM - 3f, Plain(White), top: true);
         }
 
         /// <summary>A pyramid: four faces of dressed limestone in courses under a gilded capstone (its top 7 %), sunk 4 m into
@@ -300,7 +460,7 @@ namespace Ooda.Fx
         }
 
         /// <summary>A box of stone from y0 to y1, its four sides and (if top) its lid.</summary>
-        static void Box(Part p, float x, float z, float hx, float hz, float y0, float y1, Color32 col, bool top)
+        internal static void Box(Part p, float x, float z, float hx, float hz, float y0, float y1, Color32 col, bool top)
         {
             Vector3 A(float sx, float sz, float y) => new Vector3(x + sx * hx, y, z + sz * hz);
             p.Quad(A(-1, -1, y0), A(1, -1, y0), A(1, -1, y1), A(-1, -1, y1), Vector3.back, col);
@@ -311,7 +471,7 @@ namespace Ooda.Fx
         }
 
         /// <summary>A mesh being put together: flat-shaded faces each get their own corners, turned to face their normal.</summary>
-        class Part
+        internal class Part
         {
             public readonly List<Vector3> verts = new List<Vector3>(), normals = new List<Vector3>();
             public readonly List<Color32> colors = new List<Color32>();

@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEditor.SceneManagement;
+using Ooda.Turn.Core;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -114,7 +115,10 @@ namespace Ooda.EditorTools
                 for (int i = 0; i < Res; i++)
                 {
                     float x = X(i), z = X(j), y = h[j, i];
-                    if (y < 0.6f || y > 1500f || InLake(x, z) || Mathf.Abs(x) > 9300f || Mathf.Abs(z) > 9300f) blocked[j, i] = true;
+                    // (the edge band is shut, but for 2.5 km either side of where the east lands' road begins: a mountain's foot stands
+                    // west of it, so the way in runs along the band first)
+                    bool eastGate = x > 9300f && x < (float)Island.Roads[0].xz[0] + 40f && Mathf.Abs(z - (float)Island.Roads[0].xz[1]) < 2500f;
+                    if (y < 0.6f || y > 1500f || InLake(x, z) || (Mathf.Abs(x) > 9300f && !eastGate) || Mathf.Abs(z) > 9300f) blocked[j, i] = true;
                     if ((Mathf.Abs(x - RunwayStart.x) < 60f && z > RunwayStart.y - 40f && z < RunwayEnd.y + 40f)
                         || (Mathf.Abs(x - FactoryAt.x) < 110f && Mathf.Abs(z - FactoryAt.y) < 110f)) blocked[j, i] = true;
                     if (cover != null)
@@ -279,6 +283,41 @@ namespace Ooda.EditorTools
                 var path = search.Find(SquareAt + V(-42f, 0), 400000f, c => townCells.Contains(c));
                 if (path != null) Add(Join(Smooth(path)), 6f, RoadGravel, 0.48f);
                 else Debug.LogWarning("OODA roads: no way found from the village to the town.");
+            }
+            // the main road's two ends on this side of the island: from where the east lands' road to Crossroads begins
+            // (Island.Roads[0]: IslandDress draws it from there on) and from Harbour Town on the west bay, each to the
+            // nearest road already there
+            foreach (var (from, what) in new[] { (V((float)Island.Roads[0].xz[0], (float)Island.Roads[0].xz[1]), "the east lands' road"),
+                                                (V((float)Island.Pads[Island.HarbourTown].ax + 440f, (float)Island.Pads[Island.HarbourTown].az), "Harbour Town") })
+            {
+                var path = search.Find(from, 600000f, null);
+                if (path != null) Add(Join(Smooth(path)), 6f, RoadGravel, 0.48f);
+                else
+                {
+                    int sj = Idx(from.y), si = Idx(from.x), shut = 0;
+                    for (int dj = -1; dj <= 1; dj++) for (int di = -1; di <= 1; di++) if (blocked[sj + dj, si + di]) shut++;
+                    float near = float.MaxValue;
+                    for (int j = 0; j < Res; j += 2) for (int i = 0; i < Res; i += 2) if (isRoad[j, i]) near = Mathf.Min(near, Vector2.Distance(V(X(i), X(j)), from));
+                    // what the search could reach, by the open squares alone and then by the grade too
+                    int Reach(bool grade, out float minX)
+                    {
+                        var seen = new bool[Res, Res]; var q = new Queue<(int, int)>(); q.Enqueue((sj, si)); seen[sj, si] = true; int n = 0; minX = float.MaxValue;
+                        while (q.Count > 0)
+                        {
+                            var (j, i) = q.Dequeue(); n++; minX = Mathf.Min(minX, X(i));
+                            for (int dj = -1; dj <= 1; dj++) for (int di = -1; di <= 1; di++)
+                            {
+                                int nj = j + dj, ni = i + di;
+                                if (nj < 1 || ni < 1 || nj >= Res - 1 || ni >= Res - 1 || seen[nj, ni] || blocked[nj, ni]) continue;
+                                if (grade && Mathf.Abs(h[nj, ni] - h[j, i]) / (Cell * (dj != 0 && di != 0 ? 1.4142f : 1f)) > 0.45f) continue;
+                                seen[nj, ni] = true; q.Enqueue((nj, ni));
+                            }
+                        }
+                        return n;
+                    }
+                    int open = Reach(false, out float openX), graded = Reach(true, out float gradedX);
+                    Debug.LogWarning($"OODA roads: no way found from {what} to the island's roads (start ground {h[sj, si]:F1} m, {shut} of 9 squares round it shut, nearest road {near:F0} m; {open} squares reachable, west to {openX:F0}; {graded} within the grade, west to {gradedX:F0}).");
+                }
             }
             int lanes = 0;
             foreach (var e in bridgeEnds)
