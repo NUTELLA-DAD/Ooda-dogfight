@@ -136,15 +136,33 @@ namespace Ooda.Turn.Core
 
         static void MakeArch(List<Box> b)
         {
+            // built up in uneven, turned blocks so it reads as weathered rock: piers broad at the water and narrowing as they
+            // climb, scree round their feet, the span thickest over the piers and lifting toward its middle, so the opening's
+            // top is a rough curve. Nothing stands inside 87 m of the middle below the lintel's 96 m.
             var f = new Frame { x = ArchX, z = ArchZ, yawDeg = 0 };
-            b.Add(f.Box("Rock Arch pier", -ArchPierAtM, 0, -20, ArchLintelBottomM + 12, ArchPierHalfM, 32, Rock, 9));
-            b.Add(f.Box("Rock Arch pier", ArchPierAtM, 0, -20, ArchLintelBottomM + 12, ArchPierHalfM, 30, Rock, -7));
-            b.Add(f.Box("Rock Arch foot", -ArchPierAtM - 22, 6, -20, 34, 46, 44, Rock, -14));
-            b.Add(f.Box("Rock Arch foot", ArchPierAtM + 26, -8, -20, 42, 44, 40, Rock, 17));
-            b.Add(f.Box("Rock Arch shoulder", -ArchPierAtM - 30, -4, 34, 74, 26, 30, Rock, 24));
-            b.Add(f.Box("Rock Arch lintel", 0, 0, ArchLintelBottomM, ArchTopM - 4, ArchPierAtM + ArchPierHalfM + 8, 27, Rock, 2));
-            b.Add(f.Box("Rock Arch top", 6, 0, ArchTopM - 4, ArchTopM, ArchPierAtM + ArchPierHalfM - 6, 22, RockTop, 2));
-            b.Add(f.Box("Rock Arch crag", ArchPierAtM + 6, 2, ArchTopM - 4, ArchTopM + 16, 24, 18, Rock, 31));
+            // the piers: a wide foot, a waist, a shoulder up into the span (each block's inner corner kept outside 87 m)
+            b.Add(f.Box("Rock Arch pier", -143, 2, -20, 50, 50, 40, Rock, 8));
+            b.Add(f.Box("Rock Arch pier", 146, -3, -20, 46, 52, 38, Rock, -9));
+            b.Add(f.Box("Rock Arch pier", -128, -2, 40, 100, 34, 30, Rock, -6));
+            b.Add(f.Box("Rock Arch pier", 129, 3, 36, 100, 33, 28, Rock, 7));
+            // scree and fallen blocks round the feet, on the outer sides and the flanks
+            b.Add(f.Box("Rock Arch foot", -188, 14, -20, 30, 40, 42, Rock, 17));
+            b.Add(f.Box("Rock Arch foot", 192, -10, -20, 36, 42, 38, Rock, -21));
+            b.Add(f.Box("Rock Arch foot", -150, -48, -20, 16, 30, 22, Rock, -33));
+            b.Add(f.Box("Rock Arch foot", 158, 44, -20, 12, 28, 20, Rock, 26));
+            b.Add(f.Box("Rock Arch shoulder", -182, -6, 30, 72, 26, 30, Rock, 24));
+            b.Add(f.Box("Rock Arch shoulder", 178, 8, 34, 64, 22, 24, Rock, -15));
+            // the span: heavy ends over the piers at the lintel's height, a thinner middle lifted 10 m, so the opening's top curves
+            b.Add(f.Box("Rock Arch lintel", -100, 0, ArchLintelBottomM, ArchTopM, 50, 27, Rock, 4));
+            b.Add(f.Box("Rock Arch lintel", 102, 1, ArchLintelBottomM, ArchTopM - 2, 48, 25, Rock, -5));
+            b.Add(f.Box("Rock Arch lintel", 0, -1, ArchLintelBottomM + 10, ArchTopM - 1, 64, 23, Rock, -3));
+            b.Add(f.Box("Rock Arch lintel", -40, 2, ArchLintelBottomM + 5, ArchTopM - 6, 30, 24, Rock, 9));
+            b.Add(f.Box("Rock Arch lintel", 44, -2, ArchLintelBottomM + 6, ArchTopM - 8, 28, 22, Rock, -11));
+            // its grassy top and a few crags along it
+            b.Add(f.Box("Rock Arch top", -8, 0, ArchTopM - 2, ArchTopM + 1, 120, 20, RockTop, 2));
+            b.Add(f.Box("Rock Arch crag", 108, 2, ArchTopM - 4, ArchTopM + 16, 24, 18, Rock, 31));
+            b.Add(f.Box("Rock Arch crag", -118, -3, ArchTopM - 4, ArchTopM + 10, 20, 16, Rock, -22));
+            b.Add(f.Box("Rock Arch crag", -30, 4, ArchTopM - 3, ArchTopM + 6, 14, 12, Rock, 40));
         }
 
         static void MakeFleet(List<Box> b, List<(string, double, double, double)> ships)

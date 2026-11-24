@@ -64,7 +64,7 @@ namespace Ooda.EditorTools
             Shot(cam, rt, dir, "q2_rock_arch_high", new Vector3(-13500, 420, 900), new Vector3(-12650, 60, 1650));
             Shot(cam, rt, dir, "r_fleet", new Vector3(1900, 260, -14100), new Vector3(3000, 10, -12900));
             Shot(cam, rt, dir, "r2_carrier", new Vector3(2650, 70, -13150), new Vector3(3000, 18, -12900));
-            Shot(cam, rt, dir, "s_city_balloons", new Vector3(9800, 700, 1400), new Vector3(13500, 450, 3200));
+            Shot(cam, rt, dir, "s_city_balloons", new Vector3(10300, 560, 1300), new Vector3(11800, 470, 4600));
             Shot(cam, rt, dir, "s2_balloon_close", new Vector3(11250, 590, 2700), new Vector3(11350, 606, 2800));
 
             cam.targetTexture = null;
