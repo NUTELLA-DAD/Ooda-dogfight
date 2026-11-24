@@ -69,6 +69,7 @@ namespace Ooda.Fx
             Town("Oasis Town", Island.Pads[Island.OasisTown], land, 2);
 
             Reservoir();
+            IslandSights.Ensure(transform, land);
             Debug.Log($"OODA: the island's dressing made in {(Time.realtimeSinceStartup - t0) * 1000f:F0} ms: {Island.Roads.Length} roads, {Island.Runways.Length} airfields, 3 towns, the reservoir.");
         }
 
