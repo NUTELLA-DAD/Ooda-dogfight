@@ -112,6 +112,7 @@ namespace Ooda.Turn.Core
                     if (load == null) Specials.Arm(g);
                     else load.Value.FitTo(c).Apply(m.numbers, g);
                 }
+                else setup.ApplyStraight(m.numbers, g);
                 return (m, g);
             }
             var (m0, g0) = Plane(true, 0, me, myHdg);

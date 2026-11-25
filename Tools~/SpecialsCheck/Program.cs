@@ -340,6 +340,58 @@ static class Program
             Check(new CombatNumbers().balloonMines == 0 && CombatNumbers.P51D().stealths == 0, "the other missions carry none");
         }
 
+        Console.WriteLine("\nThe straight dogfight's switches");
+        {
+            var all = new DogfightSetup { randomStart = false, arcade = false, ours = new[] { Craft.Mustang, Craft.F15 }, theirs = new[] { Craft.Bf109 } };
+            var b = Scenarios.Dogfight(all, Vec3d.Zero);
+            Check(b.missiles[0] > 0 && b.planes[0].RocketReady && b.flares[0] > 0 && b.radarMissiles[2] > 0 && b.chaff[2] > 0 && b.Predicts(0),
+                  "all on (the default): heat-seekers, the rocket, flares, a jet's radar missiles and chaff, and the predictor");
+            var none = all.Copy(); none.straightMissiles = none.straightRocket = none.straightFlares = none.straightPredictor = false;
+            var c = Scenarios.Dogfight(none, Vec3d.Zero);
+            Check(Enumerable.Range(0, c.Count).All(i => c.missiles[i] == 0 && c.radarMissiles[i] == 0 && !c.planes[i].RocketReady && c.flares[i] == 0 && c.chaff[i] == 0 && !c.Predicts(i)),
+                  $"all off: guns only, no rocket, flares, chaff or predictor ({none.DescribeStraight()})");
+            Check(c.combat[2].radarRangeFt > 0 && c.ammo[0] > 0, "the jet keeps its radar, everyone his guns");
+            var some = all.Copy(); some.straightRocket = false; some.straightPredictor = false;
+            var back = DogfightSetup.FromBytes(some.ToBytes());
+            Check(back.straightMissiles && !back.straightRocket && back.straightFlares && !back.straightPredictor, "the switches survive the trip to bytes");
+            Check(new DogfightSetup().straightRocket && new DogfightSetup().straightPredictor, "an older setup without them reads with all on");
+        }
+
+        Console.WriteLine("\nThe predictor");
+        {
+            var setup = new DogfightSetup
+            {
+                ours = new[] { Craft.Mustang, Craft.Mustang }, theirs = new[] { Craft.Bf109, Craft.Bf109 },
+                randomStart = false, start = Scenarios.Start.HeadOn, randomArena = false,
+                oursLoadouts = new[] { new Loadout(Kit.Missiles, Kit.Mines), new Loadout(Kit.Predictor, Kit.Missiles) },
+                theirsLoadouts = new[] { new Loadout(Kit.Missiles, Kit.Jammer), new Loadout(Kit.Missiles, Kit.Mines) },
+            };
+            var b = Scenarios.Dogfight(setup, Vec3d.Zero);
+            // order: 0 our lead, 1 their lead, 2 our wingman, 3 their wingman
+            Check(b.flightOf[0] == b.flightOf[2] && b.combat[2].predictor && !b.combat[0].predictor, "the wingman carries it, the lead doesn't, in the same flight");
+            Check(b.Predicts(0) && b.Predicts(2), "the wingman's predictor serves the whole flight: the lead sees their moves too");
+            Check(!b.Predicts(1) && !b.Predicts(3), "the other side, with none, doesn't");
+            Check(Scenarios.Dogfight(new DogfightSetup { randomStart = false }, Vec3d.Zero).Predicts(0) && new CombatNumbers().predictor,
+                  "everything (the tutorial's kit) and the other missions keep it");
+            var c = b.Clone(); c.down[2] = true;
+            Check(!c.Predicts(0), "shoot the carrier down and the flight loses it");
+            var sub = b.Subset(new[] { 0, 1, 2 });
+            Check(sub.Predicts(0), "a subset keeps it");
+            var sw = b.Clone(); sw.Swap(0, 2);
+            Check(sw.Predicts(0) && sw.combat[0].predictor, "a swap moves it with the plane");
+            Check(DogfightSetup.FromBytes(setup.ToBytes()).oursLoadouts[1].Has(Kit.Predictor), "the pick survives the trip to bytes");
+
+            // the bandit lead's jammer blinds it: the carrier (and the lead) within 9,000 ft of it
+            var j = b.Clone();
+            for (int i = 0; i < j.Count; i++) j.planes[i].state.pos = new Vec3d(i * 1000, 0, 15000);
+            var plans = Enumerable.Range(0, j.Count).Select(i => (TurnPlan?)Ahead(j, i)).ToArray();
+            var jp = plans[1].Value; jp.jam = true; plans[1] = jp;
+            j.Resolve(plans, 3);
+            Check(j.Jammed(2) && !j.Predicts(0) && !j.Predicts(2), "jammed, the carrier's predictor goes blind for the whole flight");
+            for (int t = 0; t < 2; t++) j.Resolve(Enumerable.Range(0, j.Count).Select(i => (TurnPlan?)Ahead(j, i)).ToArray(), 3);
+            Check(!j.Jammed(2) && j.Predicts(0), "and works again once the jam passes");
+        }
+
         Console.WriteLine("\nThe loadout: two picks each");
         {
             var setup = new DogfightSetup

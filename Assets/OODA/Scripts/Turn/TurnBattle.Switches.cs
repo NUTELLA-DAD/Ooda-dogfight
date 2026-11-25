@@ -187,7 +187,7 @@ namespace Ooda.Turn
             {
                 var w2 = Kept(GUI.skin.label, "TurnBattle.Switches:188", gs_ => { gs_.fontSize = 15; gs_.fontStyle = FontStyle.Bold; });
                 w2.normal.textColor = Mathf.Repeat(Time.unscaledTime, 0.7f) < 0.45f ? jamColor : Color.white;
-                Shadow(new Rect(x, y - 24, w, 22), "JAMMED: their ghosts are scrambled. Trust your eyes, not the projections.", w2);
+                Shadow(new Rect(x, y - 24, w, 22), "JAMMED: your predictor and radar are blind. Trust your eyes.", w2);
             }
             else RimeWarning(x, y - 24, w);
         }

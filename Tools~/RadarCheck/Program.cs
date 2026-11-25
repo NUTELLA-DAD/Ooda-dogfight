@@ -77,6 +77,38 @@ static class Program
             Check(swap.radarTrack[0] == 2 && swap.trackSec[0] < 1.6, $"asking for another target starts the lock over ({swap.trackSec[0]:F2} s on it)");
         }
 
+        Console.WriteLine("\nThe jammer breaks the lock");
+        {
+            // the target (with a jammer) 15,000 ft ahead: past the jammer's 9,000 ft, but the radar on it is jammed all the same
+            var b = Setup(15000, 0, 1, null, Specials.Arm(CombatNumbers.Phantom()));
+            b.Resolve(new TurnPlan?[] { Fly(0), Fly(0) }, 3);
+            Check(b.Locked(0), "locked after a whole turn");
+            var jam = Fly(0); jam.jam = true;
+            b.Resolve(new TurnPlan?[] { Fly(0, true), jam }, 3);
+            Check(b.Jammed(0) && !b.Locked(0) && b.radarTrack[0] == -1 && b.radarMissiles[0] == 2, "the target jams: the lock breaks at once, and nothing is fired");
+            b.Resolve(new TurnPlan?[] { Fly(0, true), Fly(0) }, 3);
+            Check(!b.Locked(0) && b.radarMissiles[0] == 2, "still jammed the next turn: no track, no lock");
+            b.Resolve(new TurnPlan?[] { Fly(0), Fly(0) }, 3);
+            Check(!b.Jammed(0) && b.radarTrack[0] == 1, "the jam passes: tracking again");
+
+            // a radar missile already guiding goes dumb
+            var c = Setup(12000, 0, 1, null, Specials.Arm(CombatNumbers.Phantom()));
+            c.Resolve(new TurnPlan?[] { Fly(0), Fly(0) }, 3);
+            c.Resolve(new TurnPlan?[] { Fly(0, true), Fly(0) }, 1);
+            var ms = c.bullets.OfType<Missile>().FirstOrDefault(x => x.radar);
+            Check(ms != null && ms.Tracking, "a radar missile on its way");
+            var jc = Fly(0); jc.jam = true;
+            c.Resolve(new TurnPlan?[] { Fly(0), jc }, 0.5);
+            Check(ms != null && !ms.Tracking, "jammed, the shooter's radar lets go and the missile goes dumb");
+
+            // the AI jams a radar missile on it
+            var d = Setup(12000, 0, 1, null, Specials.Arm(CombatNumbers.Phantom()));
+            d.Resolve(new TurnPlan?[] { Fly(0), Fly(0) }, 3);
+            d.Resolve(new TurnPlan?[] { Fly(0, true), Fly(0) }, 1);
+            var p = new EnemyAi { me = 1, sloppiness = 0 }.Plan(d, 3);
+            Check(p.jam, "an AI pilot with a radar missile on it sets off its jammer");
+        }
+
         Console.WriteLine("\nThe missile");
         {
             var b = Setup(15000, 0);

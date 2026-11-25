@@ -503,7 +503,7 @@ namespace Ooda.UI
                     var p = list[k];
                     var load = s.LoadoutOf(side == 0, k);
                     if (p.plane != null) Ooda.Turn.IceCoat.Set(p.plane, s.arcade && load != null && load.Value.Has(Kit.Ice));
-                    int n = s.arcade && load != null && !load.Value.Has(Kit.Missiles) ? 0 : DogfightSetup.Guns(p.craft, false).missiles;
+                    int n = s.arcade ? (load != null && !load.Value.Has(Kit.Missiles) ? 0 : DogfightSetup.Guns(p.craft, false).missiles) : s.straightMissiles ? DogfightSetup.Guns(p.craft, false).missiles : 0;
                     if (n == p.missilesShown || p.plane == null) continue;
                     p.missilesShown = n;
                     var tv = p.plane.GetComponent<Ooda.Turn.TurnAircraftView>();

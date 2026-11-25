@@ -55,6 +55,12 @@ namespace Ooda.Turn.Core
         /// <summary>Magnet rounds (a loadout pick, see Magnet): the rounds curve toward the nearest enemy they pass.</summary>
         public bool magnet;
         /// <summary>
+        /// The predictor (a loadout pick in an arcade dogfight, a switch in a straight one): it reads the other side's likely
+        /// moves, so its flight sees their projected paths, ghosts and tracers (Battle.Predicts). On unless a dogfight's setup
+        /// leaves it off; one carried by any plane of a flight serves the whole flight. An enemy jammer blinds it.
+        /// </summary>
+        public bool predictor = true;
+        /// <summary>
         /// The engines' heat as a seeker sees it from dead astern (see Heat): at idle, at full throttle, and the factor for
         /// WEP (a jet's afterburner). A piston fighter at full throttle is 1, the yardstick for the seeker's lock range.
         /// </summary>

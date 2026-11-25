@@ -230,6 +230,23 @@ namespace Ooda.Turn.Core
         /// <summary>Jammed now (see Specials).</summary>
         public bool Jammed(int i) => i >= 0 && i < Count && !Out(i) && time < jammedUntil[i] - 1e-9;
 
+        /// <summary>
+        /// Aircraft i sees the other side's likely moves (their projected paths, ghosts and tracers): someone still flying in
+        /// its flight carries the predictor (CombatNumbers.predictor; a plane in no flight counts only its own), and neither i
+        /// nor that carrier is jammed. A jammer blinds the predictor it reaches, and a jammed pilot's own picture with it.
+        /// </summary>
+        public bool Predicts(int i)
+        {
+            if (i < 0 || i >= Count || Jammed(i)) return false;
+            int f = i < flightOf.Length ? flightOf[i] : -1;
+            for (int j = 0; j < Count; j++)
+            {
+                if (j != i && (f < 0 || flightOf[j] != f || side[j] != side[i])) continue;
+                if (combat[j].predictor && !Out(j) && !Jammed(j)) return true;
+            }
+            return false;
+        }
+
         /// <summary>Stealthy now (see Specials): the other side's pilots, flak and gunners don't see it; heat-seekers still do.</summary>
         public bool Cloaked(int i) => i >= 0 && i < Count && !Out(i) && time < cloakUntil[i] - 1e-9;
 
@@ -327,9 +344,14 @@ namespace Ooda.Turn.Core
             {
                 if (Out(i) || !plans[i].jam || jammers[i] <= 0) continue;
                 jammers[i]--;
+                // every enemy near it, and any enemy radar tracking it from farther out: their picture scrambled, their
+                // predictors blind, and their radars' tracks and locks broken for as long (TrackRadars)
                 for (int j = 0; j < n; j++)
-                    if (side[j] != side[i] && !Out(j) && (planes[j].state.pos - planes[i].state.pos).Length <= Specials.JamRangeFt)
+                    if (side[j] != side[i] && !Out(j) && ((planes[j].state.pos - planes[i].state.pos).Length <= Specials.JamRangeFt || radarTrack[j] == i))
+                    {
                         jammedUntil[j] = Math.Max(jammedUntil[j], time + Specials.JamSec);
+                        radarTrack[j] = -1; trackSec[j] = 0;
+                    }
             }
             // the sonic boom, built and spent inside the turn (the blade cools as it ends): each one's build, whether it has
             // broken the barrier, and whom its shock cone has shoved already
@@ -1192,7 +1214,7 @@ namespace Ooda.Turn.Core
         {
             for (int i = 0; i < Count; i++)
             {
-                if (combat[i].radarRangeFt <= 0 || Out(i)) { radarTrack[i] = -1; trackSec[i] = 0; continue; }
+                if (combat[i].radarRangeFt <= 0 || Out(i) || Jammed(i)) { radarTrack[i] = -1; trackSec[i] = 0; continue; }   // jammed: no track, no lock, its radar missiles go dumb
                 int want = plans[i].radarTarget, cur = radarTrack[i], pick = -1;
                 // a radar missile in the air keeps the radar on its target (switching would drop it)
                 foreach (var b in bullets) if (b is Missile ms && ms.radar && ms.owner == i && ms.target >= 0 && ms.target == cur) { want = cur; break; }
