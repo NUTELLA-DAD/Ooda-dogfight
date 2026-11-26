@@ -104,13 +104,17 @@ namespace Ooda.Turn.Core
 
         /// <summary>
         /// The loadout lists the same length as the aircraft lists, each legal for its aircraft (a jet that had the rocket
-        /// swaps it): planes added bring what the plane before them brings (or the default), planes past the end go.
+        /// swaps it): with none picked yet, every plane rolls two random picks (Loadout.Random); planes added to a side bring
+        /// what the plane before them brings; planes past the end go.
         /// </summary>
         public void FitLoadouts()
         {
             oursLoadouts = FitLoadouts(oursLoadouts, ours);
             theirsLoadouts = FitLoadouts(theirsLoadouts, theirs);
         }
+
+        /// <summary>The dice for a new plane's random loadout (only ever rolled on the machine that picks the setup).</summary>
+        static readonly Random Dice = new Random();
 
         static Loadout[] FitLoadouts(Loadout[] side, Craft[] craft)
         {
@@ -123,7 +127,7 @@ namespace Ooda.Turn.Core
             var l = new Loadout[craft.Length];
             for (int k = 0; k < craft.Length; k++)
             {
-                var pick = side != null && k < side.Length ? side[k] : k > 0 ? l[k - 1] : Loadout.DefaultFor(craft[k]);
+                var pick = side != null && k < side.Length ? side[k] : side != null && k > 0 ? l[k - 1] : Loadout.Random(craft[k], Dice);
                 l[k] = pick.FitTo(craft[k]);
             }
             return l;

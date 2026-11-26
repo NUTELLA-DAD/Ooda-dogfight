@@ -31,9 +31,22 @@ namespace Ooda.Turn.Core
         /// <summary>Every capability, in the order the briefing shows them.</summary>
         public static readonly Kit[] All = (Kit[])Enum.GetValues(typeof(Kit));
 
-        /// <summary>What a plane brings unless its pilot picks otherwise: heat-seekers and mines, a jet both its missiles.</summary>
+        /// <summary>The old fixed default (heat-seekers and mines, a jet both its missiles); a new plane now rolls Random instead.</summary>
         public static Loadout Default => new Loadout(Kit.Missiles, Kit.Mines);
         public static Loadout DefaultFor(Craft c) => Allowed(Kit.Radar, c) ? new Loadout(Kit.Missiles, Kit.Radar) : Default;
+
+        /// <summary>
+        /// What a plane brings unless its pilot picks otherwise: two different picks at random that its aircraft can carry
+        /// (the host rolls them; the loadouts go over the wire as picked, so the friend flies the same ones).
+        /// </summary>
+        public static Loadout Random(Craft c, System.Random dice)
+        {
+            var can = new System.Collections.Generic.List<Kit>();
+            foreach (var k in All) if (Allowed(k, c)) can.Add(k);
+            int i = dice.Next(can.Count), j = dice.Next(can.Count - 1);
+            if (j >= i) j++;
+            return new Loadout(can[i], can[j]);
+        }
 
         public bool Has(Kit k) => a == k || b == k;
 

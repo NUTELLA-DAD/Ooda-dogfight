@@ -447,6 +447,21 @@ static class Program
             }
             Check(!special && !ab.bullets.Any(x => x is Mine), "AI pilots with missiles + rocket never plan a special");
 
+            // a new plane's loadout: two different random picks its aircraft can carry
+            var dice = new Random(7);
+            bool legal = true, varied = false; var first = Loadout.Random(Craft.F15, dice);
+            for (int t = 0; t < 200; t++)
+            {
+                var r = Loadout.Random(t % 2 == 0 ? Craft.F15 : Craft.Mustang, dice);
+                legal &= r.a != r.b && Loadout.Allowed(r.a, t % 2 == 0 ? Craft.F15 : Craft.Mustang) && Loadout.Allowed(r.b, t % 2 == 0 ? Craft.F15 : Craft.Mustang);
+                varied |= !r.Equals(first);
+            }
+            Check(legal && varied, "a new plane rolls two different picks it can carry, not the same every time");
+            var grown = new DogfightSetup { ours = new[] { Craft.Mustang, Craft.Mustang, Craft.Su27 } }; grown.FitLoadouts();
+            Check(grown.oursLoadouts.Length == 3 && grown.oursLoadouts.All(l => l.a != l.b) && !grown.oursLoadouts[2].Has(Kit.Rocket), "a setup with none picked gets a legal random loadout for every plane");
+            var rolled = DogfightSetup.FromBytes(grown.ToBytes());
+            Check(rolled.oursLoadouts.SequenceEqual(grown.oursLoadouts), "the rolled loadouts go over the wire as they are, so the friend flies the same");
+
             // radar missiles: a jet's pick
             Check(!Loadout.Allowed(Kit.Radar, Craft.Mustang) && Loadout.Allowed(Kit.Radar, Craft.F15) && Loadout.Allowed(Kit.Radar, Craft.Phantom), "radar missiles: jets only");
             Check(Loadout.DefaultFor(Craft.F15).Has(Kit.Radar) && Loadout.DefaultFor(Craft.F15).Has(Kit.Missiles) && !Loadout.DefaultFor(Craft.Spitfire).Has(Kit.Radar),
