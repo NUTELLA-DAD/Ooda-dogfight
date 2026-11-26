@@ -11,9 +11,10 @@ namespace Ooda.Fx
     /// Crossroads where the farmland meets the desert, Oasis Town by the oasis lake), and the reservoir's water behind its
     /// dam. Made at run time with the lands themselves (Fx/EastlandScape), in their material, painted per vertex: nothing
     /// to merge into a scene. None of it is ground to the battle: the houses and hangars are low, and stand on Island's
-    /// flat pads.
+    /// flat pads. The aircraft carrier at anchor off the north-west coast is here too (IslandDress.Carrier.cs), from its
+    /// own model.
     /// </summary>
-    public class IslandDress : MonoBehaviour
+    public partial class IslandDress : MonoBehaviour
     {
         static IslandDress made;
         readonly List<Mesh> meshes = new List<Mesh>();
@@ -69,7 +70,8 @@ namespace Ooda.Fx
             Town("Oasis Town", Island.Pads[Island.OasisTown], land, 2);
 
             Reservoir();
-            Debug.Log($"OODA: the island's dressing made in {(Time.realtimeSinceStartup - t0) * 1000f:F0} ms: {Island.Roads.Length} roads, {Island.Runways.Length} airfields, 3 towns, the reservoir.");
+            Carrier();
+            Debug.Log($"OODA: the island's dressing made in {(Time.realtimeSinceStartup - t0) * 1000f:F0} ms: {Island.Roads.Length} roads, {Island.Runways.Length} airfields, 3 towns, the reservoir{(CarrierAt != null ? ", the carrier" : "")}.");
         }
 
         GameObject Add(string name, EastlandScape.Part part, Material mat, bool shadows)
