@@ -74,6 +74,46 @@ namespace Ooda.EditorTools
                 Mark("FactoryTarget", c);
             }
 
+            // the factory's siding, where the railway begins (AlpineLayout.Siding): a loading platform under a long canopy
+            // between the yard and the track, where the train stands at the end of its run, a concrete apron over to the
+            // yard, and the buffers at the end of the line
+            {
+                var mb = new MeshBuilder(3);   // 0 concrete, 1 roof, 2 red steel
+                Vector3 a = rail[0], b = rail[12];   // the siding's straight first 120 m
+                Vector3 along = Flat(b - a).normalized, side = Vector3.Cross(along, Vector3.up);
+                if (Vector3.Dot(side, At(FactoryAt) - a) < 0) side = -side;   // toward the factory
+                var rot = Quaternion.LookRotation(along);
+                float ground = SampleArr(h, a.x, a.z), yardEdge = Mathf.Abs(Vector3.Dot(side, At(FactoryAt) - a)) - 95f;
+                Vector3 mid = a + along * 58f;
+                // the platform: 8 m wide, its edge 2 m off the track, its top a little under the coaches' floors
+                mb.Box(new Vector3(mid.x, (a.y + 0.8f + ground - 1.5f) / 2, mid.z) + side * 6f, rot, new Vector3(8f, a.y + 0.8f - (ground - 1.5f), 104f), 0);
+                // the apron from the platform to the yard, at the yard's height
+                if (yardEdge > 10.5f)
+                {
+                    float w = yardEdge - 10f + 1f;
+                    mb.Box(new Vector3(mid.x, ground + 0.2f, mid.z) + side * (10f + w / 2 - 0.5f), rot, new Vector3(w, 0.6f, 104f), 0);
+                }
+                // the canopy: posts down the platform's back, a roof over it sloping down toward the track, clear of the engine's chimney
+                for (float d = 12f; d <= 104f; d += 12f)
+                {
+                    Vector3 post = a + along * d + side * 8.6f;
+                    mb.Box(new Vector3(post.x, a.y + 3.8f, post.z), rot, new Vector3(0.35f, 6f, 0.35f), 2);
+                }
+                float tilt = Vector3.Dot(side, rot * Vector3.right) > 0 ? 7f : -7f;   // a positive z turn lifts +x: the yard's side up
+                mb.Box(new Vector3(mid.x, a.y + 6.6f, mid.z) + side * 6.5f, rot * Quaternion.Euler(0, 0, tilt), new Vector3(8f, 0.35f, 94f), 1);
+                // the buffers: a concrete block across the end of the track, a red beam on its face
+                Vector3 end = a - along * 2.2f;
+                mb.Box(new Vector3(end.x, a.y - 0.2f, end.z), rot, new Vector3(3.2f, 2.0f, 1.4f), 0);
+                mb.Box(new Vector3(end.x, a.y + 0.75f, end.z) + along * 0.8f, rot, new Vector3(2.8f, 0.45f, 0.3f), 2);
+                foreach (float across in new[] { -0.75f, 0.75f })   // the two buffer heads, facing the train
+                {
+                    Vector3 head = new Vector3(end.x, a.y + 0.75f, end.z) + rot * new Vector3(across, 0, 0);
+                    mb.Tube(head + along * 0.95f, head + along * 1.45f, 0.22f, 10, 2);
+                }
+                MeshObject("Siding", SaveMesh(mb, "Siding"), new[] { concrete, m.roof, m.steel }, root, true);
+                Mark("SidingBuffers", end);
+            }
+
             // the houses: plaster and wood with red roofs, lining the streets of the town's plan (TownPlan, AlpineRoads.cs)
             MeshObject("Houses", TownHousesMesh(h), new[] { m.plaster, m.wood, m.roof }, root, true);
 
