@@ -161,7 +161,7 @@ namespace Ooda.EditorTools
                 if (end != null) { pts[pts.Count - 1] = end.Value; }
                 return new Valley { name = name, pts = pts.ToArray(), floor = fl.ToArray(), halfFloor = 110, wall = 650, guard = 350, bumps = 3 };
             }
-            list.Add(RailValley("east rail valley", 0, 2, end: V(6250, -1850)));
+            list.Add(RailValley("east rail valley", 0, 2, start: V(SidingJoin.x, SidingJoin.z), end: V(6250, -1850)));
             list.Add(RailValley("east rail valley north", 3, 5, start: V(5250, -380)));
             list.Add(RailValley("west rail valley", 7, 9));
 
@@ -253,8 +253,8 @@ namespace Ooda.EditorTools
         }
 
         // ---------- the railway: its line and its rail height (x, rail top, z) ----------
-        // From the station by the town up the east side of the island, across the main valley on a stone viaduct just north
-        // of the village (low enough to pass under the bombers), then west and north up to the High Pass and over it to a
+        // From the factory's siding in the town (Siding, below), out of town to the east and up the east side of the island,
+        // across the main valley on a stone viaduct just north of the village (low enough to pass under the bombers), then west and north up to the High Pass and over it to a
         // station at the head of the main valley through the ridge beside it. Its heights are set here and kept to a 6 % grade at most (a rack railway); the
         // ground decides where it needs a bridge (more than 10 m of air under it) or a tunnel (more than 30 m of rock over it).
         // It is cut into the ground (CarveRail) where the rock over it is shallow.
@@ -268,6 +268,27 @@ namespace Ooda.EditorTools
             new Vector3(-900, 820, 7150), new Vector3(250, 790, 6600),
         };
         const float RailGrade = 0.06f;
+
+        /// <summary>The factory siding, where the line now begins: buffers beside the factory's halls, a straight 130 m south
+        /// along their east side past the loading platform (AlpineTown), then a sweep east across the town's south street
+        /// and round to the north-east, joining the line out of town SidingJoinsAt along its first leg on its own heading,
+        /// so the line beyond is just as it was. On the town's floor all the way.</summary>
+        static readonly Vector3[] Siding =
+        {
+            new Vector3(3925, 91, -4850), new Vector3(3925, 91, -4980), new Vector3(4040, 91, -5280), new Vector3(4400, 91, -5410),
+        };
+        const float SidingJoinsAt = 0.25f;
+
+        /// <summary>The main line's Catmull-Rom curve on leg s (Rail[s] to Rail[s + 1]) at t, or its slope there.</summary>
+        static Vector3 RailCurve(int s, float t, bool slope = false)
+        {
+            Vector3 p0 = Rail[Mathf.Max(0, s - 1)], p1 = Rail[s], p2 = Rail[s + 1], p3 = Rail[Mathf.Min(Rail.Length - 1, s + 2)];
+            if (slope) return 0.5f * ((-p0 + p2) + 2 * (2 * p0 - 5 * p1 + 4 * p2 - p3) * t + 3 * (-p0 + 3 * p1 - 3 * p2 + p3) * t * t);
+            return 0.5f * (2 * p1 + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t + (-p0 + 3 * p1 - 3 * p2 + p3) * t * t * t);
+        }
+
+        /// <summary>Where the siding meets the main line.</summary>
+        static Vector3 SidingJoin => RailCurve(0, SidingJoinsAt);
 
         /// <summary>Where the railway always goes through the rock in a tunnel (a circle round each, m): a spur on the east climb,
         /// and the ridge between the High Pass and the head of the main valley. Elsewhere deep rock makes a tunnel too.</summary>
@@ -302,19 +323,33 @@ namespace Ooda.EditorTools
             return path;
         }
 
-        /// <summary>The railway's control points as a smooth curve, evenly every RailStep metres along the ground.</summary>
+        /// <summary>The railway's control points as a smooth curve, evenly every RailStep metres along the ground: the factory
+        /// siding first, then the main line from where the siding joins it.</summary>
         static List<Vector3> RailLine()
         {
             var dense = new List<Vector3>();
-            for (int s = 0; s + 1 < Rail.Length; s++)
+            // the siding: a Hermite curve through its points, dead straight along the platform (its first leg), Catmull-Rom
+            // after, and arriving on the main line's heading where it joins (each end's slope scaled to its leg, so no overshoot)
+            var sp = Siding.Append(SidingJoin).ToArray();
+            int n = sp.Length;
+            float Leg(int i) => V(sp[i + 1].x - sp[i].x, sp[i + 1].z - sp[i].z).magnitude;
+            var m = new Vector3[n];
+            m[0] = sp[1] - sp[0];
+            m[1] = m[0] * (Leg(1) / Leg(0));
+            for (int i = 2; i + 1 < n; i++) m[i] = (sp[i + 1] - sp[i - 1]) / 2;
+            Vector3 joinSlope = RailCurve(0, SidingJoinsAt, true);
+            m[n - 1] = joinSlope * (Leg(n - 2) / V(joinSlope.x, joinSlope.z).magnitude);
+            for (int i = 0; i + 1 < n; i++)
             {
-                Vector3 p0 = Rail[Mathf.Max(0, s - 1)], p1 = Rail[s], p2 = Rail[s + 1], p3 = Rail[Mathf.Min(Rail.Length - 1, s + 2)];
+                Vector3 m0 = i == 0 ? m[0] : m[i], m1 = i == 0 ? m[0] : m[i + 1];   // the first leg: both ends on its own line
                 for (int k = 0; k < 200; k++)
                 {
-                    float t = k / 200f;
-                    dense.Add(0.5f * (2 * p1 + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t + (-p0 + 3 * p1 - 3 * p2 + p3) * t * t * t));
+                    float t = k / 200f, t2 = t * t, t3 = t2 * t;
+                    dense.Add((2 * t3 - 3 * t2 + 1) * sp[i] + (t3 - 2 * t2 + t) * m0 + (-2 * t3 + 3 * t2) * sp[i + 1] + (t3 - t2) * m1);
                 }
             }
+            for (int s = 0; s + 1 < Rail.Length; s++)
+                for (int k = s == 0 ? Mathf.RoundToInt(SidingJoinsAt * 200) : 0; k < 200; k++) dense.Add(RailCurve(s, k / 200f));
             dense.Add(Rail[Rail.Length - 1]);
             var path = new List<Vector3> { dense[0] };
             float carry = 0;
@@ -510,8 +545,8 @@ namespace Ooda.EditorTools
 
         // ---------- the town: the Town Strike's target, on the farmland ----------
         // A flat basin opened out of the fields east of the river, with the factory, streets of houses round it, and a runway
-        // strip on its west side, its take-off end to the south so the fighters climb out north. The railway starts at its
-        // station just east of it. Three radar sites stand on high ground round the island.
+        // strip on its west side, its take-off end to the south so the fighters climb out north. The railway starts at the
+        // factory's siding, beside its halls. Three radar sites stand on high ground round the island.
 
         public static readonly Vector2 TownCentre = V(3400, -5000);
         static readonly Vector2 TownRadii = V(1150, 1450);           // the flat basin, an ellipse

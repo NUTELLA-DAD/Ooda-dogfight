@@ -3,7 +3,7 @@ using UnityEngine;
 namespace Ooda.Fx
 {
     /// <summary>
-    /// The steam train on the island's railway: scenery only. It runs the line from the station by the town to the station at
+    /// The steam train on the island's railway: scenery only. It runs the line from the factory's siding in the town to the station at
     /// the head of the main valley and back, waiting a while at each end, its cars following the rails up the grades and
     /// round the curves, in and out of the tunnels, puffing steam while it is near the camera. It has no collider and is
     /// not on the Obstacles layer: the battle never sees it, so a game over the network stays in step.
