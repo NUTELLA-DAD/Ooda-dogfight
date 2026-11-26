@@ -1405,7 +1405,7 @@ namespace Ooda.Turn
             // The runs are set up here and flown on a worker thread (four to eight turns flown at once made a hitch
             // each time the stick was let go); the answer lands a frame or two later, unless the plan has moved on.
             var spread = new List<(Battle sim, TurnPlan?[] plans, double chance)>();
-            if (read != null && j < read.pred.Length && read.pred[j] != null)
+            if (read != null && j < read.pred.Length && read.pred[j] != null && PredictorOn)   // its likely moves only with the predictor
             {
                 var pr = read.pred[j];
                 for (int k = 0; k < pr.plans.Length; k++)
@@ -1574,7 +1574,7 @@ namespace Ooda.Turn
                 bool noGhost = i >= holos.Length || holos[i] == null;
                 var seen = Seen(i, preview.frames[i]);   // jammed: the enemies' paths where they aren't
                 if (battle.routes[i] != null) DrawPath(seen, end, bomberColor, noGhost);
-                else if (battle.side[i] != 0) { if (showProjection) DrawPath(seen, end, projectionColor, noGhost); }
+                else if (battle.side[i] != 0) { if (ProjectionOn) DrawPath(seen, end, projectionColor, noGhost); }
                 else DrawPath(seen, end, wingmanColor, noGhost);
             }
             // lined up behind it, your ghost shows where it is at the funnel's moment
@@ -1582,7 +1582,7 @@ namespace Ooda.Turn
             for (int i = 1; i < holos.Length; i++)
             {
                 bool hitByMe = i < burstHits.Length && burstHits[i] && battle.side[i] != battle.side[0];
-                ShowHolo(holos[i], Seen(i, preview.frames[i])[end], !battle.Out(i) && !HiddenFromMe(i) && JamFlicker(i) && (battle.side[i] == 0 || showProjection) && !(sightView && battle.side[i] != battle.side[0]),   // lined up, only the funnel's target shows (ShowFunnelTarget)
+                ShowHolo(holos[i], Seen(i, preview.frames[i])[end], !battle.Out(i) && !HiddenFromMe(i) && JamFlicker(i) && (battle.side[i] == 0 || ProjectionOn) && !(sightView && battle.side[i] != battle.side[0]),   // lined up, only the funnel's target shows (ShowFunnelTarget)
                          battle.side[i] == 0 ? holoFriendColor : hitByMe ? holoTargetHitColor : holoEnemyColor);
             }
             if (JammedNow) HideSpread();   // jammed: no read on their likely moves
@@ -1592,7 +1592,7 @@ namespace Ooda.Turn
             if (!sightView)
             foreach (var tr in preview.traces)
             {
-                if (tr.owner != 0 && !showProjection || HiddenFromMe(tr.owner) || JammedFrom(tr.owner)) continue;
+                if (tr.owner != 0 && (!showProjection || !PredictorOn && FromEnemy(tr.owner)) || HiddenFromMe(tr.owner) || JammedFrom(tr.owner)) continue;   // the enemies' (and flak's) only with the predictor
                 if (tr.missile) { DrawPreviewTrace(tr, tr.radar && tr.owner != 0 ? new Color(1f, 0.35f, 0.3f, 0.85f) : new Color(1f, 1f, 1f, 0.8f), 1.0f, 0.3f); continue; }
                 DrawPreviewTrace(tr, OutcomeColor(tr, MagnetTint(tr, TracerColor(tr.owner))), (tr.hit ? 0.5f : 0.35f) * (tr.magnet ? 1.5f : 1f), tr.hit ? 0.5f : tr.magnet ? 0.3f : 0.1f);   // magnet rounds a little bolder
             }
@@ -2027,7 +2027,7 @@ namespace Ooda.Turn
             if (GUI.Button(new Rect(bx, by, 180, 30), "Replay last turn  (R)")) Replay();
             GUI.enabled = true;
             by += 36;
-            if (GUI.Button(new Rect(bx, by, 180, 30), showProjection ? "Projection: on  (P)" : "Projection: off  (P)")) { showProjection = !showProjection; }
+            if (GUI.Button(new Rect(bx, by, 180, 30), !showProjection ? "Projection: off  (P)" : PredictorOn ? "Projection: on  (P)" : "Projection: no predictor")) { showProjection = !showProjection; }
             by += 36;
             if (GUI.Button(new Rect(bx, by, 180, 30), $"View: {(view != null ? view.focus.ToString() : "-")}  (V)") && view != null) view.NextFocus();
             by += 36;

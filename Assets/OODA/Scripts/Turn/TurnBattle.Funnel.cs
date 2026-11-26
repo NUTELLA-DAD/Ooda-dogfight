@@ -248,7 +248,7 @@ namespace Ooda.Turn
             ShowHolo(holos[j], them, true, FunnelHit(j, out _) ? holoTargetHitColor : holoEnemyColor);
             holos[j].transform.position += shift;
             // its less likely moves, fainter by their chance, so you can line up on one of those instead
-            if (!showProjection || read == null || read.target != j || read.spread == null) return;
+            if (!ProjectionOn || read == null || read.target != j || read.spread == null) return;
             var pr = read.pred[j];
             for (int k = 1; k < read.spread.Length && k - 1 < spreadHolos.Length; k++)
             {
@@ -330,11 +330,11 @@ namespace Ooda.Turn
             }
             if (!SightViewOn) return;   // the funnel and its labels show only lined up
             Vector3 shift = view != null ? view.sightPos - UnityFrame.Pos(me.pos) : Vector3.zero;
-            if (j >= 0 && read != null && read.target == j && read.pred != null && j < read.pred.Length && read.pred[j] != null) text += $"  {read.pred[j].chance[0] * 100:F0}%";
+            if (j >= 0 && ProjectionOn && read != null && read.target == j && read.pred != null && j < read.pred.Length && read.pred[j] != null) text += $"  {read.pred[j].chance[0] * 100:F0}%";
             var g = GuiPoint(UnityFrame.Pos(at) + shift);
             if (g != null) Shadow(new Rect(g.Value.x + 16, g.Value.y + 8, 360, 20), text, tag);
             // the less likely moves: their chance, and ON TARGET when your rounds are at them then
-            if (j < 0 || !showProjection || read == null || read.target != j || read.spread == null) return;
+            if (j < 0 || !ProjectionOn || read == null || read.target != j || read.spread == null) return;
             var pr = read.pred[j];
             for (int k = 1; k < read.spread.Length; k++)
             {

@@ -229,13 +229,18 @@ namespace Ooda.Turn
             return r;
         }
 
-        /// <summary>Everyone's plans for a preview: the player's, and each AI pilot on its likeliest plan once they are read.</summary>
+        /// <summary>
+        /// Everyone's plans for a preview: the player's, and each AI pilot on its likeliest plan once they are read. Without
+        /// a working predictor in your flight the enemies aren't read: the preview has them hold their course.
+        /// </summary>
         TurnPlan?[] WithLikeliest(TurnPlan mine)
         {
             var p = new TurnPlan?[battle.Count];
             p[0] = mine;
+            bool predicts = PredictorOn;
             if (read != null)
-                for (int i = 1; i < p.Length && i < read.pred.Length; i++) if (read.pred[i] != null) p[i] = read.pred[i].plans[0];
+                for (int i = 1; i < p.Length && i < read.pred.Length; i++)
+                    if (read.pred[i] != null && (predicts || battle.side[i] == battle.side[0])) p[i] = read.pred[i].plans[0];
             ApplyManual(p);   // the planes of yours you have planned fly your plans
             NetDrafts(p);     // online: your wingman's fly what they are planning
             return p;
@@ -257,7 +262,7 @@ namespace Ooda.Turn
             HideSpread();
             if (read == null) return;
             int j = read.target;
-            if (read.spread != null && showProjection && j >= 0 && j < battle.Count && !battle.Out(j) && !HiddenFromMe(j))
+            if (read.spread != null && ProjectionOn && j >= 0 && j < battle.Count && !battle.Out(j) && !HiddenFromMe(j))
             {
                 var pr = read.pred[j];
                 for (int k = 1; k < read.spread.Length && k - 1 < spreadHolos.Length; k++)
@@ -271,7 +276,7 @@ namespace Ooda.Turn
                     ShowHolo(spreadHolos[k - 1], fr[end], true, hc);
                 }
             }
-            if (!LeadShown || !showLeadRing || phase != Phase.Planning) return;
+            if (!LeadShown || !showLeadRing || phase != Phase.Planning || !PredictorOn) return;   // the lead rides its predicted path: the predictor's
             // the reticle: a ring and four ticks where on its path the rounds can meet it, facing the camera
             Vector3 p = UnityFrame.Pos(read.leadPoint);
             Vector3 right = view != null ? view.Cam.transform.right : Vector3.right, up = view != null ? view.Cam.transform.up : Vector3.up;
@@ -311,7 +316,7 @@ namespace Ooda.Turn
             if (read != null)
             {
                 int j = read.target;
-                if (read.spread != null && showProjection && !SightViewOn && !JammedNow && j >= 0 && j < battle.Count && !battle.Out(j) && preview != null)
+                if (read.spread != null && ProjectionOn && !SightViewOn && !JammedNow && j >= 0 && j < battle.Count && !battle.Out(j) && preview != null)
                 {
                     var pr = read.pred[j];
                     tag.normal.textColor = projectionColor;

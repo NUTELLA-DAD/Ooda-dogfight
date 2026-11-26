@@ -26,8 +26,9 @@ namespace Ooda.Turn.Core
     /// course, once a turn each: up to BoomShoveFps straight away from you, less the farther off. The one dead ahead you
     /// are cutting is never pushed out of the way; the ones beside and behind are scattered. Your own side is spared.
     ///
-    /// Jammer: every enemy within JamRangeFt sees a scrambled picture for JamSec (the next two planning phases): their AI
-    /// pilots plan against the others where they aren't (Scramble), and a jammed player's ghosts and projections jump about.
+    /// Jammer: every enemy within JamRangeFt, and any enemy radar tracking the jammer from farther out, is jammed for JamSec
+    /// (the next two planning phases): its radar drops its track and lock and can't take another (its radar missiles go
+    /// dumb), its predictor goes blind (Battle.Predicts), and its AI pilot plans against the others where they aren't (Scramble).
     ///
     /// Stealth: unseen for CloakSec (two normal turns): the other side's AI pilots, its flak and gunners don't see you, and the
     /// player can't see a stealthy enemy (only its heat, in the IR view). Heat-seekers still lock you: the engine is as hot as

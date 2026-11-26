@@ -8,7 +8,7 @@ namespace Ooda.Turn.Core
     /// To add one: add it here, give it its words in Loadout.Name, Short and Blurb, say in Allowed
     /// which aircraft can take it, and in Loadout.Apply what it puts on the plane.
     /// </summary>
-    public enum Kit { Missiles, Rocket, Mines, Blade, Stealth, Jammer, Radar, Ice, Well, Magnet, Slow, Blink, Mirror, Grapple, Snow, Jet, Flip, Portal }
+    public enum Kit { Missiles, Rocket, Mines, Blade, Stealth, Jammer, Radar, Ice, Well, Magnet, Slow, Blink, Mirror, Grapple, Snow, Jet, Flip, Portal, Predictor }
 
     /// <summary>
     /// A pilot's loadout: the two capabilities he brings to the fight (with Arcade on in the dogfight setup). Everyone
@@ -17,6 +17,8 @@ namespace Ooda.Turn.Core
     /// the jets (no rocket: their afterburner does that job) can't take the rocket, and only a jet (with a radar) can take
     /// radar missiles. Ice cases the plane in ice for the whole fight: no heat-seeker can lock it (CombatNumbers.iced). A snow
     /// cloud rimes over whoever flies through it, for a while (Systems.rime): heavier and slower, and as cold to a seeker.
+    /// The predictor shows the other side's likely moves to the carrier's whole flight (CombatNumbers.predictor): without
+    /// one in the flight, nobody in it sees the enemies' projected paths.
     /// Pure C#, no Unity.
     /// </summary>
     [Serializable]
@@ -29,9 +31,22 @@ namespace Ooda.Turn.Core
         /// <summary>Every capability, in the order the briefing shows them.</summary>
         public static readonly Kit[] All = (Kit[])Enum.GetValues(typeof(Kit));
 
-        /// <summary>What a plane brings unless its pilot picks otherwise: heat-seekers and mines, a jet both its missiles.</summary>
+        /// <summary>The old fixed default (heat-seekers and mines, a jet both its missiles); a new plane now rolls Random instead.</summary>
         public static Loadout Default => new Loadout(Kit.Missiles, Kit.Mines);
         public static Loadout DefaultFor(Craft c) => Allowed(Kit.Radar, c) ? new Loadout(Kit.Missiles, Kit.Radar) : Default;
+
+        /// <summary>
+        /// What a plane brings unless its pilot picks otherwise: two different picks at random that its aircraft can carry
+        /// (the host rolls them; the loadouts go over the wire as picked, so the friend flies the same ones).
+        /// </summary>
+        public static Loadout Random(Craft c, System.Random dice)
+        {
+            var can = new System.Collections.Generic.List<Kit>();
+            foreach (var k in All) if (Allowed(k, c)) can.Add(k);
+            int i = dice.Next(can.Count), j = dice.Next(can.Count - 1);
+            if (j >= i) j++;
+            return new Loadout(can[i], can[j]);
+        }
 
         public bool Has(Kit k) => a == k || b == k;
 
@@ -90,16 +105,17 @@ namespace Ooda.Turn.Core
             guns.lanes = Has(Kit.Jet) ? JetStream.Lanes : 0;
             guns.flips = Has(Kit.Flip) ? Specials.Flips : 0;
             guns.portals = Has(Kit.Portal) ? Specials.Portals : 0;
+            guns.predictor = Has(Kit.Predictor);
         }
 
         public static string Name(Kit k) => k == Kit.Missiles ? "Heat-seekers" : k == Kit.Rocket ? "Rocket" : k == Kit.Mines ? "Balloon mines"
                                           : k == Kit.Blade ? "Heat blade" : k == Kit.Stealth ? "Stealth" : k == Kit.Jammer ? "Jammer"
-                                          : k == Kit.Radar ? "Radar missiles" : k == Kit.Ice ? "Ice" : k == Kit.Well ? "Gravity well" : k == Kit.Magnet ? "Magnet rounds" : k == Kit.Slow ? "Time slow bomb" : k == Kit.Blink ? "Blink" : k == Kit.Mirror ? "Ricochet shield" : k == Kit.Grapple ? "Grapple" : k == Kit.Snow ? "Snow cloud" : k == Kit.Jet ? "Jet stream" : k == Kit.Flip ? "Gravity flip" : k == Kit.Portal ? "Portals" : k.ToString();
+                                          : k == Kit.Radar ? "Radar missiles" : k == Kit.Ice ? "Ice" : k == Kit.Well ? "Gravity well" : k == Kit.Magnet ? "Magnet rounds" : k == Kit.Slow ? "Time slow bomb" : k == Kit.Blink ? "Blink" : k == Kit.Mirror ? "Ricochet shield" : k == Kit.Grapple ? "Grapple" : k == Kit.Snow ? "Snow cloud" : k == Kit.Jet ? "Jet stream" : k == Kit.Flip ? "Gravity flip" : k == Kit.Portal ? "Portals" : k == Kit.Predictor ? "Predictor" : k.ToString();
 
         /// <summary>A few letters for a name plate.</summary>
         public static string Short(Kit k) => k == Kit.Missiles ? "MSL" : k == Kit.Rocket ? "RKT" : k == Kit.Mines ? "MINE"
                                            : k == Kit.Blade ? "BLADE" : k == Kit.Stealth ? "STLTH" : k == Kit.Jammer ? "JAM"
-                                           : k == Kit.Radar ? "RDR" : k == Kit.Ice ? "ICE" : k == Kit.Well ? "WELL" : k == Kit.Magnet ? "MAG" : k == Kit.Slow ? "SLOW" : k == Kit.Blink ? "BLINK" : k == Kit.Mirror ? "RICO" : k == Kit.Grapple ? "HOOK" : k == Kit.Snow ? "SNOW" : k == Kit.Jet ? "JET" : k == Kit.Flip ? "FLIP" : k == Kit.Portal ? "PORT" : k.ToString().ToUpperInvariant();
+                                           : k == Kit.Radar ? "RDR" : k == Kit.Ice ? "ICE" : k == Kit.Well ? "WELL" : k == Kit.Magnet ? "MAG" : k == Kit.Slow ? "SLOW" : k == Kit.Blink ? "BLINK" : k == Kit.Mirror ? "RICO" : k == Kit.Grapple ? "HOOK" : k == Kit.Snow ? "SNOW" : k == Kit.Jet ? "JET" : k == Kit.Flip ? "FLIP" : k == Kit.Portal ? "PORT" : k == Kit.Predictor ? "PRED" : k.ToString().ToUpperInvariant();
 
         /// <summary>What it does, in a line, for an aircraft (how many it carries).</summary>
         public static string Blurb(Kit k, Craft c)
@@ -111,7 +127,7 @@ namespace Ooda.Turn.Core
                 case Kit.Mines: return $"{Specials.Mines} mines dropped behind you that hang in the air for anyone on your tail.";
                 case Kit.Blade: return $"{Specials.Blades} charge: glow red hot for a turn and cut through anyone you pass close; fly straight to boom the ones beside and behind off course.";
                 case Kit.Stealth: return $"{Specials.Stealths} charge: unseen for two turns (heat-seekers still lock you).";
-                case Kit.Jammer: return $"{Specials.Jammers} charge: scramble what enemies near you see for two turns.";
+                case Kit.Jammer: return $"{Specials.Jammers} charge: for two turns, enemies near you (and any radar on you) lose their radar locks and predictors, and their AI sees a scrambled picture.";
                 case Kit.Radar: return Allowed(k, c) ? $"{DogfightSetup.Guns(c, false).radarMissiles} radar missiles: long reach, head-on too; keep them in your radar cone."
                                                      : "Jets only: a warbird has no radar.";
                 case Kit.Ice: return "Cased in ice all fight: heat-seekers can't lock you. Radar missiles and guns still can.";
@@ -125,6 +141,7 @@ namespace Ooda.Turn.Core
                 case Kit.Jet: return $"{JetStream.Lanes} jet streams: a 180 kt wind lane along your arrow (or back at a tailer) that carries planes, rounds and missiles.";
                 case Kit.Flip: return $"{Specials.Flips} flips: for two turns everyone near you but you falls up, and their rounds and missiles with them.";
                 case Kit.Portal: return $"{Specials.Portals} portal pairs: fly into one ring, come out of the other where you put it. Rounds and missiles go through too.";
+                case Kit.Predictor: return "Shows the enemies' likely paths, ghosts and tracers to your whole flight. An enemy jammer blinds it.";
                 default: return "";
             }
         }

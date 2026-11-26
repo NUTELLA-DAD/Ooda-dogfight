@@ -502,6 +502,14 @@ namespace Ooda.Turn.Core
             if (sub.slowBombs[0] > 0)
                 foreach (var b in sub.bullets)
                     if (b is Missile ms && ms.target == 0 && ms.Tracking && (ms.pos - me0.state.pos).Length < Specials.SlowReachFt * 0.9) { plan.slow = true; plan.slowAt = 0; return; }
+            // a radar missile guiding on it, or an enemy radar locked on it: the jammer breaks the lock (and the missile goes dumb)
+            if (sub.jammers[0] > 0)
+            {
+                foreach (var b in sub.bullets)
+                    if (b is Missile ms && ms.radar && ms.target == 0 && ms.Tracking) { plan.jam = true; return; }
+                for (int j = 0; j < sub.Count; j++)
+                    if (sub.side[j] != sub.side[0] && sub.Locked(j) && sub.radarTrack[j] == 0 && sub.radarMissiles[j] > 0) { plan.jam = true; return; }
+            }
             bool tailed = false, gunsOnMe = false;
             double tailFt = double.PositiveInfinity;
             for (int j = 0; j < sub.Count; j++)

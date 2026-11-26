@@ -21,9 +21,10 @@ namespace Ooda.Turn
     /// that shoves the enemies level with and behind you off course.
     /// You are the brightest thing in the IR view while it glows: every heat-seeker locks you from farther.
     ///
-    /// 7, Jammer: the enemies near you see scrambled ghosts for two turns (their AI pilots plan against where you aren't).
-    /// Jammed yourself, the enemies' projections, ghosts and predicted moves jump to the wrong place and flicker, and the
-    /// funnel and the spread of their likely moves are gone: you have only the planes themselves to go by.
+    /// 7, Jammer: for two turns the enemies near you (and any enemy radar tracking you, from any range) are jammed: their
+    /// radars drop their tracks and locks (their radar missiles go dumb), their predictors go blind, and their AI pilots plan
+    /// against where you aren't. Jammed yourself, your predictor is blind: the enemies' projections, ghosts, predicted moves,
+    /// the funnel's target and their tracers are gone, and your radar is dark: you have only the planes themselves to go by.
     ///
     /// 6, Stealth: two turns unseen. A stealthy enemy vanishes from your screen with its ghosts and projection (only its
     /// heat shows, in the IR view, and a heat-seeker still locks it); yours shows only as a dotted cyan outline. Firing shows you again.
@@ -124,6 +125,18 @@ namespace Ooda.Turn
         }
 
         // ---------- jammed: the enemies' ghosts where they aren't ----------
+
+        /// <summary>
+        /// Your flight's predictor works now: someone flying in it carries one, and neither you nor that carrier is jammed
+        /// (Battle.Predicts). Without it the enemies' projected paths, ghosts, likely moves and tracers don't show.
+        /// </summary>
+        bool PredictorOn => battle != null && battle.Predicts(0);
+
+        /// <summary>The enemies' projection shows: switched on (P) and your flight's predictor working.</summary>
+        bool ProjectionOn => showProjection && PredictorOn;
+
+        /// <summary>Fired by the other side (or the ground's guns, owner &lt; 0), as you see it.</summary>
+        bool FromEnemy(int owner) => battle == null || owner < 0 || owner >= battle.Count || battle.side[owner] != battle.side[0];
 
         /// <summary>The plane you are flying is jammed: the other side's projections are scrambled.</summary>
         bool JammedNow => battle != null && battle.Jammed(0);

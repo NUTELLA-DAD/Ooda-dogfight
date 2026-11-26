@@ -47,13 +47,19 @@ namespace Ooda.Turn.Core
         /// <summary>Side 0's guns get the forgiving hit radius and the tighter cone (a game liberty for the player against the AI). Off for side against side.</summary>
         public bool easyAimOurs = true;
         /// <summary>Arcade: every fighter brings its loadout (two picks: heat-seekers, the rocket or the specials, see Loadout).
-        /// Off, a straight dogfight: everyone carries heat-seekers and the rocket, and no specials.</summary>
+        /// Off, a straight dogfight: no specials, and the missiles, the rocket, the flares and the predictor as its switches say (straightMissiles...).</summary>
         public bool arcade = true;
         /// <summary>
         /// Each plane's loadout with Arcade on, in the same order as ours and theirs (FitLoadouts keeps the lengths together and
         /// each legal for its aircraft). Null: the old arcade, every fighter carrying everything (the tutorial flies that).
         /// </summary>
         public Loadout[] oursLoadouts, theirsLoadouts;
+        /// <summary>
+        /// With Arcade off, the straight dogfight's extras, each a switch for everyone on both sides: missiles (heat-seekers,
+        /// and a jet's radar missiles), the rocket, flares (and a jet's chaff), and the predictor (the enemies' projected
+        /// paths, ghosts and tracers). All on unless switched off; with Arcade on the loadouts decide instead.
+        /// </summary>
+        public bool straightMissiles = true, straightRocket = true, straightFlares = true, straightPredictor = true;
 
         public int Ours => ours.Length;
         public int Theirs => theirs.Length;
@@ -98,13 +104,17 @@ namespace Ooda.Turn.Core
 
         /// <summary>
         /// The loadout lists the same length as the aircraft lists, each legal for its aircraft (a jet that had the rocket
-        /// swaps it): planes added bring what the plane before them brings (or the default), planes past the end go.
+        /// swaps it): with none picked yet, every plane rolls two random picks (Loadout.Random); planes added to a side bring
+        /// what the plane before them brings; planes past the end go.
         /// </summary>
         public void FitLoadouts()
         {
             oursLoadouts = FitLoadouts(oursLoadouts, ours);
             theirsLoadouts = FitLoadouts(theirsLoadouts, theirs);
         }
+
+        /// <summary>The dice for a new plane's random loadout (only ever rolled on the machine that picks the setup).</summary>
+        static readonly Random Dice = new Random();
 
         static Loadout[] FitLoadouts(Loadout[] side, Craft[] craft)
         {
@@ -117,10 +127,33 @@ namespace Ooda.Turn.Core
             var l = new Loadout[craft.Length];
             for (int k = 0; k < craft.Length; k++)
             {
-                var pick = side != null && k < side.Length ? side[k] : k > 0 ? l[k - 1] : Loadout.DefaultFor(craft[k]);
+                var pick = side != null && k < side.Length ? side[k] : side != null && k > 0 ? l[k - 1] : Loadout.Random(craft[k], Dice);
                 l[k] = pick.FitTo(craft[k]);
             }
             return l;
+        }
+
+        /// <summary>
+        /// Put the straight dogfight's switches on a plane's numbers (copies changed in place), for Arcade off: whatever is
+        /// switched off it doesn't carry. The radar itself stays on a jet (it still sees and warns).
+        /// </summary>
+        public void ApplyStraight(AircraftNumbers plane, CombatNumbers guns)
+        {
+            if (!straightMissiles) { guns.missiles = 0; guns.radarMissiles = 0; }
+            if (!straightRocket) plane.rocketG = 0;
+            if (!straightFlares) { guns.flares = 0; guns.chaff = 0; }
+            guns.predictor = straightPredictor;
+        }
+
+        /// <summary>The straight dogfight's switches in a few words, for the briefing: "MSL · RKT · FLR · PRED", or "GUNS ONLY".</summary>
+        public string DescribeStraight()
+        {
+            var on = new System.Collections.Generic.List<string>();
+            if (straightMissiles) on.Add("MSL");
+            if (straightRocket) on.Add("RKT");
+            if (straightFlares) on.Add("FLR");
+            if (straightPredictor) on.Add("PRED");
+            return on.Count == 0 ? "GUNS ONLY" : string.Join(" · ", on);
         }
 
         /// <summary>What plane k of a side brings, or null for everything (no loadouts picked: see oursLoadouts).</summary>
@@ -203,9 +236,10 @@ namespace Ooda.Turn.Core
 
         // ---------- over the wire ----------
 
-        // 2 added the pilots, 3 the arena, 4 arcade, 5 the loadouts; an older setup (kept from an older build) still reads,
-        // everyone with the usual pilot over a random arena, with arcade on and no loadouts (everything)
-        const byte Version = 5;
+        // 2 added the pilots, 3 the arena, 4 arcade, 5 the loadouts, 6 the straight dogfight's switches; an older setup (kept
+        // from an older build) still reads, everyone with the usual pilot over a random arena, with arcade on, no loadouts
+        // (everything) and every straight switch on
+        const byte Version = 6;
 
         public byte[] ToBytes()
         {
@@ -228,6 +262,8 @@ namespace Ooda.Turn.Core
                     foreach (var l in oursLoadouts) { w.Write((byte)l.a); w.Write((byte)l.b); }
                     foreach (var l in theirsLoadouts) { w.Write((byte)l.a); w.Write((byte)l.b); }
                 }
+                byte straight = (byte)((straightMissiles ? 1 : 0) | (straightRocket ? 2 : 0) | (straightFlares ? 4 : 0) | (straightPredictor ? 8 : 0));
+                w.Write(straight);
                 w.Flush();
                 return ms.ToArray();
             }
@@ -262,6 +298,12 @@ namespace Ooda.Turn.Core
                     for (int k = 0; k < s.ours.Length; k++) s.oursLoadouts[k] = new Loadout((Kit)r.ReadByte(), (Kit)r.ReadByte());
                     for (int k = 0; k < s.theirs.Length; k++) s.theirsLoadouts[k] = new Loadout((Kit)r.ReadByte(), (Kit)r.ReadByte());
                     s.FitLoadouts();
+                }
+                if (version >= 6)
+                {
+                    byte straight = r.ReadByte();
+                    s.straightMissiles = (straight & 1) != 0; s.straightRocket = (straight & 2) != 0;
+                    s.straightFlares = (straight & 4) != 0; s.straightPredictor = (straight & 8) != 0;
                 }
                 if (s.arena >= Arenas.Count) s.arena = 0;
                 return s;

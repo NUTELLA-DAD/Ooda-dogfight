@@ -104,7 +104,12 @@ namespace Ooda.UI
             if (Kb(k => k.cKey) || Pad(p => p.buttonNorth)) ChangeAircraft(shift ? -1 : 1);
             if (Kb(k => k.equalsKey) || Kb(k => k.numpadPlusKey) || Pad(p => p.rightShoulder)) AddPlane(SelOurs);
             if (Kb(k => k.minusKey) || Kb(k => k.numpadMinusKey) || Pad(p => p.leftShoulder)) RemovePlane(SelOurs);
-            if (loadout && kb != null)
+            if (loadout && kb != null && !Chosen.arcade)   // a straight dogfight: 1 to 4 switch its extras
+            {
+                for (int i = 0; i < 4; i++)
+                    if (kb[UnityEngine.InputSystem.Key.Digit1 + i].wasPressedThisFrame) ToggleStraight(Chosen, i);
+            }
+            else if (loadout && kb != null)
                 for (int i = 0; i < Loadout.All.Length && i < 10; i++)
                     if (kb[i < 9 ? UnityEngine.InputSystem.Key.Digit1 + i : UnityEngine.InputSystem.Key.Digit0].wasPressedThisFrame) PickKit(Loadout.All[i]);   // the tenth is 0
             return Result.None;
@@ -349,7 +354,7 @@ namespace Ooda.UI
             var arc = new GUIStyle(s.arcade ? tagPicked : tag) { fontSize = 15 };
             if (GUI.Button(new Rect(w / 2 - 95, TopH + 162, 190, 32), s.arcade ? "ARCADE: ON (G)" : "ARCADE: OFF (G)", arc)) s.arcade = !s.arcade;
             GUI.DrawTexture(new Rect(w / 2 - 150, TopH + 196, 300, 22), shade);
-            GUI.Label(new Rect(w / 2 - 150, TopH + 197, 300, 20), s.arcade ? "EACH PILOT BRINGS TWO: L LOADOUT" : "STRAIGHT DOGFIGHT: NO SPECIALS", tagSub);
+            GUI.Label(new Rect(w / 2 - 150, TopH + 197, 300, 20), s.arcade ? "EACH PILOT BRINGS TWO: L LOADOUT" : $"STRAIGHT: {s.DescribeStraight()}  (L)", tagSub);
 
             // the name plates: a row above the foot bar in the order they stand, lead nearest the middle (under each
             // pilot's feet they crowd together as the wingmen step back)
@@ -402,6 +407,7 @@ namespace Ooda.UI
             if (GUI.Button(new Rect(w - 268, by + 8, 240, BotH - 16), "READY", ready)) result = Result.Fly;
             GUI.DrawTexture(new Rect(0, by - 26, w, 26), shade);
             Shadow(new Rect(0, by - 25, w, 24), mission ? "Esc closes the mission panel  ·  Enter flies"
+                : loadout && !s.arcade ? "1 – 4 switch an extra on or off for both sides  ·  G arcade  ·  L or Esc closes  ·  Enter ready"
                 : loadout ? "← → pick a pilot  ·  1 – 0 add a capability (it replaces the older pick)  ·  L or Esc closes  ·  Enter ready"
                 : "← → pick a pilot  ·  P pilot  ·  C aircraft  ·  L loadout  ·  + − planes on that side  ·  M mission  ·  G arcade  ·  Enter ready", hint);
 
@@ -499,6 +505,25 @@ namespace Ooda.UI
         /// does; a click (or its number key) adds it in place of the older pick. Guns, flares and the speed brake always come.
         /// With Arcade off it says so: a straight dogfight carries the same for everyone.
         /// </summary>
+        // ---------- the straight dogfight's switches (Arcade off): 0 missiles, 1 rocket, 2 flares, 3 predictor ----------
+
+        static bool StraightOn(DogfightSetup s, int i) => i == 0 ? s.straightMissiles : i == 1 ? s.straightRocket : i == 2 ? s.straightFlares : s.straightPredictor;
+
+        static void ToggleStraight(DogfightSetup s, int i)
+        {
+            if (i == 0) s.straightMissiles = !s.straightMissiles;
+            else if (i == 1) s.straightRocket = !s.straightRocket;
+            else if (i == 2) s.straightFlares = !s.straightFlares;
+            else s.straightPredictor = !s.straightPredictor;
+        }
+
+        static string StraightName(int i) => i == 0 ? "Missiles" : i == 1 ? "Rocket" : i == 2 ? "Flares" : "Predictor";
+
+        static string StraightBlurb(int i) => i == 0 ? "Heat-seekers for everyone, and a jet's radar missiles. Off: guns only."
+                                            : i == 1 ? "The rocket's 60 kt shove on every piston fighter (a jet keeps its afterburner)."
+                                            : i == 2 ? "Flares against heat-seekers, and a jet's chaff against radar missiles."
+                                            : "The enemies' predicted paths, ghosts, likely moves and tracers while you plan.";
+
         static int KitRows => Loadout.All.Length > 12 ? 3 : 2;
 
         void LoadoutPanel(Rect r, DogfightSetup s)
@@ -518,9 +543,19 @@ namespace Ooda.UI
             var note = new GUIStyle(dim) { wordWrap = true, alignment = TextAnchor.MiddleCenter };
             if (!s.arcade)
             {
-                GUI.Label(new Rect(r.x + 40, r.y + 110, r.width - 80, 80),
-                          "Arcade is off: a straight dogfight. Everyone carries guns, heat-seekers, flares, the rocket and the speed brake (a jet its radar missiles too), and no specials.", note);
-                if (GUI.Button(new Rect(r.center.x - 130, r.y + 210, 260, 44), "TURN ARCADE ON", smallPicked)) s.arcade = true;
+                GUI.Label(new Rect(r.x + 40, r.y + 84, r.width - 80, 40),
+                          "Arcade is off: a straight dogfight, no specials. Everyone carries guns and the speed brake; switch the extras below on or off for both sides.", note);
+                float sw = (r.width - 40 - 3 * 12) / 4, sy = r.y + 132, sh = 150;
+                for (int i = 0; i < 4; i++)
+                {
+                    var at = new Rect(r.x + 20 + i * (sw + 12), sy, sw, sh);
+                    bool on = StraightOn(s, i);
+                    if (GUI.Button(at, "", on ? smallPicked : small)) ToggleStraight(s, i);
+                    var nameStyle = new GUIStyle(head) { alignment = TextAnchor.UpperCenter };
+                    GUI.Label(new Rect(at.x + 8, at.y + 8, at.width - 16, 28), $"{i + 1}  {StraightName(i).ToUpperInvariant()}: {(on ? "ON" : "OFF")}", nameStyle);
+                    GUI.Label(new Rect(at.x + 10, at.y + 40, at.width - 20, at.height - 48), StraightBlurb(i), note);
+                }
+                if (GUI.Button(new Rect(r.center.x - 130, sy + sh + 24, 260, 44), "TURN ARCADE ON", smallPicked)) s.arcade = true;
                 return;
             }
 
