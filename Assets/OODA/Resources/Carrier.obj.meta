@@ -1,2 +1,8 @@
 fileFormatVersion: 2
 guid: efdd350ecad94545b008b0c1ba039e4b
+ModelImporter:
+  serializedVersion: 22200
+  materials:
+    materialImportMode: 0
+  meshes:
+    indexFormat: 1
