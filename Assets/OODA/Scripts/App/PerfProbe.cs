@@ -28,7 +28,7 @@ namespace Ooda.App
         public static bool Active { get; private set; }
 
         string path;
-        float seconds = 90f, settle = 6f, startAt = -1f;
+        float seconds = 90f, settle = 6f, startAt = -1f, upAt = -1f;
         bool markers;
         int gc0;
 
@@ -67,6 +67,7 @@ namespace Ooda.App
             if (startAt < 0)
             {
                 if (Section == null) return;
+                upAt = Time.realtimeSinceStartup;   // the load: launch to the battle up
                 startAt = Time.unscaledTime + settle;
                 return;
             }
@@ -150,6 +151,9 @@ namespace Ooda.App
             sb.AppendLine($"  args: {string.Join(" ", Environment.GetCommandLineArgs().Skip(1))}");
             sb.AppendLine($"  {SystemInfo.graphicsDeviceName} ({SystemInfo.graphicsDeviceType}), {SystemInfo.processorType} x{SystemInfo.processorCount}, {SystemInfo.systemMemorySize} MB");
             sb.AppendLine($"  {Screen.width}x{Screen.height} {(Screen.fullScreen ? "full screen" : "windowed")}, vSync {QualitySettings.vSyncCount}, target {Application.targetFrameRate}, graphics {Ooda.Fx.ToonLook.Level}, development {Debug.isDebugBuild}");
+            sb.AppendLine(string.Format(ci, "  battle up {0:F1} s after launch; memory {1} MB allocated, {2} MB reserved, {3} MB graphics driver",
+                upAt, UnityEngine.Profiling.Profiler.GetTotalAllocatedMemoryLong() / 1048576, UnityEngine.Profiling.Profiler.GetTotalReservedMemoryLong() / 1048576,
+                UnityEngine.Profiling.Profiler.GetAllocatedMemoryForGraphicsDriver() / 1048576));
             sb.AppendLine($"  GC collections (gen 0) during the run: {GC.CollectionCount(0) - gc0}; heap now {GC.GetTotalMemory(false) / 1048576} MB");
             sb.AppendLine();
             foreach (var kv in sections.OrderByDescending(k => k.Value.frames))
