@@ -104,7 +104,7 @@ namespace Ooda.App
                 var note = new StringBuilder();
                 note.AppendFormat(System.Globalization.CultureInfo.InvariantCulture, "  [{0}] {1:F0} ms, CPU main {2:F0} ms{3}", Section ?? "other", Time.unscaledDeltaTime * 1000f, mainThread.LastValue * 1e-6f, gcNow != gcLast ? ", a GC collection ran" : "");
                 if (markers)
-                    foreach (var (name, ms) in marks.Select(m => (m.name, ms: m.rec.LastValue * 1e-6)).Where(x => !Generic(x.name)).OrderByDescending(x => x.ms).Take(8))
+                    foreach (var (name, ms) in marks.Select(m => (m.name, ms: m.rec.LastValue * 1e-6)).Where(x => !Generic(x.name) && x.ms < 10000).OrderByDescending(x => x.ms).Take(8))
                         note.AppendFormat(System.Globalization.CultureInfo.InvariantCulture, "; {0} {1:F1}", name, ms);
                 hitchNotes.Add(note.ToString());
             }
