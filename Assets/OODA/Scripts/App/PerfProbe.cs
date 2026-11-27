@@ -28,9 +28,14 @@ namespace Ooda.App
         public static bool Active { get; private set; }
 
         string path;
-        float seconds = 90f, settle = 6f, startAt = -1f;
+        float seconds = 90f, settle = 6f, startAt = -1f, upAt = -1f;
         bool markers;
-        int gc0;
+        int gc0, gcLast;
+        readonly List<string> hitchNotes = new List<string>();
+
+        /// <summary>The markers that only wrap the whole frame (or wait in it), left out of a hitch's note.</summary>
+        static bool Generic(string name) => name.StartsWith("Idle") || name.StartsWith("Main Thread") || name.StartsWith("PlayerLoop") || name.StartsWith("Semaphore")
+            || name.StartsWith("Gfx.WaitFor") || name.Contains("WaitFor") || name.StartsWith("GfxTask_ReadValue");
 
         ProfilerRecorder mainThread, renderThread, gcAlloc, batches, setPass, drawCalls, tris, verts, shadowCasters;
         readonly List<(string name, ProfilerRecorder rec)> marks = new List<(string, ProfilerRecorder)>();
@@ -67,6 +72,7 @@ namespace Ooda.App
             if (startAt < 0)
             {
                 if (Section == null) return;
+                upAt = Time.realtimeSinceStartup;   // the load: launch to the battle up
                 startAt = Time.unscaledTime + settle;
                 return;
             }
@@ -91,6 +97,18 @@ namespace Ooda.App
                 st.markSum ??= new double[marks.Count];
                 for (int k = 0; k < marks.Count; k++) st.markSum[k] += marks[k].rec.LastValue;
             }
+            // a hitch: what it was (a collection ran in it? the costliest markers, with -perfmarkers)
+            int gcNow = GC.CollectionCount(0);
+            if (Time.unscaledDeltaTime > 0.0334f && hitchNotes.Count < 40)
+            {
+                var note = new StringBuilder();
+                note.AppendFormat(System.Globalization.CultureInfo.InvariantCulture, "  [{0}] {1:F0} ms, CPU main {2:F0} ms{3}", Section ?? "other", Time.unscaledDeltaTime * 1000f, mainThread.LastValue * 1e-6f, gcNow != gcLast ? ", a GC collection ran" : "");
+                if (markers)
+                    foreach (var (name, ms) in marks.Select(m => (m.name, ms: m.rec.LastValue * 1e-6)).Where(x => !Generic(x.name) && x.ms < 10000).OrderByDescending(x => x.ms).Take(8))
+                        note.AppendFormat(System.Globalization.CultureInfo.InvariantCulture, "; {0} {1:F1}", name, ms);
+                hitchNotes.Add(note.ToString());
+            }
+            gcLast = gcNow;
 
             if (Time.unscaledTime >= startAt + seconds) { Write(); Quit(); }
         }
@@ -112,7 +130,7 @@ namespace Ooda.App
             tris = ProfilerRecorder.StartNew(ProfilerCategory.Render, "Triangles Count", 1);
             verts = ProfilerRecorder.StartNew(ProfilerCategory.Render, "Vertices Count", 1);
             shadowCasters = ProfilerRecorder.StartNew(ProfilerCategory.Render, "Shadow Casters Count", 1);
-            gc0 = GC.CollectionCount(0);
+            gc0 = gcLast = GC.CollectionCount(0);
             if (!markers) return;
             var handles = new List<ProfilerRecorderHandle>();
             ProfilerRecorderHandle.GetAvailable(handles);
@@ -150,6 +168,9 @@ namespace Ooda.App
             sb.AppendLine($"  args: {string.Join(" ", Environment.GetCommandLineArgs().Skip(1))}");
             sb.AppendLine($"  {SystemInfo.graphicsDeviceName} ({SystemInfo.graphicsDeviceType}), {SystemInfo.processorType} x{SystemInfo.processorCount}, {SystemInfo.systemMemorySize} MB");
             sb.AppendLine($"  {Screen.width}x{Screen.height} {(Screen.fullScreen ? "full screen" : "windowed")}, vSync {QualitySettings.vSyncCount}, target {Application.targetFrameRate}, graphics {Ooda.Fx.ToonLook.Level}, development {Debug.isDebugBuild}");
+            sb.AppendLine(string.Format(ci, "  battle up {0:F1} s after launch; memory {1} MB allocated, {2} MB reserved, {3} MB graphics driver",
+                upAt, UnityEngine.Profiling.Profiler.GetTotalAllocatedMemoryLong() / 1048576, UnityEngine.Profiling.Profiler.GetTotalReservedMemoryLong() / 1048576,
+                UnityEngine.Profiling.Profiler.GetAllocatedMemoryForGraphicsDriver() / 1048576));
             sb.AppendLine($"  GC collections (gen 0) during the run: {GC.CollectionCount(0) - gc0}; heap now {GC.GetTotalMemory(false) / 1048576} MB");
             sb.AppendLine();
             foreach (var kv in sections.OrderByDescending(k => k.Value.frames))
@@ -171,6 +192,11 @@ namespace Ooda.App
                         if (ms >= 0.02) sb.AppendLine(string.Format(ci, "    {0,8:F3}  {1}", ms, marks[k].name));
                 }
                 sb.AppendLine();
+            }
+            if (hitchNotes.Count > 0)
+            {
+                sb.AppendLine($"The first {hitchNotes.Count} hitches (frames over 33 ms):");
+                foreach (var h in hitchNotes) sb.AppendLine(h);
             }
             try
             {

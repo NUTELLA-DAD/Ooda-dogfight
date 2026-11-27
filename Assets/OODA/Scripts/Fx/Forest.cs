@@ -112,6 +112,7 @@ namespace Ooda.Fx
         void Draw(ScriptableRenderContext ctx, Camera cam)
         {
             if (groups == null || squares == null || cam.cameraType == CameraType.Preview || cam.cameraType == CameraType.Reflection) return;
+            if ((cam.cullingMask & (1 << gameObject.layer)) == 0) return;   // a camera that doesn't see the forest's layer (the cockpit gauges' own)
             GeometryUtility.CalculateFrustumPlanes(cam, planes);
             Vector3 eye = cam.transform.position;
             float max = Mathf.Min(MaxDistance, cam.farClipPlane);

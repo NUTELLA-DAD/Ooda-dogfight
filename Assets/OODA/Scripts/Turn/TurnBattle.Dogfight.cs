@@ -540,8 +540,13 @@ namespace Ooda.Turn
         }
 
         /// <summary>The bot's turn: the arrow on the lead and fire on the hits when the lead has any, else an AI pilot's plan.</summary>
+        static readonly Unity.Profiling.ProfilerMarker mkBotPlan = new Unity.Profiling.ProfilerMarker("TurnBattle.BotPlan");
+
+        /// <summary>The bot's own plan, on the main thread (about 90 ms once a turn on 4 v 4: the frame-time probe's
+        /// remaining planning hitches are this, which a player never has).</summary>
         void BotPlan()
         {
+            using var scope = mkBotPlan.Auto();
             if (read.lead != null && read.leadHits > 0) { SetAim(read.lead.Value); plan.throttle = 1; FireAtPredicted(); }
             else
             {

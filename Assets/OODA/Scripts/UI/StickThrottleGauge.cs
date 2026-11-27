@@ -179,6 +179,32 @@ namespace Ooda.UI
             visible = on;
             stickCam.enabled = throttleCam.enabled = on;
             if (pedalsCam != null) pedalsCam.enabled = on;
+            drawnAt = -1f;   // shown again: draw all three at once
+        }
+
+        // Each picture is drawn again only when what it shows has moved (a held stick, throttle or pedal bar is the same
+        // picture frame after frame, and each camera cost about half a millisecond of the main thread a frame); a texture
+        // keeps its last picture while its camera is off. Every half second they are drawn anyway, in case the light changed.
+        Vector2 drawnStick = new Vector2(9, 9);
+        float drawnOver = -1, drawnShake = -1, drawnThrottle = -1, drawnRudder = -9, drawnAt = -1f;
+        bool drawnWep;
+
+        void ChooseCameras()
+        {
+            if (!visible) return;
+            const float eps = 0.0005f;
+            bool every = drawnAt < 0 || Time.unscaledTime - drawnAt > 0.5f;
+            bool stickMoved = every || shake > 0 || drawnShake > 0 || (shownStick - drawnStick).sqrMagnitude > eps * eps || Mathf.Abs(shownOver - drawnOver) > eps
+                              || StickTexture == null || !StickTexture.IsCreated();
+            bool throttleMoved = every || Mathf.Abs(shownThrottle - drawnThrottle) > eps || wep != drawnWep || ThrottleTexture == null || !ThrottleTexture.IsCreated();
+            bool pedalsMoved = every || Mathf.Abs(shownRudder - drawnRudder) > eps || (PedalsTexture != null && !PedalsTexture.IsCreated());
+            stickCam.enabled = stickMoved;
+            throttleCam.enabled = throttleMoved;
+            if (pedalsCam != null) pedalsCam.enabled = pedalsMoved;
+            if (stickMoved) { drawnStick = shownStick; drawnOver = shownOver; drawnShake = shake; }
+            if (throttleMoved) { drawnThrottle = shownThrottle; drawnWep = wep; }
+            if (pedalsMoved) drawnRudder = shownRudder;
+            if (every) drawnAt = Time.unscaledTime;
         }
 
         public bool Visible => visible;
@@ -191,6 +217,7 @@ namespace Ooda.UI
             shownThrottle = Mathf.Lerp(shownThrottle, wantThrottle, k);
             shownRudder = Mathf.Lerp(shownRudder, wantRudder, k);
             Pose();
+            ChooseCameras();
         }
 
         /// <summary>Back tips the top toward the camera (-z), right toward +x; more throttle swings the lever forward (+z).</summary>
