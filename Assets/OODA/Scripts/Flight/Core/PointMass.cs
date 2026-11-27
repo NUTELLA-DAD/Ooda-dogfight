@@ -102,6 +102,42 @@ namespace Ooda.Flight.Core
             return Rk4(s, dt, accel, vHat => up0.SquareTo(vHat));
         }
 
+        /// <summary>(thrust - drag) / weight for a true airspeed (kt), height (ft) and G, as a struct (no delegate, no garbage).</summary>
+        public interface IExcess { double Of(double ktas, double altFt, double g); }
+
+        /// <summary>StepBody with the excess as a struct: the same sums in the same order, without the delegates and
+        /// closures (they made about 300 bytes of garbage a step, and the preview and the AI fly thousands of steps).</summary>
+        public static State StepBody<T>(State s, double g, double sideG, double dt, in T excess) where T : struct, IExcess
+        {
+            Vec3d up0 = s.up;
+            Vec3d p0 = s.pos, v0 = s.vel;
+            Vec3d a1 = BodyAccel(p0, v0, up0, g, sideG, in excess);
+            Vec3d p2 = p0 + v0 * (dt / 2), v2 = v0 + a1 * (dt / 2);
+            Vec3d a2 = BodyAccel(p2, v2, up0, g, sideG, in excess);
+            Vec3d p3 = p0 + v2 * (dt / 2), v3 = v0 + a2 * (dt / 2);
+            Vec3d a3 = BodyAccel(p3, v3, up0, g, sideG, in excess);
+            Vec3d p4 = p0 + v3 * dt, v4 = v0 + a3 * dt;
+            Vec3d a4 = BodyAccel(p4, v4, up0, g, sideG, in excess);
+            double w = dt / 6;
+            Vec3d dp = (v0 + v2 * 2 + v3 * 2 + v4) * w;
+            Vec3d dv = (a1 + a2 * 2 + a3 * 2 + a4) * w;
+            Vec3d v = v0 + dv;
+            return new State { pos = p0 + dp, vel = v, up = up0.SquareTo(v.Normalized) };
+        }
+
+        static Vec3d BodyAccel<T>(Vec3d p, Vec3d v, Vec3d up0, double g, double sideG, in T excess) where T : struct, IExcess
+        {
+            Vec3d vHat = v.Normalized;
+            Vec3d up = up0.SquareTo(vHat);
+            Vec3d right = Vec3d.Cross(vHat, up);
+            double speed = v.Length;
+            Vec3d vh = v / speed;
+            double ex = excess.Of(speed * Atmosphere.FtpsToKt, p.z, g);
+            Vec3d a = (up * g + right * sideG + vh * ex) * Atmosphere.GFtps2;
+            a.z -= Atmosphere.GFtps2;
+            return a;
+        }
+
         /// <summary>A level, wings-level state from speed (KTAS), heading (math radians, counter-clockwise from east) and climb angle.</summary>
         public static State Make(Vec3d pos, double ktas, double headingRad, double climbRad = 0)
         {

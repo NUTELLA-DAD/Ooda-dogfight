@@ -1304,8 +1304,23 @@ namespace Ooda.Turn
             for (int k = 0; k < j.gsim.Count; k++) if (j.gsim.side[k] != j.gsim.side[0]) j.gsim.Spare(k);
             j.gsim.bullets.RemoveAll(b => !(b is Tether));   // a grapple's line still swings the gun line
             j.gplans = WithLikeliest(full);
+            j.sim.frameStore = TakeFrames();
+            j.gsim.frameStore = TakeFrames();
             dirty = false;
             return j;
+        }
+
+        // The preview's frames are handed back when a newer preview replaces it (or one is dropped), and the next preview
+        // writes into them: main thread only, so a frame array is never written while it is on show.
+        readonly Stack<AircraftFrame[][]> framePool = new Stack<AircraftFrame[][]>();
+        AircraftFrame[][] TakeFrames() => framePool.Count > 0 ? framePool.Pop() : null;
+        void GiveBackFrames(TurnResult r)
+        {
+            if (r?.frames == null || framePool.Count >= 6) return;
+            if (r == preview || r == gunPreview) return;   // still on show
+            foreach (var f in r.frames) if (f == null) return;
+            framePool.Push(r.frames);
+            r.frames = null;
         }
 
         /// <summary>The preview now, on the main thread (when something needs its answer straight away).</summary>
@@ -1334,6 +1349,7 @@ namespace Ooda.Turn
                 }
                 else if (done.epoch == previewEpoch && done.of == battle && done.turn == battle.turn && (phase == Phase.Planning || phase == Phase.Thinking))
                     ApplyPreview(done);
+                else if (!t.IsFaulted) { GiveBackFrames(done.preview); GiveBackFrames(done.gun); }   // out of date: its frames go round again
             }
             if (!dirty) return;
             // the first preview of a turn (or after a swap) at once, so the last turn's paths never show from the new place
@@ -1350,7 +1366,10 @@ namespace Ooda.Turn
         void ApplyPreview(PreviewJob j)
         {
             var sim = j.sim;
+            TurnResult oldPreview = preview, oldGun = gunPreview;
             preview = j.preview;
+            gunPreview = j.gun;
+            if (oldPreview != null || oldGun != null) { GiveBackFrames(oldPreview); GiveBackFrames(oldGun); jamSeen.Clear(); }
             shownFor = j.of; shownTurn = j.turn;
             RadarPreviewDone(sim);
             previewDeparts = preview.frames[0].Any(f => f.departed);
@@ -1379,7 +1398,6 @@ namespace Ooda.Turn
             confidencePending = confidenceTarget >= 0 && battle.routes[confidenceTarget] == null && !battle.InFormation(confidenceTarget);
             confidenceAt = Time.unscaledTime + 0.25f;
 
-            gunPreview = j.gun;
             // the hit window: when a round fired connects, short gaps merged
             hitWindows.Clear();
             var times = gunPreview.hits.Where(h => h.shooter == 0).Select(h => h.fireTime - gunPreview.startTime).OrderBy(x => x).ToList();

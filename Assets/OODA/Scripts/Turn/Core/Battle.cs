@@ -8,6 +8,8 @@ namespace Ooda.Turn.Core
     public class TurnResult
     {
         public double startTime, dt;
+        /// <summary>The steps flown (frames run 0 to steps).</summary>
+        public int steps;
         public AircraftFrame[][] frames;
         public List<Trace> traces = new List<Trace>();
         public List<HitEvent> hits = new List<HitEvent>();
@@ -250,9 +252,13 @@ namespace Ooda.Turn.Core
         /// </summary>
         public bool Iced(int i) => i >= 0 && i < Count && (combat[i].iced || planes[i].systems.RimeCold);
 
+        /// <summary>Frames from an old recorded turn for the next Resolve to write into (it takes them, once), or null. See Resolve.</summary>
+        [NonSerialized] public AircraftFrame[][] frameStore;
+
         public Battle Clone()
         {
             var c = (Battle)MemberwiseClone();
+            c.frameStore = null;
             c.planes = new FlightModel[Count];
             c.routes = new Route[Count];
             for (int i = 0; i < Count; i++) { c.planes[i] = planes[i].Clone(); c.routes[i] = routes[i]?.Copy(); }
@@ -336,24 +342,32 @@ namespace Ooda.Turn.Core
             var ramHeat = new double[n];
             var sonic = new bool[n];
             var shoved = new bool[n, n];
-            var res = new TurnResult { startTime = time, dt = StepSec, frames = new AircraftFrame[n][] };
+            // a recorded turn can write into frames handed back from an old one (frameStore: the planning preview's, so the
+            // preview flown every frame the stick moves doesn't make a quarter of a megabyte of garbage each time); every
+            // frame is written below, so nothing of the old turn is left in them
+            var store = frameStore; frameStore = null;
+            bool reuse = record && store != null && store.Length == n;
+            for (int i = 0; reuse && i < n; i++) reuse = store[i] != null && store[i].Length == steps + 1;
+            var res = new TurnResult { startTime = time, dt = StepSec, steps = steps, frames = reuse ? store : new AircraftFrame[n][] };
             var traceOf = record ? new Dictionary<Bullet, Trace>() : null;
             if (record)
             {
-                for (int i = 0; i < n; i++) { res.frames[i] = new AircraftFrame[steps + 1]; res.frames[i][0] = Frame(i, false, ramHeat[i], sonic[i]); }
+                for (int i = 0; i < n; i++) { if (!reuse) res.frames[i] = new AircraftFrame[steps + 1]; res.frames[i][0] = Frame(i, false, ramHeat[i], sonic[i]); }
                 foreach (var b in bullets) StartTrace(res, traceOf, b, 0);
             }
 
+            // each step's scratch, made once a turn (not 150 times) and cleared or filled at every step
+            bool[] firing = new bool[n], warped = new bool[n];
+            var before = new Vec3d[n];
+            var velBefore = new Vec3d[n];
+            var clock = new double[n];
             for (int k = 1; k <= steps; k++)
             {
                 double t = (k - 1) * StepSec;   // time into the turn at the start of this step
-                bool[] firing = new bool[n], warped = new bool[n];
-                var before = new Vec3d[n];
-                var velBefore = new Vec3d[n];
+                Array.Clear(firing, 0, n); Array.Clear(warped, 0, n);
                 for (int i = 0; i < n; i++) { before[i] = planes[i].state.pos; velBefore[i] = planes[i].state.vel; }
                 // Time slow bubbles: how much of this step each aircraft lives (1 outside any bubble)
                 bool anySlow = AnyBubbleUp();
-                var clock = new double[n];
                 for (int i = 0; i < n; i++) clock[i] = anySlow ? SlowClock(planes[i].state.pos) : 1;
 
                 // Aircraft
@@ -1153,6 +1167,10 @@ namespace Ooda.Turn.Core
             }
             var tr = new Trace { owner = b.owner, startFrame = frame, missile = b is Missile, radar = b is Missile rm && rm.radar, chaff = b is Chaff, mine = b is Mine, well = b is Well, magnet = b.magnet, bubble = b is TimeBubble, snow = b is SnowCloud, flip = b is Flip, age0 = b.age };
             if (b is Portal po) { tr.portal = true; tr.portalB = po.posB; tr.portalFaceA = po.faceA; tr.portalFaceB = po.faceB; }
+            // room for a point each frame it can still live in this turn, so the list isn't regrown (and copied) as it goes
+            int room = res.steps - frame + 1;
+            if (b.lifeSec > 0) room = (int)Math.Min(room, (b.lifeSec - b.age) / StepSec + 3);
+            tr.points.Capacity = Math.Max(4, room);
             tr.points.Add(b.pos);
             traceOf[b] = tr;
             if (b is Flare) res.flares.Add(tr); else if (b is Chaff) res.chaff.Add(tr); else if (b is Mine) res.mines.Add(tr); else if (b is Well) res.wells.Add(tr); else if (b is TimeBubble) res.bubbles.Add(tr); else if (b is SnowCloud) res.snow.Add(tr); else if (b is Flip) res.flips.Add(tr); else if (b is Portal) res.portals.Add(tr); else res.traces.Add(tr);

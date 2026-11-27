@@ -202,6 +202,19 @@ namespace Ooda.Flight.Core
             if (gStress >= GlocLimit) { glocLeftSec = GlocSec; glocs++; gStress = GlocLimit * 0.5; }
         }
 
+        /// <summary>(thrust - drag) / weight for a true airspeed (kt), height (ft) and G, in one step's settings.</summary>
+        struct Excess : PointMass.IExcess
+        {
+            public AircraftNumbers n;
+            public double power, boost, dragK, brakeK, side, extraDrag;
+            public double Of(double vKt, double altFt, double gg)
+            {
+                double ias = Atmosphere.TasToIasKt(vKt, altFt);
+                return power * n.ThrustPerWeight(vKt, altFt) + boost - dragK * n.DragPerWeight(ias, gg) - n.WaveDragPerWeight(vKt, altFt, ias)
+                    - brakeK * ias * ias - n.sideslipDragPerG * side - extraDrag;
+            }
+        }
+
         void StepFlying(FlightControls c, double dt)
         {
             var n = numbers;
@@ -298,15 +311,11 @@ namespace Ooda.Flight.Core
             // The speed brake: drag that grows with dynamic pressure, brakeG at 300 KIAS
             brakeOut = c.brake;
             double brakeK = c.brake ? n.brakeG / (300.0 * 300.0) : 0;
-            PointMass.ExcessFn excessFn = (vKt, altFt, gg) =>
-            {
-                double ias = Atmosphere.TasToIasKt(vKt, altFt);
-                return power * n.ThrustPerWeight(vKt, altFt) + boost - dragK * n.DragPerWeight(ias, gg) - n.WaveDragPerWeight(vKt, altFt, ias)
-                    - brakeK * ias * ias - n.sideslipDragPerG * side - extraDrag;
-            };
-            excess = excessFn(ktas, AltFt, g);
+            // (a struct, not a closure: this runs for every plane every 20 ms step of every preview and AI look-ahead)
+            var excessFn = new Excess { n = n, power = power, boost = boost, dragK = dragK, brakeK = brakeK, side = side, extraDrag = extraDrag };
+            excess = excessFn.Of(ktas, AltFt, g);
 
-            state = PointMass.StepBody(state, g, sideG, dt, excessFn);
+            state = PointMass.StepBody(state, g, sideG, dt, in excessFn);
 
             // The speed floor, then the roll about the new path
             double speed = state.vel.Length;

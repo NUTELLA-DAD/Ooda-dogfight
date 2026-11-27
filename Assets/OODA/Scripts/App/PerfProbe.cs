@@ -30,7 +30,12 @@ namespace Ooda.App
         string path;
         float seconds = 90f, settle = 6f, startAt = -1f, upAt = -1f;
         bool markers;
-        int gc0;
+        int gc0, gcLast;
+        readonly List<string> hitchNotes = new List<string>();
+
+        /// <summary>The markers that only wrap the whole frame (or wait in it), left out of a hitch's note.</summary>
+        static bool Generic(string name) => name.StartsWith("Idle") || name.StartsWith("Main Thread") || name.StartsWith("PlayerLoop") || name.StartsWith("Semaphore")
+            || name.StartsWith("Gfx.WaitFor") || name.Contains("WaitFor") || name.StartsWith("GfxTask_ReadValue");
 
         ProfilerRecorder mainThread, renderThread, gcAlloc, batches, setPass, drawCalls, tris, verts, shadowCasters;
         readonly List<(string name, ProfilerRecorder rec)> marks = new List<(string, ProfilerRecorder)>();
@@ -92,6 +97,18 @@ namespace Ooda.App
                 st.markSum ??= new double[marks.Count];
                 for (int k = 0; k < marks.Count; k++) st.markSum[k] += marks[k].rec.LastValue;
             }
+            // a hitch: what it was (a collection ran in it? the costliest markers, with -perfmarkers)
+            int gcNow = GC.CollectionCount(0);
+            if (Time.unscaledDeltaTime > 0.0334f && hitchNotes.Count < 40)
+            {
+                var note = new StringBuilder();
+                note.AppendFormat(System.Globalization.CultureInfo.InvariantCulture, "  [{0}] {1:F0} ms, CPU main {2:F0} ms{3}", Section ?? "other", Time.unscaledDeltaTime * 1000f, mainThread.LastValue * 1e-6f, gcNow != gcLast ? ", a GC collection ran" : "");
+                if (markers)
+                    foreach (var (name, ms) in marks.Select(m => (m.name, ms: m.rec.LastValue * 1e-6)).Where(x => !Generic(x.name)).OrderByDescending(x => x.ms).Take(8))
+                        note.AppendFormat(System.Globalization.CultureInfo.InvariantCulture, "; {0} {1:F1}", name, ms);
+                hitchNotes.Add(note.ToString());
+            }
+            gcLast = gcNow;
 
             if (Time.unscaledTime >= startAt + seconds) { Write(); Quit(); }
         }
@@ -113,7 +130,7 @@ namespace Ooda.App
             tris = ProfilerRecorder.StartNew(ProfilerCategory.Render, "Triangles Count", 1);
             verts = ProfilerRecorder.StartNew(ProfilerCategory.Render, "Vertices Count", 1);
             shadowCasters = ProfilerRecorder.StartNew(ProfilerCategory.Render, "Shadow Casters Count", 1);
-            gc0 = GC.CollectionCount(0);
+            gc0 = gcLast = GC.CollectionCount(0);
             if (!markers) return;
             var handles = new List<ProfilerRecorderHandle>();
             ProfilerRecorderHandle.GetAvailable(handles);
@@ -175,6 +192,11 @@ namespace Ooda.App
                         if (ms >= 0.02) sb.AppendLine(string.Format(ci, "    {0,8:F3}  {1}", ms, marks[k].name));
                 }
                 sb.AppendLine();
+            }
+            if (hitchNotes.Count > 0)
+            {
+                sb.AppendLine($"The first {hitchNotes.Count} hitches (frames over 33 ms):");
+                foreach (var h in hitchNotes) sb.AppendLine(h);
             }
             try
             {
