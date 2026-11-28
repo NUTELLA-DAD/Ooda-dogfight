@@ -112,8 +112,31 @@ Shader "Ooda/ToonLandModel"
                     // the east lands: the painted colour, a shade lighter or darker by patch (none at the Alps' edge, fading in
                     // past _PatchFrom); dressed stone in courses
                     half3 vc = i.color.rgb * (1 + (step(0.5, n) - 0.5) * 0.07 * saturate((p.x - _PatchFrom) / 1200));
+                    // the ground itself (alpha 0.39, Fx/EastlandScape; not the monuments, houses and roads drawn in this
+                    // material) is painted like the Alps' (ToonPaint.hlsl): what it is, read from its colour and its slope
+                    half ground = saturate(1 - abs(i.color.a - 0.392) * 5);
+                    half stone = smoothstep(0.55, 0.85, i.color.a);
+                    half hi = max(vc.r, max(vc.g, vc.b)), lo = min(vc.r, min(vc.g, vc.b));
+                    half green = saturate((vc.g - max(vc.r, vc.b)) * 7);
+                    half red = saturate((vc.r - vc.g - 0.12) * 6);                       // Red Canyon's sandstone
+                    half steep = 1 - smoothstep(0.80, 0.93, N.y);
+                    half grey = 1 - saturate((hi - lo) * 9);                             // ash, basalt, sea rock
+                    half rock = saturate(max(steep, grey) * (1 - green));
+                    half sand = (1 - green) * (1 - rock);
+                    // red rock: broad warped strata a tone apart down the cliffs, like the Alps' painted rock
+                    float strata = frac(p.y / 26 + n * 0.9 + LandNoise(p.xz / 340) * 1.6);
+                    half band = strata < 0.34 ? 0.89 : strata < 0.62 ? 1.0 : 1.09;
+                    vc *= lerp(1, band, red * steep * max(ground, stone));
+                    // (no branch on ground: the derivatives below need every pixel)
+                    vc = PaintGround(vc, p, green * ground, 0, rock * ground, 0, sand * ground);
+                    // sand: the wind's ripples, long thin wavering lines across the wind, shown close to
+                    float pxm = max(length(ddx(p)), length(ddy(p)));
+                    float across = dot(p.xz, float2(0.8, 0.6)) + (LandNoise(p.xz / 55) - 0.5) * 34;
+                    float rip = abs(frac(across / 11) - 0.5) * 11;                    // metres from a ripple's line
+                    float line0 = (1 - smoothstep(0.6 - pxm, 0.6 + pxm, rip)) * step(0.42, LandNoise(p.xz / 38 + 9.3)) * (1 - smoothstep(1.5, 4.0, pxm));
+                    vc *= lerp(1, half3(0.90, 0.87, 0.84), line0 * sand * (1 - red) * ground * _ToonPaintOn());
                     float course = frac(p.y / _Course);
-                    vc *= lerp(1, 0.86, step(0.5, i.color.a) * step(course, 0.1));
+                    vc *= lerp(1, 0.86, stone * step(course, 0.1));
                     half3 vlit = ToonLandLight(vc, p, N);
                     if (AnyIsNaN(vlit) || AnyIsInf(vlit)) vlit = vc * 0.6;
                     return half4(MixFog(ToonAtmosphere(vlit, p, 1), i.fog), 1);

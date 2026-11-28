@@ -92,6 +92,8 @@ namespace Ooda.Fx
         static readonly Color AlpsGrassDark = new Color32(76, 132, 61, 255), AlpsGrassLight = new Color32(99, 154, 59, 255);
         internal static Color32 Stone(Color c) { var k = (Color32)c; k.a = 255; return k; }   // alpha 1: cut in courses
         internal static Color32 Plain(Color c) { var k = (Color32)c; k.a = 0; return k; }
+        /// <summary>Alpha 100: the ground itself, which the shader paints over (dabs, tufts, chips, sand ripples).</summary>
+        static Color32 Land(Color c) { var k = (Color32)c; k.a = 100; return k; }
 
         /// <summary>The ground's colour at a point: meadow by the Alps and round the city, sand in the desert (darker on the
         /// dunes' lee faces), sandstone on the steep, fields and palms in the river's valley, the beach and the sea bed.</summary>
@@ -121,7 +123,7 @@ namespace Ooda.Fx
                 else if (n.y < 0.9f) isle = Color.Lerp(isle, SeaRock, Mathf.InverseLerp(0.9f, 0.75f, n.y));
                 if (h < 2.5f) isle = Color.Lerp(Shore, isle, Mathf.InverseLerp(1.2f, 2.5f, h));
                 if (h < 0.3f) isle = Color.Lerp(Shore, SeaBed * 0.8f, Mathf.InverseLerp(0.3f, -30f, h));
-                return Plain(isle);
+                return Land(isle);
             }
             float dw = (float)Eastland.DesertWeight(x, z), v = (float)Eastland.ValleyWeight(x, z);
             // the foothills: woods on the slopes and the higher ground, meadow in the hollows
@@ -156,10 +158,11 @@ namespace Ooda.Fx
                 if (cliff && mesa > 0.6f && h > 12f) { var k = (Color32)c; k.a = 255; return k; }
             }
             double dcx = System.Math.Abs(x - City.CentreX) - City.HalfX, dcz = System.Math.Abs(z - City.CentreZ) - City.HalfZ;
-            if (dcx < 0 && dcz < 0) c = CityGround;
+            bool city = dcx < 0 && dcz < 0;
+            if (city) c = CityGround;
             if (h < 2.5f) c = Color.Lerp(Shore, c, Mathf.InverseLerp(1.2f, 2.5f, h));
             if (h < 0.3f) c = Color.Lerp(Shore, SeaBed * 0.8f, Mathf.InverseLerp(0.3f, -30f, h));
-            return Plain(c);
+            return city ? Plain(c) : Land(c);
         }
 
         // ---------- the build ----------

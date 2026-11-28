@@ -14,6 +14,7 @@
 #define OODA_TOON_PAINT_INCLUDED
 
 float _ToonPaintOff;
+half _ToonPaintOn() { return _ToonPaintOff > 0.5 ? 0.0 : 1.0; }
 
 float2 PaintHash2(float2 c)
 {
