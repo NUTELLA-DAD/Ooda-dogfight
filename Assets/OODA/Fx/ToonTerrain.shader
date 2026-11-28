@@ -153,9 +153,9 @@ Shader "Ooda/ToonTerrain"
                 // painted face in bands instead of one sheet of grey
                 half3 Nw = normalize(i.normalWS);
                 float sn = LandNoise2(p / 90);
-                float strata = frac(i.positionWS.y / 38 + sn * 1.7 + LandNoise(p / 360) * 2.3);
+                float strata = frac(i.positionWS.y / 85 + sn * 0.8 + LandNoise(p / 420) * 1.6);   // (broad and quiet: at the models' 38 m a whole flank read as zebra stripes)
                 half wall = w0.z * (1 - smoothstep(0.60, 0.88, Nw.y)) * _ToonPaintOn();
-                base *= lerp(1, strata > 0.55 ? 1.075 : 0.925, wall);
+                base *= lerp(1, strata > 0.55 ? 1.05 : 0.95, wall);
 
                 // the painter's hand: dabs, tufts, flowers, rock chips (ToonPaint.hlsl), and a hedge along each field's edge
                 half crops = w1.x + w1.z + w1.w;
