@@ -48,6 +48,7 @@ Shader "Ooda/ToonWater"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
             #include "LandNoise.hlsl"
             #include "ToonAtmosphere.hlsl"
+            #include "ToonPaint.hlsl"
 
             CBUFFER_START(UnityPerMaterial)
                 float4 _BaseMap_ST;
@@ -76,6 +77,27 @@ Shader "Ooda/ToonWater"
             // a ripple's height field, and the slope of it, for the glints
             float Ripples(float2 p, float t) { return LandNoise(p + float2(t * 0.11, t * 0.07)) + LandNoise(p * 1.9 - float2(t * 0.09, -t * 0.13)) * 0.5; }
 
+            // The open sea's wave marks: one short curved stroke to a cell (in under half of them), lying across the wind,
+            // that swells, drifts downwind and fades, then comes up somewhere else. Shown while a stroke is a few pixels long.
+            float SeaMarks(float2 p, float cell, float px, float t)
+            {
+                float2 wind = float2(0.8, 0.6);
+                float2 g = float2(dot(p, float2(-wind.y, wind.x)), dot(p, wind) - t * cell * 0.05) / cell;
+                float w = px / cell;
+                float2 id = floor(g), f = frac(g) - 0.5;
+                float2 h0 = PaintHash2(id);
+                float life = t * (0.10 + 0.06 * h0.x) + h0.y * 7.0;
+                float2 h = PaintHash2(id + floor(life) * 13.0);                       // (a new place each time it comes up)
+                float age = frac(life);
+                float len = lerp(0.30, 0.62, h.x) * sin(age * 3.14159);
+                float2 d = f - (h - 0.5) * 0.3;
+                d.y += d.x * d.x * 1.6 - 0.04;                                         // (bowed: a crest's arc)
+                float dist = PaintSegment(d + float2(len * 0.5, 0), float2(max(len, 1e-3), 0));
+                float thick = 0.034 * saturate(1.0 - abs(d.x) / max(len * 0.5, 1e-3)) + 0.004;
+                float cover = 1.0 - smoothstep(thick - w, thick + w, dist);
+                return cover * step(0.56, frac(h.x * 5.7 + h.y * 3.1)) * (1.0 - smoothstep(0.05, 0.14, w)) * smoothstep(0.0, 0.2, len);
+            }
+
             half4 frag(Varyings i) : SV_Target
             {
                 float3 p = i.positionWS;
@@ -100,6 +122,22 @@ Shader "Ooda/ToonWater"
                 col = lerp(col, _Mid.rgb, smoothstep(0.16, 0.2, d));
                 col = lerp(col, _Deep.rgb, smoothstep(0.55, 0.6, d));
                 half alpha = lerp(_ShallowAlpha, 1, smoothstep(0.0, 0.3, d));
+
+                // the open sea (the still water that is deep): painted like the land, so it is not one flat blue. Broad
+                // patches a tone lighter or darker that drift with the wind, long pale swell lines far off, white crests near
+                float pxm = max(length(ddx(p.xz)), length(ddy(p.xz)));   // metres a pixel covers
+                half sea = (1 - step(0.5, _FlowOn)) * smoothstep(0.62, 1.1, depth / _DeepDepth) * _ToonPaintOn();
+                half crest = 0;
+                {
+                    float2 drift = float2(0.8, 0.6) * t;
+                    float big = PaintDabs(p.xz + drift * 3.0, 1300.0, pxm);
+                    float mid = PaintDabs(p.xz + 311.0 + drift * 5.0, 290.0, pxm) * (1.0 - smoothstep(18.0, 55.0, pxm));
+                    float tone = clamp(big * 0.7 + mid * 0.55, -1.0, 1.0);
+                    col *= lerp(half3(1, 1, 1), tone > 0 ? half3(1.10, 1.13, 1.06) : half3(0.87, 0.90, 0.97), abs(tone) * sea);
+                    half swell = SeaMarks(p.xz + 71.0, 210.0, pxm, t * 0.6);
+                    col = lerp(col, lerp(col, _Mid.rgb, 0.55), swell * sea);
+                    crest = SeaMarks(p.xz, 52.0, pxm, t) * sea;
+                }
 
                 // the river's streaks: long thin lights drawn along the flow, and white flecks where it runs fast
                 half streak = 0;
@@ -135,10 +173,13 @@ Shader "Ooda/ToonWater"
                 half glint = smoothstep(0.985, 0.99, dot(N, H)) * lit * _GlintStrength;
 
                 col = col * light;
-                col = lerp(col, _Foam.rgb * light, saturate(streak));
+                col = lerp(col, _Foam.rgb * light, saturate(max(streak, crest * 0.85)));
+                // toward the horizon the sea takes the sky's light: it pales into the air instead of meeting the sky as a dark bar
+                half graze = pow(1 - saturate(V.y), 6) * sea * step(1e-6, _ToonAtmoParams.z);
+                col = lerp(col, lerp(col, _ToonAtmoColor.rgb * 1.08, 0.5), graze);
                 col = lerp(col, _Foam.rgb * lerp(0.85, 1.0, lit), foam);
                 col += glint * sun.color * 0.6;
-                alpha = saturate(max(alpha, max(foam, streak)) + glint);
+                alpha = saturate(max(alpha, max(foam, max(streak, crest))) + glint);
 
                 if (AnyIsNaN(col) || AnyIsInf(col)) col = _Mid.rgb;
                 return half4(MixFog(ToonAtmosphere(col, i.positionWS, 1), i.fog), alpha);

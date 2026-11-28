@@ -46,6 +46,36 @@ Shader "Ooda/ToonSky"
             // 1 inside edge, 0 outside, a pixel's blend between
             float Inside(float x, float edge) { float aa = max(fwidth(x), 1e-5); return saturate((edge - x) / aa + 0.5); }
 
+            // The far cloud line: a row of flat cumulus heads standing on the horizon, in banks with clear gaps between,
+            // the way a painted sky closes its distance. All from the direction, nothing to tile: two rows of round heads
+            // (the second half a step along, so they overlap), their heights from a hash that wraps once round the compass.
+            float SkyHash(float i, float n) { i = fmod(i + n, n); return frac(sin(i * 127.1 + n * 3.7) * 43758.5453); }
+            float SkyWave(float az, float n)   // smooth, 0..1, wrapping
+            {
+                float x = az * n, i = floor(x), f = frac(x);
+                f = f * f * (3 - 2 * f);
+                return lerp(SkyHash(i, n), SkyHash(i + 1, n), f);
+            }
+            float SkyHeads(float az, float n, float shift)
+            {
+                float x = az * n + shift, i = floor(x), f = frac(x) * 2 - 1;
+                return sqrt(saturate(1 - f * f)) * lerp(0.35, 1.0, SkyHash(i, n + shift * 2));
+            }
+            // x: how much of the pixel is far cloud, y: 1 on its sunlit heads, 0 in its flat shaded base
+            float2 FarClouds(float3 d)
+            {
+                float az = atan2(d.z, d.x) / 6.2831853 + 0.5;
+                float bank = smoothstep(0.50, 0.74, SkyWave(az, 7) * 0.7 + SkyWave(az, 19) * 0.3);
+                float heads = max(SkyHeads(az, 96, 0), SkyHeads(az, 64, 0.5) * 0.8);
+                heads = max(heads, SkyHeads(az, 150, 0.25) * 0.55);
+                // (a bank tapers to nothing at its ends: no step, so no cut edge)
+                float top = (0.003 + 0.021 * heads) * bank;
+                float aa = max(fwidth(d.y), 1e-5);
+                float inside = saturate((top - d.y) / aa + 0.5) * smoothstep(0.0, 0.004, top);
+                float lit = saturate((d.y - top * 0.40) / aa + 0.5);
+                return float2(inside, lit);
+            }
+
             half4 frag(Varyings i) : SV_Target
             {
                 float3 d = normalize(i.dir);
@@ -64,6 +94,12 @@ Shader "Ooda/ToonSky"
                 // colour, so the fogged ground and sea out at the far clip meet it with no step and no hard edge)
                 float glow = toward * toward * toward * smoothstep(0.0, 0.12, h) * (1 - smoothstep(0.12, 0.38, h));
                 c = lerp(c, _Glow.rgb, glow * 0.75);
+                // the far cloud line, pale in the distance's air
+                float2 fc = FarClouds(d);
+                half3 farCol = lerp(half3(0.74, 0.80, 1.0), half3(1.0, 0.99, 0.97), fc.y);
+                farCol = lerp(farCol, _Glow.rgb, glow * 0.5 + toward * toward * 0.12);   // (warm on the sun's side)
+                farCol = lerp(farCol, _Horizon.rgb, lerp(0.45, 1.0, 1 - smoothstep(-0.035, 0.0, h)));
+                c = lerp(c, farCol, fc.x);
                 // the sun: a soft bloom, two flat rings and a hard disc
                 float cosA = dot(d, sun), ang = acos(clamp(cosA, -1, 1));
                 c += _SunRing.rgb * pow(saturate(cosA), 80) * 0.22;
