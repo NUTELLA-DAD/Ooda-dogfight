@@ -128,7 +128,11 @@ Shader "Ooda/ToonLandModel"
                     half band = strata < 0.34 ? 0.89 : strata < 0.62 ? 1.0 : 1.09;
                     vc *= lerp(1, band, red * steep * max(ground, stone));
                     // (no branch on ground: the derivatives below need every pixel)
-                    vc = PaintGround(vc, p, green * ground, 0, rock * ground, 0, sand * ground);
+                    // (the meadow at 0.45 of the Alps' strength: this ground already has its two tones by patch, and the full
+                    // dabs on top of them read as camouflage from the air)
+                    half3 painted = PaintGround(vc, p, green * ground, 0, rock * ground, 0, sand * ground);
+                    half3 calm = vc * lerp(half3(1, 1, 1), half3(0.90, 0.95, 0.84), green * ground * _ToonPaintOn());
+                    vc = lerp(painted, calm, 0.55 * green);
                     // sand: the wind's ripples, long thin wavering lines across the wind, shown close to
                     float pxm = max(length(ddx(p)), length(ddy(p)));
                     float across = dot(p.xz, float2(0.8, 0.6)) + (LandNoise(p.xz / 55) - 0.5) * 34;

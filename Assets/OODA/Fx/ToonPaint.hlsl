@@ -83,7 +83,8 @@ float2 PaintFacets(float2 p, float cell, float px)
             else if (d < f2) f2 = d;
         }
     float crack = 1.0 - smoothstep(0.03 - w, 0.05 + w, f2 - f1);
-    return float2(tone, crack * (1.0 - smoothstep(0.05, 0.15, w)));
+    // (the tones go before a chip is smaller than a couple of pixels: far off they were grey speckle on a cliff)
+    return float2(tone * (1.0 - smoothstep(0.18, 0.55, w)), crack * (1.0 - smoothstep(0.05, 0.15, w)));
 }
 
 // A line along where a layer's weight crosses a half: halfWidth in metres.

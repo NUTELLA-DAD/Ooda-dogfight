@@ -149,6 +149,14 @@ Shader "Ooda/ToonTerrain"
                 float macro = LandNoise2(p / _Macro);
                 base *= lerp(half3(0.88, 0.91, 0.98), half3(1.07, 1.05, 0.95), smoothstep(0.25, 0.75, macro));
 
+                // the rock walls: warped strata a tone apart, as on the mountain models (ToonLandModel), so a big cliff is a
+                // painted face in bands instead of one sheet of grey
+                half3 Nw = normalize(i.normalWS);
+                float sn = LandNoise2(p / 90);
+                float strata = frac(i.positionWS.y / 38 + sn * 1.7 + LandNoise(p / 360) * 2.3);
+                half wall = w0.z * (1 - smoothstep(0.60, 0.88, Nw.y)) * _ToonPaintOn();
+                base *= lerp(1, strata > 0.55 ? 1.075 : 0.925, wall);
+
                 // the painter's hand: dabs, tufts, flowers, rock chips (ToonPaint.hlsl), and a hedge along each field's edge
                 half crops = w1.x + w1.z + w1.w;
                 base = PaintGround(base, i.positionWS, w0.x + w1.y, w0.y, w0.z, w0.w, crops);

@@ -117,7 +117,7 @@ namespace Ooda.Fx
                 if (vr < Island.VolcanoRadiusM * 1.3)
                 {
                     float up = Mathf.InverseLerp(40f, (float)Island.VolcanoTopM, h);
-                    isle = Color.Lerp(isle, Color.Lerp(Ash, Basalt, (float)Eastland.Noise(x / 90 + 3.1, z / 90 + 1.7)), Mathf.SmoothStep(0, 1, Mathf.InverseLerp(0.12f, 0.42f, up)));
+                    isle = Color.Lerp(isle, Color.Lerp(Ash, Basalt, (float)Eastland.Noise(x / 90 + 3.1, z / 90 + 1.7)), Mathf.SmoothStep(0, 1, Mathf.InverseLerp(0.17f, 0.25f, up + ((float)Eastland.Noise(x / 150 + 8.3, z / 150 + 2.6) - 0.5f) * 0.16f)));   // (a wandering edge a few vertices wide, not a blur down half the cone)
                     if (Island.InCrater(x, z)) isle = Lava;
                 }
                 else if (n.y < 0.9f) isle = Color.Lerp(isle, SeaRock, Mathf.InverseLerp(0.9f, 0.75f, n.y));

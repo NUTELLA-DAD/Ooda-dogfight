@@ -65,13 +65,14 @@ Shader "Ooda/ToonSky"
             float2 FarClouds(float3 d)
             {
                 float az = atan2(d.z, d.x) / 6.2831853 + 0.5;
-                float bank = smoothstep(0.42, 0.62, SkyWave(az, 7) * 0.7 + SkyWave(az, 19) * 0.3);
+                float bank = smoothstep(0.50, 0.74, SkyWave(az, 7) * 0.7 + SkyWave(az, 19) * 0.3);
                 float heads = max(SkyHeads(az, 96, 0), SkyHeads(az, 64, 0.5) * 0.8);
                 heads = max(heads, SkyHeads(az, 150, 0.25) * 0.55);
-                float top = (0.010 + 0.034 * heads) * bank;
+                // (a bank tapers to nothing at its ends: no step, so no cut edge)
+                float top = (0.003 + 0.021 * heads) * bank;
                 float aa = max(fwidth(d.y), 1e-5);
-                float inside = saturate((top - d.y) / aa + 0.5) * step(0.004, top);
-                float lit = saturate((d.y - top * 0.42) / aa + 0.5);
+                float inside = saturate((top - d.y) / aa + 0.5) * smoothstep(0.0, 0.004, top);
+                float lit = saturate((d.y - top * 0.40) / aa + 0.5);
                 return float2(inside, lit);
             }
 
@@ -97,7 +98,7 @@ Shader "Ooda/ToonSky"
                 float2 fc = FarClouds(d);
                 half3 farCol = lerp(half3(0.74, 0.80, 1.0), half3(1.0, 0.99, 0.97), fc.y);
                 farCol = lerp(farCol, _Glow.rgb, glow * 0.5 + toward * toward * 0.12);   // (warm on the sun's side)
-                farCol = lerp(farCol, _Horizon.rgb, lerp(0.38, 1.0, 1 - smoothstep(-0.035, 0.0, h)));
+                farCol = lerp(farCol, _Horizon.rgb, lerp(0.45, 1.0, 1 - smoothstep(-0.035, 0.0, h)));
                 c = lerp(c, farCol, fc.x);
                 // the sun: a soft bloom, two flat rings and a hard disc
                 float cosA = dot(d, sun), ang = acos(clamp(cosA, -1, 1));
